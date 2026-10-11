@@ -231,7 +231,7 @@ public class HelpTopicsTest {
         assertEquals(TourGesture.DRAG_DOWN, HelpTopics.entry("dock").gesture);
         // The status bar does not page any more; its swipe is the fold, down from the top border.
         assertEquals(TourGesture.DRAG_DOWN, HelpTopics.entry("status").gesture);
-        assertEquals(TourGesture.SWIPE_LEFT, HelpTopics.entry("places").gesture);
+        assertEquals(TourGesture.HOLD_DRAG, HelpTopics.entry("places").gesture);
         assertEquals(TourGesture.SWIPE_UP, HelpTopics.entry("keyboard_swipe").gesture);
         assertEquals(TourGesture.SWIPE_UP, HelpTopics.entry("space").gesture);
         assertEquals(TourGesture.SCRUB, HelpTopics.entry("az").gesture);

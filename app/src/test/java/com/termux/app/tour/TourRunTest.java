@@ -83,7 +83,7 @@ public class TourRunTest {
         assertEquals(TourGesture.TAP, help.gestureAt(1));
 
         assertEquals(TourTargets.PAGE_BORDER, step(TourRun.BORDER_DRAG).targetIdAt(0));
-        assertEquals(TourGesture.SWIPE_LEFT, step(TourRun.BORDER_DRAG).gestureAt(0));
+        assertEquals(TourGesture.HOLD_DRAG, step(TourRun.BORDER_DRAG).gestureAt(0));
         assertEquals(TourTargets.STATUS_GRABBER, step(TourRun.STATUS_SWIPE).targetIdAt(0));
         assertEquals(TourTargets.DOCK, step(TourRun.FIND_APPS).targetIdAt(0));
         assertEquals(TourTargets.SPACE_BAR, step(TourRun.FIND_ACTION).targetIdAt(0));
