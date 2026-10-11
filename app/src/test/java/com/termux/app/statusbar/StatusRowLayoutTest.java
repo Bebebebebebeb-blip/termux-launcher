@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 /**
  * The status row as activity_termux.xml builds it: the place strip (badge, window chips), the
@@ -122,6 +124,74 @@ public class StatusRowLayoutTest {
         mCpu.setVisibility(View.GONE);
         layOut();
         assertEquals(before, mBar.getPaddingEnd());
+    }
+
+    @Test public void aRowWithRoomKeepsItsDotsAndItsSpacing() {
+        windows(2);
+        layOut();
+        assertFalse(mRow.isReadingsTight());
+        assertEquals(dp(3), mCpuRamDot.getMeasuredWidth());
+        assertEquals(dp(5), mCpu.getPaddingLeft());
+        assertEquals(dp(5), mRam.getPaddingLeft());
+    }
+
+    @Test public void chipsOutOfRoomStandTheReadingsTightAndTakeWhatThatFrees() {
+        windows(2);
+        layOut();
+        int spaciousBar = mBar.getWidth();
+        int spaciousReadings = mCluster.getWidth() + mEndWidgets.getWidth();
+
+        windows(30);
+        layOut();
+
+        assertTrue(mRow.isReadingsTight());
+        assertEquals("no dots", 0, mCpuRamDot.getMeasuredWidth());
+        assertEquals(0, mAiDot.getMeasuredWidth());
+        assertEquals("less room around each reading", dp(2), mRam.getPaddingLeft());
+        int freed = spaciousReadings - (mCluster.getWidth() + mEndWidgets.getWidth());
+        assertEquals("two dots and three readings' worth of room",
+            2 * dp(3) + 3 * 2 * (dp(5) - dp(2)), freed);
+        // The chips get it all, less what the bar's end padding now holds of the gap.
+        assertEquals(spaciousBar + freed, mBar.getWidth());
+        assertEquals("still one gap before the first reading",
+            dp(StatusRowFitPolicy.CHIPS_READINGS_GAP_DP), firstInk(mCpu) - chipsEnd());
+    }
+
+    @Test public void theReadingsStandBackOnceTheChipsFitAgain() {
+        windows(30);
+        layOut();
+        assertTrue(mRow.isReadingsTight());
+
+        windows(2);
+        layOut();
+
+        assertFalse(mRow.isReadingsTight());
+        assertEquals(dp(3), mCpuRamDot.getMeasuredWidth());
+        assertEquals(dp(5), mCpu.getPaddingLeft());
+        assertEquals(dp(StatusRowFitPolicy.CHIPS_READINGS_GAP_DP), firstInk(mCpu) - chipsEnd());
+    }
+
+    @Test public void aColumnStandsTheReadingsAsAlways() {
+        windows(30);
+        layOut();
+        assertTrue(mRow.isReadingsTight());
+
+        mRow.setOrientation(LinearLayout.VERTICAL);
+        layOut();
+
+        assertFalse(mRow.isReadingsTight());
+        assertEquals(dp(3), mCpuRamDot.getMeasuredWidth());
+    }
+
+    @Test public void aDecisionMeasuredTwiceIsTheSameDecision() {
+        windows(30);
+        layOut();
+        layOut();
+        assertTrue(mRow.isReadingsTight());
+        windows(2);
+        layOut();
+        layOut();
+        assertFalse(mRow.isReadingsTight());
     }
 
     // ---- helpers ----

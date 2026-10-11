@@ -53,6 +53,11 @@ public final class StatusBarWidgetView extends LinearLayout {
     @Nullable private Integer mMutedInk;
     /** The stats share a floor so a value ticking between widths does not shift its neighbours. */
     private static final int MIN_WIDTH_WITH_VALUE_DP = 34;
+    /** The widget's own room at each end along a row, and what it keeps of it in a tight row. */
+    private static final int SIDE_PADDING_DP = 5;
+    private static final int TIGHT_SIDE_PADDING_DP = 2;
+    /** Whether the row is short of room and the readings stand closer together. */
+    private boolean mTight;
     private static final long VALUE_FADE_MS = 120L;
 
     public StatusBarWidgetView(Context context) {
@@ -109,9 +114,7 @@ public final class StatusBarWidgetView extends LinearLayout {
         if (getOrientation() == orientation) return;
         setOrientation(orientation);
         setGravity(stacked ? Gravity.CENTER : Gravity.CENTER_VERTICAL);
-        setMinimumWidth(stacked ? 0 : dp(MIN_WIDTH_WITH_VALUE_DP));
-        setPadding(dp(stacked ? 1 : 5), dp(stacked ? 3 : 1), dp(stacked ? 1 : 5),
-            dp(stacked ? 3 : 1));
+        applySizing();
         mValue.setGravity(stacked ? Gravity.CENTER : Gravity.CENTER_VERTICAL);
         LayoutParams valueParams = (LayoutParams) mValue.getLayoutParams();
         valueParams.setMarginStart(stacked ? 0 : dp(2));
@@ -221,11 +224,7 @@ public final class StatusBarWidgetView extends LinearLayout {
         boolean empty = android.text.TextUtils.isEmpty(value);
         int visibility = empty ? GONE : VISIBLE;
         if (mValue.getVisibility() != visibility) mValue.setVisibility(visibility);
-        // Only on a change: View.setMinimumWidth requests a layout every time it is called, and
-        // this is called from the stats cluster's layout listener. Unconditional, it scheduled a
-        // layout from every layout for as long as the Widgets place was up (2026-10-07).
-        int minimumWidth = empty ? 0 : dp(MIN_WIDTH_WITH_VALUE_DP);
-        if (getMinimumWidth() != minimumWidth) setMinimumWidth(minimumWidth);
+        applySizing();
         if (android.text.TextUtils.equals(mValue.getText(), value)) return;
         mValue.setText(value);
     }
@@ -361,6 +360,51 @@ public final class StatusBarWidgetView extends LinearLayout {
         mValue.setTypeface(
             Typeface.create(weight >= 500 ? "sans-serif-medium" : "sans-serif", Typeface.NORMAL),
             weight >= 700 ? Typeface.BOLD : Typeface.NORMAL);
+    }
+
+    /**
+     * Stands closer to its neighbours along a row that is short of room: each end keeps
+     * {@value #TIGHT_SIDE_PADDING_DP}dp instead of {@value #SIDE_PADDING_DP}, and the floor the
+     * stats share shrinks by the same, so the figure itself never moves inside the widget. A
+     * widget standing in a column is not affected.
+     */
+    public void setTight(boolean tight) {
+        if (mTight == tight) return;
+        mTight = tight;
+        applySizing();
+    }
+
+    /** What tightening saves along a row, at both ends together; nothing in a column. */
+    public int tightSavingPx() {
+        return getOrientation() == VERTICAL ? 0
+            : 2 * (dp(SIDE_PADDING_DP) - dp(TIGHT_SIDE_PADDING_DP));
+    }
+
+    /** The room before the icon along a row, tight or not. */
+    public int leadingPaddingPx(boolean tight) {
+        if (getOrientation() == VERTICAL) return getPaddingStart();
+        return dp(tight ? TIGHT_SIDE_PADDING_DP : SIDE_PADDING_DP);
+    }
+
+    /**
+     * Padding and the shared floor for the form the widget is in. Only on a change:
+     * View.setMinimumWidth and setPadding request a layout every time they are called, and this
+     * runs from the stats cluster's layout listener (through setValue) and from the row's measure.
+     * Unconditional, it scheduled a layout from every layout for as long as the Widgets place was
+     * up (2026-10-07).
+     */
+    private void applySizing() {
+        boolean stacked = getOrientation() == VERTICAL;
+        int side = dp(stacked ? 1 : mTight ? TIGHT_SIDE_PADDING_DP : SIDE_PADDING_DP);
+        int across = dp(stacked ? 3 : 1);
+        if (getPaddingLeft() != side || getPaddingRight() != side
+            || getPaddingTop() != across || getPaddingBottom() != across) {
+            setPadding(side, across, side, across);
+        }
+        // An icon alone (no value) has no figure to share a floor with.
+        int minimumWidth = stacked || mValue.getVisibility() != VISIBLE ? 0
+            : dp(MIN_WIDTH_WITH_VALUE_DP) - (mTight ? tightSavingPx() : 0);
+        if (getMinimumWidth() != minimumWidth) setMinimumWidth(minimumWidth);
     }
 
     private int dp(int value) {

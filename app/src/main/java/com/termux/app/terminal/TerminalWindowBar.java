@@ -446,6 +446,14 @@ public final class TerminalWindowBar extends HorizontalScrollView {
         return true;
     }
 
+    /**
+     * The chips' own width at rest, as last measured: the close button a chip may be offering is
+     * left out, since it comes and goes on a tap.
+     */
+    public int restingContentWidthPx() {
+        return Math.max(0, mTabs.getMeasuredWidth() - mTabs.closeExtentPx());
+    }
+
     public void setOnWindowSelectedListener(@Nullable OnWindowSelectedListener listener) {
         mSelectionListener = listener;
     }
