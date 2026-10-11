@@ -396,6 +396,15 @@ public final class TerminalWindowBar extends HorizontalScrollView {
     private boolean mWindowVisible = true;
     /** The chip whose fresh × should be scrolled into view on the next layout pass. */
     private int mPendingRevealScroll = ChipRevealPolicy.NONE;
+    /** The chip that just became the current window, to be scrolled into view on the next layout. */
+    private int mPendingSelectedScroll = -1;
+    /** The strip easing to a chip; the finger takes over from it the moment it lands. */
+    @Nullable private ValueAnimator mScrollAnimator;
+    /**
+     * How far the chips feather out where they run past the viewport: at the readings' end while
+     * there are more to the right, at the badge's end once the row is scrolled.
+     */
+    static final float OVERFLOW_FADE_DP = 16f;
     private boolean mAttached;
 
     public TerminalWindowBar(Context context, AttributeSet attrs) {
@@ -405,6 +414,10 @@ public final class TerminalWindowBar extends HorizontalScrollView {
         setClipToPadding(true);
         setClipChildren(true);
         setOverScrollMode(OVER_SCROLL_NEVER);
+        // The scroll view's own fading edges grow with how much is hidden past each end, so a row
+        // that fits draws none and a row that overflows by a few pixels feathers only a little.
+        setHorizontalFadingEdgeEnabled(true);
+        setFadingEdgeLength(dp(OVERFLOW_FADE_DP));
         mTouchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
         // The parent already supplies the intended gap after the session indicator. A second
         // leading inset here made that gap look like trailing padding owned by the session chip.
@@ -486,6 +499,7 @@ public final class TerminalWindowBar extends HorizontalScrollView {
         mTouchDownY = event.getY();
         mGestureHorizontal = false;
         mGestureRejected = false;
+        cancelScrollAnimation();
         mReveal.onTouchDown();
         // A finger that lands anywhere but on the chip offering its × puts it away — including the
         // one that is on its way to the plus, or to the bar's empty end. The × itself lives inside
@@ -579,7 +593,9 @@ public final class TerminalWindowBar extends HorizontalScrollView {
                 applyStableTabSelection();
             }
             applyReveal();
-            scrollSelectedIntoView(selectedIndex);
+            // Only a new current window moves the row: a refresh of the same one (a ring turning,
+            // a title changing) leaves wherever the finger scrolled it.
+            if (previousSelected != selectedIndex) scrollSelectedIntoView(selectedIndex);
             return;
         }
 
@@ -1115,7 +1131,13 @@ public final class TerminalWindowBar extends HorizontalScrollView {
         if (mPendingRevealScroll != ChipRevealPolicy.NONE) {
             int index = mPendingRevealScroll;
             mPendingRevealScroll = ChipRevealPolicy.NONE;
+            // The × is what the thumb is reaching for; it outranks the selection's own scroll.
+            mPendingSelectedScroll = -1;
             scrollRevealedIntoView(index);
+        } else if (mPendingSelectedScroll >= 0) {
+            int index = mPendingSelectedScroll;
+            mPendingSelectedScroll = -1;
+            revealSelected(index);
         }
     }
 
@@ -1129,6 +1151,7 @@ public final class TerminalWindowBar extends HorizontalScrollView {
     @Override
     protected void onDetachedFromWindow() {
         mAttached = false;
+        cancelScrollAnimation();
         if (mSmoothTick != null) {
             removeCallbacks(mSmoothTick);
             mSmoothTick = null;
@@ -1292,7 +1315,8 @@ public final class TerminalWindowBar extends HorizontalScrollView {
     private void scrollRevealedIntoView(int index) {
         if (mTabs.closeTarget() != index || index < 0 || index >= mTabs.getChildCount()) return;
         View chip = mTabs.getChildAt(index);
-        int margin = dp(5);
+        // Clear of the feathered edge, so the × is not offered half faded.
+        int margin = Math.max(dp(5), getHorizontalFadingEdgeLength());
         int viewport = getWidth() - getPaddingLeft() - getPaddingRight();
         if (viewport <= 0 || chip.getWidth() <= 0) return;
         int extent = mTabs.closeExtentPx();
@@ -1313,28 +1337,55 @@ public final class TerminalWindowBar extends HorizontalScrollView {
         else scrollTo(target, 0);
     }
 
+    /** Scrolled from onLayout, once the row has been measured with this list in it. */
     private void scrollSelectedIntoView(int selectedIndex) {
-        if (selectedIndex < 0 || selectedIndex >= mTabs.getChildCount()) return;
-        post(() -> {
-            // The list can be rebuilt shorter before this runs (an X11 app opening and closing
-            // windows in a burst), so the index is checked again against the row as it is now.
-            if (selectedIndex >= mTabs.getChildCount()) return;
-            View selected = mTabs.getChildAt(selectedIndex);
-            int target = Math.max(0, selected.getLeft() - dp(5));
-            if (target == getScrollX()) return;
-            // Same reasoning as animateSelectionSlide: an invisible window still gets animated,
-            // it just never shows it, so skip straight to the end state while nobody can see it.
-            if (mWindowVisible) animateScrollTo(target);
-            else scrollTo(target, 0);
-        });
+        if (selectedIndex < 0) return;
+        mPendingSelectedScroll = selectedIndex;
+        requestLayout();
+    }
+
+    /**
+     * The current window's chip, brought whole into view past the faded edges with as little
+     * travel as that takes; a chip already in view leaves the row where it is.
+     */
+    private void revealSelected(int selectedIndex) {
+        // The list can be rebuilt shorter before this runs (an X11 app opening and closing
+        // windows in a burst), so the index is checked again against the row as it is now.
+        if (selectedIndex < 0 || selectedIndex >= mItems.size()
+            || selectedIndex >= mTabs.getChildCount()) return;
+        View selected = mTabs.getChildAt(selectedIndex);
+        int viewport = getWidth() - getPaddingLeft() - getPaddingRight();
+        if (viewport <= 0 || selected.getWidth() <= 0) return;
+        int maxScroll = Math.max(0, mTabs.getWidth() + getPaddingLeft() + getPaddingRight()
+            - getWidth());
+        int target = ChipScrollPolicy.scrollToShow(selected.getLeft(), selected.getRight(),
+            getScrollX(), viewport, getHorizontalFadingEdgeLength(), maxScroll);
+        if (target == getScrollX()) return;
+        // Same reasoning as animateSelectionSlide: an invisible window still gets animated,
+        // it just never shows it, so skip straight to the end state while nobody can see it.
+        if (mAttached && mWindowVisible) animateScrollTo(target);
+        else scrollTo(target, 0);
     }
 
     private void animateScrollTo(int target) {
-        android.animation.ValueAnimator animator = android.animation.ValueAnimator.ofInt(getScrollX(), target);
+        cancelScrollAnimation();
+        ValueAnimator animator = ValueAnimator.ofInt(getScrollX(), target);
         animator.setDuration(WINDOW_SWITCH_ANIMATION_DURATION_MS);
         animator.setInterpolator(settleInterpolator());
         animator.addUpdateListener(value -> scrollTo((Integer) value.getAnimatedValue(), 0));
+        animator.addListener(new AnimatorListenerAdapter() {
+            @Override public void onAnimationEnd(Animator animation) {
+                if (mScrollAnimator == animation) mScrollAnimator = null;
+            }
+        });
+        mScrollAnimator = animator;
         animator.start();
+    }
+
+    private void cancelScrollAnimation() {
+        ValueAnimator animator = mScrollAnimator;
+        mScrollAnimator = null;
+        if (animator != null) animator.cancel();
     }
 
     private Interpolator settleInterpolator() {
