@@ -182,6 +182,13 @@ public final class PaneWallLayout extends ViewGroup {
          * centre, 1 once it is back at rest: for chrome drawn outside the page that frames it.
          */
         default void onPageSinkChanged(@NonNull PaneWallPage page, float scale) { }
+        /**
+         * A page's plank tilt or sink dim changed on a frame that neither the slide
+         * ({@link #onWallOffsetChanged}) nor the sink ({@link #onPageSinkChanged}) reports: a
+         * drag claiming a moving wall, a surface page's stand-in joining mid-motion. Glass on the
+         * pages is aimed past their transforms and re-aims here.
+         */
+        default void onPagePoseChanged() { }
     }
 
     private final Map<PaneWallPage, View> mPageViews = new EnumMap<>(PaneWallPage.class);
@@ -1496,11 +1503,16 @@ public final class PaneWallLayout extends ViewGroup {
             if (steps != 0 && place == mCurrent) continue;
             if (mListener.isPlankTiltEnabled(place)) mPlankPlaces.add(place);
         }
-        if (mPlankPlaces.isEmpty()) return;
-        // The weight stays where it pressed on the page it held.
-        mWeightPage = held;
-        mWeightOffsetPx = fingerX - (held.getLeft() + held.getTranslationX() + held.getWidth() / 2f);
-        applyPlanks();
+        if (!mPlankPlaces.isEmpty()) {
+            // The weight stays where it pressed on the page it held.
+            mWeightPage = held;
+            mWeightOffsetPx = fingerX
+                - (held.getLeft() + held.getTranslationX() + held.getWidth() / 2f);
+            applyPlanks();
+        }
+        // Laying the last drag's planks flat and tipping these moves no page along the wall, so
+        // no slide frame reports it.
+        mListener.onPagePoseChanged();
     }
 
     /**
@@ -1712,6 +1724,16 @@ public final class PaneWallLayout extends ViewGroup {
         }
     }
 
+    /**
+     * The brightness, of 255 per channel, the sink's dim leaves {@code page}: 255 unless it is the
+     * sunk page and its layer is dimming it. Glass on the page undoes the dim on the wallpaper it
+     * shows ({@code GlassFilters#undimmed}): the wallpaper behind a sinking page does not darken.
+     */
+    public int keptBrightness(@NonNull View page) {
+        if (page != mSinkPage || !mSinkLayered || mSinkDimLevel <= 0) return 0xFF;
+        return PageSink.dimMultiplier(mSinkDimLevel, SINK_DIM_STEPS) & 0xFF;
+    }
+
     /** The page sunk under a hold, for tests; null while none is. */
     @Nullable
     View sinkPage() {
@@ -1783,6 +1805,7 @@ public final class PaneWallLayout extends ViewGroup {
             applySinkDim(page, mSink);
         }
         applyPlanks();
+        if (mListener != null) mListener.onPagePoseChanged();
     }
 
     /**

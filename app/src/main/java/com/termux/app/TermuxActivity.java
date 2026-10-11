@@ -18872,12 +18872,17 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     // are the pane host's less the stroke's air on every side, so the two share
                     // a centre and one scale about it keeps the line where it frames the page.
                     if (page != com.termux.app.wall.PaneWallPage.TERMINAL) return;
+                    // The slabs' wallpaper stays on the screen while their page sinks under it.
+                    if (mPaneController != null) mPaneController.invalidatePaneGlassPositions();
                     View borderView = hotView(R.id.terminal_border_overlay);
                     if (borderView == null) return;
                     borderView.setPivotX(borderView.getWidth() / 2f);
                     borderView.setPivotY(borderView.getHeight() / 2f);
                     borderView.setScaleX(scale);
                     borderView.setScaleY(scale);
+                }
+                @Override public void onPagePoseChanged() {
+                    if (mPaneController != null) mPaneController.invalidatePaneGlassPositions();
                 }
                 @Override public void onWallPageSettled(
                         @NonNull com.termux.app.wall.PaneWallPage page) {
