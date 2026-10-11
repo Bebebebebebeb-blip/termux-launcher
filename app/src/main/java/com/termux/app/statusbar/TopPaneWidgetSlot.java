@@ -151,6 +151,17 @@ public final class TopPaneWidgetSlot extends ViewGroup implements TopPaneFeed.Ob
         super.onAttachedToWindow();
         TopPaneFeed.addObserver(this);
         applyFeed(false);
+        TopPaneFeed.requestMediaResync();
+    }
+
+    /**
+     * The bar coming back on screen (the launcher started or returned to) has the listener read
+     * the media sessions again, so a player whose change was missed shows as soon as the bar does.
+     */
+    @Override
+    protected void onWindowVisibilityChanged(int visibility) {
+        super.onWindowVisibilityChanged(visibility);
+        if (visibility == VISIBLE) TopPaneFeed.requestMediaResync();
     }
 
     @Override
