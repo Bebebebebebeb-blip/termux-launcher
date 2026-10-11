@@ -2035,6 +2035,8 @@
     <string name="palette_keyboard_layout_active">Current layout</string>
     <string name="palette_keyboard_layout_row">Layout: %1$s</string>
     <string name="palette_app_row_subtitle">%1$s · hold to bind a key</string>
+    <string name="palette_row_subtitle_hold_to_bind">%1$s · hold to bind a key</string>
+    <string name="palette_row_hold_to_bind">Hold to bind a key</string>
     <string name="palette_capture_notice">Press a key combination for %1$s · ⏎ save · ⌫ clear · esc cancel</string>
     <string name="palette_capture_placeholder">waiting for a key</string>
     <string name="palette_capture_conflict">Already bound to %1$s · saving replaces it</string>
