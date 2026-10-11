@@ -180,6 +180,45 @@ public class GlassAnchorTest {
         assertEquals(oldMatrix, shader);
     }
 
+    /** Fancier Glass at rest: its local matrix is identity and its mapping is the old aim, exactly. */
+    @Test
+    public void theRefractionsMappingIsTheOldScaleAndOffsetAtRest() {
+        GlassAnchor.Aim aim = new GlassAnchor.Aim();
+        aim.set(place().toScreen, FRAME_RECT, FRAME_WIDTH, FRAME_HEIGHT, PARALLAX_PX);
+        float[] local = new float[9];
+        aim.local.getValues(local);
+        float[] s = aim.scaleOffset;
+        float[] out = new float[2];
+        float[][] points = {{0.5f, 0.5f}, {317.25f, 911.75f}, {999.5f, 1799.5f}};
+        for (float[] p : points) {
+            GlassRefraction.framePx(local, s[0], s[1], s[2], s[3], p[0], p[1], out);
+            assertEquals((p[0] - s[2]) / s[0], out[0], 0f);
+            assertEquals((p[1] - s[3]) / s[1], out[1], 0f);
+        }
+    }
+
+    /** Fancier Glass on a sunk, tipped page samples the very pixel the plain draw does. */
+    @Test
+    public void theRefractionSamplesWhatThePlainDrawDoesOnATippedPage() {
+        sinkAndTipThePage();
+        GlassAnchor.Aim aim = new GlassAnchor.Aim();
+        aim.set(place().toScreen, FRAME_RECT, FRAME_WIDTH, FRAME_HEIGHT, PARALLAX_PX);
+        assertFalse(aim.local.isAffine());
+        float[] local = new float[9];
+        aim.local.getValues(local);
+        Matrix shader = new Matrix();
+        aim.shaderMatrix(shader);
+        float[] s = aim.scaleOffset;
+        float[] frame = new float[2];
+        float[][] points = {{0f, 0f}, {1000f, 0f}, {0f, 1800f}, {1000f, 1800f}, {317f, 911f}};
+        for (float[] p : points) {
+            GlassRefraction.framePx(local, s[0], s[1], s[2], s[3], p[0], p[1], frame);
+            float[] back = map(shader, frame[0], frame[1]);
+            assertEquals(p[0], back[0], TOLERANCE_PX);
+            assertEquals(p[1], back[1], TOLERANCE_PX);
+        }
+    }
+
     @Test
     public void aSlideAloneIsStillThePlainAimWithoutRounding() {
         mPage.setTranslationX(-324.25f);

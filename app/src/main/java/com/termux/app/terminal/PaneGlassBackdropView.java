@@ -452,11 +452,14 @@ public final class PaneGlassBackdropView extends View {
                 float[] aim = mAim.scaleOffset;
                 if (program != null) {
                     // The same aim, as uniforms: the program samples the frame by its own pixels,
-                    // and the rim runs along this slab's own rounded rect.
+                    // and the rim runs along this slab's own rounded rect, so the bend and the
+                    // light move with the page while the wallpaper they bend stays put.
                     program.setAim(aim[0], aim[1], aim[2], aim[3]);
+                    program.setLocal(mAim.local);
                     program.setRect(0f, 0f, width, height, mRadiusPx);
                     if (mPreviousProgram != null) {
                         mPreviousProgram.setAim(aim[0], aim[1], aim[2], aim[3]);
+                        mPreviousProgram.setLocal(mAim.local);
                         mPreviousProgram.setRect(0f, 0f, width, height, mRadiusPx);
                     } else if (mPreviousFrameShader != null) {
                         // No program for the retiring frame: it fades out drawn plain.
