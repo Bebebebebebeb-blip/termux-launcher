@@ -108,20 +108,14 @@ public class TopPaneWidgetSlotAlignmentTest {
     }
 
     @Test
-    public void besideMediaCentreMovesTheClockTowardTheBarsMiddleAndKeepsTheRowItsLeast() {
+    public void besideMediaCentreStandsWhereLeftDoesSoTheArtKeepsItsRoom() {
         TopPaneFeed.setMedia(media());
         Slot left = slot(LEFT, 65f);
         Slot center = slot(CENTER, 65f);
-        float middle = mWidth / 2f;
-        float leftMiss = Math.abs(left.clockCentre() - middle);
-        float centreMiss = Math.abs(center.clockCentre() - middle);
-        assertTrue("centre must sit well nearer the bar's middle than left: " + centreMiss
-            + " vs " + leftMiss, centreMiss < leftMiss / 2f);
+        assertEquals(left.clock.getLeft(), center.clock.getLeft());
         assertEquals(left.clock.getWidth(), center.clock.getWidth());
-        assertEquals(center.clock.getRight() + mGap, center.media.getLeft());
-        assertEquals(mWidth - mGutter, center.media.getRight());
-        assertTrue("the row keeps its 120dp",
-            center.media.getWidth() >= Math.round(120f * mDensity));
+        assertEquals(left.media.getLeft(), center.media.getLeft());
+        assertEquals(left.media.getWidth(), center.media.getWidth());
     }
 
     @Test

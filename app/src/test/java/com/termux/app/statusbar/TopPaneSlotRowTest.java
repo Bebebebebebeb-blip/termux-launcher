@@ -25,7 +25,6 @@ public class TopPaneSlotRowTest {
     private static final int LEADING = 192; // 64dp at 3x
     private static final int GUTTER = 36;   // 12dp at 3x
     private static final int GAP = 36;      // 12dp at 3x
-    private static final int SIDE_MIN = 360; // 120dp at 3x
     private static final int CLOCK = 400;
 
     // ---- Alone ----------------------------------------------------------------
@@ -69,7 +68,7 @@ public class TopPaneSlotRowTest {
             assertEquals(left.clockStart, alone.clockStart);
             assertEquals(left.clockEnd, alone.clockEnd);
             TopPaneSlotRow shared = TopPaneSlotRow.shared(WIDTH, LEADING, GUTTER, GAP, CLOCK,
-                SIDE_MIN, alignment);
+                alignment);
             assertEquals(LEADING, shared.clockStart);
         }
     }
@@ -84,7 +83,7 @@ public class TopPaneSlotRowTest {
 
     @Test
     public void sharedLeftIsTheLayoutTheMediaAndCardFixesWereMadeAgainst() {
-        TopPaneSlotRow row = TopPaneSlotRow.shared(WIDTH, LEADING, GUTTER, GAP, CLOCK, SIDE_MIN,
+        TopPaneSlotRow row = TopPaneSlotRow.shared(WIDTH, LEADING, GUTTER, GAP, CLOCK,
             LEFT);
         assertEquals(LEADING, row.clockStart);
         assertEquals(LEADING + CLOCK, row.clockEnd);
@@ -95,7 +94,7 @@ public class TopPaneSlotRowTest {
 
     @Test
     public void sharedRightSetsTheClockAgainstTheGutterAndTheContentBeforeIt() {
-        TopPaneSlotRow row = TopPaneSlotRow.shared(WIDTH, LEADING, GUTTER, GAP, CLOCK, SIDE_MIN,
+        TopPaneSlotRow row = TopPaneSlotRow.shared(WIDTH, LEADING, GUTTER, GAP, CLOCK,
             RIGHT);
         assertEquals(WIDTH - GUTTER, row.clockEnd);
         assertEquals(CLOCK, row.clockWidth());
@@ -104,38 +103,19 @@ public class TopPaneSlotRowTest {
     }
 
     @Test
-    public void sharedCentreSitsOnTheBarsCentreWhenTheContentHasRoom() {
-        int wide = 2400;
-        TopPaneSlotRow row = TopPaneSlotRow.shared(wide, LEADING, GUTTER, GAP, CLOCK, SIDE_MIN,
-            CENTER);
-        assertEquals(wide / 2f, (row.clockStart + row.clockEnd) / 2f, .5f);
-        assertEquals(row.clockEnd + GAP, row.sideStart);
-        assertEquals(wide - GUTTER, row.sideEnd);
-    }
-
-    @Test
-    public void sharedCentreStopsWhereTheContentWouldFallBelowItsLeast() {
-        TopPaneSlotRow row = TopPaneSlotRow.shared(WIDTH, LEADING, GUTTER, GAP, CLOCK, SIDE_MIN,
-            CENTER);
-        assertEquals(SIDE_MIN, row.sideWidth());
-        assertEquals(WIDTH - GUTTER, row.sideEnd);
-        assertTrue("still nearer the middle than Left",
-            row.clockStart > LEADING);
-    }
-
-    @Test
-    public void sharedCentreNeverCrossesThePlaceIcon() {
-        // The content's least already eats the slack: centre falls back to Left's position.
-        int clock = WIDTH - GUTTER - LEADING - GAP - SIDE_MIN + 10;
-        TopPaneSlotRow row = TopPaneSlotRow.shared(WIDTH, LEADING, GUTTER, GAP, clock, SIDE_MIN,
-            CENTER);
-        assertEquals(LEADING, row.clockStart);
+    public void sharedCentreStandsWhereLeftDoesSoTheContentKeepsItsRoom() {
+        TopPaneSlotRow left = TopPaneSlotRow.shared(WIDTH, LEADING, GUTTER, GAP, CLOCK, LEFT);
+        TopPaneSlotRow centre = TopPaneSlotRow.shared(WIDTH, LEADING, GUTTER, GAP, CLOCK, CENTER);
+        assertEquals(left.clockStart, centre.clockStart);
+        assertEquals(left.clockEnd, centre.clockEnd);
+        assertEquals(left.sideStart, centre.sideStart);
+        assertEquals(left.sideEnd, centre.sideEnd);
     }
 
     @Test
     public void sharedClockWiderThanTheRunIsCappedAndLeavesNoNegativeRun() {
         TopPaneSlotRow row = TopPaneSlotRow.shared(WIDTH, LEADING, GUTTER, GAP, WIDTH * 2,
-            SIDE_MIN, RIGHT);
+            RIGHT);
         assertEquals(WIDTH - GUTTER - LEADING, row.clockWidth());
         assertEquals(0, row.sideWidth());
     }

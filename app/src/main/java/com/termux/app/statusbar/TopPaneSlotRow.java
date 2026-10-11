@@ -22,9 +22,9 @@ import com.termux.shared.termux.settings.preferences.TermuxPreferenceConstants;
  *   <li><b>Shared</b> with the media row or pinned cards, the clock is as wide as its face and the
  *   side content takes the rest of the run, on the far side of the clock. Left keeps the clock
  *   after the place icon and the content after it, which is where every card and media fix was
- *   made. Right sets the clock against the gutter and the content before it. Centre moves the
- *   clock towards the bar's centre line as far as the content's least run allows, with the
- *   content after it.</li>
+ *   made. Right sets the clock against the gutter and the content before it. Centre stands where
+ *   Left does: pulled to the middle it left the media row too little room for its album art,
+ *   so a centred clock steps aside for whatever shares the bar.</li>
  * </ul>
  */
 public final class TopPaneSlotRow {
@@ -68,11 +68,10 @@ public final class TopPaneSlotRow {
      * The clock beside the media row or pinned cards.
      *
      * @param clockWidth the width the face paints at the slot's fit, already capped to the run
-     * @param sideMin    the least run the side content keeps beside the clock, without the gap
      */
     @NonNull
     public static TopPaneSlotRow shared(int width, int leadingCell, int gutter, int gap,
-                                        int clockWidth, int sideMin, @Nullable String alignment) {
+                                        int clockWidth, @Nullable String alignment) {
         int runStart = leadingCell;
         int runEnd = width - gutter;
         int clock = Math.max(0, Math.min(clockWidth, runEnd - runStart));
@@ -80,13 +79,8 @@ public final class TopPaneSlotRow {
             int clockStart = runEnd - clock;
             return new TopPaneSlotRow(clockStart, runEnd, runStart, clockStart - gap);
         }
-        int clockStart = runStart;
-        if (isCenter(alignment)) {
-            int centred = Math.round(width / 2f - clock / 2f);
-            int latest = runEnd - sideMin - gap - clock;
-            clockStart = Math.max(runStart, Math.min(centred, latest));
-        }
-        return new TopPaneSlotRow(clockStart, clockStart + clock, clockStart + clock + gap, runEnd);
+        // Left, and Centre with it: the clock after the place icon, the content after it.
+        return new TopPaneSlotRow(runStart, runStart + clock, runStart + clock + gap, runEnd);
     }
 
     private static boolean isCenter(@Nullable String alignment) {

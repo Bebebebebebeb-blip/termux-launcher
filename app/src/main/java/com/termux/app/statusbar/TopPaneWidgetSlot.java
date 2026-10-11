@@ -336,7 +336,7 @@ public final class TopPaneWidgetSlot extends ViewGroup implements TopPaneFeed.Ob
             mClock.setFitBudget(cap, heightBudget, mClockShared);
             int clockWidth = Math.min(cap,
                 (int) Math.ceil(mClock.fitWidthPx(cap, heightBudget, mClockShared)));
-            row = TopPaneSlotRow.shared(width, contentStart, gutter, gap, clockWidth, sideMin,
+            row = TopPaneSlotRow.shared(width, contentStart, gutter, gap, clockWidth,
                 mClockAlignment);
         }
         mClock.measure(MeasureSpec.makeMeasureSpec(row.clockWidth(), MeasureSpec.EXACTLY),

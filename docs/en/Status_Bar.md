@@ -62,9 +62,8 @@ Coding agents add a dot before the label: **Working**, **Needs you** or **Idle**
   matrix**, **Tape**, **Slab**. Alignment: **Left**, **Center**, **Right**.
 
 When the bar is open, the clock keeps its full face and scales to the room left beside any cards.
-The alignment holds beside cards and the media row too: with **Right** the clock sits at the bar's
-end and the cards before it, and with **Center** it moves as close to the middle as the cards leave
-room for.
+Beside cards or the media row, **Right** puts the clock at the bar's end with the cards before it;
+**Center** steps over to the left, so the cards and the media row keep their room.
 
 ## Media
 
