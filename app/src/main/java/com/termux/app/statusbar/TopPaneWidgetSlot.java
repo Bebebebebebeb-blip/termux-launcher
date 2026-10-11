@@ -65,6 +65,8 @@ public final class TopPaneWidgetSlot extends ViewGroup implements TopPaneFeed.Ob
     }
     private int mPinnedCount;
     @Nullable private String mClockAlignment;
+    /** Whether the media row may claim the slot; off, the slot acts as if nothing played. */
+    private boolean mMediaEnabled = true;
 
     public TopPaneWidgetSlot(Context context) {
         this(context, null);
@@ -131,6 +133,16 @@ public final class TopPaneWidgetSlot extends ViewGroup implements TopPaneFeed.Ob
         requestLayout();
     }
 
+    /**
+     * The Status bar settings' Media switch. Off, the slot behaves exactly as with nothing
+     * playing: the clock alone, or beside the pinned cards.
+     */
+    public void setMediaEnabled(boolean enabled) {
+        if (mMediaEnabled == enabled) return;
+        mMediaEnabled = enabled;
+        applyFeed(isAttachedToWindow());
+    }
+
     @NonNull
     public TopPaneSlotMode getSlotMode() {
         return mMode;
@@ -194,7 +206,7 @@ public final class TopPaneWidgetSlot extends ViewGroup implements TopPaneFeed.Ob
         // Reduced motion: every mode change lands at once, clock form and cards alike.
         if (animate && com.termux.app.ReducedMotion.isEnabled(getContext())) animate = false;
         List<PinnedNotification> pinned = TopPaneFeed.getPinned();
-        TopPaneMediaState media = TopPaneFeed.getMedia();
+        TopPaneMediaState media = mMediaEnabled ? TopPaneFeed.getMedia() : null;
         TopPaneSlotMode mode = TopPaneSlotMode.derive(pinned.size(), media != null);
         // Every match is handed over: two fill the slot and the rest are a swipe away, so the
         // count here is what matched, not what fits.

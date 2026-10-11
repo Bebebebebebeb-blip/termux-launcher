@@ -71,12 +71,17 @@ While an app is playing, the open bar shows a media row: the album art next to t
 and the title. Tap the art or the title to open the app that is playing. The row needs
 **Notification access**; see [Permissions and Shizuku](Shizuku.md#permissions).
 
+To hide the row, turn off **Settings → Status bar → Indicators → Media** (on by default). The bar
+then keeps the clock, beside any pinned cards, while something plays; the **Media** widget on the
+Widgets page is not affected.
+
 ## Indicators
 
 Under **Settings → Status bar → Indicators**:
 
 - **CPU usage**: off by default. Tap the reading for cores, load and top processes.
 - **Memory usage**: off by default.
+- **Media**: on by default. "Show what's playing in the status bar."
 
 The readings describe the whole phone, not only your shells.
 
