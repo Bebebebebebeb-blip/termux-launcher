@@ -1439,6 +1439,8 @@ public final class TerminalCommandPaletteController
         if (index < 0 || index >= mRowEntries.size()) return;
         CommandPaletteFilter.Entry entry = mRowEntries.get(index);
         if (entry == null) return;
+        // Contact rows, the allow row among them, have no chord to bind.
+        if (TerminalCommandPalette.CATEGORY_CONTACTS.equals(entry.category)) return;
         mFocus = index;
         beginCapture(entry);
     }
