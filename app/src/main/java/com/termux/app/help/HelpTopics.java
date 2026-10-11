@@ -209,7 +209,7 @@ public final class HelpTopics {
             .steps(R.string.help_topic_places_step1)
             .wayBack(R.string.help_topic_places_back)
             .target("border", PaneWallPage.TERMINAL, PaneWallPage.DISPLAY, PaneWallPage.WIDGETS)
-            .gesture(TourGesture.HOLD_DRAG)
+            .gesture(TourGesture.SWIPE_LEFT)
             .lesson(LESSON_BORDER_DRAG)
             .related("status", "corners", "keyboard_swipe").terms("place", "border_drag")
             .aliases(R.string.help_topic_places_aliases)
