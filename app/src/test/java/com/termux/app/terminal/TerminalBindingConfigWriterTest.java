@@ -195,6 +195,26 @@ public class TerminalBindingConfigWriterTest {
     }
 
     @Test
+    public void aWrittenContactParsesBackToItsLookupKeyIdAndName() {
+        TerminalBindingConfigWriter.Edit edit = TerminalBindingConfigWriter.putMapping(
+            Collections.singletonList("# mine"), "ctrl+alt+shift+a",
+            LauncherToolRegistry.TOOL_CONTACT_OPEN, Arrays.asList("0r12-3A4B5C", "contact_id=42"),
+            "Ana Silva");
+        assertTrue(edit.error, edit.ok());
+        assertEquals(Arrays.asList("# mine", "",
+            TerminalBindingConfigWriter.MANAGED_HEADER,
+            "map --label \"Ana Silva\" ctrl+alt+shift+a contact.open 0r12-3A4B5C contact_id=42"),
+            edit.lines);
+
+        TerminalBindingConfig.Mapping mapping = parse(edit.lines).mappings.get(0);
+        assertEquals("ctrl+alt+shift+a", mapping.sequence);
+        assertEquals("Ana Silva", mapping.label);
+        assertEquals(LauncherToolRegistry.TOOL_CONTACT_OPEN, mapping.actions.get(0).value);
+        assertEquals("0r12-3A4B5C", mapping.actions.get(0).arguments.optString("lookup_key"));
+        assertEquals(42L, mapping.actions.get(0).arguments.optLong("contact_id", -1));
+    }
+
+    @Test
     public void aWrittenLabelParsesBackAsTheBindingsDisplayName() {
         TerminalBindingConfigWriter.Edit edit = TerminalBindingConfigWriter.putMapping(
             Collections.<String>emptyList(), "ctrl+alt+w",
@@ -280,6 +300,15 @@ public class TerminalBindingConfigWriterTest {
         TerminalBindingConfigWriter.Edit edit = bind(Collections.<String>emptyList(), "");
         assertNotNull(edit.error);
         assertFalse(edit.ok());
+    }
+
+    private static TerminalBindingConfig.Result parse(List<String> lines) {
+        StringBuilder file = new StringBuilder();
+        for (String line : lines) file.append(line).append('\n');
+        TerminalBindingConfig.Result parsed = TerminalBindingConfig.parse(file.toString(),
+            LauncherToolRegistry.getInstance(), true);
+        assertTrue(parsed.errors.toString(), parsed.errors.isEmpty());
+        return parsed;
     }
 
     private static TerminalBindingConfigWriter.Edit bind(List<String> lines, String sequence) {

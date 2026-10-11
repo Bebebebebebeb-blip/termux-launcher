@@ -11,7 +11,6 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.ContactsContract;
 import android.provider.Settings;
 import android.view.Choreographer;
 import android.view.HapticFeedbackConstants;
@@ -1354,7 +1353,7 @@ public final class TerminalCommandPaletteController
         playTick();
         collapse();
         Intent intent = new Intent(Intent.ACTION_VIEW,
-            ContactsContract.Contacts.getLookupUri(contactId, lookupKey));
+            CommandPaletteContacts.cardUri(contactId, lookupKey));
         try {
             mActivity.startActivity(intent);
         } catch (ActivityNotFoundException e) {
