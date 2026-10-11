@@ -246,6 +246,64 @@ public class KittyGraphicsLayerOrderTest extends TerminalTestCase {
         assertSame(next, placedBitmap(1));
     }
 
+    /**
+     * terminal-browser's frame over a slow link: delete, then a store-only transmission in chunks
+     * that outlasts the hold, then its placement. The hold running out mid-picture must not apply
+     * the delete on its own: the old picture stays until the whole frame lands in one step.
+     */
+    public void testAFrameStillArrivingWhenTheHoldRunsOutKeepsTheOldPicture() throws Exception {
+        Bitmap shown = KittyPlacementLayerTest.standInBitmap();
+        Bitmap next = KittyPlacementLayerTest.standInBitmap();
+        transmit(1);
+        landNext(shown);
+
+        enterString(BEGIN_UPDATE + "\033_Ga=d,d=I,i=1,q=2\033\\");
+        enterString("\033_Ga=t,f=32,s=1,v=1,i=1,q=2,m=1;AAAA\033\\");
+        Thread.sleep(TerminalEmulator.SYNCHRONIZED_UPDATE_TIMEOUT_MILLIS + 50);
+        assertFalse("the hold ran out mid-picture", mTerminal.isScreenUpdateHeld());
+        assertSame(shown, placedBitmap(1));
+
+        enterString("\033_Gm=0;AA==\033\\");
+        enterString("\033_Ga=p,i=1,C=1,q=2\033\\" + END_UPDATE);
+        assertSame(shown, placedBitmap(1));
+        landNext(next);
+        assertSame("the frame lands whole, with its placement", shown, placedBitmap(1));
+        mWorker.remove(0).run();
+        mOutput.drainTerminalUpdates();
+        assertSame(next, placedBitmap(1));
+    }
+
+    /** A picture that stalls holds the window only for the grace period, then the update applies. */
+    public void testAStalledPictureHoldsTheWindowOnlyForItsGrace() throws Exception {
+        mTerminal.kittyGraphics().windowUploadGraceMillis = 1;
+        Bitmap shown = KittyPlacementLayerTest.standInBitmap();
+        transmit(1);
+        landNext(shown);
+
+        enterString(BEGIN_UPDATE + "\033_Ga=d,d=i,i=1,q=2\033\\");
+        enterString("\033_Ga=t,f=32,s=1,v=1,i=2,q=2,m=1;AAAA\033\\");
+        Thread.sleep(TerminalEmulator.SYNCHRONIZED_UPDATE_TIMEOUT_MILLIS + 50);
+        assertFalse(mTerminal.isScreenUpdateHeld());
+        assertTrue("past its grace the delete applied", mTerminal.kittyPlacementsFor(1).isEmpty());
+    }
+
+    /** The next update seals a window still open past its hold, so two frames never merge. */
+    public void testTheNextUpdateSealsAWindowKeptOpenPastItsHold() throws Exception {
+        Bitmap shown = KittyPlacementLayerTest.standInBitmap();
+        transmit(1);
+        landNext(shown);
+
+        enterString(BEGIN_UPDATE + "\033_Ga=d,d=i,i=1,q=2\033\\");
+        enterString("\033_Ga=t,f=32,s=1,v=1,i=2,q=2,m=1;AAAA\033\\");
+        Thread.sleep(TerminalEmulator.SYNCHRONIZED_UPDATE_TIMEOUT_MILLIS + 50);
+        assertFalse(mTerminal.isScreenUpdateHeld());
+        assertSame("kept open while the picture arrives", shown, placedBitmap(1));
+
+        enterString(BEGIN_UPDATE);
+        assertTrue("the old window sealed and its delete applied",
+            mTerminal.kittyPlacementsFor(1).isEmpty());
+    }
+
     /** A decode that fails still counts as back: the rest of its update applies. */
     public void testAFailedDecodeDoesNotHoldItsUpdateBack() throws Exception {
         Bitmap shown = KittyPlacementLayerTest.standInBitmap();

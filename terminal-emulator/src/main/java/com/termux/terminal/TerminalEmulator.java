@@ -1023,17 +1023,18 @@ public final class TerminalEmulator {
      * Whether a synchronized update (mode 2026) is holding screen updates back from the client right
      * now. A hold whose timeout has passed ends here, so the caller that asks is also the one that
      * unfreezes the screen — there is no separate expiry path to keep in step with this one. The
-     * kitty graphics window that rides on the hold ends with it, on the same answer.
+     * kitty graphics window that rides on the hold ends with it, on the same answer, unless a picture
+     * is still arriving (see {@link KittyGraphicsProtocol#synchronizedHoldEnded}).
      */
     public boolean isScreenUpdateHeld() {
         if (!isDecsetInternalBitSet(DECSET_BIT_SYNCHRONIZED_UPDATE)) {
-            mKittyGraphics.endSynchronizedWindow();
+            mKittyGraphics.synchronizedHoldEnded();
             return false;
         }
         if (System.currentTimeMillis() >= mSynchronizedUpdateDeadline) {
             setDecsetinternalBit(DECSET_BIT_SYNCHRONIZED_UPDATE, false);
             mSynchronizedUpdateDeadline = 0;
-            mKittyGraphics.endSynchronizedWindow();
+            mKittyGraphics.synchronizedHoldEnded();
             return false;
         }
         return true;
@@ -2472,10 +2473,11 @@ public final class TerminalEmulator {
                 // Synchronized output. Setting it starts the hold and arms its timeout; resetting it
                 // ends the hold and hands the client the one update the whole frame is worth.
                 if (setting) {
-                    // A hold that ran out without anyone asking still ended then: its kitty
-                    // graphics window is sealed before the new one can collect anything.
+                    // A hold that ran out without anyone asking still ended then, and a window
+                    // kept open past its hold for a picture still arriving ends with the next
+                    // update: either is sealed before the new one can collect anything.
                     long now = System.currentTimeMillis();
-                    if (mSynchronizedUpdateDeadline != 0 && now >= mSynchronizedUpdateDeadline)
+                    if (mSynchronizedUpdateDeadline == 0 || now >= mSynchronizedUpdateDeadline)
                         mKittyGraphics.endSynchronizedWindow();
                     mSynchronizedUpdateDeadline = now + mSynchronizedUpdateTimeoutMillis;
                 } else {

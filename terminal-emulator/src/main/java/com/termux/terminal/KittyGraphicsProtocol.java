@@ -53,6 +53,19 @@ final class KittyGraphicsProtocol {
     private final ArrayDeque<LayerStep> layerSteps = new ArrayDeque<>();
     /** The batch of the synchronized update still open, already in {@link #layerSteps}; or null. */
     @Nullable private LayerStep window;
+    /** When {@link #window} opened, in {@link System#currentTimeMillis} time. */
+    private long windowOpenedAt;
+    /**
+     * When a window that outlived its screen hold must seal regardless; 0 while it lasts only as long
+     * as the hold. See {@link #synchronizedHoldEnded}.
+     */
+    private long windowGraceDeadline;
+    /**
+     * How long after it opened a window may stay open past its hold for a picture still arriving.
+     * A test in this package shortens it.
+     */
+    long windowUploadGraceMillis = WINDOW_UPLOAD_GRACE_MILLIS;
+    static final long WINDOW_UPLOAD_GRACE_MILLIS = 1000;
     /** How many decodes this protocol has started: a test hook for "a re-placement decodes nothing". */
     int decodeCount;
     /** The worker decodes run on; a test in this package swaps in one it steps by hand. */
@@ -622,7 +635,7 @@ final class KittyGraphicsProtocol {
             Bitmap bitmap = null;
             String error = null;
             try {
-                bitmap = producer.produce();
+                bitmap = (decodeForTests != null ? decodeForTests : producer).produce();
                 if (bitmap == null) {
                     error = "EINVAL:image decode failed";
                 } else if (bitmap.getAllocationByteCount() > MAX_DECODED_BYTES) {
@@ -1312,6 +1325,7 @@ final class KittyGraphicsProtocol {
         upload = null;
         layerSteps.clear();
         window = null;
+        windowGraceDeadline = 0;
         for (KittyImageStore.Entry entry : store.entries()) {
             if (entry.bitmap != null && !entry.bitmap.isRecycled()) entry.bitmap.recycle();
             for (KittyImageStore.Frame frame : entry.frames) {
@@ -1614,12 +1628,14 @@ final class KittyGraphicsProtocol {
      * neither, so the caller can apply the change at once.
      */
     private boolean queueLayerStep(LayerStep step, boolean mayRunNow) {
-        // Asking is also what seals a window whose hold has run out.
-        if (emulator.isScreenUpdateHeld()) {
+        // Asking is also what seals a window whose hold has run out, unless a picture it started
+        // is still arriving: then the window outlives the hold (see synchronizedHoldEnded).
+        if (emulator.isScreenUpdateHeld() || window != null) {
             if (window == null) {
                 window = new LayerStep();
                 window.batch = new ArrayList<>();
                 layerSteps.add(window);
+                windowOpenedAt = System.currentTimeMillis();
             }
             window.batch.add(step);
             return true;
@@ -1635,10 +1651,32 @@ final class KittyGraphicsProtocol {
      * now, when that is already so.
      */
     void endSynchronizedWindow() {
+        windowGraceDeadline = 0;
         if (window == null) return;
         window.sealed = true;
         window = null;
         applyReadyLayerSteps();
+    }
+
+    /**
+     * The screen hold ended without the update ending: it ran out, or was cleared some other way.
+     * Text is released either way. But when a picture the update started is still arriving — a big
+     * uncompressed frame over a slow link takes longer than the hold allows — sealing now would
+     * apply the update's delete with the replacement nowhere near, and the screen would show no
+     * picture until it lands. So the window stays open for the rest of the update: until it ends,
+     * or {@link #windowUploadGraceMillis} after it opened, whichever is first. Until then the old
+     * picture stays on screen, never none.
+     */
+    void synchronizedHoldEnded() {
+        if (window == null) return;
+        if (windowGraceDeadline == 0) {
+            if (!streamOpen && upload == null) {
+                endSynchronizedWindow();
+                return;
+            }
+            windowGraceDeadline = windowOpenedAt + windowUploadGraceMillis;
+        }
+        if (System.currentTimeMillis() >= windowGraceDeadline) endSynchronizedWindow();
     }
 
     /**
@@ -1671,6 +1709,7 @@ final class KittyGraphicsProtocol {
         List<LayerStep> steps = new ArrayList<>(layerSteps);
         layerSteps.clear();
         window = null;
+        windowGraceDeadline = 0;
         for (LayerStep step : steps) {
             for (LayerStep part : step.batch != null ? step.batch : Collections.singletonList(step)) {
                 if (part.change != null) {
