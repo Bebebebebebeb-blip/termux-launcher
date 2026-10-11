@@ -307,6 +307,7 @@
     <string name="termux_x11_needs_keyboard_data">The display needs the xkeyboard-config package installed before it can start.</string>
     <string name="termux_x11_needs_keyboard_data_nix">Add xkeyboard-config to home.nix and switch, then come back.</string>
     <string name="termux_x11_read_guide">Read the guide</string>
+    <string name="termux_x11_install_keyboard_data">Install xkeyboard-config</string>
     <string name="termux_x11_start_display">Start display</string>
     <string name="termux_x11_display_off">The Linux display is switched off.</string>
     <string name="termux_x11_turn_on">Turn on</string>

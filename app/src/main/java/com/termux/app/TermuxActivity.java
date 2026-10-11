@@ -19585,6 +19585,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             }
             @Override public void startDisplay() { startEmbeddedDisplay(); }
             @Override public void turnOnDisplay() { turnOnEmbeddedDisplay(); }
+            @Override public void installKeyboardData(@NonNull java.util.List<String> command) {
+                runKeyboardDataInstall(command);
+            }
             @Override public void toggleDisplayPower() {
                 if (!isX11DisplayEnabled()) turnOnEmbeddedDisplay();
                 else if (isEmbeddedDisplayRunning()) confirmStopEmbeddedDisplay();
@@ -19770,6 +19773,55 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         com.termux.app.x11.X11PaneFrame display = mPaneWallController == null
             ? null : mPaneWallController.displayPage();
         if (display != null) display.refreshEmptyStateReadiness();
+    }
+
+    /** The shell the Display page's install button started, until it ends. */
+    @Nullable private TerminalSession mKeyboardDataInstallShell;
+
+    /**
+     * The Display page's install button: {@code command} in a new window of the current session,
+     * with the wall turned to the terminal to show it, the route a widget's "open in terminal"
+     * takes. Compatibility mode has no windows, so there it is a plain session made current.
+     */
+    private void runKeyboardDataInstall(@NonNull java.util.List<String> command) {
+        String title = getString(R.string.termux_x11_install_keyboard_data);
+        TerminalSession shell = openCommandWindow(command, null, title, true);
+        if (shell == null && !isSplitPanesEnabled()) {
+            shell = createCommandShell(command, null, title, false);
+            if (shell != null) getTermuxTerminalSessionClient().setCurrentSession(shell);
+        }
+        if (shell == null) {
+            // The one refusal the user can act on; the others pass once the service is up.
+            if (mTermuxService != null && mTermuxService.getTermuxSessionsSize()
+                    >= com.termux.app.terminal.TermuxTerminalSessionActivityClient.MAX_SESSIONS) {
+                showTerminalNotice(getString(R.string.title_max_terminals_reached) + " — "
+                    + getString(R.string.msg_max_terminals_reached), AppNoticeItem.Hold.REFUSAL);
+            }
+            return;
+        }
+        mKeyboardDataInstallShell = shell;
+        if (mPaneWallController != null) {
+            mPaneWallController.goTo(com.termux.app.wall.PaneWallPage.TERMINAL, isVisible());
+        }
+    }
+
+    /**
+     * The install's shell ended. The user never left the activity, so nothing else re-reads the
+     * keyboard-data probe: the Display page's empty state is refreshed here. When the install
+     * worked and its window is the one on screen, the wall goes back to the Display page, which
+     * now offers Start. A failed install does not end on its own (its script keeps the window
+     * open in the user's shell), so this runs for it only once they exit that shell.
+     */
+    private void onKeyboardDataInstallFinished(@NonNull TerminalSession session) {
+        if (session != mKeyboardDataInstallShell) return;
+        mKeyboardDataInstallShell = null;
+        refreshDisplayEmptyStateReadiness();
+        if (session.getExitStatus() != 0 || session != getCurrentSession()) return;
+        if (mPaneWallController == null || !com.termux.app.x11.X11CliInstaller.hasKeyboardData()
+            || mPaneWallController.currentPage() != com.termux.app.wall.PaneWallPage.TERMINAL) {
+            return;
+        }
+        mPaneWallController.goTo(com.termux.app.wall.PaneWallPage.DISPLAY, isVisible());
     }
 
     /**
@@ -23926,6 +23978,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         @Override public void clearShellAttention(int shellPid) {
             TermuxActivity.this.clearShellAttention(shellPid);
+        }
+
+        @Override public void onShellFinished(@NonNull TerminalSession session) {
+            onKeyboardDataInstallFinished(session);
         }
 
         @Override public void showTerminalNotice(@Nullable String text,
