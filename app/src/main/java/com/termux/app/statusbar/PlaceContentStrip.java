@@ -17,6 +17,9 @@ public final class PlaceContentStrip extends LinearLayout {
      */
     public static final float LENS_WIDTH_DP = 10f;
 
+    /** What a column keeps clear under its chips, before the readings below them. */
+    public static final float COLUMN_FOOT_DP = 8f;
+
     public PlaceContentStrip(Context context, AttributeSet attrs) {
         super(context, attrs);
         setOrientation(HORIZONTAL);

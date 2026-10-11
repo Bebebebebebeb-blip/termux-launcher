@@ -408,7 +408,9 @@ public final class TerminalWindowBar extends HorizontalScrollView {
         mTouchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
         // The parent already supplies the intended gap after the session indicator. A second
         // leading inset here made that gap look like trailing padding owned by the session chip.
-        setPaddingRelative(0, dp(2), dp(5), dp(2));
+        // The trailing end is the status row's to set (setTrailingGapPx): the chips stop one gap
+        // short of the readings, and how much of that gap is the bar's depends on the readings.
+        setPaddingRelative(0, dp(2), 0, dp(2));
         mTabs = new SelectionStrip(context);
         mTabs.setGravity(Gravity.CENTER_VERTICAL);
         mTabs.setOrientation(LinearLayout.HORIZONTAL);
@@ -417,6 +419,18 @@ public final class TerminalWindowBar extends HorizontalScrollView {
         addView(mTabs, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT));
         reloadTerminalTypeface();
         updatePalette();
+    }
+
+    /**
+     * The space the bar keeps after its last visible chip, inside its own bounds, so the chips'
+     * viewport stops there. Returns whether it changed, so a measuring parent knows to measure
+     * again.
+     */
+    public boolean setTrailingGapPx(int px) {
+        int gap = Math.max(0, px);
+        if (getPaddingEnd() == gap) return false;
+        setPaddingRelative(getPaddingStart(), getPaddingTop(), gap, getPaddingBottom());
+        return true;
     }
 
     public void setOnWindowSelectedListener(@Nullable OnWindowSelectedListener listener) {
