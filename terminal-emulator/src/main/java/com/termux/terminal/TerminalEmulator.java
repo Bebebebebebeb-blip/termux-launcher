@@ -266,6 +266,12 @@ public final class TerminalEmulator {
     private static final int DECSET_BIT_MOUSE_PROTOCOL_SGR = 1 << 9;
 
     /**
+     * DECSET 1016 - SGR-Pixels: the SGR format (whether or not 1006 is set), with the position in
+     * pixels of the text area instead of cells, as in xterm, kitty, foot and WezTerm.
+     */
+    private static final int DECSET_BIT_MOUSE_PROTOCOL_SGR_PIXELS = 1 << 18;
+
+    /**
      * DECSET 2004 - see {@link #paste(String)}
      */
     private static final int DECSET_BIT_BRACKETED_PASTE_MODE = 1 << 10;
@@ -853,6 +859,8 @@ public final class TerminalEmulator {
                 return DECSET_BIT_SEND_FOCUS_EVENTS;
             case 1006:
                 return DECSET_BIT_MOUSE_PROTOCOL_SGR;
+            case 1016:
+                return DECSET_BIT_MOUSE_PROTOCOL_SGR_PIXELS;
             case 2004:
                 return DECSET_BIT_BRACKETED_PASTE_MODE;
             case 2026:
@@ -921,6 +929,25 @@ public final class TerminalEmulator {
      *                  release and motion alike.
      */
     public void sendMouseEvent(int mouseButton, int column, int row, boolean pressed, int modifiers) {
+        // Without a pixel position, a program that asked for pixels gets the cell's top-left one.
+        column = Math.max(1, Math.min(mColumns, column));
+        row = Math.max(1, Math.min(mRows, row));
+        sendMouseEvent(mouseButton, column, row, (column - 1) * mCellWidthPixels,
+            (row - 1) * mCellHeightPixels, pressed, modifiers);
+    }
+
+    /**
+     * Report a mouse event at a cell and at the pixel inside it. The pixel is only used while
+     * SGR-Pixels (DECSET 1016) is on, and is clamped to the text area there.
+     *
+     * @param column the 1-based cell column, clamped to the screen.
+     * @param row the 1-based cell row, clamped to the screen.
+     * @param pixelX the 0-based pixel from the left of the text area, in the cell size the program
+     *               is told ({@link #getCellWidthPixels()}), so that {@code pixelX / cell width}
+     *               is {@code column - 1}. It goes out 1-based, as xterm sends it.
+     * @param pixelY the same from the top of the text area.
+     */
+    public void sendMouseEvent(int mouseButton, int column, int row, int pixelX, int pixelY, boolean pressed, int modifiers) {
         modifiers &= MOUSE_MODIFIER_SHIFT | MOUSE_MODIFIER_ALT | MOUSE_MODIFIER_CTRL;
         if (column < 1)
             column = 1;
@@ -932,6 +959,11 @@ public final class TerminalEmulator {
             row = mRows;
         if (mouseButton == MOUSE_LEFT_BUTTON_MOVED && !isDecsetInternalBitSet(DECSET_BIT_MOUSE_TRACKING_BUTTON_EVENT)) {
             // Do not send tracking.
+        } else if (isMousePixelPositionActive()) {
+            pixelX = Math.max(0, Math.min(mColumns * mCellWidthPixels - 1, pixelX));
+            pixelY = Math.max(0, Math.min(mRows * mCellHeightPixels - 1, pixelY));
+            mSession.write(String.format(Locale.US, "\033[<%d;%d;%d" + (pressed ? 'M' : 'm'),
+                mouseButton | modifiers, pixelX + 1, pixelY + 1));
         } else if (isDecsetInternalBitSet(DECSET_BIT_MOUSE_PROTOCOL_SGR)) {
             mSession.write(String.format("\033[<%d;%d;%d" + (pressed ? 'M' : 'm'), mouseButton | modifiers, column, row));
         } else {
@@ -1241,6 +1273,14 @@ public final class TerminalEmulator {
      */
     public boolean isMouseTrackingMotionActive() {
         return isDecsetInternalBitSet(DECSET_BIT_MOUSE_TRACKING_BUTTON_EVENT);
+    }
+
+    /**
+     * If mouse positions go out in pixels rather than cells (DECSET 1016), so a caller that moves
+     * the pointer within a cell has something new to report.
+     */
+    public boolean isMousePixelPositionActive() {
+        return isDecsetInternalBitSet(DECSET_BIT_MOUSE_PROTOCOL_SGR_PIXELS);
     }
 
     /**
@@ -2413,6 +2453,8 @@ public final class TerminalEmulator {
             // SGR Mouse Mode
             case 1006:
             case 1015:
+            // SGR-Pixels Mouse Mode
+            case 1016:
             case // Interpret "meta" key, sets eighth bit.
             1034:
                 break;
