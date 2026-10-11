@@ -32,6 +32,12 @@ public class BorderDragTest {
     /** No gesture strip of the phone's own reaching down into the top zone. */
     private static final float NO_LIMIT = Float.NEGATIVE_INFINITY;
 
+    private static final float PILL_WIDTH = 360f;   // PILL_SWIPE_WIDTH_DP at 3x
+    private static final float PILL_REACH = 48f;    // PILL_SWIPE_REACH_DP at 3x
+    /** The pills' box on the default page, centred on its middle: x in [370, 730). */
+    private static final float PILL_LEFT = MID_X - PILL_WIDTH / 2f;
+    private static final float PILL_RIGHT = MID_X + PILL_WIDTH / 2f;
+
     private static final float COMMIT = 96f;         // KEYBOARD_COMMIT_DP at 3x
     private static final float FLING = 1500f;        // KEYBOARD_FLING_DP_PER_SEC at 3x
 
@@ -77,6 +83,8 @@ public class BorderDragTest {
         assertEquals(MIN_BAND, BorderDrag.MIN_BAND_DP * DENSITY, 0.01f);
         assertEquals(COMMIT, BorderDrag.KEYBOARD_COMMIT_DP * DENSITY, 0.01f);
         assertEquals(FLING, BorderDrag.KEYBOARD_FLING_DP_PER_SEC * DENSITY, 0.01f);
+        assertEquals(PILL_WIDTH, BorderDrag.PILL_SWIPE_WIDTH_DP * DENSITY, 0.01f);
+        assertEquals(PILL_REACH, BorderDrag.PILL_SWIPE_REACH_DP * DENSITY, 0.01f);
         assertTrue("the default Margin leaves more air than the minimum band", GAP >= MIN_BAND);
     }
 
@@ -638,5 +646,188 @@ public class BorderDragTest {
             claimed.statusRelease(TOP + 300f, 0f, COMMIT, FLING));
         claimed.reset();
         assertFalse(claimed.isStatusEligible());
+    }
+
+    // ---- The boxes by the grabber pills, a row inside the page -------------------------------
+
+    /** The default page with the pills' boxes, centred on {@code centreX}. */
+    private static BorderDrag.Zone pillZone(float centreX) {
+        return zone(GAP).pills(centreX, PILL_WIDTH, PILL_REACH);
+    }
+
+    /** A press on the default page with its pills' boxes, every gesture on, a place to page to. */
+    private static BorderDrag pressed(float x, float y) {
+        return armed(x, y, pillZone(MID_X), true, true, true, NO_LIMIT);
+    }
+
+    @Test
+    public void aVerticalSwipeFromTheBottomPillsBoxIsTheKeyboards() {
+        float y = BOTTOM - 20f;
+        assertEquals("the box is not the border", BorderDrag.Border.NONE,
+            BorderDrag.borderAt(MID_X, y, pillZone(MID_X)));
+        assertEquals(BorderDrag.Border.BOTTOM, BorderDrag.pillAt(MID_X, y, pillZone(MID_X)));
+        BorderDrag up = pressed(MID_X, y);
+        assertTrue(up.isArmed());
+        assertTrue(up.isKeyboardEligible());
+        assertFalse(up.isStatusEligible());
+        assertEquals(BorderDrag.Border.BOTTOM, up.border());
+        assertEquals(BorderDrag.Claim.PENDING, up.move(MID_X, y - SLOP));
+        assertEquals(BorderDrag.Claim.KEYBOARD, up.move(MID_X + 5f, y - 200f));
+        assertEquals(BorderDrag.KeyboardSwipe.OPEN,
+            up.keyboardRelease(y - 200f, 0f, COMMIT, FLING));
+
+        BorderDrag down = pressed(MID_X, y);
+        assertEquals(BorderDrag.Claim.KEYBOARD, down.move(MID_X, y + 200f));
+        assertEquals(BorderDrag.KeyboardSwipe.CLOSE,
+            down.keyboardRelease(y + 200f, 0f, COMMIT, FLING));
+    }
+
+    @Test
+    public void aVerticalSwipeFromTheTopPillsBoxIsTheStatusBars() {
+        float y = TOP + 20f;
+        assertEquals(BorderDrag.Border.TOP, BorderDrag.pillAt(MID_X, y, pillZone(MID_X)));
+        BorderDrag down = pressed(MID_X, y);
+        assertTrue(down.isStatusEligible());
+        assertFalse(down.isKeyboardEligible());
+        assertEquals(BorderDrag.Border.TOP, down.border());
+        assertEquals(BorderDrag.Claim.STATUS, down.move(MID_X, y + 200f));
+        assertEquals(BorderDrag.StatusSwipe.EXPAND,
+            down.statusRelease(y + 200f, 0f, COMMIT, FLING));
+
+        BorderDrag up = pressed(MID_X, y);
+        assertEquals(BorderDrag.Claim.STATUS, up.move(MID_X, y - 200f));
+        assertEquals(BorderDrag.StatusSwipe.COLLAPSE,
+            up.statusRelease(y - 200f, 0f, COMMIT, FLING));
+    }
+
+    @Test
+    public void aStillFingerInAPillsBoxIsTheContentsAtTheHoldAndNeverPages() {
+        float[][] presses = {{MID_X, BOTTOM - 20f}, {MID_X, TOP + 20f}};
+        for (float[] p : presses) {
+            BorderDrag drag = pressed(p[0], p[1]);
+            assertTrue(drag.isArmed());
+            assertFalse("the hold never pages from inside the page", drag.holdElapsed());
+            assertFalse(drag.isPaging());
+            assertEquals(BorderDrag.Claim.ABANDONED, drag.claim());
+            // Its long press goes on to a selection drag, never the swipe.
+            assertEquals(BorderDrag.Claim.ABANDONED, drag.move(p[0], p[1] - 300f));
+            assertEquals(BorderDrag.KeyboardSwipe.NONE,
+                drag.keyboardRelease(p[1] - 300f, 0f, COMMIT, FLING));
+        }
+    }
+
+    @Test
+    public void aSidewaysStartOrASecondFingerInAPillsBoxIsGivenUp() {
+        float[][] presses = {{MID_X, BOTTOM - 20f}, {MID_X, TOP + 20f}};
+        for (float[] p : presses) {
+            BorderDrag sideways = pressed(p[0], p[1]);
+            assertEquals(BorderDrag.Claim.ABANDONED, sideways.move(p[0] + SLOP + 5f, p[1] - 6f));
+            assertEquals(BorderDrag.Claim.ABANDONED, sideways.move(p[0] + 50f, p[1] - 300f));
+            assertFalse(sideways.holdElapsed());
+            assertEquals(BorderDrag.Claim.ABANDONED, pressed(p[0], p[1]).secondPointer());
+        }
+    }
+
+    @Test
+    public void theBoxIsAsWideAndAsDeepAsItSaysAndNoMore() {
+        BorderDrag.Zone zone = pillZone(MID_X);
+        // Sideways: from its left edge up to just short of its right one, at either pill.
+        for (float y : new float[] {BOTTOM - 1f, TOP}) {
+            assertTrue(pressed(PILL_LEFT, y).isArmed());
+            assertTrue(pressed(PILL_RIGHT - 1f, y).isArmed());
+            assertFalse("just left of the box", pressed(PILL_LEFT - 1f, y).isArmed());
+            assertFalse("just right of the box", pressed(PILL_RIGHT, y).isArmed());
+            assertEquals(BorderDrag.Border.NONE, BorderDrag.pillAt(PILL_LEFT - 1f, y, zone));
+        }
+        // Into the page: the reach, and not a pixel past it.
+        assertTrue(pressed(MID_X, BOTTOM - PILL_REACH).isArmed());
+        assertFalse(pressed(MID_X, BOTTOM - PILL_REACH - 1f).isArmed());
+        assertTrue(pressed(MID_X, TOP + PILL_REACH - 1f).isArmed());
+        assertFalse(pressed(MID_X, TOP + PILL_REACH).isArmed());
+        assertFalse("the page's middle", pressed(MID_X, MID_Y).isArmed());
+
+        float[] box = new float[4];
+        assertTrue(zone.pillBounds(BorderDrag.Border.BOTTOM, box));
+        assertArrayEquals(new float[] {PILL_LEFT, BOTTOM - PILL_REACH, PILL_RIGHT, BOTTOM}, box,
+            0.01f);
+        assertTrue(zone.pillBounds(BorderDrag.Border.TOP, box));
+        assertArrayEquals(new float[] {PILL_LEFT, TOP, PILL_RIGHT, TOP + PILL_REACH}, box, 0.01f);
+        assertFalse("the sides have no pill", zone.pillBounds(BorderDrag.Border.LEFT, box));
+        assertFalse("no pills set, no box", zone(GAP).pillBounds(BorderDrag.Border.BOTTOM, box));
+    }
+
+    @Test
+    public void theBoxFollowsThePillAndStaysBetweenTheCornerSquares() {
+        // A pill drawn 100 right of the page's middle, as on a page caught mid-slide.
+        float centre = MID_X + 100f;
+        BorderDrag.Zone moved = pillZone(centre);
+        assertEquals(BorderDrag.Border.BOTTOM,
+            BorderDrag.pillAt(centre + PILL_WIDTH / 2f - 1f, BOTTOM - 1f, moved));
+        assertEquals(BorderDrag.Border.NONE,
+            BorderDrag.pillAt(centre - PILL_WIDTH / 2f - 1f, BOTTOM - 1f, moved));
+        // A pill near the page's left end: the box stops at the corner square.
+        BorderDrag.Zone nearCorner = pillZone(LEFT + 60f);
+        assertEquals(BorderDrag.Border.NONE,
+            BorderDrag.pillAt(LEFT + CORNER - 1f, BOTTOM - 1f, nearCorner));
+        assertEquals(BorderDrag.Border.BOTTOM,
+            BorderDrag.pillAt(LEFT + CORNER, BOTTOM - 1f, nearCorner));
+        float[] box = new float[4];
+        assertTrue(nearCorner.pillBounds(BorderDrag.Border.BOTTOM, box));
+        assertEquals(LEFT + CORNER, box[0], 0.01f);
+        assertEquals(LEFT + 60f + PILL_WIDTH / 2f, box[2], 0.01f);
+        // A page no wider than its two corner squares has no room for a box at all.
+        BorderDrag.Zone narrow = new BorderDrag.Zone().page(LEFT, TOP, LEFT + 2f * CORNER, BOTTOM)
+            .gaps(GAP, GAP, GAP, GAP).minBand(MIN_BAND).corner(CORNER)
+            .pills(LEFT + CORNER, PILL_WIDTH, PILL_REACH);
+        assertFalse(narrow.pillBounds(BorderDrag.Border.BOTTOM, box));
+    }
+
+    @Test
+    public void theBoxNeverReachesPastTheMiddleOfAShortPage() {
+        BorderDrag.Zone shortPage = new BorderDrag.Zone().page(LEFT, TOP, RIGHT, TOP + 60f)
+            .gaps(GAP, GAP, GAP, GAP).minBand(MIN_BAND).corner(0f)
+            .pills(MID_X, PILL_WIDTH, PILL_REACH);
+        assertEquals(BorderDrag.Border.BOTTOM, BorderDrag.pillAt(MID_X, TOP + 30f, shortPage));
+        assertEquals(BorderDrag.Border.TOP, BorderDrag.pillAt(MID_X, TOP + 29f, shortPage));
+    }
+
+    @Test
+    public void aSwipeThatIsOffHasNoBox() {
+        float bottom = BOTTOM - 20f;
+        float top = TOP + 20f;
+        // The keyboard's off: its box arms nothing, even on a wall that can page.
+        assertFalse(armed(MID_X, bottom, pillZone(MID_X), true, false, true, NO_LIMIT).isArmed());
+        assertTrue(armed(MID_X, top, pillZone(MID_X), true, false, true, NO_LIMIT).isArmed());
+        // The status bar's off: likewise for its box.
+        assertFalse(armed(MID_X, top, pillZone(MID_X), true, true, false, NO_LIMIT).isArmed());
+        assertTrue(armed(MID_X, bottom, pillZone(MID_X), true, true, false, NO_LIMIT).isArmed());
+        // Both off: nothing in either box.
+        assertFalse(armed(MID_X, bottom, pillZone(MID_X), true, false, false, NO_LIMIT)
+            .isArmed());
+        assertFalse(armed(MID_X, top, pillZone(MID_X), true, false, false, NO_LIMIT).isArmed());
+    }
+
+    @Test
+    public void theTopPillsBoxStillStaysBelowThePhonesStrip() {
+        // The phone's own strip reaches down to TOP + 30, into the box.
+        float limit = TOP + 30f;
+        BorderDrag inStrip = armed(MID_X, TOP + 20f, pillZone(MID_X), true, true, true, limit);
+        assertFalse("never taken for the bar", inStrip.isArmed());
+        BorderDrag below = armed(MID_X, TOP + 35f, pillZone(MID_X), true, true, true, limit);
+        assertTrue(below.isStatusEligible());
+        assertEquals(BorderDrag.Claim.STATUS, below.move(MID_X, TOP + 235f));
+    }
+
+    @Test
+    public void theMinimumBandStillPagesWhereItOverlapsTheBox() {
+        // Margin 0: the band reaches MIN_BAND into the page, the box PILL_REACH.
+        BorderDrag.Zone flush = zone(0f).pills(MID_X, PILL_WIDTH, PILL_REACH);
+        BorderDrag inBand = armed(MID_X, BOTTOM - MIN_BAND + 1f, flush, true, true, true,
+            NO_LIMIT);
+        assertTrue("the band's hold pages as before", inBand.holdElapsed());
+        BorderDrag pastBand = armed(MID_X, BOTTOM - MIN_BAND - 1f, flush, true, true, true,
+            NO_LIMIT);
+        assertTrue(pastBand.isKeyboardEligible());
+        assertFalse("past the band only the swipe is taken", pastBand.holdElapsed());
     }
 }

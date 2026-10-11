@@ -35,6 +35,13 @@ import androidx.annotation.NonNull;
  * phone's own pull for its notification shade starts in the strip at the top of the screen, and
  * a press there is never taken for the bar.
  *
+ * <p>The air alone is a thin target, so both swipes also start near their grabber pills
+ * ({@link BorderGrabber}), about a row into the page: a box {@link #PILL_SWIPE_WIDTH_DP} wide,
+ * centred on the pill, reaching {@link #PILL_SWIPE_REACH_DP} in from the page's bottom edge for
+ * the keyboard and from its top edge for the status bar ({@link #pillAt}). Only the vertical swipe
+ * is taken there. The hold never pages from it, so a still finger is the content's long press, and
+ * a tap, a mouse click or a sideways drag in it reach the content as anywhere else on the page.
+ *
  * <p>The hold is timed by whoever owns the finger; this class only says whether a hold that has
  * elapsed may claim ({@link #holdElapsed}). Pure, so the zone, the hold and the drag can be
  * tested without a view; one instance is reused across gestures, so a swipe allocates nothing.</p>
@@ -47,6 +54,19 @@ public final class BorderDrag {
      * shortfall, so the border can still be found; at the default Margin nothing reaches in.
      */
     public static final float MIN_BAND_DP = 6f;
+
+    /**
+     * How wide the box by each grabber pill is, in dp, where the keyboard's or the status bar's
+     * swipe also starts inside the page ({@link Zone#pills}). Never wider than the page between
+     * its corner squares.
+     */
+    public static final float PILL_SWIPE_WIDTH_DP = 120f;
+
+    /**
+     * How far inside the page's edge the box by each grabber pill reaches, in dp: about a row of
+     * the terminal at its usual size.
+     */
+    public static final float PILL_SWIPE_REACH_DP = 16f;
 
     /** How far a keyboard swipe has to travel to open or close the keyboard, in dp. */
     public static final float KEYBOARD_COMMIT_DP = 32f;
@@ -85,8 +105,9 @@ public final class BorderDrag {
     public enum StatusSwipe { NONE, EXPAND, COLLAPSE }
 
     /**
-     * Where the borders are: the page's edges, the air outside each of them, the minimum band and
-     * the corner squares. Mutable so the owner can keep one and refill it on every press.
+     * Where the borders are: the page's edges, the air outside each of them, the minimum band, the
+     * corner squares and the boxes by the grabber pills. Mutable so the owner can keep one and
+     * refill it on every press.
      */
     public static final class Zone {
         float mLeft;
@@ -99,6 +120,11 @@ public final class BorderDrag {
         float mGapBottom;
         float mMinBand;
         float mCorner;
+        float mPillCentreX;
+        float mPillWidth;
+        float mPillReach;
+        /** Scratch for {@link #inPill}, so a press allocates nothing. */
+        private final float[] mPillBox = new float[4];
 
         /** The page's edges, as it stands now (its slide applied). */
         @NonNull
@@ -134,6 +160,20 @@ public final class BorderDrag {
         @NonNull
         public Zone corner(float px) {
             mCorner = Math.max(0f, px);
+            return this;
+        }
+
+        /**
+         * The boxes by the grabber pills, where a vertical swipe also starts inside the page:
+         * centred sideways on {@code centreX}, the pills' centre as drawn (both pills sit on the
+         * same page, so they share it), {@code width} px wide and reaching {@code reach} px in from
+         * the page's bottom and top edges. A width or reach of 0, the default, leaves no box.
+         */
+        @NonNull
+        public Zone pills(float centreX, float width, float reach) {
+            mPillCentreX = centreX;
+            mPillWidth = Math.max(0f, width);
+            mPillReach = Math.max(0f, reach);
             return this;
         }
 
@@ -193,6 +233,41 @@ public final class BorderDrag {
             return true;
         }
 
+        /**
+         * The box by the pill on {@code side} ({@link Border#BOTTOM} or {@link Border#TOP}) as
+         * {@code left, top, right, bottom} in {@code out}: inside the page, from its edge in by the
+         * reach (never past the middle of the page), and between the corner squares. False, with
+         * {@code out} untouched, where there is no box.
+         */
+        public boolean pillBounds(@NonNull Border side, @NonNull float[] out) {
+            if (mRight <= mLeft || mBottom <= mTop) return false;
+            if (!(mPillWidth > 0f) || !(mPillReach > 0f)) return false;
+            float corner = cornerSize();
+            float l = Math.max(mLeft + corner, mPillCentreX - mPillWidth / 2f);
+            float r = Math.min(mRight - corner, mPillCentreX + mPillWidth / 2f);
+            float reach = Math.min(mPillReach, (mBottom - mTop) / 2f);
+            float t;
+            float b;
+            switch (side) {
+                case TOP: t = mTop; b = mTop + reach; break;
+                case BOTTOM: t = mBottom - reach; b = mBottom; break;
+                default: return false;
+            }
+            if (r <= l || b <= t) return false;
+            out[0] = l;
+            out[1] = t;
+            out[2] = r;
+            out[3] = b;
+            return true;
+        }
+
+        /** Whether {@code (x, y)} lies in the box by the pill on {@code side}. */
+        boolean inPill(@NonNull Border side, float x, float y) {
+            float[] box = mPillBox;
+            return pillBounds(side, box)
+                && x >= box[0] && x < box[2] && y >= box[1] && y < box[3];
+        }
+
         /** The corner squares' side, never more than half of the page either way. */
         private float cornerSize() {
             return Math.min(mCorner, Math.min(mRight - mLeft, mBottom - mTop) / 2f);
@@ -242,9 +317,24 @@ public final class BorderDrag {
     }
 
     /**
+     * Which pill's box ({@link Zone#pills}) the point {@code (x, y)} lies in, inside the page:
+     * {@link Border#BOTTOM} for the keyboard's, {@link Border#TOP} for the status bar's, and
+     * {@link Border#NONE} anywhere else. Like the page itself, a box holds its left and top edges
+     * and stops just short of its right and bottom ones.
+     */
+    @NonNull
+    public static Border pillAt(float x, float y, @NonNull Zone zone) {
+        if (zone.inPill(Border.BOTTOM, x, y)) return Border.BOTTOM;
+        if (zone.inPill(Border.TOP, x, y)) return Border.TOP;
+        return Border.NONE;
+    }
+
+    /**
      * The finger landed at {@code (x, y)}. Arms the drag when the point presses a border of
-     * {@code zone} (see {@link #borderAt}) that the press can do something on; otherwise the
-     * gesture is not this one and every later call is a no-op.
+     * {@code zone} (see {@link #borderAt}) that the press can do something on, or lies in a pill's
+     * box ({@link #pillAt}) whose swipe is on; otherwise the gesture is not this one and every
+     * later call is a no-op. A press in a pill's box may only become that pill's swipe: its hold
+     * never pages, so a still finger there is given up to the content at the hold.
      *
      * @param canPage whether the hold may page the wall: it has another place to go
      * @param keyboardSwipe whether a vertical swipe from the bottom border is the keyboard's
@@ -261,10 +351,12 @@ public final class BorderDrag {
         mSlop = Math.max(0f, slopPx);
         mBorder = borderAt(x, y, zone);
         mHoldPages = canPage && mBorder != Border.NONE;
-        mKeyboardEligible = keyboardSwipe && mBorder == Border.BOTTOM;
-        mStatusEligible = statusSwipe && mBorder == Border.TOP && !(y < statusTopLimit);
+        // Off the border, the pills' boxes inside the page carry the vertical swipes alone.
+        Border swipeSide = mBorder != Border.NONE ? mBorder : pillAt(x, y, zone);
+        mKeyboardEligible = keyboardSwipe && swipeSide == Border.BOTTOM;
+        mStatusEligible = statusSwipe && swipeSide == Border.TOP && !(y < statusTopLimit);
         boolean armed = mHoldPages || mKeyboardEligible || mStatusEligible;
-        if (!armed) mBorder = Border.NONE;
+        mBorder = !armed ? Border.NONE : mHoldPages ? mBorder : swipeSide;
         mClaim = armed ? Claim.PENDING : Claim.NONE;
         return armed;
     }
@@ -291,9 +383,9 @@ public final class BorderDrag {
     /**
      * The hold time passed. A finger that travelled or was joined has already given the gesture
      * up through {@link #move} or {@link #secondPointer}, so a still pending press is a still one.
-     * Where the hold may not page — a wall of one place — a still finger is given up, and where
-     * the zone reaches into the page it is the content's long press. A later vertical move can
-     * then no longer turn into the keyboard's or the status bar's swipe.
+     * Where the hold may not page — a wall of one place, or a press in a pill's box — a still
+     * finger is given up, and inside the page it is the content's long press. A later vertical
+     * move can then no longer turn into the keyboard's or the status bar's swipe.
      *
      * @return true when the wall just claimed the finger, and the content is owed a cancel
      */
@@ -372,8 +464,8 @@ public final class BorderDrag {
     }
 
     /**
-     * True from a DOWN in the status bar swipe's zone — the top border, below the phone's own
-     * strip — until the lift, whichever way the claim went.
+     * True from a DOWN in the status bar swipe's zone — the top border or the box by its pill,
+     * below the phone's own strip — until the lift, whichever way the claim went.
      */
     public boolean isStatusEligible() {
         return mStatusEligible;
@@ -385,8 +477,8 @@ public final class BorderDrag {
     }
 
     /**
-     * True from a DOWN in the keyboard swipe's zone — the bottom border — until the lift,
-     * whichever way the claim went.
+     * True from a DOWN in the keyboard swipe's zone — the bottom border or the box by its pill —
+     * until the lift, whichever way the claim went.
      */
     public boolean isKeyboardEligible() {
         return mKeyboardEligible;

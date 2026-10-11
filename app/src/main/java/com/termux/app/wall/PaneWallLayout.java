@@ -115,7 +115,8 @@ public final class PaneWallLayout extends ViewGroup {
         default boolean isPlankTiltEnabled(@NonNull PaneWallPage page) { return false; }
         /**
          * Whether a vertical swipe off the current page's bottom border — from the air between the
-         * page's foot and the wall's ({@link BorderDrag}) — is the keyboard's; asked as each
+         * page's foot and the wall's, or a row into the page by the grabber
+         * ({@link BorderDrag}) — is the keyboard's; asked as each
          * finger lands, and by the grabber that marks the border ({@link BorderGrabber}), which is
          * drawn only while it is.
          */
@@ -144,7 +145,8 @@ public final class PaneWallLayout extends ViewGroup {
         default void onKeyboardRevealEnd(boolean open) { }
         /**
          * Whether a vertical swipe off the current page's top border — from the air between the
-         * wall's top and the page's ({@link BorderDrag}) — drives the status bar's fold: only
+         * wall's top and the page's, or a row into the page by the grabber
+         * ({@link BorderDrag}) — drives the status bar's fold: only
          * where the bar stands along the top and can unfold. Asked as each finger lands, and by
          * the top grabber on every frame the wall draws, so it has to be cheap.
          */
@@ -665,9 +667,10 @@ public final class PaneWallLayout extends ViewGroup {
      * it had begun, and every later event is read here and goes no further.
      *
      * <p>The keyboard swipe is claimed the same way, by the move rather than by the timer: a
-     * finger that sets off up or down from the bottom border before the hold is the keyboard's
-     * ({@link BorderDrag#move}). Where the listener can move the keyboard with it, the keyboard
-     * follows the finger and the lift settles it ({@link KeyboardReveal}); elsewhere the lift
+     * finger that sets off up or down from the bottom border, or from the box by its grabber a row
+     * into the page, before the hold is the keyboard's ({@link BorderDrag#move}). Where the
+     * listener can move the keyboard with it, the keyboard follows the finger and the lift
+     * settles it ({@link KeyboardReveal}); elsewhere the lift
      * asks the listener to open or close it. The status bar's swipe off the top border is claimed
      * the same way and folds the bar under the finger ({@link #claimStatusSwipe}).
      */
@@ -799,6 +802,9 @@ public final class PaneWallLayout extends ViewGroup {
      * terms, below the phone's own strip at the top of the screen ({@link #topGestureLimit}). Every
      * one of them lives outside the current page, in the air between its edges and the wall's
      * ({@link #loadBorderZone}), so the page keeps every tap, long press and click up to its edge.
+     * The two vertical swipes also start near their grabber pills, a row into the page
+     * ({@link BorderDrag#pillAt}): the child under the finger gets the press as it does where the
+     * minimum band reaches in, and keeps it unless the finger sets off up or down before the hold.
      */
     private void armBorderDrag(@NonNull MotionEvent event) {
         releaseBorderDrag();
@@ -823,7 +829,8 @@ public final class PaneWallLayout extends ViewGroup {
      * frame line and the space before the status bar, the dock or keyboard, or the screen's edge,
      * since the wall has no padding and meets its neighbours edge to edge. The air is measured at
      * rest, so a page caught mid-slide keeps a zone of the same width rather than one reaching over
-     * the page sliding in beside it.
+     * the page sliding in beside it. The boxes by the grabber pills are centred where the pills
+     * are drawn ({@link #grabberCentreX}).
      *
      * @return false where there is no page laid out to have a border
      */
@@ -837,8 +844,20 @@ public final class PaneWallLayout extends ViewGroup {
             .gaps(page.getLeft(), page.getTop(), getWidth() - page.getRight(),
                 getHeight() - page.getBottom())
             .minBand(BorderDrag.MIN_BAND_DP * density)
-            .corner(CornerZones.paneSizePx(density));
+            .corner(CornerZones.paneSizePx(density))
+            .pills(grabberCentreX(page, slide), BorderDrag.PILL_SWIPE_WIDTH_DP * density,
+                BorderDrag.PILL_SWIPE_REACH_DP * density);
         return true;
+    }
+
+    /**
+     * Where the grabber pills of {@code page} are centred sideways, in the wall's coordinates:
+     * the page's middle, carried by {@code slide} and scaled with the page about its pivot. One
+     * answer for the drawn pills and the boxes a swipe starts in, so the two never part.
+     */
+    private static float grabberCentreX(@NonNull View page, float slide) {
+        return page.getLeft() + slide + page.getPivotX()
+            + (page.getWidth() / 2f - page.getPivotX()) * page.getScaleX();
     }
 
     /**
@@ -888,7 +907,15 @@ public final class PaneWallLayout extends ViewGroup {
      * the plank is on: the weight is what says the hold was taken.
      */
     private void onBorderHoldElapsed() {
-        if (!mBorderDrag.holdElapsed()) return;
+        if (!mBorderDrag.holdElapsed()) {
+            // A still finger the hold could not page is the content's long press from here, and
+            // a finger holding still sends no event to put a lit grabber back at rest.
+            if (mBorderDrag.claim() == BorderDrag.Claim.ABANDONED) {
+                mGrabber.setPressed(false, 0f, mReducedMotion);
+                mStatusGrabber.setPressed(false, 0f, mReducedMotion);
+            }
+            return;
+        }
         if (!mGesturesEnabled || mPages.size() <= 1) {
             mBorderDrag.abandon();
             return;
@@ -1246,8 +1273,9 @@ public final class PaneWallLayout extends ViewGroup {
     }
 
     /**
-     * A finger in the keyboard swipe's zone — pending there or holding the swipe — lights the
-     * grabber and draws it a little way along; anything else puts it back at rest.
+     * A finger in the keyboard swipe's zone — the bottom border or the box by its pill, pending
+     * there or holding the swipe — lights the grabber and draws it a little way along; the status
+     * bar's grabber answers its own zone the same way; anything else puts them back at rest.
      */
     private void syncGrabberPress(@NonNull MotionEvent event) {
         boolean pressed = mBorderDrag.isKeyboardSwipe()
@@ -1299,8 +1327,7 @@ public final class PaneWallLayout extends ViewGroup {
             if (page == null || page.getVisibility() != VISIBLE || page.getWidth() <= 0) continue;
             float visibility = PaneWallPolicy.pageOutlineAlpha(page.getTranslationX(), width);
             if (!(visibility > 0f)) continue;
-            float centreX = page.getLeft() + page.getTranslationX() + page.getPivotX()
-                + (page.getWidth() / 2f - page.getPivotX()) * page.getScaleX();
+            float centreX = grabberCentreX(page, page.getTranslationX());
             float pivotY = page.getTop() + page.getTranslationY() + page.getPivotY();
             if (bottom) {
                 float bottomY = pivotY + (page.getHeight() - page.getPivotY()) * page.getScaleY();

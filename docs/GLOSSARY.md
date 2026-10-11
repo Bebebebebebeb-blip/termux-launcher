@@ -58,10 +58,11 @@ _Avoid_: taskbar, nav bar, hotseat
 **Keyboard swipe**:
 The one way to the keyboard every place and every mode shares: a swipe that sets off up or down
 from the current page's bottom border — the frame line and the air below it down to the dock or
-keyboard, less the corner squares, never the page's last row — before the border drag's hold. Up
-opens the keyboard, down closes it; opening turns a keyboard that was switched off back on, as the
-keyboard key does. It is claimed as soon as it moves; a sideways start and a hold stay as they were.
-A docked keyboard follows the finger and the release finishes it past a third of the way or on a
+keyboard, less the corner squares — before the border drag's hold. It also starts near the grabber
+pill, one row into the page; only the swipe is taken there, so a tap, long press or sideways drag
+on that row stays the page's. Up opens the keyboard, down closes it; opening turns a keyboard
+that was switched off back on, as the keyboard key does. It is claimed as soon as it moves; a
+sideways start and a hold stay as they were. A docked keyboard follows the finger and the release finishes it past a third of the way or on a
 flick, and takes it back otherwise; a floating keyboard, Android's, and one switched off answer
 the release alone. A small **grabber** pill on the bottom border marks it.
 The keyboard itself carries no swipe of its own.
@@ -128,8 +129,9 @@ _Avoid_: screen, tab. "Page" and "wall page" are the code's word for a place (`P
 
 **Status swipe**:
 The keyboard swipe's mirror on the current page's top border: a swipe that sets off down or up
-from it — the frame line and the air above it up to the status bar, never the page's first row —
-before the border drag's hold. Down unfolds the status bar, up folds it: the bar's own
+from it — the frame line and the air above it up to the status bar — before the border drag's
+hold. Like the keyboard swipe it also starts near its grabber pill, one row into the page, and
+only the swipe is taken there. Down unfolds the status bar, up folds it: the bar's own
 two forms, compact and open, driven by the same fold its drag across itself drives, following the
 finger and landing by the keyboard swipe's rule. A grabber pill marks it. It is there only while
 the status bar stands along the top and can unfold, minimal mode included; a bar on another edge
