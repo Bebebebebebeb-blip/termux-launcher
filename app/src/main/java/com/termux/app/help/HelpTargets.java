@@ -58,6 +58,10 @@ public final class HelpTargets {
     }
     public static final class Snapshot {
         public final Rect wall;
+        /**
+         * The measured controls. One id may come more than once — the page's border is a strip
+         * along each edge — and then its first target is the one its card is seated against.
+         */
         public final List<Target> targets = new ArrayList<>();
         public final List<KeyLabel> keys = new ArrayList<>();
         Snapshot(Rect wall) { this.wall = wall; }
@@ -157,20 +161,27 @@ public final class HelpTargets {
         return s;
     }
     /**
-     * The page's border as one strip along its top edge, less the corner squares: the frame line
-     * and the air above it, from the wall's edge to the page's, where a sideways swipe changes
-     * place. The bottom edge takes the same swipe and the sides take a hold and drag; the top one
-     * is shown because the bottom edge already carries the dock and the keyboard swipe's pill, and
-     * a card for the border there would have nowhere to stand. The card's text names both.
+     * The page's border as two strips, one along its top edge and one along its bottom, less the
+     * corner squares: the frame line and the air beside it, from the wall's edge to the page's,
+     * where a hold and a sideways swipe change place. Both edges take that gesture, so both are
+     * measured, under the one id and the top first: the topic's card, marker and demonstration sit
+     * on the top strip, and the bottom one is reached by a second leader from the same card. The
+     * bottom strip runs under the keyboard swipe's pill, which is measured as a control of its own
+     * and drawn over the strip.
      */
     private void pageBorder(Snapshot s, Rect wall) {
         View wallView = finder.findHelpView(R.id.terminal_pane_wall);
         if (!(wallView instanceof PaneWallLayout)) return;
-        Rect strip = new Rect();
-        if (!((PaneWallLayout) wallView).borderZone(BorderDrag.Border.TOP, strip)) return;
-        strip.offset(wall.left, wall.top);
-        add(s, "border", strip, 0);
+        for (BorderDrag.Border side : PLACE_BORDERS) {
+            Rect strip = new Rect();
+            if (!((PaneWallLayout) wallView).borderZone(side, strip)) continue;
+            strip.offset(wall.left, wall.top);
+            add(s, "border", strip, 0);
+        }
     }
+    /** The borders a hold and a sideways swipe change place from, in the order they are measured. */
+    private static final BorderDrag.Border[] PLACE_BORDERS =
+        {BorderDrag.Border.TOP, BorderDrag.Border.BOTTOM};
 
     /**
      * The pill on the page's bottom border that marks the keyboard swipe, where the wall draws
