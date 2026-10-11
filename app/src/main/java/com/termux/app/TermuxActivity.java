@@ -19312,14 +19312,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // Each is put back to nothing on the other axis: a column's top padding carried over into
         // a row once, and pushed the row's chips down out of their 24dp.
         boolean vertical = isStatusBarVertical();
-        // The strip's own trailing padding turns with it too. Left standing across a column it is
-        // width the chips do not have — a 26dp chip in a 34dp column — so they slide off the
-        // bar's centre line and the capsule's curve clips them.
-        int trailing = Math.max(strip.getPaddingEnd(), strip.getPaddingBottom());
+        // A column keeps a foot under its chips. A row keeps nothing at its end: the window bar
+        // owns the gap before the readings there (StatusRowLayout), and a strip padding on top of
+        // it was dead space between the chips and the CPU figure. Neither is carried across: a
+        // trailing padding left standing across a column is width the chips do not have — a 26dp
+        // chip in a 34dp column — so they slide off the bar's centre line and the curve clips them.
         int start = vertical ? 0 : lens;
         int top = vertical ? lens : 0;
-        int end = vertical ? 0 : trailing;
-        int bottom = vertical ? trailing : 0;
+        int end = 0;
+        int bottom = vertical
+            ? Math.round(dpToPx(com.termux.app.statusbar.PlaceContentStrip.COLUMN_FOOT_DP)) : 0;
         if (strip.getPaddingStart() != start || strip.getPaddingTop() != top
             || strip.getPaddingEnd() != end || strip.getPaddingBottom() != bottom) {
             strip.setPaddingRelative(start, top, end, bottom);
