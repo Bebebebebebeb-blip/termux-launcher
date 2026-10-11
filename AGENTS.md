@@ -95,7 +95,9 @@ and the developer use. The three words you need before you open it:
    `app/build.gradle` (the v0.2.31 hotfix): applicationId, manifest placeholders and ABI rules are
    the only thing an edition branch owns, and a merge that takes `dev`'s side of that file silently
    ships the wrong app. Expect conflicts in `app/build.gradle` and `app/src/main/res/values/strings.xml`
-   on every cut; resolve identity and `versionName` to the edition's side. Diff `app/build.gradle`
+   on every cut, and in `.github/workflows/debug_build.yml` whenever `dev` touched its push
+   trigger (each edition names its own branch there); resolve identity, `versionName` and the
+   trigger to the edition's side. Diff `app/build.gradle`
    against the previous edition tag before tagging; the workflow's manifest guard is the backstop,
    not the check.
 

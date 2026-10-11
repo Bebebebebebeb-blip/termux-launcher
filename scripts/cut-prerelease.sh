@@ -67,12 +67,10 @@ git rev-parse --verify --quiet "refs/heads/pre" >/dev/null || die "branch pre do
 for b in "${EXTRA[@]}"; do
     git rev-parse --verify --quiet "$b^{commit}" >/dev/null || die "branch '$b' does not exist"
 done
+# A tag on origin means N was used; a local one is a dry run's or an interrupted run's, and is
+# accepted below only where it already points at the commit this run would tag.
 for e in "${EDITIONS[@]}"; do
-    t="$(tag_of "$e")"
-    if git rev-parse --verify --quiet "refs/tags/$t" >/dev/null; then
-        die "tag $t already exists locally; N is never reused (a dry run's tags: git tag -d $t)"
-    fi
-    git ls-remote --exit-code --tags origin "refs/tags/$t" >/dev/null 2>&1 && die "tag $t already exists on origin; N is never reused"
+    git ls-remote --exit-code --tags origin "refs/tags/$(tag_of "$e")" >/dev/null 2>&1 && die "tag $(tag_of "$e") already exists on origin; N is never reused"
 done
 if [ -n "$(git status --porcelain -- "$GRADLE" "$NOTES")" ]; then
     echo "cut-prerelease: warning: uncommitted changes to $GRADLE or $NOTES in this checkout are not part of the drop (it builds from '$BASE')." >&2
@@ -88,9 +86,22 @@ set_version() { # <dir> <version> <message>
     grep -qE "^\s+versionName \"$2\"$" "$1/$GRADLE" || die "failed to set versionName in $1/$GRADLE"
     git -C "$1" commit -q -am "$3"
 }
-# Merges <ref> into the worktree's branch unless it is already in; a conflict stops the script.
+# Tags the worktree's HEAD; an existing local tag is fine only when it already sits there.
+tag_head() { # <dir> <tag>
+    if git rev-parse --verify --quiet "refs/tags/$2" >/dev/null; then
+        [ "$(git rev-parse "refs/tags/$2^{commit}")" = "$(git -C "$1" rev-parse HEAD)" ] \
+            || die "local tag $2 points elsewhere than $1's HEAD; a stale dry run? git tag -d $2 and re-run"
+        return 0
+    fi
+    git -C "$1" tag -a "$2" -m "$2"
+}
+version_of_ref() { git show "$1:$GRADLE" | grep -m1 -E '^\s+versionName "' | sed -r 's/.*"([^"]+)".*/\1/'; }
+# Merges <ref> into the worktree's branch unless it is already in. The branch's versionName is
+# first set to <ref>'s, so that one line (which every release: commit rewrites) never conflicts;
+# a real conflict stops the script with the merge left in place.
 merge_into() { # <dir> <ref> <what>
     if git -C "$1" merge-base --is-ancestor "$2" HEAD; then return 0; fi
+    set_version "$1" "$(version_of_ref "$2")" "chore: align versionName with $3 for the merge"
     if ! git -C "$1" merge --no-ff --no-edit "$2" >/dev/null; then
         echo "cut-prerelease: merging $3 into $(git -C "$1" rev-parse --abbrev-ref HEAD) conflicts in:" >&2
         git -C "$1" diff --name-only --diff-filter=U >&2
@@ -115,9 +126,6 @@ worktree_on "$PRE_WT" pre
 if [ -n "$EDITION_REF" ] && ! git -C "$PRE_WT" merge -q --ff-only origin/pre 2>/dev/null; then
     die "local pre and origin/pre have diverged; reconcile them first"
 fi
-# The last drop left versionName at its own X.Y.Z-pre.N; aligning it with base's before the merge
-# keeps that one line from conflicting every time dev bumps.
-set_version "$PRE_WT" "$(version_in "$ROOT")" "chore: align versionName with $BASE for the drop"
 merge_into "$PRE_WT" "$BASE" "$BASE"
 for b in "${EXTRA[@]}"; do merge_into "$PRE_WT" "$b" "branch '$b'"; done
 [ -f "$PRE_WT/$NOTES" ] || die "$NOTES is missing from pre"
@@ -126,7 +134,7 @@ if ! grep -qE '^- ' "$PRE_WT/$NOTES" || grep -qE '^- Nothing yet' "$PRE_WT/$NOTE
 fi
 if [[ " ${EDITIONS[*]} " == *" termux "* ]]; then
     set_version "$PRE_WT" "$VERSION" "release: v$VERSION"
-    git -C "$PRE_WT" tag -a "v$VERSION" -m "v$VERSION"
+    tag_head "$PRE_WT" "v$VERSION"
     echo "pre = $(git -C "$PRE_WT" rev-parse --short HEAD) (base $BASE at $(git rev-parse --short "$BASE")), tag v$VERSION"
 fi
 PRE_HEAD="$(git -C "$PRE_WT" rev-parse HEAD)"
@@ -136,13 +144,11 @@ for e in "${EDITIONS[@]}"; do
     [ "$e" = termux ] && continue
     wt="$WT_DIR/$(branch_of "$e")"
     worktree_on "$wt" "$(branch_of "$e")" "$(src_of "$e")"
-    # Aligning the edition's versionName with pre's first keeps that line from conflicting.
-    set_version "$wt" "$(version_in "$PRE_WT")" "chore: align versionName with pre for the drop"
     merge_into "$wt" "$PRE_HEAD" "pre"
     got="$(grep -m1 -E '^\s+applicationId\s' "$wt/$GRADLE" | sed -r 's/.*"([^"]+)".*/\1/')"
     [ "$got" = "$(appid_of "$e")" ] || die "$(branch_of "$e") has applicationId '$got', expected '$(appid_of "$e")'; the merge took the wrong identity"
     [ "$(version_in "$wt")" = "$VERSION" ] || die "$(branch_of "$e") has versionName '$(version_in "$wt")', expected '$VERSION'"
-    git -C "$wt" tag -a "$(tag_of "$e")" -m "$(tag_of "$e")"
+    tag_head "$wt" "$(tag_of "$e")"
     echo "$(branch_of "$e") = $(git -C "$wt" rev-parse --short HEAD) from $(src_of "$e"), tag $(tag_of "$e")"
 done
 echo "notes = $PRE_WT/$NOTES (same content on every edition)"
