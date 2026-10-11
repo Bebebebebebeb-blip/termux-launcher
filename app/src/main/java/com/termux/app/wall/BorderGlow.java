@@ -1,9 +1,11 @@
 package com.termux.app.wall;
 
 import android.graphics.Canvas;
+import android.graphics.ComposeShader;
 import android.graphics.LinearGradient;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.view.View;
@@ -11,7 +13,6 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.termux.app.chrome.CornerZones;
 
 /**
  * The hold's glow: the border a finger holds, lit along that one edge of the page, so the hold
@@ -44,6 +45,11 @@ public final class BorderGlow {
      * the same reach the side borders take into it.
      */
     public static final float INSET_DP = BorderDrag.SIDE_REACH_DP;
+    /**
+     * How far from each end of the edge it fades to nothing, in dp: the default corner radius, so
+     * the glow runs the whole edge and dims into the rounded corner instead of standing past it.
+     */
+    public static final float TAPER_DP = 24f;
 
     private enum Phase { REST, RISING, FULL, FADING }
 
@@ -192,7 +198,16 @@ public final class BorderGlow {
         mMatrix.postTranslate(down ? 0f : inner, down ? inner : 0f);
         Shader shader = down ? mDown : mAcross;
         shader.setLocalMatrix(mMatrix);
-        mPaint.setShader(shader);
+        // The ends fade along the edge: the lit-to-clear gradient across it, kept only where the
+        // taper along it is opaque. Built per frame, and frames only run while it changes.
+        float length = down ? mRect.width() : mRect.height();
+        float taper = taperStop(TAPER_DP * density, length);
+        int[] mask = {0x00000000, 0xFF000000, 0xFF000000, 0x00000000};
+        float[] at = {0f, taper, 1f - taper, 1f};
+        Shader along = down
+            ? new LinearGradient(mRect.left, 0f, mRect.right, 0f, mask, at, Shader.TileMode.CLAMP)
+            : new LinearGradient(0f, mRect.top, 0f, mRect.bottom, mask, at, Shader.TileMode.CLAMP);
+        mPaint.setShader(new ComposeShader(shader, along, PorterDuff.Mode.DST_IN));
         mPaint.setAlpha(Math.round(255f * alpha(level, visibility)));
         float radius = Math.min(mRect.width(), mRect.height()) / 2f;
         canvas.drawRoundRect(mRect, radius, radius, mPaint);
@@ -223,8 +238,8 @@ public final class BorderGlow {
     /**
      * The band along {@code side} of a page drawn at {@code left, top, right, bottom} and
      * {@code scale}: from {@link #INSET_DP} inside the edge to {@link #SPREAD_DP} outside it, and
-     * along the edge between the corner squares. False, with {@code out} untouched, where there
-     * is none.
+     * along the whole edge, corner to corner ({@link #TAPER_DP} fades its ends). False, with
+     * {@code out} untouched, where there is none.
      */
     static boolean band(@NonNull RectF out, @NonNull BorderDrag.Border side, float left, float top,
                         float right, float bottom, float scale, float density) {
@@ -232,30 +247,37 @@ public final class BorderGlow {
         float s = Float.isNaN(scale) || scale <= 0f ? 1f : scale;
         float inset = INSET_DP * density * s;
         float spread = SPREAD_DP * density * s;
-        float corner = Math.min(CornerZones.paneSizePx(density) * s,
-            Math.min(right - left, bottom - top) / 2f);
         float l;
         float t;
         float r;
         float b;
         switch (side) {
             case TOP:
-                l = left + corner; r = right - corner; t = top - spread; b = top + inset;
+                l = left; r = right; t = top - spread; b = top + inset;
                 break;
             case BOTTOM:
-                l = left + corner; r = right - corner; t = bottom - inset; b = bottom + spread;
+                l = left; r = right; t = bottom - inset; b = bottom + spread;
                 break;
             case LEFT:
-                l = left - spread; r = left + inset; t = top + corner; b = bottom - corner;
+                l = left - spread; r = left + inset; t = top; b = bottom;
                 break;
             case RIGHT:
-                l = right - inset; r = right + spread; t = top + corner; b = bottom - corner;
+                l = right - inset; r = right + spread; t = top; b = bottom;
                 break;
             default: return false;
         }
         if (!(r > l) || !(b > t)) return false;
         out.set(l, t, r, b);
         return true;
+    }
+
+    /**
+     * Where along an edge of {@code lengthPx} the fade at each end stops, as a fraction: the taper
+     * over the length, never past the middle, so a short edge still peaks once.
+     */
+    static float taperStop(float taperPx, float lengthPx) {
+        if (!(lengthPx > 0f)) return 0.5f;
+        return Math.min(0.5f, Math.max(0f, taperPx) / lengthPx);
     }
 
     private static float clamp01(float value) {

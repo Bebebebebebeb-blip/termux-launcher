@@ -12,7 +12,6 @@ import android.graphics.RectF;
 import android.os.Build;
 import android.view.View;
 
-import com.termux.app.chrome.CornerZones;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -164,25 +163,22 @@ public class BorderGlowTest {
     // ---- Where it is drawn -----------------------------------------------------------------------
 
     @Test
-    public void itLiesAlongTheHeldEdgeFromTheClearanceOutIntoTheAirShortOfTheCorners() {
+    public void itLiesAlongTheWholeHeldEdgeFromTheClearanceOutIntoTheAir() {
         RectF band = new RectF();
-        float corner = CornerZones.paneSizePx(DENSITY);
         float inset = BorderGlow.INSET_DP * DENSITY;
         float spread = BorderGlow.SPREAD_DP * DENSITY;
         assertTrue(BorderGlow.band(band, BorderDrag.Border.BOTTOM, 100f, 200f, 1000f, 1800f, 1f,
             DENSITY));
-        assertEquals(new RectF(100f + corner, 1800f - inset, 1000f - corner, 1800f + spread),
-            band);
+        assertEquals(new RectF(100f, 1800f - inset, 1000f, 1800f + spread), band);
         assertTrue(BorderGlow.band(band, BorderDrag.Border.TOP, 100f, 200f, 1000f, 1800f, 1f,
             DENSITY));
-        assertEquals(new RectF(100f + corner, 200f - spread, 1000f - corner, 200f + inset), band);
+        assertEquals(new RectF(100f, 200f - spread, 1000f, 200f + inset), band);
         assertTrue(BorderGlow.band(band, BorderDrag.Border.LEFT, 100f, 200f, 1000f, 1800f, 1f,
             DENSITY));
-        assertEquals(new RectF(100f - spread, 200f + corner, 100f + inset, 1800f - corner), band);
+        assertEquals(new RectF(100f - spread, 200f, 100f + inset, 1800f), band);
         assertTrue(BorderGlow.band(band, BorderDrag.Border.RIGHT, 100f, 200f, 1000f, 1800f, 1f,
             DENSITY));
-        assertEquals(new RectF(1000f - inset, 200f + corner, 1000f + spread, 1800f - corner),
-            band);
+        assertEquals(new RectF(1000f - inset, 200f, 1000f + spread, 1800f), band);
         assertFalse(BorderGlow.band(band, BorderDrag.Border.NONE, 100f, 200f, 1000f, 1800f, 1f,
             DENSITY));
     }
@@ -193,20 +189,19 @@ public class BorderGlowTest {
         float scale = PageSink.SCALE;
         assertTrue(BorderGlow.band(band, BorderDrag.Border.LEFT, 100f, 200f, 1000f, 1800f, scale,
             DENSITY));
-        float corner = CornerZones.paneSizePx(DENSITY) * scale;
         assertEquals(100f - BorderGlow.SPREAD_DP * DENSITY * scale, band.left, EPS);
         assertEquals(100f + BorderGlow.INSET_DP * DENSITY * scale, band.right, EPS);
-        assertEquals(200f + corner, band.top, EPS);
-        assertEquals(1800f - corner, band.bottom, EPS);
+        assertEquals(200f, band.top, EPS);
+        assertEquals(1800f, band.bottom, EPS);
     }
 
     @Test
-    public void itNeverReachesTheTextOrPastTheMiddleOfASmallPage() {
+    public void itsEndsFadeOverTheCornerRadiusAndAShortEdgeStillPeaksOnce() {
         assertEquals("lit only through the clearance the side borders take",
             BorderDrag.SIDE_REACH_DP, BorderGlow.INSET_DP, EPS);
-        RectF band = new RectF();
-        // A page shorter than two corner squares has no straight edge left to light.
-        assertFalse(BorderGlow.band(band, BorderDrag.Border.LEFT, 0f, 0f, 1000f, 60f, 1f,
-            DENSITY));
+        float taper = BorderGlow.TAPER_DP * DENSITY;
+        assertEquals(taper / 1600f, BorderGlow.taperStop(taper, 1600f), EPS);
+        assertEquals("never past the middle", 0.5f, BorderGlow.taperStop(taper, taper), EPS);
+        assertEquals(0.5f, BorderGlow.taperStop(taper, 0f), EPS);
     }
 }
