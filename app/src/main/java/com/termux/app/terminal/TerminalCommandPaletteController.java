@@ -697,8 +697,15 @@ public final class TerminalCommandPaletteController
                              @NonNull CommandPaletteFilter.Entry entry) {
         boolean contact = TerminalCommandPalette.CATEGORY_CONTACTS.equals(entry.category)
             && !isContactsAllow(entry);
-        rows.add(CommandPaletteView.Row.entry(entry.title,
-            entry.enabled ? entry.subtitle : entry.disabledReason,
+        String description = entry.enabled ? entry.subtitle : entry.disabledReason;
+        // Every row a hold can bind says so, the way app rows already do in their own subtitle.
+        if (entry.enabled && !LauncherToolRegistry.CATEGORY_APPS.equals(entry.category)
+            && TerminalCommandPalette.isBindable(entry)) {
+            description = description == null || description.isEmpty()
+                ? mActivity.getString(R.string.palette_row_hold_to_bind)
+                : mActivity.getString(R.string.palette_row_subtitle_hold_to_bind, description);
+        }
+        rows.add(CommandPaletteView.Row.entry(entry.title, description,
             entry.shortcutLabel(), entry.enabled,
             entry.iconKey == null ? null : mRowIcons.get(entry.iconKey),
             // A contact row carries its call button; no other row has one, the allow row included.
