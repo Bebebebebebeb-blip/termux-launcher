@@ -3,8 +3,9 @@ package com.termux.app.wall;
 import androidx.annotation.NonNull;
 
 /**
- * A press held on a pane's border, then dragged sideways, which pages the wall. The one gesture
- * every place has for moving to the places beside it, in every mode.
+ * A press on a pane's border that pages the wall: slid sideways off the top or bottom border, or
+ * held on any border and then dragged. The one gesture every place has for moving to the places
+ * beside it, in every mode.
  *
  * <p>The border lives outside the page. Its zone ({@link Zone}) is the strip between each edge of
  * the page — the terminal, the Widgets page, the Display page — and the wall's own edge on that
@@ -19,11 +20,23 @@ import androidx.annotation.NonNull;
  * the larger of the two, never their sum. The corner squares are left out, from the page's
  * corners out through the zone: they are the corner tabs'.
  *
- * <p>A finger that lands in the zone claims nothing at once: one that sets off sideways before the
- * hold, or is joined by a second finger, gives the gesture up, and where the zone reaches into the
- * page that leaves it with the content, as a scroll, a selection or a pinch. Only a finger that
- * holds still through the hold claims the wall — from there to the lift its sideways travel drags
- * the pages, whichever edge it started on, and its release speed decides where the wall lands.
+ * <p>A finger that lands in the zone claims nothing at once. One that holds still through the hold
+ * claims the wall — from there to the lift its sideways travel drags the pages, whichever edge it
+ * started on, and its release speed decides where the wall lands. One joined by a second finger
+ * gives the gesture up, and where the zone reaches into the page that leaves it with the content,
+ * as a pinch. What a finger that sets off sideways before the hold does depends on where it
+ * landed:
+ * <ul>
+ *   <li>On the top or bottom border, out in the air beyond the page, with another place to go
+ *       ({@link #slidePages}): the wall is claimed at once, the same drag a hold would have begun,
+ *       measured from where the claim was made. Nothing there is the content's, and the phone's
+ *       back swipe is on the side edges, not these.</li>
+ *   <li>Anywhere else — the left and right borders, which share their edge with the phone's back
+ *       swipe and reach over the page's edge, the minimum band where it reaches into the page, the
+ *       boxes by the pills, and the phone's own strip at the top of the screen: the gesture is
+ *       given up, so a scroll, a selection or a TUI's drag inside the page stays the content's.
+ *       Only the hold pages from there.</li>
+ * </ul>
  *
  * <p>The bottom border carries one more gesture, the keyboard's: a clear vertical swipe that
  * starts in its zone — past the slop, more up or down than sideways, before the hold — is claimed
@@ -35,7 +48,7 @@ import androidx.annotation.NonNull;
  * top zone, before the hold, is claimed as {@link Claim#STATUS}, and drives the bar's fold — down
  * unfolds it, up folds it ({@link #statusRelease}). Never above {@code statusTopLimit}: the
  * phone's own pull for its notification shade starts in the strip at the top of the screen, and
- * a press there is never taken for the bar.
+ * a press there is never taken for the bar, nor for a sideways slide.
  *
  * <p>The air alone is a thin target, so both swipes also start near their grabber pills
  * ({@link BorderGrabber}), about a row into the page: a box {@link #PILL_SWIPE_WIDTH_DP} wide,
@@ -90,9 +103,12 @@ public final class BorderDrag {
     public enum Claim {
         /** No finger, or one that landed off the border. */
         NONE,
-        /** Down on a border; waiting to see whether it holds still through the hold. */
+        /** Down on a border; waiting to see whether it holds still, or which way it sets off. */
         PENDING,
-        /** The hold elapsed on a still finger: the wall's, from here to the lift. */
+        /**
+         * The hold elapsed on a still finger, or a finger that may slide ({@link #slidePages}) set
+         * off sideways: the wall's, from here to the lift.
+         */
         PAGING,
         /**
          * A vertical swipe that set off from the bottom border before the hold: the keyboard's,
@@ -301,6 +317,13 @@ public final class BorderDrag {
     private float mSlop;
     /** Whether the hold may page: the wall has another place to go. */
     private boolean mHoldPages;
+    /**
+     * Whether a sideways start pages at once, without the hold: the top or bottom border, out in
+     * the air beyond the page and below the phone's own strip, on a wall that can page.
+     */
+    private boolean mSlidePages;
+    /** Where the wall's drag is measured from: the DOWN, or where a sideways start claimed it. */
+    private float mDragOriginX;
     /** Whether this press may become the keyboard swipe: it landed in the bottom zone. */
     private boolean mKeyboardEligible;
     /** Whether this press may become the status bar's swipe: it landed in the top zone. */
@@ -353,23 +376,30 @@ public final class BorderDrag {
      * {@code zone} (see {@link #borderAt}) that the press can do something on, or lies in a pill's
      * box ({@link #pillAt}) whose swipe is on; otherwise the gesture is not this one and every
      * later call is a no-op. A press in a pill's box may only become that pill's swipe: its hold
-     * never pages, so a still finger there is given up to the content at the hold.
+     * never pages, so a still finger there is given up to the content at the hold. A press on the
+     * top or bottom border outside the page may also page by setting off sideways
+     * ({@link #slidePages}).
      *
      * @param canPage whether the hold may page the wall: it has another place to go
      * @param keyboardSwipe whether a vertical swipe from the bottom border is the keyboard's
      * @param statusSwipe whether a vertical swipe from the top border folds the status bar
-     * @param statusTopLimit the highest point, in the same coordinates, the status bar's swipe
-     *                       may start at: the foot of the phone's own gesture strip at the top of
-     *                       the screen ({@link Float#NEGATIVE_INFINITY} for none)
+     * @param statusTopLimit the foot of the phone's own gesture strip at the top of the screen, in
+     *                       the same coordinates ({@link Float#NEGATIVE_INFINITY} for none): no
+     *                       swipe, the status bar's or a sideways one, starts above it
      * @return whether the press is armed
      */
     public boolean down(float x, float y, @NonNull Zone zone, float slopPx, boolean canPage,
                         boolean keyboardSwipe, boolean statusSwipe, float statusTopLimit) {
         mDownX = x;
         mDownY = y;
+        mDragOriginX = x;
         mSlop = Math.max(0f, slopPx);
         mBorder = borderAt(x, y, zone);
         mHoldPages = canPage && mBorder != Border.NONE;
+        // Out in the air only: where the band reaches into the page, the content keeps its drags.
+        boolean beyondPage = mBorder == Border.TOP ? y < zone.mTop
+            : mBorder == Border.BOTTOM && y >= zone.mBottom;
+        mSlidePages = mHoldPages && beyondPage && !(y < statusTopLimit);
         // Off the border, the pills' boxes inside the page carry the vertical swipes alone.
         Border swipeSide = mBorder != Border.NONE ? mBorder : pillAt(x, y, zone);
         mKeyboardEligible = keyboardSwipe && swipeSide == Border.BOTTOM;
@@ -381,11 +411,11 @@ public final class BorderDrag {
     }
 
     /**
-     * One move of the finger. Before the hold, travel past the slop gives the gesture away for
-     * good: a finger that sets off is not holding. Sideways, or from anywhere but the bottom and
-     * top zones, it is given up; up or down from the bottom zone it is the keyboard's, and
-     * from the top zone the status bar's. After a claim the move is the claimant's, and the claim
-     * never changes.
+     * One move of the finger. Before the hold, travel past the slop decides: a finger that sets
+     * off is not holding. Up or down from the bottom zone it is the keyboard's, and from the top
+     * zone the status bar's; sideways from where a slide pages ({@link #slidePages}) it is the
+     * wall's at once, its drag measured from here so the wall does not jump by the slop. Any other
+     * start is given up. After a claim the move is the claimant's, and the claim never changes.
      */
     @NonNull
     public Claim move(float x, float y) {
@@ -394,8 +424,15 @@ public final class BorderDrag {
         float dy = y - mDownY;
         if (dx * dx + dy * dy <= mSlop * mSlop) return mClaim;
         boolean vertical = Math.abs(dy) > Math.abs(dx);
-        mClaim = vertical && mKeyboardEligible ? Claim.KEYBOARD
-            : vertical && mStatusEligible ? Claim.STATUS : Claim.ABANDONED;
+        if (vertical) {
+            mClaim = mKeyboardEligible ? Claim.KEYBOARD
+                : mStatusEligible ? Claim.STATUS : Claim.ABANDONED;
+        } else if (mSlidePages) {
+            mClaim = Claim.PAGING;
+            mDragOriginX = x;
+        } else {
+            mClaim = Claim.ABANDONED;
+        }
         return mClaim;
     }
 
@@ -448,6 +485,7 @@ public final class BorderDrag {
         mClaim = Claim.NONE;
         mBorder = Border.NONE;
         mHoldPages = false;
+        mSlidePages = false;
         mKeyboardEligible = false;
         mStatusEligible = false;
     }
@@ -474,6 +512,15 @@ public final class BorderDrag {
      */
     public boolean holdPages() {
         return mHoldPages;
+    }
+
+    /**
+     * True from a DOWN whose sideways start pages at once — the top or bottom border, beyond the
+     * page, below the phone's strip, with another place to go — until the lift, whichever way the
+     * claim went. Every such press also {@link #holdPages}.
+     */
+    public boolean slidePages() {
+        return mSlidePages;
     }
 
     /** True while the wall owns the finger. */
@@ -514,12 +561,13 @@ public final class BorderDrag {
 
     /**
      * What the wall is dragged by for a finger now at {@code x}: its sideways travel since the
-     * DOWN, positive to the right, on every border alike. The wall only ever moves sideways, so a
-     * drag along a side border still pages by how far it went across, and a finger that pulls
-     * the right border leftward brings the place on the right in exactly as the top border does.
+     * DOWN — or, for a sideways start that claimed the wall, since that claim — positive to the
+     * right, on every border alike. The wall only ever moves sideways, so a drag along a side
+     * border still pages by how far it went across, and a finger that pulls the right border
+     * leftward brings the place on the right in exactly as the top border does.
      */
     public float travel(float x) {
-        return x - mDownX;
+        return x - mDragOriginX;
     }
 
     /**

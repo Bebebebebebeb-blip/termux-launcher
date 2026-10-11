@@ -111,6 +111,29 @@ public class BorderGlowTest {
     }
 
     @Test
+    public void aPressWhereASlidePagesIsFullFromTheTouchWithNoRise() {
+        BorderGlow glow = new BorderGlow(host());
+        glow.light(BorderDrag.Border.BOTTOM);
+        assertTrue(glow.isHeld());
+        assertEquals(BorderDrag.Border.BOTTOM, glow.side());
+        assertEquals("full at once", 1f, glow.level(0L), EPS);
+        assertFalse("and still: no frames", glow.needsFrame(0L));
+        // The slide claims: nothing changes.
+        glow.claim();
+        assertEquals(1f, glow.level(500L), EPS);
+        // Handed to a swipe, or the drag ended: a quick fade from full.
+        glow.release(600L, false);
+        assertFalse(glow.isHeld());
+        assertEquals(1f, glow.level(600L), EPS);
+        assertTrue(glow.needsFrame(600L));
+        assertEquals(0f, glow.level(600L + BorderGlow.FADE_MS), EPS);
+        // Nothing to light off a border.
+        BorderGlow none = new BorderGlow(host());
+        none.light(BorderDrag.Border.NONE);
+        assertFalse(none.isShowing());
+    }
+
+    @Test
     public void aPressGivenUpFadesFromWhereItHadRisenTo() {
         BorderGlow glow = new BorderGlow(host());
         glow.press(BorderDrag.Border.BOTTOM, 0L, HOLD, false);
