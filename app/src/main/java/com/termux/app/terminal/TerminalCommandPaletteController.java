@@ -172,6 +172,8 @@ public final class TerminalCommandPaletteController
      * every binding in the config.
      */
     @NonNull private Map<String, String> mAppShortcuts = java.util.Collections.emptyMap();
+    /** Lookup key to the chord bound to that contact; rebuilt with {@link #mAppShortcuts}. */
+    @NonNull private Map<String, String> mContactShortcuts = java.util.Collections.emptyMap();
 
     /**
      * The warm contact cache the current search narrows, loaded when the
@@ -292,6 +294,7 @@ public final class TerminalCommandPaletteController
         mListRevealed = false;
         mOpen = true;
         mAppShortcuts = TerminalCommandPalette.buildAppShortcuts(mAppProvider);
+        mContactShortcuts = TerminalCommandPalette.buildContactShortcuts();
         // Contact search is live only with contact access; the cache warms
         // with the palette so a first query does not sweep the contacts itself.
         mContacts = java.util.Collections.emptyList();
@@ -649,8 +652,8 @@ public final class TerminalCommandPaletteController
             if (mContactsAccess) {
                 List<CommandPaletteContacts.Match> matches =
                     CommandPaletteContacts.filter(mContacts, mQuery);
-                ranked.addAll(
-                    TerminalCommandPalette.buildContactEntries(mActivity, matches));
+                ranked.addAll(TerminalCommandPalette.buildContactEntries(mActivity, matches,
+                    mContactShortcuts));
                 if (!matches.isEmpty()) ensureCallIcon();
             }
         }
@@ -876,7 +879,7 @@ public final class TerminalCommandPaletteController
         // to the list rather than closing the palette, and routing first is also what guarantees
         // Esc, Enter and Backspace can never be captured as the bound key.
         if (mMode == Mode.CAPTURE) return handleCaptureKey(keyCode, event);
-        // Ctrl/Alt+⏎ on the focused app row starts a capture; ⏎ alone stays "launch".
+        // Ctrl/Alt+⏎ on the focused row starts a capture; ⏎ alone stays "run".
         if ((keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER)
             && (event.isCtrlPressed() || event.isAltPressed())) {
             beginCaptureFocused();
@@ -1040,13 +1043,11 @@ public final class TerminalCommandPaletteController
     private static final String CAPTURE_PROMPT = "key ❯";
 
     /**
-     * Starts capturing a key for an app row. Guarded on the Apps category: nothing else has a
-     * per-row argument the binding file can address, and binding a tool row would duplicate what
-     * the config file already does better.
+     * Starts capturing a key for a row the binding file can address: an app, a contact, or an
+     * action that runs as it stands ({@link TerminalCommandPalette#isBindable}).
      */
     private void beginCapture(@NonNull CommandPaletteFilter.Entry entry) {
-        if (!LauncherToolRegistry.CATEGORY_APPS.equals(entry.category)
-            || entry.arguments == null) return;
+        if (!TerminalCommandPalette.isBindable(entry)) return;
         mMode = Mode.CAPTURE;
         mPendingEntry = entry;
         mCrumb = entry.title;
@@ -1198,16 +1199,31 @@ public final class TerminalCommandPaletteController
             AppNotice.show(mActivity, R.string.palette_capture_needs_modifier, false);
             return;
         }
-        String stableId = pending.arguments == null ? "" : pending.arguments.optString("query", "");
-        if (stableId.isEmpty()) {
+        String tool;
+        List<String> arguments;
+        if (LauncherToolRegistry.CATEGORY_APPS.equals(pending.category)) {
+            String stableId = pending.arguments == null
+                ? "" : pending.arguments.optString("query", "");
+            tool = LauncherToolRegistry.TOOL_APP_LAUNCH;
+            arguments = stableId.isEmpty() ? java.util.Collections.<String>emptyList()
+                : java.util.Collections.singletonList(CommandPaletteAppShortcuts
+                    .bindingArgumentFor(stableId, defaultStableIdForPackage(stableId)));
+        } else if (TerminalCommandPalette.CATEGORY_CONTACTS.equals(pending.category)) {
+            tool = LauncherToolRegistry.TOOL_CONTACT_OPEN;
+            arguments = TerminalCommandPalette.contactBindingArguments(pending.arguments);
+        } else {
+            tool = pending.toolName;
+            arguments = java.util.Collections.emptyList();
+        }
+        // An app or contact row names its target in its arguments; without one there is nothing
+        // to bind. An action row carries none and needs none.
+        if (pending.arguments != null && arguments.isEmpty()) {
             popMode();
             return;
         }
         // The row's own title becomes the binding's --label, so the keybind legend names the app
-        // instead of repeating "Launch app" for every chord captured this way.
-        String error = TerminalBindingConfigWriter.bindAppLaunch(mCaptureStroke,
-            CommandPaletteAppShortcuts.bindingArgumentFor(stableId,
-                defaultStableIdForPackage(stableId)),
+        // or the contact instead of repeating "Launch app" for every chord captured this way.
+        String error = TerminalBindingConfigWriter.bind(mCaptureStroke, tool, arguments,
             pending.title);
         if (error != null) {
             Logger.logWarn(LOG_TAG, "Could not write binding: " + error);
@@ -1215,6 +1231,7 @@ public final class TerminalCommandPaletteController
             return;
         }
         mAppShortcuts = TerminalCommandPalette.buildAppShortcuts(mAppProvider);
+        mContactShortcuts = TerminalCommandPalette.buildContactShortcuts();
         String saved = mActivity.getString(R.string.palette_capture_saved,
             CommandPaletteFilter.compactStroke(mCaptureStroke), pending.title);
         playTick();
@@ -1438,8 +1455,8 @@ public final class TerminalCommandPaletteController
         if (index < 0 || index >= mRowEntries.size()) return;
         CommandPaletteFilter.Entry entry = mRowEntries.get(index);
         if (entry == null) return;
-        // Contact rows, the allow row among them, have no chord to bind.
-        if (TerminalCommandPalette.CATEGORY_CONTACTS.equals(entry.category)) return;
+        // The allow row asks for access; it has no chord to bind.
+        if (isContactsAllow(entry)) return;
         mFocus = index;
         beginCapture(entry);
     }

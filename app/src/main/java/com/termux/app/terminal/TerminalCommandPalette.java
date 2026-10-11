@@ -72,13 +72,13 @@ public final class TerminalCommandPalette {
 
     /**
      * Display-only grouping key for contact search results; not a registry
-     * category. Contact rows are acted on directly by the controller, so the
-     * tool name below is a sentinel the dispatcher never sees.
+     * category. Contact rows are acted on directly by the controller; their
+     * tool name is the one a key bound to the row runs.
      */
     public static final String CATEGORY_CONTACTS = "contacts";
 
-    /** Sentinel tool name for contact rows. */
-    private static final String TOOL_CONTACT_OPEN = "contact.open";
+    /** Tool name for contact rows: the bindable {@code contact.open}. */
+    private static final String TOOL_CONTACT_OPEN = LauncherToolRegistry.TOOL_CONTACT_OPEN;
     /** Sentinel tool name for the row that asks for contact access. */
     static final String TOOL_CONTACTS_ALLOW = "contact.allow";
 
@@ -421,10 +421,23 @@ public final class TerminalCommandPalette {
     }
 
     /**
+     * Lookup key to chord, for every {@code contact.open} binding in the config. The lookup key is
+     * the row's identity as much as the binding's, so unlike apps nothing needs resolving: a row
+     * shows a chord only when the binding names that very contact.
+     */
+    @NonNull
+    static Map<String, String> buildContactShortcuts() {
+        return TerminalKeyBindingResolver.getInstance().getArgumentStrokesForTool(
+            LauncherToolRegistry.TOOL_CONTACT_OPEN, "lookup_key",
+            TerminalActionDispatcher.getInstance().actionContext());
+    }
+
+    /**
      * Contact rows for the current query, from the warm contact cache the
      * controller keeps. A name or a phone number finds the contact; the row
      * opens it in the Contacts app, and its chip opens the dialer on the
      * number the query matched — the first number when it matched by name.
+     * {@code shortcuts} maps lookup key to the chord bound to that contact.
      *
      * <p>Pure projection of the cache, so the row shape is testable without
      * a content provider.
@@ -432,7 +445,8 @@ public final class TerminalCommandPalette {
     @NonNull
     static List<CommandPaletteFilter.Entry> buildContactEntries(
         @NonNull Context context,
-        @NonNull List<CommandPaletteContacts.Match> matches
+        @NonNull List<CommandPaletteContacts.Match> matches,
+        @NonNull Map<String, String> shortcuts
     ) {
         List<CommandPaletteFilter.Entry> entries = new ArrayList<>(matches.size());
         for (CommandPaletteContacts.Match match : matches) {
@@ -445,6 +459,7 @@ public final class TerminalCommandPalette {
                 arguments.put("number", match.number);
             } catch (JSONException ignored) {
             }
+            String stroke = shortcuts.get(match.contact.lookupKey);
             entries.add(new CommandPaletteFilter.Entry(
                 TOOL_CONTACT_OPEN,
                 match.contact.name,
@@ -452,7 +467,8 @@ public final class TerminalCommandPalette {
                 // the call button hands to the dialer, so the row says what it will do.
                 match.number,
                 CATEGORY_CONTACTS,
-                Collections.<String>emptyList(),
+                stroke == null ? Collections.<String>emptyList()
+                    : Collections.singletonList(stroke),
                 true,
                 null,
                 false,
@@ -479,6 +495,36 @@ public final class TerminalCommandPalette {
             false,
             LauncherToolRegistry.ToolRisk.LOW,
             null);
+    }
+
+    /**
+     * Whether holding the row binds a key to it: an app or a contact, which carry their own target,
+     * or an action that runs as it stands — enabled, with nothing left to choose or type. Rows that
+     * supply a value of their own (a session, a keyboard layout or type) and the allow row are not
+     * bound from here; the file still binds them.
+     */
+    static boolean isBindable(@NonNull CommandPaletteFilter.Entry entry) {
+        if (LauncherToolRegistry.CATEGORY_APPS.equals(entry.category))
+            return entry.arguments != null && !entry.arguments.optString("query", "").isEmpty();
+        if (CATEGORY_CONTACTS.equals(entry.category))
+            return TOOL_CONTACT_OPEN.equals(entry.toolName)
+                && !contactBindingArguments(entry.arguments).isEmpty();
+        return entry.enabled && entry.arguments == null && !entry.isSubmenu()
+            && !entry.isArgumentPrompt()
+            && LauncherToolRegistry.getInstance().getTool(entry.toolName) != null;
+    }
+
+    /**
+     * The words after {@code contact.open} on a contact row's binding line: the lookup key, then
+     * the id as the lookup's hint. Empty when the row carries no key.
+     */
+    @NonNull
+    static List<String> contactBindingArguments(@Nullable JSONObject arguments) {
+        String lookupKey = arguments == null ? "" : arguments.optString("lookup_key", "");
+        if (lookupKey.isEmpty()) return Collections.emptyList();
+        long contactId = arguments.optLong("contact_id", -1);
+        return contactId < 0 ? Collections.singletonList(lookupKey)
+            : java.util.Arrays.asList(lookupKey, "contact_id=" + contactId);
     }
 
     static boolean hasRequiredArguments(@NonNull LauncherToolRegistry.ToolMetadata tool) {
