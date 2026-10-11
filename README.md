@@ -27,7 +27,7 @@
 > side by side. Termux is a trademark of its respective owners.
 
 <p align="center">
-  <img src="screenshots/banner.webp" alt="Termux Launcher hero showing terminal-first Android features and five device screenshots" width="100%">
+  <img src="screenshots/banner.webp" alt="Termux Launcher showing seven authentic Android screens: terminal home, split panes, widgets, voice dictation, Dawn notes, tlstore, and the app drawer" width="100%">
 </p>
 
 **[🌐 Website & docs](https://picklehik3.github.io/termux-launcher-site/)** | [Releases & changelog](https://github.com/PickleHik3/termux-launcher/releases) | [Local AI API](docs/en/LauncherCtl_API.md) | [On-device AI](docs/en/On_Device_AI.md)
@@ -38,10 +38,6 @@
 Termux Launcher is a terminal-first Android home launcher inspired by [TEL](https://github.com/t-e-l/tel), built on [termux-app](https://github.com/termux/termux-app) and [termux-monet](https://github.com/Termux-Monet/termux-monet).
 What started out as me just wanting sixel image drawing in [TEL](https://github.com/t-e-l/tel) spiraled out of scope to what this project is today.
 All credits go to the amazing developers and contributors of Termux, TEL, and Termux:Monet.
-
-<p align="center">
-  <img src="screenshots/demo.webp" alt="Termux Launcher walkthrough showing the command palette, Kitty graphics, split panes, media, and keyboard shortcuts" width="360">
-</p>
 
 ## Features
 
