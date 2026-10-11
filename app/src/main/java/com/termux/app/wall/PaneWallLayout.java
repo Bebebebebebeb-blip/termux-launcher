@@ -1342,7 +1342,8 @@ public final class PaneWallLayout extends ViewGroup {
 
     /**
      * The glow along the held edge of the page it was lit on, as that page is drawn now: slid,
-     * sunk about its pivot, and faded with its outline as it leaves its rest.
+     * sunk about its pivot, tilted with the plank, and faded with its outline as it leaves its
+     * rest.
      */
     private void drawBorderGlow(@NonNull android.graphics.Canvas canvas) {
         View page = mGlowPage;
@@ -1351,16 +1352,15 @@ public final class PaneWallLayout extends ViewGroup {
             return;
         }
         float visibility = PaneWallPolicy.pageOutlineAlpha(page.getTranslationX(), getWidth());
-        float scaleX = page.getScaleX();
-        float scaleY = page.getScaleY();
-        float pivotX = page.getLeft() + page.getTranslationX() + page.getPivotX();
-        float pivotY = page.getTop() + page.getTranslationY() + page.getPivotY();
-        float left = pivotX - page.getPivotX() * scaleX;
-        float right = pivotX + (page.getWidth() - page.getPivotX()) * scaleX;
-        float top = pivotY - page.getPivotY() * scaleY;
-        float bottom = pivotY + (page.getHeight() - page.getPivotY()) * scaleY;
-        mGlow.draw(canvas, left, top, right, bottom, scaleY, visibility,
+        // Drawn in the page's own space, through the page's whole transform: its slide, its sink
+        // and the plank's tilt (rotationY under a camera), so the glow stays on the edge the
+        // page actually shows rather than where that edge would be flat.
+        int save = canvas.save();
+        canvas.translate(page.getLeft(), page.getTop());
+        canvas.concat(page.getMatrix());
+        mGlow.draw(canvas, 0f, 0f, page.getWidth(), page.getHeight(), 1f, visibility,
             SystemClock.uptimeMillis());
+        canvas.restoreToCount(save);
     }
 
     /** The hold's glow, for tests. */
