@@ -1752,6 +1752,9 @@ public final class PaneWallLayout extends ViewGroup {
     }
 
     private void notifyPageChanged() {
+        // The side stretches are the current page's: pages are only moved, never laid out again,
+        // so a page change is the one moment they would otherwise go stale.
+        publishBackExclusion();
         if (mListener != null) mListener.onWallPageChanged(mCurrent);
     }
 

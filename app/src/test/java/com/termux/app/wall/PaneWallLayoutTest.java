@@ -709,9 +709,33 @@ public class PaneWallLayoutTest {
         wall.setGesturesEnabled(true);
         assertEquals(expected, wall.getSystemGestureExclusionRects());
 
+        // The stretches follow the page that is up. With the terminal's own frame air on, the
+        // other places stand that much nearer the wall, so Display's zone is MARGIN - AIR wide;
+        // and a page change re-lays nothing, so the change itself has to republish.
+        final int air = 4;
+        wall.setTerminalFrameAirPx(air);
+        relayout();
+        assertEquals(expected, wall.getSystemGestureExclusionRects());
+        wall.goTo(PaneWallPage.DISPLAY, false);
+        relayout();
+        List<android.graphics.Rect> onDisplay = Arrays.asList(
+            new android.graphics.Rect(0, centre - 72, MARGIN - air, centre + 72),
+            new android.graphics.Rect(WIDTH - MARGIN + air, centre - 72, WIDTH, centre + 72));
+        assertEquals(onDisplay, wall.getSystemGestureExclusionRects());
+        // Back to the terminal: no layout runs, and the stretches still come back to its zone.
+        wall.goTo(PaneWallPage.TERMINAL, false);
+        assertEquals(expected, wall.getSystemGestureExclusionRects());
+
         // A wall of one place has nowhere to page to, so the back swipe keeps the edge.
         wall.setPages(Collections.singletonList(PaneWallPage.TERMINAL));
         assertTrue(wall.getSystemGestureExclusionRects().isEmpty());
+    }
+
+    /** Lays the wall out again at its size, as the next frame would. */
+    private void relayout() {
+        wall.measure(View.MeasureSpec.makeMeasureSpec(WIDTH, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(HEIGHT, View.MeasureSpec.EXACTLY));
+        wall.layout(0, 0, WIDTH, HEIGHT);
     }
 
     /** {@link #buildWithContent(int)} at the default {@link #MARGIN}. */
