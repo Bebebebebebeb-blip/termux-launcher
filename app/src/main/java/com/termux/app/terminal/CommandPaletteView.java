@@ -753,24 +753,26 @@ public final class CommandPaletteView extends View {
         float shortcutWidth = row.shortcut.isEmpty() ? 0f
             : mMono.measureText(row.shortcut) + dp(10f);
         mMono.setTextSize(sp(SIZE_ROW));
-        float titleWidth = mFrame.right - dp(ROW_PAD_RIGHT) - shortcutWidth - textLeft;
-        // The chip first: its width is what the title has to leave room for.
+        // Right edge of the shortcut column: the row's own, or the chip's left side when the row
+        // has one, so a bound contact's chord sits beside its call button rather than under it.
+        float shortcutRight = mFrame.right - dp(ROW_PAD_RIGHT);
+        // The chip first: its width is what the shortcut and the title have to leave room for.
         if (row.action != null) {
             float chipWidth = dp(ACTION_CHIP_DP);
-            titleWidth -= chipWidth + dp(CAP_GAP);
-            float chipRight = mFrame.right - dp(ROW_PAD_RIGHT);
+            float chipRight = shortcutRight;
             float chipTop = top + dp(ROW_PAD_V)
                 + (lineHeight(SIZE_ROW) - chipWidth) / 2f;
             mActionRects.put(index, new RectF(
                 chipRight - chipWidth, chipTop, chipRight, chipTop + chipWidth));
+            shortcutRight -= chipWidth + dp(CAP_GAP);
         }
+        float titleWidth = shortcutRight - shortcutWidth - textLeft;
         canvas.drawText(ellipsize(mMono, row.primary, titleWidth), textLeft, titleBaseline, mMono);
 
         if (!row.shortcut.isEmpty()) {
             mMono.setTextSize(sp(SIZE_SHORTCUT));
             mMono.setColor(withBodyAlpha(mOnSurfaceVariant, alpha));
-            canvas.drawText(row.shortcut,
-                mFrame.right - dp(ROW_PAD_RIGHT) - mMono.measureText(row.shortcut),
+            canvas.drawText(row.shortcut, shortcutRight - mMono.measureText(row.shortcut),
                 titleBaseline, mMono);
         }
         if (focused && row.description != null && !row.description.isEmpty()) {
