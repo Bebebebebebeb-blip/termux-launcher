@@ -6,7 +6,7 @@ it restates the full list each time; when a stable ships, the lines that shipped
 release's notes and leave this file. AGENTS.md, "The pre-release channel", has the rules; the
 voice is the release-notes voice (one line per item, what you can now do, no mechanism).
 
-Latest stable: v1.0.3.
+Latest stable: v1.0.4.
 
 ## Heading for the next release
 
