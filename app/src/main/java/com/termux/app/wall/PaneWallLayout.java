@@ -3,6 +3,7 @@ package com.termux.app.wall;
 import android.content.Context;
 import android.graphics.LightingColorFilter;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -113,9 +114,10 @@ public final class PaneWallLayout extends ViewGroup {
          */
         default boolean isPlankTiltEnabled(@NonNull PaneWallPage page) { return false; }
         /**
-         * Whether a vertical swipe off the current page's bottom border is the keyboard's
-         * ({@link BorderDrag#KEYBOARD_REACH_DP}); asked as each finger lands, and by the grabber
-         * that marks the border ({@link BorderGrabber}), which is drawn only while it is.
+         * Whether a vertical swipe off the current page's bottom border — from the air between the
+         * page's foot and the wall's ({@link BorderDrag}) — is the keyboard's; asked as each
+         * finger lands, and by the grabber that marks the border ({@link BorderGrabber}), which is
+         * drawn only while it is.
          */
         default boolean isBorderKeyboardSwipeEnabled() { return false; }
         /**
@@ -141,19 +143,12 @@ public final class PaneWallLayout extends ViewGroup {
          */
         default void onKeyboardRevealEnd(boolean open) { }
         /**
-         * Whether a vertical swipe off the current page's top border drives the status bar's fold
-         * ({@link BorderDrag#STATUS_REACH_DP}): only where the bar stands along the top and can
-         * unfold. Asked as each finger lands, and by the top grabber on every frame the wall
-         * draws, so it has to be cheap.
+         * Whether a vertical swipe off the current page's top border — from the air between the
+         * wall's top and the page's ({@link BorderDrag}) — drives the status bar's fold: only
+         * where the bar stands along the top and can unfold. Asked as each finger lands, and by
+         * the top grabber on every frame the wall draws, so it has to be cheap.
          */
         default boolean isBorderStatusSwipeEnabled() { return false; }
-        /**
-         * How far in from the page's own edge the border the drag grips stands, as left, top,
-         * right and bottom in px. Docked the page is the opening and its edge is the line (the
-         * bars' inner edges, the screen's where none stands), so none; Floating the pane is a
-         * card standing Margin in, and its rim is the line.
-         */
-        @Nullable default int[] borderInsetsPx() { return null; }
         /**
          * A swipe off the top border asked for the status bar unfolded ({@code expand}, down) or
          * folded (up): the release-only path, for a swipe the bar did not follow
@@ -211,6 +206,10 @@ public final class PaneWallLayout extends ViewGroup {
     @Nullable private Boolean mTerminalOffScreen;
     /** The border drag under way, if any; one instance, so a gesture allocates nothing. */
     private final BorderDrag mBorderDrag = new BorderDrag();
+    /** The current page's border zones, refilled for every press ({@link #loadBorderZone}). */
+    private final BorderDrag.Zone mBorderZone = new BorderDrag.Zone();
+    /** Scratch for {@link #borderZone}; main thread only. */
+    private final float[] mBorderZoneBounds = new float[4];
     /** Where the armed finger landed, in the wall's coordinates: what the child's cancel says. */
     private float mBorderDownX;
     private float mBorderDownY;
@@ -635,7 +634,10 @@ public final class PaneWallLayout extends ViewGroup {
 
     /**
      * Every touch on the wall passes through here, whoever ends up with it. A finger down on the
-     * current page's border arms the drag ({@link BorderDrag}) and starts the hold's timer; the
+     * current page's border — the air between the page and the wall's edge, never the page itself
+     * unless that air is thinner than {@link BorderDrag#MIN_BAND_DP} — arms the drag
+     * ({@link BorderDrag}) and starts the hold's timer. Usually nothing under it is a child and the
+     * wall keeps the stream ({@link #onTouchEvent}); where the zone reaches into the page, the
      * child under it gets the DOWN and everything after, exactly as if the border were not there,
      * until the hold fires on a finger that has held still. The claim is made by the timer, not
      * by a touch, and it is made here rather than in {@code onInterceptTouchEvent} because the
@@ -657,7 +659,7 @@ public final class PaneWallLayout extends ViewGroup {
     public boolean dispatchTouchEvent(MotionEvent event) {
         if (mCancellingChild) return super.dispatchTouchEvent(event);
         boolean handled = dispatchBorderTouch(event);
-        // The grabber answers whatever the event made of the finger on the band.
+        // The grabber answers whatever the event made of the finger in its zone.
         syncGrabberPress(event);
         return handled;
     }
@@ -763,9 +765,9 @@ public final class PaneWallLayout extends ViewGroup {
     }
 
     /**
-     * A DOWN nothing under the finger took — the air around the pages, which is the wall's own —
-     * is kept only while the drag is armed, so a press on a border from just outside the page
-     * can still hold. Anything else that lands here belongs to an armed finger whose child has
+     * A DOWN nothing under the finger took — the air around the pages, which is the wall's own
+     * and where the borders live — is kept only while the drag is armed, so a press on a border
+     * can hold or swipe. Anything else that lands here belongs to an armed finger whose child has
      * already been cancelled, and is swallowed.
      */
     @Override
@@ -778,51 +780,67 @@ public final class PaneWallLayout extends ViewGroup {
      * A finger landed. It arms the border drag when the wall has another place to go, and the
      * keyboard swipe when the listener wants it — on a wall of one place too, since the keyboard
      * has to be reachable from every place in every mode — and the status bar's swipe on the same
-     * terms, below the phone's own strip at the top of the screen ({@link #topGestureLimit}). The
-     * top and bottom bands reach a hold only just inside their lines
-     * ({@link BorderDrag#TOP_HOLD_REACH_DP}, {@link BorderDrag#BOTTOM_HOLD_REACH_DP}), so the
-     * first and last rows keep their long press, and the bottom band runs out to the wall's foot.
+     * terms, below the phone's own strip at the top of the screen ({@link #topGestureLimit}). Every
+     * one of them lives outside the current page, in the air between its edges and the wall's
+     * ({@link #loadBorderZone}), so the page keeps every tap, long press and click up to its edge.
      */
     private void armBorderDrag(@NonNull MotionEvent event) {
         releaseBorderDrag();
         if (!mGesturesEnabled) return;
         boolean canPage = mPages.size() > 1;
-        float density = getResources().getDisplayMetrics().density;
-        float keyboardReach = mListener != null && mListener.isBorderKeyboardSwipeEnabled()
-            ? BorderDrag.KEYBOARD_REACH_DP * density : 0f;
-        float statusReach = mListener != null && mListener.isBorderStatusSwipeEnabled()
-            ? BorderDrag.STATUS_REACH_DP * density : 0f;
-        if (!canPage && keyboardReach <= 0f && statusReach <= 0f) return;
-        View page = mPageViews.get(mCurrent);
-        if (page == null || page.getWidth() <= 0 || page.getHeight() <= 0) return;
-        // The line is the opening's: the wall's edges less the listener's insets. The page itself
-        // is already laid out inside its frame margins (onLayout), so insetting the page again
-        // put the line a whole margin inside the drawn one under Floating, over the last rows.
-        int[] in = mListener != null ? mListener.borderInsetsPx() : null;
-        boolean inset = in != null && in.length == 4;
-        float slide = page.getTranslationX();
-        float left = inset ? getPaddingLeft() + slide + Math.max(0, in[0])
-            : page.getLeft() + slide;
-        float top = inset ? getPaddingTop() + Math.max(0, in[1]) : page.getTop();
-        float right = inset ? getWidth() - getPaddingRight() + slide - Math.max(0, in[2])
-            : page.getLeft() + slide + page.getWidth();
-        float bottom = inset ? getHeight() - getPaddingBottom() - Math.max(0, in[3])
-            : page.getTop() + page.getHeight();
-        float band = BorderDrag.BAND_DP * density;
-        // The wall stops where whatever stands below the page begins, so the air between the
-        // frame and the wall's own foot is all the bottom band's.
-        float below = Math.max(band, getHeight() - bottom);
-        boolean armed = mBorderDrag.down(event.getX(), event.getY(),
-            left, top, right, bottom, band,
-            CornerZones.clampSize(CornerZones.paneSizePx(density), page.getWidth(), page.getHeight()),
-            ViewConfiguration.get(getContext()).getScaledTouchSlop(), canPage, keyboardReach,
-            statusReach, statusReach > 0f ? topGestureLimit() : Float.NEGATIVE_INFINITY,
-            BorderDrag.TOP_HOLD_REACH_DP * density, BorderDrag.BOTTOM_HOLD_REACH_DP * density,
-            below);
+        boolean keyboardSwipe = mListener != null && mListener.isBorderKeyboardSwipeEnabled();
+        boolean statusSwipe = mListener != null && mListener.isBorderStatusSwipeEnabled();
+        if (!canPage && !keyboardSwipe && !statusSwipe) return;
+        if (!loadBorderZone(true)) return;
+        boolean armed = mBorderDrag.down(event.getX(), event.getY(), mBorderZone,
+            ViewConfiguration.get(getContext()).getScaledTouchSlop(), canPage, keyboardSwipe,
+            statusSwipe, statusSwipe ? topGestureLimit() : Float.NEGATIVE_INFINITY);
         if (!armed) return;
         mBorderDownX = event.getX();
         mBorderDownY = event.getY();
         mHoldHandler.postDelayed(mHoldElapsed, HoldTiming.holdTimeoutMs());
+    }
+
+    /**
+     * Fills {@link #mBorderZone} for the current page: its edges where it stands (its slide
+     * applied when {@code withSlide}), and the air from each edge out to the wall's own edge — the
+     * frame line and the space before the status bar, the dock or keyboard, or the screen's edge,
+     * since the wall has no padding and meets its neighbours edge to edge. The air is measured at
+     * rest, so a page caught mid-slide keeps a zone of the same width rather than one reaching over
+     * the page sliding in beside it.
+     *
+     * @return false where there is no page laid out to have a border
+     */
+    private boolean loadBorderZone(boolean withSlide) {
+        View page = mPageViews.get(mCurrent);
+        if (page == null || page.getWidth() <= 0 || page.getHeight() <= 0) return false;
+        float density = getResources().getDisplayMetrics().density;
+        float slide = withSlide ? page.getTranslationX() : 0f;
+        mBorderZone.page(page.getLeft() + slide, page.getTop(), page.getRight() + slide,
+                page.getBottom())
+            .gaps(page.getLeft(), page.getTop(), getWidth() - page.getRight(),
+                getHeight() - page.getBottom())
+            .minBand(BorderDrag.MIN_BAND_DP * density)
+            .corner(CornerZones.paneSizePx(density));
+        return true;
+    }
+
+    /**
+     * Where a border gesture is found along {@code side} of the current page at rest, in the
+     * wall's own coordinates, less the corner squares: the air from the wall's edge to the page's,
+     * and a little way in where that air is thinner than {@link BorderDrag#MIN_BAND_DP}. For help
+     * and the tour, which point at it.
+     *
+     * @return false, with {@code out} emptied, where there is no page or no zone on that side
+     */
+    public boolean borderZone(@NonNull BorderDrag.Border side, @NonNull Rect out) {
+        if (!loadBorderZone(false) || !mBorderZone.bounds(side, mBorderZoneBounds)) {
+            out.setEmpty();
+            return false;
+        }
+        out.set((int) Math.floor(mBorderZoneBounds[0]), (int) Math.floor(mBorderZoneBounds[1]),
+            (int) Math.ceil(mBorderZoneBounds[2]), (int) Math.ceil(mBorderZoneBounds[3]));
+        return true;
     }
 
     /**
@@ -1212,7 +1230,7 @@ public final class PaneWallLayout extends ViewGroup {
     }
 
     /**
-     * A finger on the keyboard swipe's band — pending there or holding the swipe — lights the
+     * A finger in the keyboard swipe's zone — pending there or holding the swipe — lights the
      * grabber and draws it a little way along; anything else puts it back at rest.
      */
     private void syncGrabberPress(@NonNull MotionEvent event) {

@@ -6,75 +6,47 @@ import androidx.annotation.NonNull;
  * A press held on a pane's border, then dragged sideways, which pages the wall. The one gesture
  * every place has for moving to the places beside it, in every mode.
  *
- * <p>The border is the line the page's frame draws — the terminal's frame, the Widgets page's
- * rim, the Display page's — and the band a thumb can find it in: {@link #BAND_DP} to either side
- * of the left and right edges, less the corner squares, which stay the corner tab's. The top and
- * bottom edges' bands follow what lies on either side of their lines. Inside are the page's first
- * and last rows, where a still finger is a long press on the text, so a hold finds those borders
- * only {@link #TOP_HOLD_REACH_DP} and {@link #BOTTOM_HOLD_REACH_DP} in: the line and the pane's
- * gap beside its outer row. Above the top line the band reaches {@link #BAND_DP}. Below the
- * bottom line is the air between the page and whatever stands below it — the dock, the keyboard —
- * which nothing else owns, so the band runs all the way down through it, and at least
- * {@link #BAND_DP}. A
- * finger that lands in a band is the content's until it has rested there for the hold: a tap
- * reaches the program under it, a drag that sets off before the hold is a scroll or a text
- * selection or a TUI's mouse drag, and a second finger is a pinch. Only a finger that holds still
- * through the hold claims the wall — from there to the lift its sideways travel drags the pages,
- * whichever edge it started on, and its release speed decides where the wall lands.</p>
+ * <p>The border lives outside the page. Its zone ({@link Zone}) is the strip between each edge of
+ * the page — the terminal, the Widgets page, the Display page — and the wall's own edge on that
+ * side: the frame line drawn there and the air beyond it, up to whatever stands next to the wall
+ * (the status bar, the dock or the keyboard, the screen's edge). Which border a press is on is
+ * which page edge it lies beyond. The page itself is never the zone, so a tap, a long press or a
+ * mouse click on the terminal's first or last row or column is always the terminal's. The one
+ * exception is a page that sits almost flush with the wall: where the air on a side is thinner
+ * than {@link #MIN_BAND_DP}, that side's zone reaches into the page by the shortfall, so the
+ * gestures never vanish at Margin 0. The corner squares are left out, from the page's corners out
+ * through the zone: they are the corner tabs'.
+ *
+ * <p>A finger that lands in the zone claims nothing at once: one that sets off sideways before the
+ * hold, or is joined by a second finger, gives the gesture up, and where the zone reaches into the
+ * page that leaves it with the content, as a scroll, a selection or a pinch. Only a finger that
+ * holds still through the hold claims the wall — from there to the lift its sideways travel drags
+ * the pages, whichever edge it started on, and its release speed decides where the wall lands.
  *
  * <p>The bottom border carries one more gesture, the keyboard's: a clear vertical swipe that
- * starts on it — past the slop, more up or down than sideways, before the hold — is claimed at
- * once ({@link Claim#KEYBOARD}), and its release opens the keyboard on the way up and closes it
+ * starts in its zone — past the slop, more up or down than sideways, before the hold — is claimed
+ * at once ({@link Claim#KEYBOARD}), and its release opens the keyboard on the way up and closes it
  * on the way down ({@link #keyboardRelease}). It is the one way to the keyboard that every place
- * and every mode shares. Below the line its band is the hold's, down through the page's air, but
- * inside it reaches {@link #KEYBOARD_REACH_DP}: it claims a moving finger rather than a still
- * one, so the content keeps everything above that. A sideways start is still the content's, and a
- * hold is the wall's within the hold's own reach and the content's long press above it.</p>
+ * and every mode shares.
  *
  * <p>The top border carries its mirror, the status bar's: the same clear vertical swipe from the
- * top band, before the hold, is claimed as {@link Claim#STATUS}, and drives the bar's fold — down
- * unfolds it, up folds it ({@link #statusRelease}). It reaches {@link #STATUS_REACH_DP} inside
- * the top line, and never above {@code statusTopLimit}: the phone's own pull for its notification
- * shade starts in the strip at the top of the screen, and a press there is never taken.</p>
+ * top zone, before the hold, is claimed as {@link Claim#STATUS}, and drives the bar's fold — down
+ * unfolds it, up folds it ({@link #statusRelease}). Never above {@code statusTopLimit}: the
+ * phone's own pull for its notification shade starts in the strip at the top of the screen, and
+ * a press there is never taken for the bar.
  *
  * <p>The hold is timed by whoever owns the finger; this class only says whether a hold that has
- * elapsed may claim ({@link #holdElapsed}). Pure, so the band, the hold and the drag can be
+ * elapsed may claim ({@link #holdElapsed}). Pure, so the zone, the hold and the drag can be
  * tested without a view; one instance is reused across gestures, so a swipe allocates nothing.</p>
  */
 public final class BorderDrag {
 
     /**
-     * How far to either side of a border a press still finds it, in dp: a thumb's half width.
-     * The bottom border's band is its own: {@link #BOTTOM_HOLD_REACH_DP} in, the air below out.
+     * The thinnest a border's zone ever gets, in dp. Where the air between a page edge and the
+     * wall's edge is thinner than this (Margin set near 0), the zone reaches into the page by the
+     * shortfall, so the border can still be found; at the default Margin nothing reaches in.
      */
-    public static final float BAND_DP = 24f;
-
-    /**
-     * How far inside the bottom line a held press still finds the border, in dp: the line's own
-     * stroke and the narrowest gap a pane keeps between it and the text of its last row, so a
-     * long press on that row is always the content's.
-     */
-    public static final float BOTTOM_HOLD_REACH_DP = 3f;
-
-    /**
-     * How far inside the top line a held press still finds the border, in dp: the bottom's
-     * reach, mirrored, so a long press on the first row is always the content's.
-     */
-    public static final float TOP_HOLD_REACH_DP = BOTTOM_HOLD_REACH_DP;
-
-    /**
-     * How far inside the bottom line a press may start the keyboard swipe, in dp; outside the
-     * line it reaches as far as the bottom band does. About one terminal row — the pane's inner
-     * gap and the lower part of its last row — so a scroll that starts any higher is never taken.
-     */
-    public static final float KEYBOARD_REACH_DP = 16f;
-
-    /**
-     * How far inside the top line a press may start the status bar's swipe, in dp; outside the
-     * line it reaches the whole {@link #BAND_DP}. The keyboard's reach, mirrored: the pane's
-     * inner gap and the upper part of its first row.
-     */
-    public static final float STATUS_REACH_DP = KEYBOARD_REACH_DP;
+    public static final float MIN_BAND_DP = 6f;
 
     /** How far a keyboard swipe has to travel to open or close the keyboard, in dp. */
     public static final float KEYBOARD_COMMIT_DP = 32f;
@@ -112,171 +84,186 @@ public final class BorderDrag {
     /** What a status bar swipe's release asks for: the bar unfolded, or folded. */
     public enum StatusSwipe { NONE, EXPAND, COLLAPSE }
 
+    /**
+     * Where the borders are: the page's edges, the air outside each of them, the minimum band and
+     * the corner squares. Mutable so the owner can keep one and refill it on every press.
+     */
+    public static final class Zone {
+        float mLeft;
+        float mTop;
+        float mRight;
+        float mBottom;
+        float mGapLeft;
+        float mGapTop;
+        float mGapRight;
+        float mGapBottom;
+        float mMinBand;
+        float mCorner;
+
+        /** The page's edges, as it stands now (its slide applied). */
+        @NonNull
+        public Zone page(float left, float top, float right, float bottom) {
+            mLeft = left;
+            mTop = top;
+            mRight = right;
+            mBottom = bottom;
+            return this;
+        }
+
+        /**
+         * The air outside each edge, from the page's edge out to the wall's edge on that side: how
+         * far out each border's zone runs, and, below {@link #minBand}, how much it reaches in.
+         */
+        @NonNull
+        public Zone gaps(float left, float top, float right, float bottom) {
+            mGapLeft = Math.max(0f, left);
+            mGapTop = Math.max(0f, top);
+            mGapRight = Math.max(0f, right);
+            mGapBottom = Math.max(0f, bottom);
+            return this;
+        }
+
+        /** The thinnest a zone gets, in px ({@link #MIN_BAND_DP}). */
+        @NonNull
+        public Zone minBand(float px) {
+            mMinBand = Math.max(0f, px);
+            return this;
+        }
+
+        /** The corner squares' side, in px, measured in from the page's corners. */
+        @NonNull
+        public Zone corner(float px) {
+            mCorner = Math.max(0f, px);
+            return this;
+        }
+
+        /**
+         * How far inside the page's edge on {@code side} its zone reaches: the shortfall of that
+         * side's air against the minimum band, 0 wherever the air is at least that thick, and
+         * never past the middle of the page.
+         */
+        public float inside(@NonNull Border side) {
+            float gap;
+            float half;
+            switch (side) {
+                case LEFT: gap = mGapLeft; half = (mRight - mLeft) / 2f; break;
+                case RIGHT: gap = mGapRight; half = (mRight - mLeft) / 2f; break;
+                case TOP: gap = mGapTop; half = (mBottom - mTop) / 2f; break;
+                case BOTTOM: gap = mGapBottom; half = (mBottom - mTop) / 2f; break;
+                default: return 0f;
+            }
+            return Math.max(0f, Math.min(mMinBand - gap, half));
+        }
+
+        /**
+         * The zone along {@code side} as {@code left, top, right, bottom} in {@code out}, less the
+         * corner squares: from the wall's edge to the page's, and in by {@link #inside}. False,
+         * with {@code out} untouched, where that side has no zone.
+         */
+        public boolean bounds(@NonNull Border side, @NonNull float[] out) {
+            if (mRight <= mLeft || mBottom <= mTop) return false;
+            float corner = cornerSize();
+            float in = inside(side);
+            float l;
+            float t;
+            float r;
+            float b;
+            switch (side) {
+                case LEFT:
+                    l = mLeft - mGapLeft; r = mLeft + in; t = mTop + corner; b = mBottom - corner;
+                    break;
+                case RIGHT:
+                    l = mRight - in; r = mRight + mGapRight; t = mTop + corner; b = mBottom - corner;
+                    break;
+                case TOP:
+                    l = mLeft + corner; r = mRight - corner; t = mTop - mGapTop; b = mTop + in;
+                    break;
+                case BOTTOM:
+                    l = mLeft + corner; r = mRight - corner; t = mBottom - in;
+                    b = mBottom + mGapBottom;
+                    break;
+                default:
+                    return false;
+            }
+            if (r <= l || b <= t) return false;
+            out[0] = l;
+            out[1] = t;
+            out[2] = r;
+            out[3] = b;
+            return true;
+        }
+
+        /** The corner squares' side, never more than half of the page either way. */
+        private float cornerSize() {
+            return Math.min(mCorner, Math.min(mRight - mLeft, mBottom - mTop) / 2f);
+        }
+    }
+
     @NonNull private Claim mClaim = Claim.NONE;
     @NonNull private Border mBorder = Border.NONE;
     private float mDownX;
     private float mDownY;
     private float mSlop;
-    /**
-     * Whether the hold may page: the wall has another place to go, and the press is within the
-     * hold's reach of its border.
-     */
+    /** Whether the hold may page: the wall has another place to go. */
     private boolean mHoldPages;
-    /** Whether this press may become the keyboard swipe: it landed in the bottom band. */
+    /** Whether this press may become the keyboard swipe: it landed in the bottom zone. */
     private boolean mKeyboardEligible;
-    /** Whether this press may become the status bar's swipe: it landed in the top band. */
+    /** Whether this press may become the status bar's swipe: it landed in the top zone. */
     private boolean mStatusEligible;
 
     /**
-     * Which border of the frame {@code left, top, right, bottom} the point {@code (x, y)} presses,
-     * reaching {@code bandPx} to either side of each edge, or {@link Border#NONE} for the
-     * interior, the outside past the band, and the corner squares of side {@code cornerPx}
-     * (measured in from each corner, and reaching out past it as far as the band does).
+     * Which border the point {@code (x, y)} presses in {@code zone}: the page edge it lies beyond,
+     * within that side's air (or, where the air is thinner than the minimum band, within the
+     * shortfall inside the edge). {@link Border#NONE} for the page itself, anything past the air,
+     * and the corner squares, which run from the page's corners out through the zone.
      */
     @NonNull
-    public static Border borderAt(float x, float y, float left, float top, float right,
-                                  float bottom, float bandPx, float cornerPx) {
-        return borderAt(x, y, left, top, right, bottom, bandPx, cornerPx, bandPx, bandPx);
-    }
-
-    /**
-     * The same, with the bottom edge's band its own and the top band {@code bandPx} to either side
-     * of its line like the sides.
-     */
-    @NonNull
-    public static Border borderAt(float x, float y, float left, float top, float right,
-                                  float bottom, float bandPx, float cornerPx, float bottomInPx,
-                                  float bottomOutPx) {
-        return borderAt(x, y, left, top, right, bottom, bandPx, cornerPx, bandPx, bottomInPx,
-            bottomOutPx);
-    }
-
-    /**
-     * The same, with the top and bottom edges reaching their own way inside their lines:
-     * {@code topInPx} below the top line and {@code bottomInPx} above the bottom one (never more
-     * than the band), and {@code bottomOutPx} below the bottom line. The bottom corner squares
-     * reach as far down as the bottom band does.
-     */
-    @NonNull
-    public static Border borderAt(float x, float y, float left, float top, float right,
-                                  float bottom, float bandPx, float cornerPx, float topInPx,
-                                  float bottomInPx, float bottomOutPx) {
-        if (bandPx <= 0f || right <= left || bottom <= top) return Border.NONE;
-        float band = Math.min(bandPx, Math.min(right - left, bottom - top) / 2f);
-        float topIn = Math.max(0f, Math.min(topInPx, band));
-        float bottomIn = Math.max(0f, Math.min(bottomInPx, band));
-        float bottomOut = Math.max(0f, bottomOutPx);
-        if (x < left - band || x > right + band || y < top - band || y > bottom + bottomOut) {
+    public static Border borderAt(float x, float y, @NonNull Zone zone) {
+        float left = zone.mLeft;
+        float top = zone.mTop;
+        float right = zone.mRight;
+        float bottom = zone.mBottom;
+        if (right <= left || bottom <= top) return Border.NONE;
+        if (x < left - zone.mGapLeft || x > right + zone.mGapRight
+            || y < top - zone.mGapTop || y > bottom + zone.mGapBottom) {
             return Border.NONE;
         }
-        float corner = Math.max(0f, cornerPx);
-        boolean cornerColumn = x < left + corner || x > right - corner;
-        boolean cornerRow = y < top + corner || y > bottom - corner;
+        float corner = zone.cornerSize();
+        boolean cornerColumn = x < left + corner || x >= right - corner;
+        boolean cornerRow = y < top + corner || y >= bottom - corner;
         if (cornerColumn && cornerRow) return Border.NONE;
-        if (y < top + band && y <= top + topIn) return Border.TOP;
-        if (y >= bottom - bottomIn) return Border.BOTTOM;
-        if (x < left + band) return Border.LEFT;
-        if (x > right - band) return Border.RIGHT;
+        // A page's first pixel is at its left and top edges and its last just short of its right
+        // and bottom ones, so a press is beyond the right or bottom edge from the edge itself on.
+        if (y < top + zone.inside(Border.TOP)) return Border.TOP;
+        if (y >= bottom - zone.inside(Border.BOTTOM)) return Border.BOTTOM;
+        if (x < left + zone.inside(Border.LEFT)) return Border.LEFT;
+        if (x >= right - zone.inside(Border.RIGHT)) return Border.RIGHT;
         return Border.NONE;
     }
 
     /**
-     * The finger landed at {@code (x, y)}. Arms the drag when the point presses a border (see
-     * {@link #borderAt}); otherwise the gesture is not this one and every later call is a no-op.
-     * The hold may page, and there is no keyboard swipe.
+     * The finger landed at {@code (x, y)}. Arms the drag when the point presses a border of
+     * {@code zone} (see {@link #borderAt}) that the press can do something on; otherwise the
+     * gesture is not this one and every later call is a no-op.
      *
-     * @return whether the drag is armed
-     */
-    public boolean down(float x, float y, float left, float top, float right, float bottom,
-                        float bandPx, float cornerPx, float slopPx) {
-        return down(x, y, left, top, right, bottom, bandPx, cornerPx, slopPx, true, 0f);
-    }
-
-    /**
-     * The same, saying what the press may become.
-     *
-     * @param canPage whether the hold may page the wall; without it only the keyboard swipe can
-     *                claim, and a press off the bottom band arms nothing
-     * @param keyboardReachPx how far inside the bottom line a press may start the keyboard swipe
-     *                        (outside the line the band reaches {@code bandPx}); 0 for none
+     * @param canPage whether the hold may page the wall: it has another place to go
+     * @param keyboardSwipe whether a vertical swipe from the bottom border is the keyboard's
+     * @param statusSwipe whether a vertical swipe from the top border folds the status bar
+     * @param statusTopLimit the highest point, in the same coordinates, the status bar's swipe
+     *                       may start at: the foot of the phone's own gesture strip at the top of
+     *                       the screen ({@link Float#NEGATIVE_INFINITY} for none)
      * @return whether the press is armed
      */
-    public boolean down(float x, float y, float left, float top, float right, float bottom,
-                        float bandPx, float cornerPx, float slopPx, boolean canPage,
-                        float keyboardReachPx) {
-        return down(x, y, left, top, right, bottom, bandPx, cornerPx, slopPx, canPage,
-            keyboardReachPx, 0f, Float.NEGATIVE_INFINITY);
-    }
-
-    /**
-     * The same, with the status bar's swipe on the top border as well, and the bottom band
-     * {@code bandPx} to either side of its line like the others.
-     *
-     * @param statusReachPx how far inside the top line a press may start the status bar's swipe
-     *                      (outside the line the band reaches {@code bandPx}); 0 for none
-     * @param statusTopLimit the highest point, in the same coordinates, a press may start it at:
-     *                       the foot of the phone's own gesture strip at the top of the screen
-     * @return whether the press is armed
-     */
-    public boolean down(float x, float y, float left, float top, float right, float bottom,
-                        float bandPx, float cornerPx, float slopPx, boolean canPage,
-                        float keyboardReachPx, float statusReachPx, float statusTopLimit) {
-        return down(x, y, left, top, right, bottom, bandPx, cornerPx, slopPx, canPage,
-            keyboardReachPx, statusReachPx, statusTopLimit, bandPx, bandPx);
-    }
-
-    /**
-     * The same, with the bottom band shaped to what lies on either side of its line, and the top
-     * band's hold reaching {@code bandPx} inside its line like the sides.
-     *
-     * @return whether the press is armed
-     */
-    public boolean down(float x, float y, float left, float top, float right, float bottom,
-                        float bandPx, float cornerPx, float slopPx, boolean canPage,
-                        float keyboardReachPx, float statusReachPx, float statusTopLimit,
-                        float bottomHoldReachPx, float bottomOutPx) {
-        return down(x, y, left, top, right, bottom, bandPx, cornerPx, slopPx, canPage,
-            keyboardReachPx, statusReachPx, statusTopLimit, bandPx, bottomHoldReachPx,
-            bottomOutPx);
-    }
-
-    /**
-     * The same, with the top and bottom bands shaped to what lies on either side of their lines.
-     *
-     * @param topHoldReachPx how far inside the top line a held press may page
-     *                       ({@link #TOP_HOLD_REACH_DP}). The status bar's swipe keeps its own
-     *                       {@code statusReachPx}, and a still finger between the two is the
-     *                       content's long press.
-     * @param bottomHoldReachPx how far inside the bottom line a held press may page
-     *                          ({@link #BOTTOM_HOLD_REACH_DP}). The keyboard swipe keeps its own
-     *                          {@code keyboardReachPx}, and a still finger between the two is the
-     *                          content's long press.
-     * @param bottomOutPx how far below the bottom line the bottom band reaches, for the hold and
-     *                    the keyboard swipe alike: the air down to whatever stands below the page
-     * @return whether the press is armed
-     */
-    public boolean down(float x, float y, float left, float top, float right, float bottom,
-                        float bandPx, float cornerPx, float slopPx, boolean canPage,
-                        float keyboardReachPx, float statusReachPx, float statusTopLimit,
-                        float topHoldReachPx, float bottomHoldReachPx, float bottomOutPx) {
+    public boolean down(float x, float y, @NonNull Zone zone, float slopPx, boolean canPage,
+                        boolean keyboardSwipe, boolean statusSwipe, float statusTopLimit) {
         mDownX = x;
         mDownY = y;
         mSlop = Math.max(0f, slopPx);
-        float topHoldReach = Math.max(0f, topHoldReachPx);
-        float holdReach = Math.max(0f, bottomHoldReachPx);
-        float keyboardReach = Math.max(0f, keyboardReachPx);
-        float statusReach = Math.max(0f, statusReachPx);
-        mBorder = borderAt(x, y, left, top, right, bottom, bandPx, cornerPx,
-            Math.max(topHoldReach, statusReach), Math.max(holdReach, keyboardReach), bottomOutPx);
-        mHoldPages = canPage && mBorder != Border.NONE
-            && (mBorder != Border.TOP || y <= top + topHoldReach)
-            && (mBorder != Border.BOTTOM || y >= bottom - holdReach);
-        mKeyboardEligible = mBorder == Border.BOTTOM && keyboardReach > 0f
-            && y >= bottom - keyboardReach;
-        mStatusEligible = mBorder == Border.TOP && statusReachPx > 0f
-            && y <= top + statusReachPx && !(y < statusTopLimit);
-        boolean armed = mBorder != Border.NONE
-            && (mHoldPages || mKeyboardEligible || mStatusEligible);
+        mBorder = borderAt(x, y, zone);
+        mHoldPages = canPage && mBorder != Border.NONE;
+        mKeyboardEligible = keyboardSwipe && mBorder == Border.BOTTOM;
+        mStatusEligible = statusSwipe && mBorder == Border.TOP && !(y < statusTopLimit);
+        boolean armed = mHoldPages || mKeyboardEligible || mStatusEligible;
         if (!armed) mBorder = Border.NONE;
         mClaim = armed ? Claim.PENDING : Claim.NONE;
         return armed;
@@ -285,8 +272,8 @@ public final class BorderDrag {
     /**
      * One move of the finger. Before the hold, travel past the slop gives the gesture away for
      * good: a finger that sets off is not holding. Sideways, or from anywhere but the bottom and
-     * top bands, it goes to the content; up or down from the bottom band it is the keyboard's, and
-     * from the top band the status bar's. After a claim the move is the claimant's, and the claim
+     * top zones, it is given up; up or down from the bottom zone it is the keyboard's, and
+     * from the top zone the status bar's. After a claim the move is the claimant's, and the claim
      * never changes.
      */
     @NonNull
@@ -304,9 +291,9 @@ public final class BorderDrag {
     /**
      * The hold time passed. A finger that travelled or was joined has already given the gesture
      * up through {@link #move} or {@link #secondPointer}, so a still pending press is a still one.
-     * Where the hold may not page — a wall of one place, or a press inside the bottom line beyond
-     * the hold's reach — a still finger is the content's: a long press, a selection. A later
-     * vertical move can then no longer turn into the keyboard's or the status bar's swipe.
+     * Where the hold may not page — a wall of one place — a still finger is given up, and where
+     * the zone reaches into the page it is the content's long press. A later vertical move can
+     * then no longer turn into the keyboard's or the status bar's swipe.
      *
      * @return true when the wall just claimed the finger, and the content is owed a cancel
      */
@@ -385,8 +372,8 @@ public final class BorderDrag {
     }
 
     /**
-     * True from a DOWN in the status bar swipe's band — the top border, within
-     * {@link #STATUS_REACH_DP} inside the line and below the phone's own strip — until the lift.
+     * True from a DOWN in the status bar swipe's zone — the top border, below the phone's own
+     * strip — until the lift, whichever way the claim went.
      */
     public boolean isStatusEligible() {
         return mStatusEligible;
@@ -398,8 +385,8 @@ public final class BorderDrag {
     }
 
     /**
-     * True from a DOWN in the keyboard swipe's band — the bottom border, within
-     * {@link #KEYBOARD_REACH_DP} inside the line — until the lift, whichever way the claim went.
+     * True from a DOWN in the keyboard swipe's zone — the bottom border — until the lift,
+     * whichever way the claim went.
      */
     public boolean isKeyboardEligible() {
         return mKeyboardEligible;

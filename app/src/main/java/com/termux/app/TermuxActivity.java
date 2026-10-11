@@ -18846,16 +18846,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 }
                 // The top border's swipe drives the bar's own fold: the drag the bar takes
                 // across itself, and the landing its release runs, from the other side of the line.
-                @Override @Nullable public int[] borderInsetsPx() {
-                    // The pane card's rim under Floating; the opening's own edge, with no inset,
-                    // under Docked.
-                    // One chrome shape for both numbers, per border touch.
-                    terminalFrameInsetsPx(mTmpFrameInsets);
-                    int horizontal = mTmpFrameInsets[0];
-                    int vertical = mTmpFrameInsets[1];
-                    return new int[] {horizontal, vertical, horizontal, vertical};
-                }
-
                 @Override public boolean isBorderStatusSwipeEnabled() {
                     return isBorderStatusSwipeAvailable();
                 }

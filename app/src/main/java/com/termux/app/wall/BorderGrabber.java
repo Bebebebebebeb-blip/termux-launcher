@@ -21,7 +21,7 @@ import com.google.android.material.color.MaterialColors;
  * construction ({@link #BorderGrabber(View, boolean)}), and everything else is the same.
  *
  * <p>It answers the finger: brighter and a little wider from the moment a finger lands in its
- * swipe's band ({@link BorderDrag#KEYBOARD_REACH_DP}, {@link BorderDrag#STATUS_REACH_DP}), and
+ * swipe's zone (the air between the page's edge and the wall's, {@link BorderDrag}), and
  * drawn a short way after it, with resistance, while the swipe is held; both ease back on the
  * lift. It moves and fades with its page — scaled with a sunk page, gone over the first stretch of
  * a slide as the page's outline goes ({@link PaneWallPolicy#pageOutlineAlpha}) — and is not drawn

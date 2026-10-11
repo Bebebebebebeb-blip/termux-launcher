@@ -685,8 +685,23 @@ public class PaneWallLayoutTest {
 
     private Content content;
 
-    /** A wall whose terminal page holds content that takes every touch, like a terminal does. */
+    /**
+     * The default Margin, 12 dp at the test's 1x density: every page sits this far inside the wall
+     * on all four sides, as the activity lays it out, and the borders live in that air.
+     */
+    private static final int MARGIN = 12;
+
+    /** {@link #buildWithContent(int)} at the default {@link #MARGIN}. */
     private void buildWithContent() {
+        buildWithContent(MARGIN);
+    }
+
+    /**
+     * A wall whose terminal page holds content that takes every touch, like a terminal does, and
+     * stands {@code marginPx} inside the wall on every side. At 0 the page is flush with the wall
+     * and the border's minimum band reaches over the page's edge, where the content hears the DOWN.
+     */
+    private void buildWithContent(int marginPx) {
         Activity activity = Robolectric.buildActivity(Activity.class).setup().get();
         wall = new PaneWallLayout(activity);
         widgets = new FrameLayout(activity);
@@ -703,9 +718,15 @@ public class PaneWallLayoutTest {
         wall.setPageView(PaneWallPage.TERMINAL, terminal);
         wall.setPageView(PaneWallPage.WIDGETS, widgets);
         wall.setPageView(PaneWallPage.DISPLAY, display);
+        android.view.ViewGroup.MarginLayoutParams margins =
+            (android.view.ViewGroup.MarginLayoutParams) terminal.getLayoutParams();
+        margins.setMargins(marginPx, marginPx, marginPx, marginPx);
+        terminal.setLayoutParams(margins);
         wall.measure(View.MeasureSpec.makeMeasureSpec(WIDTH, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(HEIGHT, View.MeasureSpec.EXACTLY));
         wall.layout(0, 0, WIDTH, HEIGHT);
+        assertEquals(marginPx, terminal.getTop());
+        assertEquals(HEIGHT - marginPx, terminal.getBottom());
     }
 
     private static android.view.MotionEvent touch(int action, float x, float y, long timeMs) {
@@ -719,8 +740,71 @@ public class PaneWallLayoutTest {
     }
 
     @Test
-    public void aHeldBorderTakesTheFingerFromTheContentAndDragsTheWall() {
+    public void aHeldBorderInTheGapDragsTheWallAndTheContentNeverHearsIt() {
         buildWithContent();
+        // In the air above the page, away from the corners: the wall's own, and armed.
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f,
+            MARGIN / 2f, 0L));
+        assertEquals(BorderDrag.Claim.PENDING, wall.borderDragClaim());
+        letTheHoldElapse();
+        assertTrue(wall.isDragging());
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_MOVE, WIDTH / 2f - 600f,
+            40f, 400L));
+        assertEquals(-600f, terminal.getTranslationX(), EPS);
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, WIDTH / 2f - 600f,
+            40f, 420L));
+        assertEquals(PaneWallPage.DISPLAY, wall.currentPage());
+        assertTrue("the page's content never heard the finger", content.actions.isEmpty());
+    }
+
+    /**
+     * The page's edges are the content's at the default Margin, on every side and with every
+     * border gesture on: a tap and a long press on the outermost pixel reach the content whole,
+     * and the wall never arms.
+     */
+    @Test
+    public void aTapAndALongPressOnePixelInsideEachEdgeReachTheContent() {
+        buildWithContent();
+        listenForStatusSwipes(FOLD);
+        float density = wall.getResources().getDisplayMetrics().density;
+        assertTrue("the default Margin leaves more air than the minimum band",
+            MARGIN >= BorderDrag.MIN_BAND_DP * density);
+        float[][] edges = {
+            {WIDTH / 2f, terminal.getTop()}, {WIDTH / 2f, terminal.getBottom() - 1f},
+            {terminal.getLeft(), HEIGHT / 2f}, {terminal.getRight() - 1f, HEIGHT / 2f},
+        };
+        long t = 0L;
+        for (float[] p : edges) {
+            content.actions.clear();
+            wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, p[0], p[1], t));
+            assertEquals(BorderDrag.Claim.NONE, wall.borderDragClaim());
+            wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, p[0], p[1], t + 50L));
+            assertEquals("a tap at " + p[0] + "," + p[1], Arrays.asList(
+                android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_UP),
+                content.actions);
+
+            content.actions.clear();
+            wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, p[0], p[1],
+                t + 1000L));
+            letTheHoldElapse();
+            assertFalse(wall.isDragging());
+            assertEquals(BorderDrag.Claim.NONE, wall.borderDragClaim());
+            wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, p[0], p[1],
+                t + 2000L));
+            assertEquals("a long press at " + p[0] + "," + p[1], Arrays.asList(
+                android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_UP),
+                content.actions);
+            t += 5000L;
+        }
+        assertTrue(keyboardSwipes.isEmpty());
+        assertTrue(statusSwipes.isEmpty());
+        assertEquals(PaneWallPage.TERMINAL, wall.currentPage());
+    }
+
+    @Test
+    public void aHeldBorderTakesTheFingerFromTheContentAndDragsTheWall() {
+        // Margin 0: the border's minimum band reaches over the page's edge.
+        buildWithContent(0);
         // Down on the top border, away from the corners: the content gets it, as for a tap.
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f, 2f, 0L));
         assertEquals(Collections.singletonList(android.view.MotionEvent.ACTION_DOWN),
@@ -751,7 +835,8 @@ public class PaneWallLayoutTest {
 
     @Test
     public void aFingerThatMovesBeforeTheHoldStaysTheContents() {
-        buildWithContent();
+        // Margin 0, where the band reaches over the content's first row.
+        buildWithContent(0);
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f, 2f, 0L));
         // A swipe from the border without a hold: a scroll, a selection, a TUI's drag.
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_MOVE, WIDTH / 2f - 100f,
@@ -783,12 +868,19 @@ public class PaneWallLayoutTest {
             android.view.MotionEvent.ACTION_UP), content.actions);
         assertFalse(wall.isDragging());
 
-        // A corner square: the corner tab's.
+        // A corner square, in the air beyond the page's corner: the corner tab's.
         content.actions.clear();
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, 4f, 4f, 1000L));
         assertEquals(BorderDrag.Claim.NONE, wall.borderDragClaim());
         letTheHoldElapse();
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, 4f, 4f, 1400L));
+        assertFalse(wall.isDragging());
+        // And at Margin 0, the page's own corner, under the band: the content's.
+        buildWithContent(0);
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, 4f, 4f, 2000L));
+        assertEquals(BorderDrag.Claim.NONE, wall.borderDragClaim());
+        letTheHoldElapse();
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, 4f, 4f, 2400L));
         assertEquals(Arrays.asList(android.view.MotionEvent.ACTION_DOWN,
             android.view.MotionEvent.ACTION_UP), content.actions);
         assertFalse(wall.isDragging());
@@ -809,9 +901,7 @@ public class PaneWallLayoutTest {
         assertEquals("the rest of the finger moves nothing", 0f, widgets.getTranslationX(), EPS);
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, WIDTH / 2f - 300f,
             HEIGHT - 1f, 420L));
-        assertEquals("and reaches no content", Arrays.asList(
-            android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_CANCEL),
-            content.actions);
+        assertTrue("and reaches no content", content.actions.isEmpty());
         assertEquals(PaneWallPage.WIDGETS, wall.currentPage());
         assertEquals(BorderDrag.Claim.NONE, wall.borderDragClaim());
     }
@@ -1013,7 +1103,8 @@ public class PaneWallLayoutTest {
 
     @Test
     public void anUpSwipeOffTheBottomBorderOpensTheKeyboardAndCancelsTheContent() {
-        buildWithContent();
+        // Margin 0: the band reaches over the last row, so the content heard the DOWN.
+        buildWithContent(0);
         listenForKeyboardSwipes();
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f,
             HEIGHT - 4f, 0L));
@@ -1067,7 +1158,8 @@ public class PaneWallLayoutTest {
 
     @Test
     public void aSidewaysSwipeOffTheBottomBorderStaysTheContents() {
-        buildWithContent();
+        // Margin 0, where the band reaches over the content's last row.
+        buildWithContent(0);
         listenForKeyboardSwipes();
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f,
             HEIGHT - 4f, 0L));
@@ -1084,11 +1176,11 @@ public class PaneWallLayoutTest {
     }
 
     @Test
-    public void aVerticalSwipeHigherUpThanTheReachStaysTheContents() {
+    public void aVerticalSwipeFromThePagesLastRowStaysTheContents() {
         buildWithContent();
         listenForKeyboardSwipes();
-        float density = wall.getResources().getDisplayMetrics().density;
-        float y = HEIGHT - BorderDrag.KEYBOARD_REACH_DP * density - 2f;
+        // The page's own last pixel row, right against the border's air.
+        float y = terminal.getBottom() - 1f;
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f, y, 0L));
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_MOVE, WIDTH / 2f, y - 200f,
             50L));
@@ -1120,7 +1212,8 @@ public class PaneWallLayoutTest {
 
     @Test
     public void aWallOfOnePlaceStillHasTheKeyboardSwipeAndLeavesHoldsToTheContent() {
-        buildWithContent();
+        // Margin 0, where the band reaches over the content's last row.
+        buildWithContent(0);
         wall.setPages(Collections.singletonList(PaneWallPage.TERMINAL));
         listenForKeyboardSwipes();
         // The swipe.
@@ -1175,15 +1268,13 @@ public class PaneWallLayoutTest {
     public void aHoldOnTheLastTextRowIsTheContentsLongPress() {
         buildWithAirBelow();
         listenForKeyboardSwipes();
-        float density = wall.getResources().getDisplayMetrics().density;
-        // Inside the old band and the keyboard's reach, past the hold's: the last row's text.
+        // The last row's text, on the page's own last pixel row.
         float frame = HEIGHT - AIR_BELOW;
-        float y = frame - (BorderDrag.BOTTOM_HOLD_REACH_DP + BorderDrag.KEYBOARD_REACH_DP) / 2f
-            * density;
+        float y = frame - 1f;
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f, y, 0L));
         letTheHoldElapse();
         assertFalse("the hold never pages from the text", wall.isDragging());
-        assertEquals(BorderDrag.Claim.ABANDONED, wall.borderDragClaim());
+        assertEquals("nothing arms on the page", BorderDrag.Claim.NONE, wall.borderDragClaim());
         // The long press goes on to a selection drag, the content's to the lift.
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_MOVE, WIDTH / 2f - 200f,
             y - 200f, 500L));
@@ -1195,24 +1286,36 @@ public class PaneWallLayoutTest {
         assertTrue(keyboardSwipes.isEmpty());
         assertEquals(PaneWallPage.TERMINAL, wall.currentPage());
 
-        // The same row still starts the keyboard swipe: it claims a moving finger.
+        // A swipe up from the same row is the content's scroll, never the keyboard's.
+        content.actions.clear();
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f, y,
             1000L));
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_MOVE, WIDTH / 2f, y - 200f,
             1050L));
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, WIDTH / 2f, y - 200f,
             1080L));
+        assertTrue(keyboardSwipes.isEmpty());
+        assertEquals(Arrays.asList(android.view.MotionEvent.ACTION_DOWN,
+            android.view.MotionEvent.ACTION_MOVE, android.view.MotionEvent.ACTION_UP),
+            content.actions);
+        // One pixel lower, on the border's air, it is.
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f, frame,
+            2000L));
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_MOVE, WIDTH / 2f,
+            frame - 200f, 2050L));
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, WIDTH / 2f,
+            frame - 200f, 2080L));
         assertEquals(Collections.singletonList(true), keyboardSwipes);
     }
 
     @Test
-    public void aHoldInTheAirBelowTheFramePagesFarPastTheBand() {
+    public void aHoldDeepInTheAirBelowTheFramePages() {
         buildWithAirBelow();
         listenForKeyboardSwipes();
         float density = wall.getResources().getDisplayMetrics().density;
         float y = HEIGHT - 4f;
-        assertTrue("the press is further out than the band",
-            y - (HEIGHT - AIR_BELOW) > BorderDrag.BAND_DP * density);
+        assertTrue("the press is far below the line",
+            y - (HEIGHT - AIR_BELOW) > 10f * BorderDrag.MIN_BAND_DP * density);
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f, y, 0L));
         assertEquals(BorderDrag.Claim.PENDING, wall.borderDragClaim());
         assertTrue("nothing under the finger: the content never hears it", content.actions.isEmpty());
@@ -1228,9 +1331,9 @@ public class PaneWallLayoutTest {
     }
 
     @Test
-    public void theBottomLineIsTheOpeningsNotThePageInsetAgain() {
-        // Floating: the opening is 40 in from the wall, and the terminal's own margins carry its
-        // border's 3 of air on top. The line a hold finds is the opening's, where it is drawn.
+    public void theLineInTheTerminalsOwnAirIsTheBorderAndThePageIsNot() {
+        // Margin 40, and the terminal's own margins carry its border's 3 of air on top: the line
+        // is drawn 40 in from the wall, in the air outside the terminal page.
         buildWithContent();
         android.view.ViewGroup.MarginLayoutParams margins =
             (android.view.ViewGroup.MarginLayoutParams) terminal.getLayoutParams();
@@ -1240,18 +1343,17 @@ public class PaneWallLayoutTest {
         wall.measure(View.MeasureSpec.makeMeasureSpec(WIDTH, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(HEIGHT, View.MeasureSpec.EXACTLY));
         wall.layout(0, 0, WIDTH, HEIGHT);
-        wall.setListener(new PaneWallLayout.Listener() {
-            @Override public int[] borderInsetsPx() { return new int[] {40, 40, 40, 40}; }
-        });
 
-        // The page's last row, 10 inside its foot: inset twice, the line stood 40 above it.
-        float lastRow = terminal.getBottom() - 10f;
+        // The page's last pixel row: the content's.
+        float lastRow = terminal.getBottom() - 1f;
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f, lastRow,
             0L));
         letTheHoldElapse();
         assertFalse("a hold on the last row is the content's", wall.isDragging());
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, WIDTH / 2f, lastRow,
             520L));
+        assertEquals(Arrays.asList(android.view.MotionEvent.ACTION_DOWN,
+            android.view.MotionEvent.ACTION_UP), content.actions);
 
         // On the drawn line the hold pages.
         float line = HEIGHT - 40f;
@@ -1263,7 +1365,8 @@ public class PaneWallLayoutTest {
 
     @Test
     public void withGesturesOffTheBottomBorderIsTheContents() {
-        buildWithContent();
+        // Margin 0, where the band would reach over the content's last row.
+        buildWithContent(0);
         listenForKeyboardSwipes();
         wall.setGesturesEnabled(false);
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f,
@@ -1565,13 +1668,12 @@ public class PaneWallLayoutTest {
     public void aHoldOnTheFirstTextRowIsTheContentsLongPress() {
         buildWithContent();
         listenForStatusSwipes(0);
-        float density = wall.getResources().getDisplayMetrics().density;
-        // Inside the old band and the status swipe's reach, past the hold's: the first row's text.
-        float y = (BorderDrag.TOP_HOLD_REACH_DP + BorderDrag.STATUS_REACH_DP) / 2f * density;
+        // The first row's text, on the page's own first pixel row.
+        float y = terminal.getTop();
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f, y, 0L));
         letTheHoldElapse();
         assertFalse("the hold never pages from the text", wall.isDragging());
-        assertEquals(BorderDrag.Claim.ABANDONED, wall.borderDragClaim());
+        assertEquals("nothing arms on the page", BorderDrag.Claim.NONE, wall.borderDragClaim());
         // The long press goes on to a selection drag, the content's to the lift.
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_MOVE, WIDTH / 2f - 200f,
             y + 200f, 500L));
@@ -1583,19 +1685,32 @@ public class PaneWallLayoutTest {
         assertTrue(statusSwipes.isEmpty());
         assertEquals(PaneWallPage.TERMINAL, wall.currentPage());
 
-        // The same row still starts the status bar's swipe: it claims a moving finger.
+        // A swipe down from the same row is the content's scroll, never the status bar's.
+        content.actions.clear();
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f, y,
             1000L));
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_MOVE, WIDTH / 2f, y + 200f,
             1050L));
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, WIDTH / 2f, y + 200f,
             1080L));
+        assertTrue(statusSwipes.isEmpty());
+        assertEquals(Arrays.asList(android.view.MotionEvent.ACTION_DOWN,
+            android.view.MotionEvent.ACTION_MOVE, android.view.MotionEvent.ACTION_UP),
+            content.actions);
+        // One pixel higher, on the border's air, it is.
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f, y - 1f,
+            2000L));
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_MOVE, WIDTH / 2f, y + 200f,
+            2050L));
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, WIDTH / 2f, y + 200f,
+            2080L));
         assertEquals(Collections.singletonList(true), statusSwipes);
     }
 
     @Test
     public void aDownSwipeOffTheTopBorderUnfoldsTheBarAndCancelsTheContent() {
-        buildWithContent();
+        // Margin 0: the band reaches over the first row, so the content heard the DOWN.
+        buildWithContent(0);
         listenForStatusSwipes(0);
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f, 2f, 0L));
         wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_MOVE, WIDTH / 2f, 204f,
