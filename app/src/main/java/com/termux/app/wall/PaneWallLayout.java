@@ -779,8 +779,9 @@ public final class PaneWallLayout extends ViewGroup {
      * keyboard swipe when the listener wants it — on a wall of one place too, since the keyboard
      * has to be reachable from every place in every mode — and the status bar's swipe on the same
      * terms, below the phone's own strip at the top of the screen ({@link #topGestureLimit}). The
-     * bottom band reaches a hold only just inside the line and runs out to the wall's foot
-     * ({@link BorderDrag#BOTTOM_HOLD_REACH_DP}).
+     * top and bottom bands reach a hold only just inside their lines
+     * ({@link BorderDrag#TOP_HOLD_REACH_DP}, {@link BorderDrag#BOTTOM_HOLD_REACH_DP}), so the
+     * first and last rows keep their long press, and the bottom band runs out to the wall's foot.
      */
     private void armBorderDrag(@NonNull MotionEvent event) {
         releaseBorderDrag();
@@ -816,7 +817,8 @@ public final class PaneWallLayout extends ViewGroup {
             CornerZones.clampSize(CornerZones.paneSizePx(density), page.getWidth(), page.getHeight()),
             ViewConfiguration.get(getContext()).getScaledTouchSlop(), canPage, keyboardReach,
             statusReach, statusReach > 0f ? topGestureLimit() : Float.NEGATIVE_INFINITY,
-            BorderDrag.BOTTOM_HOLD_REACH_DP * density, below);
+            BorderDrag.TOP_HOLD_REACH_DP * density, BorderDrag.BOTTOM_HOLD_REACH_DP * density,
+            below);
         if (!armed) return;
         mBorderDownX = event.getX();
         mBorderDownY = event.getY();
