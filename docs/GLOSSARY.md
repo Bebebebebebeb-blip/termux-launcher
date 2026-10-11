@@ -22,15 +22,20 @@ _Avoid_: alphabet bar (the Layout editor's file names still say `alphabets`), fa
 The one finger gesture that pages the wall, on every place and in every mode: a press held on the
 current page's border — the frame line on any of its four sides and the air between it and the
 next thing out (the status bar, the dock or keyboard, the screen's edge), less the corner squares
-— for the same hold a corner takes, then dragged sideways. The border never reaches into the page,
-so a tap, long press or mouse click on the terminal is the terminal's right up to its edge; only
-where Margin leaves less than 6dp of air does it reach in, by the shortfall. A sideways swipe
+— for the same hold a corner takes, then dragged sideways. The border never reaches the page's
+text, so a tap, long press or mouse click on the terminal is the terminal's right up to its edge:
+the left and right borders reach 2dp over the page's edge, into the clearance before the text, and
+where Margin leaves less than 6dp of air a border reaches in by the shortfall, whichever is
+further. A sideways swipe
 without the hold, a drag that sets off before it and a second finger all give the border up; a
 vertical swipe off the bottom border is the keyboard swipe, and one off the top border is the
 status swipe. The border
 is always drawn while the
 border preference is on (the slab's rim on glass, the plain stroke otherwise), on the terminal,
-the Widgets page and the Display page alike, so the gesture has a line to find. The hold sinks
+the Widgets page and the Display page alike, so the gesture has a line to find. A finger that
+lands where its hold can page lights that edge at once, in the accent the grabbers use, and the
+glow brightens until the hold takes, stays full through the drag and fades if the press is given
+up (full and gone at once when motion is reduced). The hold sinks
 the page away from the user until the finger lets go, in every mode unless motion is reduced;
 where the extra glass is active (see **Fancier Glass**) the page held and the page arriving both tip
 like planks toward the finger, as if it pressed its weight into them, and lie flat as the settle lands; the Display place does

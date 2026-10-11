@@ -698,16 +698,21 @@ public class PaneWallLayoutTest {
      */
     private static final float OFF_PILL_X = WIDTH / 2f + 200f;
 
+    /** {@link BorderDrag#SIDE_REACH_DP} at the test's 1x density: px = dp. */
+    private static final int SIDE_REACH = Math.round(BorderDrag.SIDE_REACH_DP);
+
     @Test
     @Config(sdk = Build.VERSION_CODES.Q)
     public void theSideBordersKeepAStretchFromTheBackSwipe() {
         buildWithContent();
-        // The side zones are the Margin of air beside the page, less the corner squares; the
-        // back swipe leaves 144dp of each to the wall, centred along it (mdpi here: px = dp).
+        // The side zones are the Margin of air beside the page and the side reach over its edge,
+        // less the corner squares; the back swipe leaves 144dp of each to the wall, centred along
+        // it (mdpi here: px = dp).
         int centre = HEIGHT / 2;
         List<android.graphics.Rect> expected = Arrays.asList(
-            new android.graphics.Rect(0, centre - 72, MARGIN, centre + 72),
-            new android.graphics.Rect(WIDTH - MARGIN, centre - 72, WIDTH, centre + 72));
+            new android.graphics.Rect(0, centre - 72, MARGIN + SIDE_REACH, centre + 72),
+            new android.graphics.Rect(WIDTH - MARGIN - SIDE_REACH, centre - 72, WIDTH,
+                centre + 72));
         assertEquals(expected, wall.getSystemGestureExclusionRects());
 
         // With its gestures off the wall gives the whole edge back, and takes it again after.
@@ -726,8 +731,9 @@ public class PaneWallLayoutTest {
         wall.goTo(PaneWallPage.DISPLAY, false);
         relayout();
         List<android.graphics.Rect> onDisplay = Arrays.asList(
-            new android.graphics.Rect(0, centre - 72, MARGIN - air, centre + 72),
-            new android.graphics.Rect(WIDTH - MARGIN + air, centre - 72, WIDTH, centre + 72));
+            new android.graphics.Rect(0, centre - 72, MARGIN - air + SIDE_REACH, centre + 72),
+            new android.graphics.Rect(WIDTH - MARGIN + air - SIDE_REACH, centre - 72, WIDTH,
+                centre + 72));
         assertEquals(onDisplay, wall.getSystemGestureExclusionRects());
         // Back to the terminal: no layout runs, and the stretches still come back to its zone.
         wall.goTo(PaneWallPage.TERMINAL, false);
@@ -813,11 +819,12 @@ public class PaneWallLayoutTest {
 
     /**
      * The page's edges are the content's at the default Margin, on every side and with every
-     * border gesture on: a tap and a long press on the outermost pixel reach the content whole,
-     * and, away from the grabber pills, the wall never arms.
+     * border gesture on: a tap and a long press on the outermost pixel at the top and bottom, and
+     * on the first pixel past the side reach on the left and right, reach the content whole, and,
+     * away from the grabber pills, the wall never arms.
      */
     @Test
-    public void aTapAndALongPressOnePixelInsideEachEdgeReachTheContent() {
+    public void aTapAndALongPressJustPastEachZoneReachTheContent() {
         buildWithContent();
         listenForStatusSwipes(FOLD);
         float density = wall.getResources().getDisplayMetrics().density;
@@ -825,7 +832,8 @@ public class PaneWallLayoutTest {
             MARGIN >= BorderDrag.MIN_BAND_DP * density);
         float[][] edges = {
             {OFF_PILL_X, terminal.getTop()}, {OFF_PILL_X, terminal.getBottom() - 1f},
-            {terminal.getLeft(), HEIGHT / 2f}, {terminal.getRight() - 1f, HEIGHT / 2f},
+            {terminal.getLeft() + SIDE_REACH, HEIGHT / 2f},
+            {terminal.getRight() - SIDE_REACH - 1f, HEIGHT / 2f},
         };
         long t = 0L;
         for (float[] p : edges) {
@@ -853,6 +861,45 @@ public class PaneWallLayoutTest {
         assertTrue(keyboardSwipes.isEmpty());
         assertTrue(statusSwipes.isEmpty());
         assertEquals(PaneWallPage.TERMINAL, wall.currentPage());
+    }
+
+    /**
+     * The side borders reach 2dp over the page's edge, into the clearance before its text: a hold
+     * there takes the finger from the content and pages; 3dp in stays the content's.
+     */
+    @Test
+    public void aHoldTwoDpInsideASideEdgePagesAndThreeDpInDoesNot() {
+        buildWithContent();
+        float[] within = {terminal.getLeft() + SIDE_REACH - 1f, terminal.getRight() - SIDE_REACH};
+        long t = 0L;
+        for (float x : within) {
+            content.actions.clear();
+            wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, x, HEIGHT / 2f, t));
+            assertEquals("the content hears the press first",
+                Collections.singletonList(android.view.MotionEvent.ACTION_DOWN), content.actions);
+            assertEquals(BorderDrag.Claim.PENDING, wall.borderDragClaim());
+            letTheHoldElapse();
+            assertTrue("the hold at " + x + " pages", wall.isDragging());
+            assertEquals(Arrays.asList(android.view.MotionEvent.ACTION_DOWN,
+                android.view.MotionEvent.ACTION_CANCEL), content.actions);
+            wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, x, HEIGHT / 2f,
+                t + 2000L));
+            assertEquals(PaneWallPage.TERMINAL, wall.currentPage());
+            t += 5000L;
+        }
+        float[] past = {terminal.getLeft() + 3f, terminal.getRight() - 4f};
+        for (float x : past) {
+            content.actions.clear();
+            wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, x, HEIGHT / 2f, t));
+            assertEquals(BorderDrag.Claim.NONE, wall.borderDragClaim());
+            letTheHoldElapse();
+            assertFalse(wall.isDragging());
+            wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, x, HEIGHT / 2f,
+                t + 2000L));
+            assertEquals(Arrays.asList(android.view.MotionEvent.ACTION_DOWN,
+                android.view.MotionEvent.ACTION_UP), content.actions);
+            t += 5000L;
+        }
     }
 
     @Test
@@ -2381,5 +2428,135 @@ public class PaneWallLayoutTest {
         wall.setPageView(PaneWallPage.DISPLAY, null);
         assertEquals(1, page.drops);
         assertTrue(wall.stillPlaces().isEmpty());
+    }
+
+    // ---- The hold's glow -----------------------------------------------------------------------
+
+    private static long now() {
+        return android.os.SystemClock.uptimeMillis();
+    }
+
+    @Test
+    public void aHoldThatCanPageLightsItsBorderAtOnceAndFillsUntilItTakes() {
+        buildWithContent();
+        wall.setReducedMotion(false);
+        BorderGlow glow = wall.borderGlow();
+        assertFalse(glow.isShowing());
+        // In the air beside the page: the left border, whose hold pages.
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, 4f, HEIGHT / 2f, 0L));
+        assertTrue(glow.isHeld());
+        assertEquals(BorderDrag.Border.LEFT, glow.side());
+        float first = glow.level(now());
+        assertTrue("lit at once", first > 0f && first < 1f);
+        idle(com.termux.view.HoldTiming.holdTimeoutMs() / 2);
+        assertTrue("brighter as the hold runs", glow.level(now()) > first);
+        letTheHoldElapse();
+        assertTrue(wall.isDragging());
+        assertEquals("full at the claim", 1f, glow.level(now()), EPS);
+        assertFalse("and still", glow.needsFrame(now()));
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_MOVE, 204f, HEIGHT / 2f,
+            900L));
+        assertEquals("full through the drag", 1f, glow.level(now()), EPS);
+        // The drag ends: it fades, and asks for nothing once it has.
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, 204f, HEIGHT / 2f,
+            950L));
+        assertFalse(glow.isHeld());
+        idle(BorderGlow.FADE_MS + 20L);
+        assertEquals(0f, glow.level(now()), EPS);
+        assertFalse(glow.needsFrame(now()));
+    }
+
+    @Test
+    public void aPressGivenUpBeforeTheHoldFadesItsGlowOut() {
+        buildWithContent();
+        wall.setReducedMotion(false);
+        BorderGlow glow = wall.borderGlow();
+        // Set off sideways past the slop.
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f,
+            MARGIN / 2f, 0L));
+        assertTrue(glow.isHeld());
+        assertEquals(BorderDrag.Border.TOP, glow.side());
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_MOVE, WIDTH / 2f + 200f,
+            MARGIN / 2f, 50L));
+        assertEquals(BorderDrag.Claim.ABANDONED, wall.borderDragClaim());
+        assertFalse(glow.isHeld());
+        idle(BorderGlow.FADE_MS + 20L);
+        assertEquals(0f, glow.level(now()), EPS);
+        assertFalse(glow.needsFrame(now()));
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, WIDTH / 2f + 200f,
+            MARGIN / 2f, 400L));
+
+        // Lifted before the hold.
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, 4f, HEIGHT / 2f,
+            1000L));
+        assertTrue(glow.isHeld());
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, 4f, HEIGHT / 2f, 1050L));
+        assertFalse(glow.isHeld());
+        idle(BorderGlow.FADE_MS + 20L);
+        assertEquals(0f, glow.level(now()), EPS);
+
+        // Inside the side reach, set off into the content: a scroll the content keeps.
+        float x = terminal.getLeft() + SIDE_REACH - 1f;
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, x, HEIGHT / 2f, 2000L));
+        assertTrue(glow.isHeld());
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_MOVE, x, HEIGHT / 2f + 200f,
+            2050L));
+        assertFalse(glow.isHeld());
+        idle(BorderGlow.FADE_MS + 20L);
+        assertEquals(0f, glow.level(now()), EPS);
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, x, HEIGHT / 2f + 200f,
+            2100L));
+    }
+
+    @Test
+    public void aWallMovedFromUnderAHeldBorderPutsItsGlowOut() {
+        buildWithContent();
+        BorderGlow glow = wall.borderGlow();
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, 4f, HEIGHT / 2f, 0L));
+        letTheHoldElapse();
+        assertTrue(wall.isDragging());
+        assertTrue(glow.isHeld());
+        wall.goTo(PaneWallPage.WIDGETS, false);
+        assertFalse(glow.isHeld());
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, 4f, HEIGHT / 2f, 400L));
+    }
+
+    @Test
+    public void aPressThatCanOnlySwipeHasNoGlow() {
+        buildWithContent();
+        listenForStatusSwipes(FOLD);
+        BorderGlow glow = wall.borderGlow();
+        // By the keyboard's pill, a row into the page: its swipe only.
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f,
+            terminal.getBottom() - 1f, 0L));
+        assertEquals(BorderDrag.Claim.PENDING, wall.borderDragClaim());
+        assertFalse(glow.isShowing());
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, WIDTH / 2f,
+            terminal.getBottom() - 1f, 50L));
+
+        // A wall of one place: the bottom border carries the keyboard's swipe and nothing else.
+        wall.setPages(Collections.singletonList(PaneWallPage.TERMINAL));
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, WIDTH / 2f,
+            HEIGHT - 4f, 1000L));
+        assertEquals(BorderDrag.Claim.PENDING, wall.borderDragClaim());
+        assertFalse(glow.isShowing());
+        letTheHoldElapse();
+        assertFalse(glow.isShowing());
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, WIDTH / 2f,
+            HEIGHT - 4f, 2000L));
+    }
+
+    @Test
+    public void underReducedMotionTheGlowIsFullAtOnceAndGoneAtOnce() {
+        buildWithContent();
+        BorderGlow glow = wall.borderGlow();
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, 4f, HEIGHT / 2f, 0L));
+        assertEquals("no ramp", 1f, glow.level(now()), EPS);
+        assertFalse(glow.needsFrame(now()));
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_MOVE, 4f, HEIGHT / 2f + 200f,
+            50L));
+        assertFalse("no fade", glow.isShowing());
+        wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, 4f, HEIGHT / 2f + 200f,
+            100L));
     }
 }
