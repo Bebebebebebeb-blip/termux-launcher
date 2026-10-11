@@ -1,6 +1,13 @@
 ## v1.0.4
 
-Pinned apps that show at every icon size, and a terminal you can tap right up to its edges.
+A terminal you can tap right up to its edges, smoother pictures in the terminal, mouse support for more programs, and pinned apps that show at every icon size.
+
+### New
+
+#### Terminal
+
+- Programs that ask for mouse positions in pixels now get them, from touch, mouse mode and a real mouse alike.
+- Moving a real mouse over the terminal reaches programs that follow the pointer even with no button held.
 
 ### Changes
 
@@ -9,6 +16,7 @@ Pinned apps that show at every icon size, and a terminal you can tap right up to
 ### Fixes
 
 - Pinned apps and the app drawer no longer disappear with the Docked style at the smallest icon size (#49).
+- Animated pictures and page loads in terminal programs no longer flicker, even over a slow connection.
 
 ### Editions
 
