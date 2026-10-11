@@ -91,6 +91,12 @@ public final class PaneWallController implements PaneWallLayout.Listener {
          * has to follow by hand.
          */
         default void onPageSinkChanged(@NonNull PaneWallPage page, float scale) { }
+        /**
+         * A page tipped, or its dim changed, on a frame the wall did not otherwise report; see
+         * {@link PaneWallLayout.Listener#onPagePoseChanged}. The wall's own pages have re-aimed
+         * their glass already; the terminal's slabs are the host's.
+         */
+        default void onPagePoseChanged() { }
     }
 
     /** Saved-instance-state key for the page the wall is showing. */
@@ -323,10 +329,7 @@ public final class PaneWallController implements PaneWallLayout.Listener {
 
     @Override
     public void onWallOffsetChanged(float offsetPx) {
-        // The pages' glass is aimed at the wallpaper in screen space and the wall moves them by
-        // translation, which never redraws a child: each page re-aims its slab for this frame.
-        if (mWidgetsPage != null) mWidgetsPage.onWallMoved();
-        if (mDisplayPage != null) mDisplayPage.onWallMoved();
+        reaimPages();
         syncOutlineAlpha(offsetPx);
         mHost.onWallOffsetChanged(offsetPx);
     }
@@ -404,7 +407,24 @@ public final class PaneWallController implements PaneWallLayout.Listener {
 
     @Override
     public void onPageSinkChanged(@NonNull PaneWallPage page, float scale) {
+        reaimPages();
         mHost.onPageSinkChanged(page, scale);
+    }
+
+    @Override
+    public void onPagePoseChanged() {
+        reaimPages();
+        mHost.onPagePoseChanged();
+    }
+
+    /**
+     * The pages' glass is aimed at the wallpaper in screen space, past the transforms the wall
+     * puts on its pages — the slide, the sink, the plank's tilt — and a transform never redraws
+     * a child: each page re-aims its slab for this frame. Only on the frames the wall moves.
+     */
+    private void reaimPages() {
+        if (mWidgetsPage != null) mWidgetsPage.onWallMoved();
+        if (mDisplayPage != null) mDisplayPage.onWallMoved();
     }
 
     @Override
