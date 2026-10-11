@@ -328,8 +328,9 @@ public final class TourViewTargets implements TourTargets {
 
     /**
      * A strip along the bottom of the page that is up, which is the page's border: the frame line
-     * and the air below it down to the wall's foot, where a border drag is held, less the corner
-     * squares, which are the corner tab's.
+     * and the air below it down to the wall's foot, where a sideways swipe changes place (the top
+     * border takes the same swipe, and the card's text names both), less the corner squares, which
+     * are the corner tab's.
      */
     @Nullable
     private Rect pageBorderRect() {
