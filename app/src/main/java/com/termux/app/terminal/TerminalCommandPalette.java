@@ -79,6 +79,8 @@ public final class TerminalCommandPalette {
 
     /** Sentinel tool name for contact rows. */
     private static final String TOOL_CONTACT_OPEN = "contact.open";
+    /** Sentinel tool name for the row that asks for contact access. */
+    static final String TOOL_CONTACTS_ALLOW = "contact.allow";
 
     private TerminalCommandPalette() {
     }
@@ -421,8 +423,8 @@ public final class TerminalCommandPalette {
     /**
      * Contact rows for the current query, from the warm contact cache the
      * controller keeps. A name or a phone number finds the contact; the row
-     * opens it in the Contacts app, and its chip dials the number the query
-     * matched — the first number when it matched by name.
+     * opens it in the Contacts app, and its chip opens the dialer on the
+     * number the query matched — the first number when it matched by name.
      *
      * <p>Pure projection of the cache, so the row shape is testable without
      * a content provider.
@@ -447,7 +449,7 @@ public final class TerminalCommandPalette {
                 TOOL_CONTACT_OPEN,
                 match.contact.name,
                 // The subtitle doubles as the row's second line: the number
-                // the call button dials, so the row says what it will do.
+                // the call button hands to the dialer, so the row says what it will do.
                 match.number,
                 CATEGORY_CONTACTS,
                 Collections.<String>emptyList(),
@@ -458,6 +460,25 @@ public final class TerminalCommandPalette {
                 arguments));
         }
         return entries;
+    }
+
+    /**
+     * The row a search shows while contact access is not granted: picking
+     * it asks for access, so the ask follows a choice rather than a keystroke.
+     */
+    @NonNull
+    static CommandPaletteFilter.Entry buildContactsAllowEntry(@NonNull Context context) {
+        return new CommandPaletteFilter.Entry(
+            TOOL_CONTACTS_ALLOW,
+            context.getString(R.string.palette_contacts_allow),
+            context.getString(R.string.palette_contacts_allow_hint),
+            CATEGORY_CONTACTS,
+            Collections.<String>emptyList(),
+            true,
+            null,
+            false,
+            LauncherToolRegistry.ToolRisk.LOW,
+            null);
     }
 
     static boolean hasRequiredArguments(@NonNull LauncherToolRegistry.ToolMetadata tool) {
