@@ -47,7 +47,7 @@ printf '%s' "$VERSION" | grep -qE '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0
     || die "version must be X.Y.Z-pre.N (got '$VERSION')"
 
 # edition -> source branch, pre branch, tag, applicationId
-EDITIONS=(termux nix vaj)
+EDITIONS=(nix vaj termux) # the plain tag last: its publish fires the Discord post that links the other two
 # Edition branches are release branches: take them from origin so a stale local copy cannot
 # feed an old identity or versionName into the drop (falls back to the local branch offline).
 git fetch -q origin nix-edition io-vaj-package 2>/dev/null && EDITION_REF="origin/" || { echo "cut-prerelease: warning: could not fetch origin; using local edition branches" >&2; EDITION_REF=""; }
