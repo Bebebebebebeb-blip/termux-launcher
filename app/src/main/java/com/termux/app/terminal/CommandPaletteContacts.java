@@ -2,6 +2,7 @@ package com.termux.app.terminal;
 
 import android.content.Context;
 import android.database.Cursor;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.ContactsContract;
@@ -170,6 +171,19 @@ public final class CommandPaletteContacts {
             if (cursor != null) cursor.close();
         }
         return new ArrayList<>(byId.values());
+    }
+
+    /**
+     * The card a row or a binding opens: the lookup key names the contact, so a rename or a
+     * namesake cannot move it, and the id, when known, only speeds the lookup. {@code null} without
+     * a key.
+     */
+    @Nullable
+    public static Uri cardUri(long contactId, @NonNull String lookupKey) {
+        if (lookupKey.isEmpty()) return null;
+        return contactId >= 0
+            ? ContactsContract.Contacts.getLookupUri(contactId, lookupKey)
+            : Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_LOOKUP_URI, lookupKey);
     }
 
     /**
