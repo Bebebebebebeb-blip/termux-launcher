@@ -88,6 +88,14 @@ public final class CommandPaletteContacts {
     private static final int SCORE_NUMBER = 60;
     private static final int SCORE_NONE = 0;
 
+    /** Fewest digits a query needs before it searches numbers: two digits land in nearly every number. */
+    private static final int MIN_QUERY_DIGITS = 3;
+    /**
+     * Fewest digits a stored number needs before a longer query may contain it,
+     * so a short number such as an emergency line is not found by every query.
+     */
+    private static final int MIN_CONTAINED_NUMBER_DIGITS = 6;
+
     private static final ExecutorService LOADER = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "palette-contacts");
         thread.setDaemon(true);
@@ -167,7 +175,8 @@ public final class CommandPaletteContacts {
     /**
      * The contacts a query names, best first: an exact name, then a name
      * prefix, a word prefix, a substring, then a phone number whose digits
-     * contain the query's digits. A contact that matches both ways is
+     * contain the query's digits. Only a query that reads as a phone number
+     * searches numbers; one with letters in it searches names alone. A contact that matches both ways is
      * ordered by its name — the name is what the row reads — while the
      * number the digits landed in is still the one it dials; a name-only
      * match dials the contact's first number.
@@ -180,7 +189,7 @@ public final class CommandPaletteContacts {
         String trimmed = query == null ? "" : query.trim();
         if (trimmed.isEmpty()) return Collections.emptyList();
         String needle = trimmed.toLowerCase(Locale.US);
-        String digits = digitsOnly(needle);
+        String digits = phoneDigits(trimmed);
 
         List<Match> matches = new ArrayList<>();
         List<int[]> scored = new ArrayList<>();
@@ -221,9 +230,10 @@ public final class CommandPaletteContacts {
     }
 
     /**
-     * The first number the query's digits land in, or null. Either
-     * direction matches, so a number stored without its country code
-     * is still found by a query that spells it with one.
+     * The first number the query's digits land in, or null. A long
+     * enough stored number also matches when the query contains it,
+     * so a number stored without its country code is still found by a
+     * query that spells it with one.
      */
     @Nullable
     private static String numberMatching(@NonNull Contact contact,
@@ -232,10 +242,28 @@ public final class CommandPaletteContacts {
         for (String number : contact.numbers()) {
             String numberDigits = digitsOnly(number);
             if (numberDigits.isEmpty()) continue;
-            if (numberDigits.contains(digits) || digits.contains(numberDigits))
-                return number;
+            if (numberDigits.contains(digits)) return number;
+            if (numberDigits.length() >= MIN_CONTAINED_NUMBER_DIGITS
+                && digits.contains(numberDigits)) return number;
         }
         return null;
+    }
+
+    /**
+     * The digits of a query that reads as a phone number — digits with
+     * optional {@code + ( ) -} and spaces — or empty for any other query,
+     * and for one too short to search numbers with.
+     */
+    @NonNull
+    private static String phoneDigits(@NonNull String query) {
+        for (int i = 0; i < query.length(); i++) {
+            char c = query.charAt(i);
+            boolean phone = (c >= '0' && c <= '9')
+                || c == '+' || c == '(' || c == ')' || c == '-' || c == ' ';
+            if (!phone) return "";
+        }
+        String digits = digitsOnly(query);
+        return digits.length() >= MIN_QUERY_DIGITS ? digits : "";
     }
 
     /** The digits of {@code text}, so {@code +1 (555) 123-4567} reads {@code 15551234567}. */

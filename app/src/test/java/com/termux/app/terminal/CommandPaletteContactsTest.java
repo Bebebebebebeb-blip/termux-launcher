@@ -111,10 +111,46 @@ public class CommandPaletteContactsTest {
     }
 
     @Test
-    public void aMixedQueryOnlyMatchesByDigits() {
-        // "sam555" is neither an exact, prefix nor substring of any
-        // name, but its digits land in every number.
-        assertEquals(4, CommandPaletteContacts.filter(contacts(), "sam555").size());
+    public void aQueryWithLettersMatchesByNameOnly() {
+        // "sam555" names no one, and its digits land in every number,
+        // but a query with letters in it is a name, never a number.
+        assertEquals(0, CommandPaletteContacts.filter(contacts(), "sam555").size());
+        // "dana 555" names Dana, and only Dana, though "555" is in every number.
+        assertEquals(Arrays.asList("Dana 555"),
+            names(CommandPaletteContacts.filter(contacts(), "dana 555")));
+    }
+
+    @Test
+    public void aQueryWithFewerThanThreeDigitsMatchesNoNumber() {
+        // Two digits land in every number here, so they search no number.
+        assertEquals(0, CommandPaletteContacts.filter(contacts(), "01").size());
+        assertEquals(0, CommandPaletteContacts.filter(contacts(), "+1").size());
+        // The third digit is what makes it a number search.
+        assertEquals(4, CommandPaletteContacts.filter(contacts(), "010").size());
+    }
+
+    @Test
+    public void aCountryCodeFindsTheNumberStoredWithoutItButAShortNumberStaysOut() {
+        CommandPaletteContacts.Contact home =
+            new CommandPaletteContacts.Contact("Home", 5L, "home-key");
+        home.addNumber("98765 43210");
+        CommandPaletteContacts.Contact emergency =
+            new CommandPaletteContacts.Contact("Emergency", 6L, "emergency-key");
+        emergency.addNumber("911");
+        List<CommandPaletteContacts.Contact> both = Arrays.asList(home, emergency);
+
+        // The query spells the country code; the stored number omits it.
+        List<CommandPaletteContacts.Match> matches =
+            CommandPaletteContacts.filter(both, "+91 98765 43210");
+        assertEquals(Arrays.asList("Home"), names(matches));
+        assertEquals("98765 43210", matches.get(0).number);
+
+        // "911" sits inside this longer query, but a three-digit number
+        // is not found by every query that happens to contain it.
+        assertEquals(0, CommandPaletteContacts.filter(both, "4911234").size());
+        // It is still found by itself.
+        assertEquals(Arrays.asList("Emergency"),
+            names(CommandPaletteContacts.filter(both, "911")));
     }
 
     @Test
