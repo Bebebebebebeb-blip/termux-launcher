@@ -10,12 +10,14 @@ import androidx.annotation.NonNull;
  * the page — the terminal, the Widgets page, the Display page — and the wall's own edge on that
  * side: the frame line drawn there and the air beyond it, up to whatever stands next to the wall
  * (the status bar, the dock or the keyboard, the screen's edge). Which border a press is on is
- * which page edge it lies beyond. The page itself is never the zone, so a tap, a long press or a
- * mouse click on the terminal's first or last row or column is always the terminal's. The one
- * exception is a page that sits almost flush with the wall: where the air on a side is thinner
- * than {@link #MIN_BAND_DP}, that side's zone reaches into the page by the shortfall, so the
- * gestures never vanish at Margin 0. The corner squares are left out, from the page's corners out
- * through the zone: they are the corner tabs'.
+ * which page edge it lies beyond. The page's text is never the zone, so a tap, a long press or a
+ * mouse click on the terminal's first or last row or column is always the terminal's. The left and
+ * right zones reach {@link #SIDE_REACH_DP} over the page's edge, into the clearance a pane keeps
+ * before its text, so the narrow side borders are not missed. And where the air on a side is
+ * thinner than {@link #MIN_BAND_DP} (a page almost flush with the wall), that side's zone reaches
+ * into the page by the shortfall, so the gestures never vanish at Margin 0; a side reaches in by
+ * the larger of the two, never their sum. The corner squares are left out, from the page's
+ * corners out through the zone: they are the corner tabs'.
  *
  * <p>A finger that lands in the zone claims nothing at once: one that sets off sideways before the
  * hold, or is joined by a second finger, gives the gesture up, and where the zone reaches into the
@@ -54,6 +56,14 @@ public final class BorderDrag {
      * shortfall, so the border can still be found; at the default Margin nothing reaches in.
      */
     public static final float MIN_BAND_DP = 6f;
+
+    /**
+     * How far the left and right zones reach over the page's edge, in dp, at any Margin: inside
+     * the clearance a pane keeps between its edge and its text (the rim's stroke and 2dp more),
+     * so the side borders are found without ever taking a character. Where the minimum band
+     * reaches further in, it is the reach; the two never add.
+     */
+    public static final float SIDE_REACH_DP = 2f;
 
     /**
      * How wide the box by each grabber pill is, in dp, where the keyboard's or the status bar's
@@ -119,6 +129,7 @@ public final class BorderDrag {
         float mGapRight;
         float mGapBottom;
         float mMinBand;
+        float mSideReach;
         float mCorner;
         float mPillCentreX;
         float mPillWidth;
@@ -156,6 +167,13 @@ public final class BorderDrag {
             return this;
         }
 
+        /** How far the left and right zones reach over the page's edge, in px ({@link #SIDE_REACH_DP}). */
+        @NonNull
+        public Zone sideReach(float px) {
+            mSideReach = Math.max(0f, px);
+            return this;
+        }
+
         /** The corner squares' side, in px, measured in from the page's corners. */
         @NonNull
         public Zone corner(float px) {
@@ -179,20 +197,22 @@ public final class BorderDrag {
 
         /**
          * How far inside the page's edge on {@code side} its zone reaches: the shortfall of that
-         * side's air against the minimum band, 0 wherever the air is at least that thick, and
-         * never past the middle of the page.
+         * side's air against the minimum band, or on the left and right the side reach where that
+         * is further; 0 on the top and bottom wherever the air is at least the band, and never
+         * past the middle of the page.
          */
         public float inside(@NonNull Border side) {
             float gap;
             float half;
+            float reach = 0f;
             switch (side) {
-                case LEFT: gap = mGapLeft; half = (mRight - mLeft) / 2f; break;
-                case RIGHT: gap = mGapRight; half = (mRight - mLeft) / 2f; break;
+                case LEFT: gap = mGapLeft; half = (mRight - mLeft) / 2f; reach = mSideReach; break;
+                case RIGHT: gap = mGapRight; half = (mRight - mLeft) / 2f; reach = mSideReach; break;
                 case TOP: gap = mGapTop; half = (mBottom - mTop) / 2f; break;
                 case BOTTOM: gap = mGapBottom; half = (mBottom - mTop) / 2f; break;
                 default: return 0f;
             }
-            return Math.max(0f, Math.min(mMinBand - gap, half));
+            return Math.max(0f, Math.min(Math.max(mMinBand - gap, reach), half));
         }
 
         /**
@@ -288,8 +308,7 @@ public final class BorderDrag {
 
     /**
      * Which border the point {@code (x, y)} presses in {@code zone}: the page edge it lies beyond,
-     * within that side's air (or, where the air is thinner than the minimum band, within the
-     * shortfall inside the edge). {@link Border#NONE} for the page itself, anything past the air,
+     * within that side's air, or within that side's reach inside the edge ({@link Zone#inside}). {@link Border#NONE} for the page itself, anything past the air,
      * and the corner squares, which run from the page's corners out through the zone.
      */
     @NonNull

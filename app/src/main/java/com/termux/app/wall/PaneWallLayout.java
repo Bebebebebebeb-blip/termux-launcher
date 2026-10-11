@@ -652,8 +652,9 @@ public final class PaneWallLayout extends ViewGroup {
 
     /**
      * Every touch on the wall passes through here, whoever ends up with it. A finger down on the
-     * current page's border — the air between the page and the wall's edge, never the page itself
-     * unless that air is thinner than {@link BorderDrag#MIN_BAND_DP} — arms the drag
+     * current page's border — the air between the page and the wall's edge, and on the left and
+     * right {@link BorderDrag#SIDE_REACH_DP} of the page's clearance, or further in where that air
+     * is thinner than {@link BorderDrag#MIN_BAND_DP} — arms the drag
      * ({@link BorderDrag}) and starts the hold's timer. Usually nothing under it is a child and the
      * wall keeps the stream ({@link #onTouchEvent}); where the zone reaches into the page, the
      * child under it gets the DOWN and everything after, exactly as if the border were not there,
@@ -800,11 +801,12 @@ public final class PaneWallLayout extends ViewGroup {
      * keyboard swipe when the listener wants it — on a wall of one place too, since the keyboard
      * has to be reachable from every place in every mode — and the status bar's swipe on the same
      * terms, below the phone's own strip at the top of the screen ({@link #topGestureLimit}). Every
-     * one of them lives outside the current page, in the air between its edges and the wall's
-     * ({@link #loadBorderZone}), so the page keeps every tap, long press and click up to its edge.
+     * one of them lives outside the current page's text, in the air between its edges and the
+     * wall's and, on the sides, the page's clearance before its text ({@link #loadBorderZone}), so
+     * the page keeps every tap, long press and click on its content.
      * The two vertical swipes also start near their grabber pills, a row into the page
-     * ({@link BorderDrag#pillAt}): the child under the finger gets the press as it does where the
-     * minimum band reaches in, and keeps it unless the finger sets off up or down before the hold.
+     * ({@link BorderDrag#pillAt}): the child under the finger gets the press as it does wherever a
+     * zone reaches in, and keeps it unless the finger sets off up or down before the hold.
      */
     private void armBorderDrag(@NonNull MotionEvent event) {
         releaseBorderDrag();
@@ -844,6 +846,7 @@ public final class PaneWallLayout extends ViewGroup {
             .gaps(page.getLeft(), page.getTop(), getWidth() - page.getRight(),
                 getHeight() - page.getBottom())
             .minBand(BorderDrag.MIN_BAND_DP * density)
+            .sideReach(BorderDrag.SIDE_REACH_DP * density)
             .corner(CornerZones.paneSizePx(density))
             .pills(grabberCentreX(page, slide), BorderDrag.PILL_SWIPE_WIDTH_DP * density,
                 BorderDrag.PILL_SWIPE_REACH_DP * density);
@@ -863,7 +866,8 @@ public final class PaneWallLayout extends ViewGroup {
     /**
      * Where a border gesture is found along {@code side} of the current page at rest, in the
      * wall's own coordinates, less the corner squares: the air from the wall's edge to the page's,
-     * and a little way in where that air is thinner than {@link BorderDrag#MIN_BAND_DP}. For help
+     * and a little way in — {@link BorderDrag#SIDE_REACH_DP} on the left and right, more where
+     * that air is thinner than {@link BorderDrag#MIN_BAND_DP}. For help
      * and the tour, which point at it.
      *
      * @return false, with {@code out} emptied, where there is no page or no zone on that side

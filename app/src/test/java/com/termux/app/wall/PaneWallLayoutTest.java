@@ -698,16 +698,21 @@ public class PaneWallLayoutTest {
      */
     private static final float OFF_PILL_X = WIDTH / 2f + 200f;
 
+    /** {@link BorderDrag#SIDE_REACH_DP} at the test's 1x density: px = dp. */
+    private static final int SIDE_REACH = Math.round(BorderDrag.SIDE_REACH_DP);
+
     @Test
     @Config(sdk = Build.VERSION_CODES.Q)
     public void theSideBordersKeepAStretchFromTheBackSwipe() {
         buildWithContent();
-        // The side zones are the Margin of air beside the page, less the corner squares; the
-        // back swipe leaves 144dp of each to the wall, centred along it (mdpi here: px = dp).
+        // The side zones are the Margin of air beside the page and the side reach over its edge,
+        // less the corner squares; the back swipe leaves 144dp of each to the wall, centred along
+        // it (mdpi here: px = dp).
         int centre = HEIGHT / 2;
         List<android.graphics.Rect> expected = Arrays.asList(
-            new android.graphics.Rect(0, centre - 72, MARGIN, centre + 72),
-            new android.graphics.Rect(WIDTH - MARGIN, centre - 72, WIDTH, centre + 72));
+            new android.graphics.Rect(0, centre - 72, MARGIN + SIDE_REACH, centre + 72),
+            new android.graphics.Rect(WIDTH - MARGIN - SIDE_REACH, centre - 72, WIDTH,
+                centre + 72));
         assertEquals(expected, wall.getSystemGestureExclusionRects());
 
         // With its gestures off the wall gives the whole edge back, and takes it again after.
@@ -726,8 +731,9 @@ public class PaneWallLayoutTest {
         wall.goTo(PaneWallPage.DISPLAY, false);
         relayout();
         List<android.graphics.Rect> onDisplay = Arrays.asList(
-            new android.graphics.Rect(0, centre - 72, MARGIN - air, centre + 72),
-            new android.graphics.Rect(WIDTH - MARGIN + air, centre - 72, WIDTH, centre + 72));
+            new android.graphics.Rect(0, centre - 72, MARGIN - air + SIDE_REACH, centre + 72),
+            new android.graphics.Rect(WIDTH - MARGIN + air - SIDE_REACH, centre - 72, WIDTH,
+                centre + 72));
         assertEquals(onDisplay, wall.getSystemGestureExclusionRects());
         // Back to the terminal: no layout runs, and the stretches still come back to its zone.
         wall.goTo(PaneWallPage.TERMINAL, false);
@@ -813,11 +819,12 @@ public class PaneWallLayoutTest {
 
     /**
      * The page's edges are the content's at the default Margin, on every side and with every
-     * border gesture on: a tap and a long press on the outermost pixel reach the content whole,
-     * and, away from the grabber pills, the wall never arms.
+     * border gesture on: a tap and a long press on the outermost pixel at the top and bottom, and
+     * on the first pixel past the side reach on the left and right, reach the content whole, and,
+     * away from the grabber pills, the wall never arms.
      */
     @Test
-    public void aTapAndALongPressOnePixelInsideEachEdgeReachTheContent() {
+    public void aTapAndALongPressJustPastEachZoneReachTheContent() {
         buildWithContent();
         listenForStatusSwipes(FOLD);
         float density = wall.getResources().getDisplayMetrics().density;
@@ -825,7 +832,8 @@ public class PaneWallLayoutTest {
             MARGIN >= BorderDrag.MIN_BAND_DP * density);
         float[][] edges = {
             {OFF_PILL_X, terminal.getTop()}, {OFF_PILL_X, terminal.getBottom() - 1f},
-            {terminal.getLeft(), HEIGHT / 2f}, {terminal.getRight() - 1f, HEIGHT / 2f},
+            {terminal.getLeft() + SIDE_REACH, HEIGHT / 2f},
+            {terminal.getRight() - SIDE_REACH - 1f, HEIGHT / 2f},
         };
         long t = 0L;
         for (float[] p : edges) {
@@ -853,6 +861,45 @@ public class PaneWallLayoutTest {
         assertTrue(keyboardSwipes.isEmpty());
         assertTrue(statusSwipes.isEmpty());
         assertEquals(PaneWallPage.TERMINAL, wall.currentPage());
+    }
+
+    /**
+     * The side borders reach 2dp over the page's edge, into the clearance before its text: a hold
+     * there takes the finger from the content and pages; 3dp in stays the content's.
+     */
+    @Test
+    public void aHoldTwoDpInsideASideEdgePagesAndThreeDpInDoesNot() {
+        buildWithContent();
+        float[] within = {terminal.getLeft() + SIDE_REACH - 1f, terminal.getRight() - SIDE_REACH};
+        long t = 0L;
+        for (float x : within) {
+            content.actions.clear();
+            wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, x, HEIGHT / 2f, t));
+            assertEquals("the content hears the press first",
+                Collections.singletonList(android.view.MotionEvent.ACTION_DOWN), content.actions);
+            assertEquals(BorderDrag.Claim.PENDING, wall.borderDragClaim());
+            letTheHoldElapse();
+            assertTrue("the hold at " + x + " pages", wall.isDragging());
+            assertEquals(Arrays.asList(android.view.MotionEvent.ACTION_DOWN,
+                android.view.MotionEvent.ACTION_CANCEL), content.actions);
+            wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, x, HEIGHT / 2f,
+                t + 2000L));
+            assertEquals(PaneWallPage.TERMINAL, wall.currentPage());
+            t += 5000L;
+        }
+        float[] past = {terminal.getLeft() + 3f, terminal.getRight() - 4f};
+        for (float x : past) {
+            content.actions.clear();
+            wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_DOWN, x, HEIGHT / 2f, t));
+            assertEquals(BorderDrag.Claim.NONE, wall.borderDragClaim());
+            letTheHoldElapse();
+            assertFalse(wall.isDragging());
+            wall.dispatchTouchEvent(touch(android.view.MotionEvent.ACTION_UP, x, HEIGHT / 2f,
+                t + 2000L));
+            assertEquals(Arrays.asList(android.view.MotionEvent.ACTION_DOWN,
+                android.view.MotionEvent.ACTION_UP), content.actions);
+            t += 5000L;
+        }
     }
 
     @Test

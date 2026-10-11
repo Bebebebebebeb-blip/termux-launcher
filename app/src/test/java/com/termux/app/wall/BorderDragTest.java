@@ -24,6 +24,7 @@ public class BorderDragTest {
     private static final float BOTTOM = 1800f;
     private static final float GAP = 36f;          // 12 dp at 3x, the default Margin
     private static final float MIN_BAND = 18f;     // MIN_BAND_DP at 3x
+    private static final float SIDE_REACH = 6f;    // SIDE_REACH_DP at 3x
     private static final float CORNER = 120f;      // 40 dp at 3x
     private static final float SLOP = 24f;
     private static final int WIDTH = 1080;
@@ -48,7 +49,7 @@ public class BorderDragTest {
 
     private static BorderDrag.Zone zone(float left, float top, float right, float bottom) {
         return new BorderDrag.Zone().page(LEFT, TOP, RIGHT, BOTTOM).gaps(left, top, right, bottom)
-            .minBand(MIN_BAND).corner(CORNER);
+            .minBand(MIN_BAND).sideReach(SIDE_REACH).corner(CORNER);
     }
 
     private static BorderDrag.Border at(float x, float y) {
@@ -71,9 +72,13 @@ public class BorderDragTest {
     private static final float[][] IN_THE_GAP = {
         {MID_X, TOP - 1f}, {MID_X, BOTTOM}, {LEFT - 1f, MID_Y}, {RIGHT, MID_Y},
     };
-    /** One press per side, on the page's own outermost pixel. */
+    /**
+     * One press per side, on the first pixel of the page past its zone: the page's own outermost
+     * pixel at the top and bottom, the first one past the side reach on the left and right.
+     */
     private static final float[][] ONE_PX_INSIDE = {
-        {MID_X, TOP}, {MID_X, BOTTOM - 1f}, {LEFT, MID_Y}, {RIGHT - 1f, MID_Y},
+        {MID_X, TOP}, {MID_X, BOTTOM - 1f}, {LEFT + SIDE_REACH, MID_Y},
+        {RIGHT - SIDE_REACH - 1f, MID_Y},
     };
     private static final BorderDrag.Border[] SIDES = {BorderDrag.Border.TOP,
         BorderDrag.Border.BOTTOM, BorderDrag.Border.LEFT, BorderDrag.Border.RIGHT};
@@ -81,6 +86,8 @@ public class BorderDragTest {
     @Test
     public void theShippedNumbersAreWhatTheseTestsAssume() {
         assertEquals(MIN_BAND, BorderDrag.MIN_BAND_DP * DENSITY, 0.01f);
+        assertEquals(SIDE_REACH, BorderDrag.SIDE_REACH_DP * DENSITY, 0.01f);
+        assertTrue("the side reach is thinner than the band", SIDE_REACH < MIN_BAND);
         assertEquals(COMMIT, BorderDrag.KEYBOARD_COMMIT_DP * DENSITY, 0.01f);
         assertEquals(FLING, BorderDrag.KEYBOARD_FLING_DP_PER_SEC * DENSITY, 0.01f);
         assertEquals(PILL_WIDTH, BorderDrag.PILL_SWIPE_WIDTH_DP * DENSITY, 0.01f);
@@ -104,7 +111,7 @@ public class BorderDragTest {
     }
 
     @Test
-    public void thePagesOwnEdgePixelsAreNeverArmed() {
+    public void thePagePastEachSidesZoneIsNeverArmed() {
         for (int i = 0; i < SIDES.length; i++) {
             float[] p = ONE_PX_INSIDE[i];
             assertEquals(SIDES[i] + ": 1px inside", BorderDrag.Border.NONE, at(p[0], p[1]));
@@ -244,23 +251,69 @@ public class BorderDragTest {
     public void theZonesBoundsAreTheStripFromTheWallsEdgeToThePagesLessTheCorners() {
         float[] out = new float[4];
         BorderDrag.Zone zone = zone(GAP);
+        // The side strips run on over the page's edge by the side reach.
         assertTrue(zone.bounds(BorderDrag.Border.LEFT, out));
-        assertArrayEquals(new float[] {LEFT - GAP, TOP + CORNER, LEFT, BOTTOM - CORNER}, out,
-            0.01f);
+        assertArrayEquals(new float[] {LEFT - GAP, TOP + CORNER, LEFT + SIDE_REACH,
+            BOTTOM - CORNER}, out, 0.01f);
         assertTrue(zone.bounds(BorderDrag.Border.BOTTOM, out));
         assertArrayEquals(new float[] {LEFT + CORNER, BOTTOM, RIGHT - CORNER, BOTTOM + GAP}, out,
             0.01f);
         assertTrue(zone.bounds(BorderDrag.Border.TOP, out));
         assertArrayEquals(new float[] {LEFT + CORNER, TOP - GAP, RIGHT - CORNER, TOP}, out, 0.01f);
         assertTrue(zone.bounds(BorderDrag.Border.RIGHT, out));
-        assertArrayEquals(new float[] {RIGHT, TOP + CORNER, RIGHT + GAP, BOTTOM - CORNER}, out,
-            0.01f);
+        assertArrayEquals(new float[] {RIGHT - SIDE_REACH, TOP + CORNER, RIGHT + GAP,
+            BOTTOM - CORNER}, out, 0.01f);
         // At Margin 0 the strip is the band inside the page.
         assertTrue(zone(0f).bounds(BorderDrag.Border.LEFT, out));
         assertArrayEquals(new float[] {LEFT, TOP + CORNER, LEFT + MIN_BAND, BOTTOM - CORNER},
             out, 0.01f);
-        assertFalse("no air and no band: no strip",
-            zone(0f).minBand(0f).bounds(BorderDrag.Border.LEFT, out));
+        assertFalse("no air, no band and no reach: no strip",
+            zone(0f).minBand(0f).sideReach(0f).bounds(BorderDrag.Border.LEFT, out));
+    }
+
+    // ---- The side reach, into the page's clearance -------------------------------------------
+
+    @Test
+    public void theSideZonesReachTwoDpIntoThePageAndTheTopAndBottomDoNot() {
+        BorderDrag.Zone zone = zone(GAP);
+        assertEquals(SIDE_REACH, zone.inside(BorderDrag.Border.LEFT), 0.01f);
+        assertEquals(SIDE_REACH, zone.inside(BorderDrag.Border.RIGHT), 0.01f);
+        assertEquals(0f, zone.inside(BorderDrag.Border.TOP), 0.01f);
+        assertEquals(0f, zone.inside(BorderDrag.Border.BOTTOM), 0.01f);
+        float threeDp = 3f * DENSITY;
+        // The last pixel of the 2dp is the side's border, and its hold pages.
+        float[][] within = {{LEFT + SIDE_REACH - 1f, MID_Y}, {RIGHT - SIDE_REACH, MID_Y}};
+        // The first pixel past it, and 3dp in, are the page's.
+        float[][] past = {{LEFT + SIDE_REACH, MID_Y}, {RIGHT - SIDE_REACH - 1f, MID_Y},
+            {LEFT + threeDp, MID_Y}, {RIGHT - threeDp - 1f, MID_Y}};
+        BorderDrag.Border[] sides = {BorderDrag.Border.LEFT, BorderDrag.Border.RIGHT};
+        for (int i = 0; i < within.length; i++) {
+            BorderDrag drag = armed(within[i][0], within[i][1]);
+            assertTrue(sides[i] + " arms 2dp in", drag.isArmed());
+            assertEquals(sides[i], drag.border());
+            assertTrue(sides[i] + " pages on the hold", drag.holdElapsed());
+        }
+        for (float[] p : past) {
+            assertFalse("nothing arms at " + p[0], armed(p[0], p[1]).isArmed());
+        }
+        // The top and bottom keep the page's edge rows for the content.
+        assertEquals(BorderDrag.Border.NONE, at(MID_X, TOP));
+        assertEquals(BorderDrag.Border.NONE, at(MID_X, BOTTOM - 1f));
+    }
+
+    @Test
+    public void aThinSideGapReachesInByTheLargerOfItsShortfallAndTheSideReach() {
+        // 15 px of air: 3 px short of the band, less than the side reach.
+        BorderDrag.Zone slight = zone(15f);
+        assertEquals(SIDE_REACH, slight.inside(BorderDrag.Border.LEFT), 0.01f);
+        assertEquals(SIDE_REACH, slight.inside(BorderDrag.Border.RIGHT), 0.01f);
+        assertEquals(3f, slight.inside(BorderDrag.Border.TOP), 0.01f);
+        // 8 px of air: 10 px short, more than the side reach, and the two never add.
+        BorderDrag.Zone thin = zone(8f);
+        assertEquals(MIN_BAND - 8f, thin.inside(BorderDrag.Border.LEFT), 0.01f);
+        assertEquals(MIN_BAND - 8f, thin.inside(BorderDrag.Border.RIGHT), 0.01f);
+        assertEquals(BorderDrag.Border.NONE,
+            BorderDrag.borderAt(LEFT + MIN_BAND - 8f, MID_Y, thin));
     }
 
     // ---- The hold ----------------------------------------------------------------------------
