@@ -12,6 +12,7 @@ import com.termux.app.launcher.widget.WidgetCellRect;
 import com.termux.app.launcher.widget.WidgetGridMetrics;
 import com.termux.app.launcher.widget.WidgetGridView;
 import com.termux.app.terminal.TerminalWindowBar;
+import com.termux.app.wall.BorderDrag;
 import com.termux.app.wall.BorderGrabber;
 import com.termux.app.wall.PaneWallLayout;
 import com.termux.app.wall.PaneWallPage;
@@ -67,8 +68,6 @@ public final class HelpTargets {
             return s.toString();
         }
     }
-    /** How tall the strip that stands for the page's border is, in dp. */
-    private static final float BORDER_BAND_DP = 10f;
     /** Room round the keyboard grabber's pill, so its box reads as a target and not a hairline. */
     private static final float GRABBER_AIR_DP = 10f;
     /** The keyboard value the launcher's own settings hang off; the cog is how it is drawn. */
@@ -159,16 +158,16 @@ public final class HelpTargets {
     }
     /**
      * The page's border as one strip along its left edge, less the corner squares: the frame line
-     * a border drag is held on. Any side takes the drag; the left one is shown because the bottom
-     * edge already carries the dock and the keyboard swipe's pill, and a card for the border there
-     * would have nowhere to stand. The wall is the page at rest, so its bounds are the page's.
+     * and the air beside it, from the wall's edge to the page's, where a border drag is held. Any
+     * side takes the drag; the left one is shown because the bottom edge already carries the dock
+     * and the keyboard swipe's pill, and a card for the border there would have nowhere to stand.
      */
     private void pageBorder(Snapshot s, Rect wall) {
-        float density = context.getResources().getDisplayMetrics().density;
-        int corner = Math.round(com.termux.app.chrome.CornerZones.paneSizePx(density));
-        int band = Math.round(BORDER_BAND_DP * density);
-        Rect strip = new Rect(wall.left, wall.top + corner, wall.left + band,
-            wall.bottom - corner);
+        View wallView = finder.findHelpView(R.id.terminal_pane_wall);
+        if (!(wallView instanceof PaneWallLayout)) return;
+        Rect strip = new Rect();
+        if (!((PaneWallLayout) wallView).borderZone(BorderDrag.Border.LEFT, strip)) return;
+        strip.offset(wall.left, wall.top);
         add(s, "border", strip, 0);
     }
 
