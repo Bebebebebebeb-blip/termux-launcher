@@ -186,6 +186,8 @@ public final class CommandPaletteView extends View {
     private static final float ACTION_CHIP_DP = 20f;
     /** The phone inside the call chip's round. */
     private static final float ACTION_ICON_DP = 12f;
+    /** How far outside its drawn round a tap still lands on the call chip: the round alone is too small for a thumb. */
+    private static final float ACTION_TAP_SLOP_DP = 12f;
     private static final float FOCUS_BAR_W = 2f;
     private static final float VIEWPORT_BOTTOM_SLACK = 26f;
     private static final float BOTTOM_FADE_H = 28f;
@@ -1059,14 +1061,11 @@ public final class CommandPaletteView extends View {
     private void handleTap(float x, float y) {
         if (mCallbacks == null) return;
         // A chip owns its own tap before the row it sits on: the call
-        // button dials, the row opens the contact.
-        for (int i = 0; i < mActionRects.size(); i++) {
-            RectF chip = mActionRects.valueAt(i);
-            if (x >= chip.left && x <= chip.right
-                && y >= chip.top && y <= chip.bottom) {
-                mCallbacks.onRowActionTapped(mActionRects.keyAt(i));
-                return;
-            }
+        // button opens the dialer, the row opens the contact.
+        int chipRow = actionRowAt(x, y);
+        if (chipRow >= 0) {
+            mCallbacks.onRowActionTapped(chipRow);
+            return;
         }
         for (int i = 0; i < mCapRects.size(); i++) {
             RectF cap = mCapRects.get(i);
@@ -1085,6 +1084,30 @@ public final class CommandPaletteView extends View {
     }
 
     /** Row under {@code y} in the scrolled list, or -1 when the point is outside it. */
+    /**
+     * The row whose call chip a tap lands on, or -1. The slop reaches past
+     * the drawn round, further than the gap to the next row's chip, so the
+     * nearest chip wins; it stays inside the frame and the list viewport,
+     * where the chips are drawn.
+     */
+    private int actionRowAt(float x, float y) {
+        if (!mFrame.contains(x, y) || y < listTop() || y > listBottom()) return -1;
+        float slop = dp(ACTION_TAP_SLOP_DP);
+        int nearest = -1;
+        float nearestDistance = Float.MAX_VALUE;
+        for (int i = 0; i < mActionRects.size(); i++) {
+            RectF chip = mActionRects.valueAt(i);
+            if (x < chip.left - slop || x > chip.right + slop
+                || y < chip.top - slop || y > chip.bottom + slop) continue;
+            float distance = Math.abs(y - chip.centerY());
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearest = mActionRects.keyAt(i);
+            }
+        }
+        return nearest;
+    }
+
     private int rowIndexAt(float y) {
         if (y < listTop() || y > listBottom()) return -1;
         float rowY = listTop() - mScrollOffset;
