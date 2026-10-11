@@ -1083,7 +1083,6 @@ public final class CommandPaletteView extends View {
         if (index >= 0 && mRows.get(index).isSelectable()) mCallbacks.onRowTapped(index);
     }
 
-    /** Row under {@code y} in the scrolled list, or -1 when the point is outside it. */
     /**
      * The row whose call chip a tap lands on, or -1. The slop reaches past
      * the drawn round, further than the gap to the next row's chip, so the
@@ -1108,6 +1107,7 @@ public final class CommandPaletteView extends View {
         return nearest;
     }
 
+    /** Row under {@code y} in the scrolled list, or -1 when the point is outside it. */
     private int rowIndexAt(float y) {
         if (y < listTop() || y > listBottom()) return -1;
         float rowY = listTop() - mScrollOffset;
