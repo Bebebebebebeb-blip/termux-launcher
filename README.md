@@ -71,7 +71,7 @@ Every release ships the same launcher built from the same source; the editions d
 | | Termux edition | Nix edition | VAJ demo edition |
 |---|---|---|---|
 | Package name | `com.termux` | `com.termux.launcher.nix` | `io.vaj.tl` |
-| Release tag | `vX.Y.Z` | `vX.Y.Z-nix` | `vX.Y.Z-vaj` |
+| Release tag | `vX.Y.Z` | `nix-vX.Y.Z` | `vaj-vX.Y.Z` |
 | Alongside official Termux? | ❌ No — same package name, replaces it | ✅ Yes — installs side by side | ✅ Yes — installs side by side |
 | Package manager | `pkg` / APT | [Nix](https://nixos.org) ([guide](docs/en/Nix_Package_Management.md)) | `pkg` / APT |
 | Package repository | official Termux repos | official `nixpkgs` binary cache | small VAJ APT repo (`https://repo.pathayam.xyz`) |
@@ -85,6 +85,10 @@ Companion add-ons must be the matching builds from this project's forks (they sh
 ## Installation
 
 Download the latest APK of your chosen [edition](#editions) from [Releases](https://github.com/PickleHik3/termux-launcher/releases), install it, then select Termux Launcher as your Android home app.
+
+### Stable or pre-release
+
+There are two channels. **Stable** releases (`vX.Y.Z`, one build per edition) are what most people should run. The **pre-release** channel (`vX.Y.Z-pre.N`, with `nix-` and `vaj-` builds alongside, marked *Pre-release* on the releases page) is a rolling build of what is heading for the next stable plus experiments that may still change or be dropped; each drop's notes list everything it has beyond the latest stable. Both channels are signed with the same key and share a version code, so you can install one over the other in either direction and keep your data. When reporting an issue from a pre-release, include the version from Settings › About — it ends in `-pre.N`.
 
 Recommended setup:
 
