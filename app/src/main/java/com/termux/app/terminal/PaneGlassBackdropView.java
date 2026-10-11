@@ -18,6 +18,7 @@ import androidx.annotation.Nullable;
 
 import com.termux.app.chrome.FrameCrossfade;
 import com.termux.app.chrome.GlassAnchor;
+import com.termux.app.chrome.GlassFilters;
 import com.termux.app.chrome.GlassRefraction;
 import com.termux.app.chrome.WallpaperParallax;
 
@@ -77,6 +78,8 @@ public final class PaneGlassBackdropView extends View {
     /** The grain strength {@link #mGrain} was built from: a fresh drawable is not comparable. */
     private int mGrainStrength;
     @Nullable private ColorFilter mFrostFilter;
+    /** The sink dim the frame paints' filter last undid; 255 for the plain frost. */
+    private int mFilterKeptBrightness = 0xFF;
     /** False until the first {@link #setGlass} call, so the defaults are never mistaken for a dress. */
     private boolean mDressed;
     private int mTintColor;
@@ -215,6 +218,7 @@ public final class PaneGlassBackdropView extends View {
         mFrostFilter = frostFilter;
         mFramePaint.setColorFilter(frostFilter);
         mPreviousFramePaint.setColorFilter(frostFilter);
+        mFilterKeptBrightness = 0xFF;
         mAimStale = true;   // force the matrix to be rebuilt against the new frame
         invalidate();
         return true;
@@ -437,6 +441,15 @@ public final class PaneGlassBackdropView extends View {
             // aimed past all of it, so the wallpaper in the slab stays where the wallpaper behind
             // the wall is. The parallax carries the wallpaper to the left under it.
             GlassAnchor.place(this, mPlacement);
+            // The sink dims the page's layer, this slab with it; the wallpaper behind does not
+            // darken, so the frame is lifted by as much as the layer will take away.
+            int kept = mPlacement.keptBrightness;
+            if (kept != mFilterKeptBrightness) {
+                mFilterKeptBrightness = kept;
+                ColorFilter filter = GlassFilters.undimmed(mFrostFilter, kept);
+                mFramePaint.setColorFilter(filter);
+                mPreviousFramePaint.setColorFilter(filter);
+            }
             float parallax = mParallax == null ? 0f : mParallax.offsetPx();
             GlassRefraction.Program program = mProgram;
             if (mAimStale || aimShader != mLastAimShader || !mPlacement.toScreen.equals(mLastToScreen)

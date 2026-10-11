@@ -31,6 +31,7 @@ import com.termux.R;
 import com.termux.app.chrome.CornerTabGeometry;
 import com.termux.app.chrome.CornerZones;
 import com.termux.app.chrome.GlassAnchor;
+import com.termux.app.chrome.GlassFilters;
 import com.termux.app.chrome.GlassRefraction;
 import com.termux.shared.termux.font.NerdFontSpans;
 
@@ -279,6 +280,8 @@ public final class PaneControlsView extends View {
     /** The wallpaper's live x-offset the frost follows, or null while nothing pans. */
     @Nullable private com.termux.app.chrome.WallpaperParallax mParallax;
     @Nullable private ColorFilter mFrostFilter;
+    /** The sink dim the frost paint's filter last undid; 255 for the plain frost. */
+    private int mFilterKeptBrightness = 0xFF;
     /** Fancier Glass on the tab's blur, or null for the plain frost. */
     @Nullable private GlassRefraction.Look mLook;
     /** The program the blur draws through while {@link #mLook} is set and the phone runs one. */
@@ -483,6 +486,7 @@ public final class PaneControlsView extends View {
         }
         mFrostFrame = live;
         mFrostPaint.setColorFilter(frostFilter);
+        mFilterKeptBrightness = 0xFF;
         mFrostFilter = frostFilter;
         mFrostRect.set(frameRect);
         syncRefraction();
@@ -922,6 +926,12 @@ public final class PaneControlsView extends View {
         GlassAnchor.place(this, mPlacement);
         mAim.set(mPlacement.toScreen, mFrostRect, frame.getWidth(), frame.getHeight(),
             mParallax == null ? 0f : mParallax.offsetPx());
+        // And past the sink's dim on the page's layer, as the slab does.
+        int kept = mPlacement.keptBrightness;
+        if (kept != mFilterKeptBrightness) {
+            mFilterKeptBrightness = kept;
+            mFrostPaint.setColorFilter(GlassFilters.undimmed(mFrostFilter, kept));
+        }
     }
 
     private void drawText(@NonNull Canvas canvas, @NonNull RectF button, @NonNull Action action,

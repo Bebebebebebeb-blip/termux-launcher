@@ -2,9 +2,13 @@ package com.termux.app.chrome;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
+import android.graphics.ColorFilter;
+import android.graphics.ColorMatrix;
+import android.graphics.ColorMatrixColorFilter;
 import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.os.Build;
@@ -251,6 +255,35 @@ public class GlassAnchorTest {
         assertEquals(before[1] + 120.25f, after[1], 0f);
         GlassAnchor.clearMotion(mPaneFrame);
         assertEquals(rest, place().toScreen);
+    }
+
+    /**
+     * The sink dims the page's layer, glass and all; the wallpaper behind does not darken. The
+     * frame is lifted by as much in advance, so frost, lift and dim together are the frost alone.
+     */
+    @Test
+    public void theSinkDimIsUndoneOnTheWallpaperTheGlassDraws() {
+        assertEquals("no page is sinking", 0xFF, place().keptBrightness);
+
+        ColorMatrixColorFilter frost = GlassFilters.frost();
+        assertSame("nothing to undo at rest", frost, GlassFilters.undimmed(frost, 0xFF));
+        int kept = PageSink.dimMultiplier(15, 16) & 0xFF;
+        ColorFilter lifted = GlassFilters.undimmed(frost, kept);
+        assertSame("one filter per level, built once", lifted, GlassFilters.undimmed(frost, kept));
+
+        ColorMatrix frostMatrix = new ColorMatrix();
+        frost.getColorMatrix(frostMatrix);
+        ColorMatrix liftedMatrix = new ColorMatrix();
+        ((ColorMatrixColorFilter) lifted).getColorMatrix(liftedMatrix);
+        float[] plain = frostMatrix.getArray();
+        float[] undone = liftedMatrix.getArray();
+        float dim = kept / 255f;
+        for (int i = 0; i < 15; i++) assertEquals(plain[i], undone[i] * dim, 1e-4f);
+        for (int i = 15; i < 20; i++) assertEquals("alpha is left alone", plain[i], undone[i], 0f);
+
+        ColorFilter foreign = new ColorMatrixColorFilter(new ColorMatrix());
+        assertSame("a filter it did not build is handed back", foreign,
+            GlassFilters.undimmed(foreign, kept));
     }
 
     /**

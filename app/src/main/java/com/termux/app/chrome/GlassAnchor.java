@@ -112,11 +112,18 @@ public final class GlassAnchor {
          * and any motion published on the way; floats end to end, so a slide never rounds.
          */
         @NonNull public final Matrix toScreen = new Matrix();
+        /**
+         * The brightness, of 255 per channel, the wall's sink dim leaves the page this view is
+         * on: 255 off the wall and on every page the sink is not dimming. The page's layer dims
+         * everything on it, so glass lifts the wallpaper it draws by as much in advance
+         * ({@link GlassFilters#undimmed}): the picture comes out of the dim as it is behind it.
+         */
+        public int keptBrightness = 0xFF;
         @NonNull private final int[] mRoot = new int[2];
     }
 
     /**
-     * Fill {@code out} for {@code view}: its matrix to the screen.
+     * Fill {@code out} for {@code view}: its matrix to the screen and the dim its page wears.
      *
      * <p>The matrix composes, from the view up, each view's laid-out position less its parent's
      * scroll, a motion its owner published ({@link #setMotion}), and the full transform of the
@@ -127,12 +134,14 @@ public final class GlassAnchor {
     public static void place(@NonNull View view, @NonNull Placement out) {
         Matrix matrix = out.toScreen;
         matrix.reset();
+        out.keptBrightness = 0xFF;
         View current = view;
         while (true) {
             ViewParent parent = current.getParent();
             if (parent instanceof PaneWallLayout) {
                 Matrix page = current.getMatrix();
                 if (!page.isIdentity()) matrix.postConcat(page);
+                out.keptBrightness = ((PaneWallLayout) parent).keptBrightness(current);
             }
             float x = current.getLeft();
             float y = current.getTop();
