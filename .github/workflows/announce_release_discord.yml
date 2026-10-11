@@ -4,7 +4,7 @@ name: Announce Release On Discord
 # channel drop `vX.Y.Z-pre.N` to #pre-release. Every version ships three GitHub releases (plain,
 # nix-, vaj-); only the plain tag posts, once, linking all three editions. Nightlies are workflow
 # artifacts, not releases, so they never post. The tag name decides the channel, not GitHub's
-# Pre-release flag (the nix- stables carry that flag too).
+# Pre-release flag (reserved for -pre drops since 1.0.4; the nix- stables before that carried it).
 #
 # Secrets: DISCORD_WEBHOOK_RELEASES, DISCORD_WEBHOOK_PRERELEASE (channel webhook URLs). A missing
 # secret skips the post with a notice instead of failing the run.

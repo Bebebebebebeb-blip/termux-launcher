@@ -364,7 +364,9 @@ Per edition, as in `Release v1.0.1 (merge dev into io-vaj-package)` followed by 
 merge `dev`, then set `versionName` to the plain `X.Y.Z` in a `release:` commit (it **must** equal
 the tag minus its edition prefix and `v`, or CI aborts), push, tag, `gh release create --notes-file …`
 (`--latest` on `vX.Y.Z`, `--latest=false` on the edition tags, never `--prerelease` on a stable),
-then dispatch `attach_debug_apks_to_release.yml` with the tag.
+then dispatch `attach_debug_apks_to_release.yml` with the tag. Publishing the plain `vX.Y.Z`
+(or `vX.Y.Z-pre.N`) release fires `announce_release_discord.yml`, which posts once to Discord
+linking all three edition releases, so create the three in one pass and the plain one last.
 
 ### The pre-release channel
 
