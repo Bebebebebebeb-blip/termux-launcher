@@ -14,7 +14,6 @@ import androidx.annotation.Nullable;
 
 import com.termux.R;
 import com.termux.app.terminal.TerminalClockWidget;
-import com.termux.shared.termux.settings.preferences.TermuxPreferenceConstants;
 
 import java.util.List;
 
@@ -123,8 +122,8 @@ public final class TopPaneWidgetSlot extends ViewGroup implements TopPaneFeed.Ob
     }
 
     /**
-     * The clock alignment decides where the clock's cell sits when it has the slot to itself: a
-     * centred clock is centred on the bar, not on what is left beside the place icon.
+     * The clock alignment decides where the clock stands, alone or beside the media row and the
+     * pinned cards; {@link TopPaneSlotRow} says where.
      */
     public void setClockAlignment(@Nullable String alignment) {
         if (alignment == null ? mClockAlignment == null : alignment.equals(mClockAlignment)) return;
@@ -303,27 +302,6 @@ public final class TopPaneWidgetSlot extends ViewGroup implements TopPaneFeed.Ob
             }).start();
     }
 
-    /**
-     * The clock's cell when it has the slot to itself, as {@code {start, end}} in px.
-     *
-     * <p>The widget centres its face inside its own bounds, so those bounds decide what "centre"
-     * means. Left and right keep the cell running from the place icon to the gutter, where the
-     * face sits flush against whichever edge it was asked for. Centre mirrors the leading cell on
-     * the trailing side instead, so the face lands on the bar's own centre line however wide the
-     * place icons grow — measured against the bar, not against what the icons leave over.
-     */
-    static int[] clockOnlySpan(int width, int leadingCell, int gutter, @Nullable String alignment) {
-        int start = leadingCell;
-        int end = width - gutter;
-        if (TermuxPreferenceConstants.TERMUX_APP.TOP_PANE_CLOCK_ALIGNMENT_CENTER.equals(alignment)) {
-            int inset = Math.max(leadingCell, gutter);
-            start = inset;
-            end = width - inset;
-        }
-        if (end < start) end = start;
-        return new int[]{start, end};
-    }
-
     // ---- Layout -----------------------------------------------------------
 
     @Override
@@ -339,43 +317,40 @@ public final class TopPaneWidgetSlot extends ViewGroup implements TopPaneFeed.Ob
         // clock and everything else lay out after it. The neighbours peek past the edges behind
         // the content and take no room.
         int contentStart = StatusBarLensView.leadingCellWidthPx(getContext());
-        int contentEnd = width - gutter;
-        int available = Math.max(0, contentEnd - contentStart);
+        int available = Math.max(0, width - gutter - contentStart);
 
-        int clockWidth;
-        int clockHeight;
-        int clockStart = contentStart;
+        int clockHeight = height;
         float heightBudget = Math.max(1f, height - 2f * dp(CLOCK_AIR_DP));
+        // Where the clock stands, and what is left beside it, follow the alignment in one place.
+        TopPaneSlotRow row;
         if (mMode == TopPaneSlotMode.CLOCK_ONLY) {
-            int[] span = clockOnlySpan(width, contentStart, gutter, mClockAlignment);
-            clockStart = span[0];
-            clockWidth = Math.max(0, span[1] - span[0]);
-            clockHeight = height;
-            mClock.setFitBudget(clockWidth, heightBudget, mClockShared);
+            row = TopPaneSlotRow.alone(width, contentStart, gutter, mClockAlignment);
+            mClock.setFitBudget(row.clockWidth(), heightBudget, mClockShared);
         } else {
-            clockHeight = height;
             // The clock scales as one entity to the room it is given: the full band minus the
             // air, and the run the strip or cards beside it leave, which is just over half of
             // the pane at the least.
-            int sideMin = Math.round(dp(SIDE_MIN_DP)) + gap;
-            int cap = Math.max(Math.round(available * .55f), available - sideMin);
+            int sideMin = Math.round(dp(SIDE_MIN_DP));
+            int cap = Math.max(Math.round(available * .55f), available - sideMin - gap);
             cap = Math.max(0, cap);
             mClock.setFitBudget(cap, heightBudget, mClockShared);
-            clockWidth = Math.min(cap,
+            int clockWidth = Math.min(cap,
                 (int) Math.ceil(mClock.fitWidthPx(cap, heightBudget, mClockShared)));
+            row = TopPaneSlotRow.shared(width, contentStart, gutter, gap, clockWidth, sideMin,
+                mClockAlignment);
         }
-        mClock.measure(MeasureSpec.makeMeasureSpec(clockWidth, MeasureSpec.EXACTLY),
+        mClock.measure(MeasureSpec.makeMeasureSpec(row.clockWidth(), MeasureSpec.EXACTLY),
             MeasureSpec.makeMeasureSpec(clockHeight, MeasureSpec.EXACTLY));
-        mClockBounds.set(clockStart, (height - clockHeight) / 2,
-            clockStart + clockWidth, (height - clockHeight) / 2 + clockHeight);
+        mClockBounds.set(row.clockStart, (height - clockHeight) / 2,
+            row.clockEnd, (height - clockHeight) / 2 + clockHeight);
 
         mNotificationBounds.setEmpty();
         mMediaBounds.setEmpty();
         if (mMode == TopPaneSlotMode.CLOCK_ONLY) return;
 
-        int contentLeft = contentStart + clockWidth + gap;
-        int contentRight = contentEnd;
-        int contentWidth = Math.max(0, contentRight - contentLeft);
+        int contentLeft = row.sideStart;
+        int contentRight = row.sideEnd;
+        int contentWidth = row.sideWidth();
 
         // The column keeps its air off the bar's edge and off the row; see TopPaneSlotBudget.
         TopPaneSlotBudget.Column column = TopPaneSlotBudget.layout(mMode, mPinnedCount, height,
