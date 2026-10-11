@@ -691,6 +691,29 @@ public class PaneWallLayoutTest {
      */
     private static final int MARGIN = 12;
 
+    @Test
+    @Config(sdk = Build.VERSION_CODES.Q)
+    public void theSideBordersKeepAStretchFromTheBackSwipe() {
+        buildWithContent();
+        // The side zones are the Margin of air beside the page, less the corner squares; the
+        // back swipe leaves 144dp of each to the wall, centred along it (mdpi here: px = dp).
+        int centre = HEIGHT / 2;
+        List<android.graphics.Rect> expected = Arrays.asList(
+            new android.graphics.Rect(0, centre - 72, MARGIN, centre + 72),
+            new android.graphics.Rect(WIDTH - MARGIN, centre - 72, WIDTH, centre + 72));
+        assertEquals(expected, wall.getSystemGestureExclusionRects());
+
+        // With its gestures off the wall gives the whole edge back, and takes it again after.
+        wall.setGesturesEnabled(false);
+        assertTrue(wall.getSystemGestureExclusionRects().isEmpty());
+        wall.setGesturesEnabled(true);
+        assertEquals(expected, wall.getSystemGestureExclusionRects());
+
+        // A wall of one place has nowhere to page to, so the back swipe keeps the edge.
+        wall.setPages(Collections.singletonList(PaneWallPage.TERMINAL));
+        assertTrue(wall.getSystemGestureExclusionRects().isEmpty());
+    }
+
     /** {@link #buildWithContent(int)} at the default {@link #MARGIN}. */
     private void buildWithContent() {
         buildWithContent(MARGIN);

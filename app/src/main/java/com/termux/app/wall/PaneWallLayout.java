@@ -210,6 +210,17 @@ public final class PaneWallLayout extends ViewGroup {
     private final BorderDrag.Zone mBorderZone = new BorderDrag.Zone();
     /** Scratch for {@link #borderZone}; main thread only. */
     private final float[] mBorderZoneBounds = new float[4];
+    /**
+     * How much of each side border the phone's back swipe leaves to the wall, in dp. The side
+     * borders lie inside the back swipe's strip, which takes any sideways drag that starts there,
+     * so a hold could never page from them. Android grants a window 200dp of such exclusions per
+     * edge; the A–Z pull tab ({@code AzPullTabLayer}) asks for its 56dp touch on a side too, so
+     * the wall keeps to the rest.
+     */
+    private static final float SIDE_BACK_EXCLUSION_DP = 144f;
+    /** The side stretches last handed to {@link #setSystemGestureExclusionRects}, in px. */
+    private final Rect mBackExclusionLeft = new Rect();
+    private final Rect mBackExclusionRight = new Rect();
     /** Where the armed finger landed, in the wall's coordinates: what the child's cancel says. */
     private float mBorderDownX;
     private float mBorderDownY;
@@ -370,6 +381,7 @@ public final class PaneWallLayout extends ViewGroup {
             notifyPageChanged();
         }
         applyPagePositions();
+        publishBackExclusion();
     }
 
     @NonNull
@@ -477,8 +489,12 @@ public final class PaneWallLayout extends ViewGroup {
     public void setGesturesEnabled(boolean enabled) {
         boolean changed = enabled != mGesturesEnabled;
         mGesturesEnabled = enabled;
-        // The grabber marks a gesture that is on: it goes and comes back with it.
-        if (changed) invalidate();
+        // The grabber marks a gesture that is on: it goes and comes back with it, and so does the
+        // side borders' hold on the back swipe.
+        if (changed) {
+            invalidate();
+            publishBackExclusion();
+        }
         // A border swipe under way asks for nothing once another surface owns the gesture, and
         // a keyboard it was carrying lands at once where it was going.
         if (!enabled && (mBorderDrag.isKeyboardSwipe() || mBorderDrag.isStatusSwipe())) {
@@ -1882,6 +1898,41 @@ public final class PaneWallLayout extends ViewGroup {
             }
             child.layout(left, top, right, bottom);
         }
+        publishBackExclusion();
+    }
+
+    /**
+     * Asks the phone's back swipe to leave a stretch of each side border to the wall
+     * ({@link #SIDE_BACK_EXCLUSION_DP}), centred along it, so a hold there can page. Only while
+     * the wall can page at all and its gestures are on; otherwise the back swipe keeps the whole
+     * edge. Every page sits the same Margin in, so the stretch does not move with the page.
+     */
+    private void publishBackExclusion() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return;
+        Rect left = new Rect();
+        Rect right = new Rect();
+        if (mGesturesEnabled && mPages.size() > 1) {
+            int stretch = Math.round(SIDE_BACK_EXCLUSION_DP
+                * getResources().getDisplayMetrics().density);
+            centredStretch(BorderDrag.Border.LEFT, stretch, left);
+            centredStretch(BorderDrag.Border.RIGHT, stretch, right);
+        }
+        if (left.equals(mBackExclusionLeft) && right.equals(mBackExclusionRight)) return;
+        mBackExclusionLeft.set(left);
+        mBackExclusionRight.set(right);
+        List<Rect> rects = new ArrayList<>(2);
+        if (!left.isEmpty()) rects.add(left);
+        if (!right.isEmpty()) rects.add(right);
+        setSystemGestureExclusionRects(rects);
+    }
+
+    /** {@code side}'s border zone cut to {@code stretch} px about its middle, or empty. */
+    private void centredStretch(@NonNull BorderDrag.Border side, int stretch, @NonNull Rect out) {
+        if (!borderZone(side, out)) return;
+        int half = Math.min(stretch, out.height()) / 2;
+        int centre = out.centerY();
+        out.top = centre - half;
+        out.bottom = centre + half;
     }
 
     // The activity sets the terminal page's frame by writing margins into its layout params and
