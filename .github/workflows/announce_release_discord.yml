@@ -8,6 +8,9 @@ name: Announce Release On Discord
 #
 # Secrets: DISCORD_WEBHOOK_RELEASES, DISCORD_WEBHOOK_PRERELEASE (channel webhook URLs). A missing
 # secret skips the post with a notice instead of failing the run.
+#
+# A pre-release pings the Testers role (members opt in through the server's Onboarding). Nothing
+# else is ever pinged: allowed_mentions names that one role and parses nothing from the notes.
 
 on:
   release:
@@ -37,6 +40,8 @@ jobs:
           INPUT_TAG: ${{ github.event.inputs.release_tag }}
           WEBHOOK_RELEASES: ${{ secrets.DISCORD_WEBHOOK_RELEASES }}
           WEBHOOK_PRERELEASE: ${{ secrets.DISCORD_WEBHOOK_PRERELEASE }}
+          # The server's Testers role (Discord role ID; not a secret).
+          TESTERS_ROLE_ID: '1558766521663356980'
         run: |
           python3 - <<'PY'
           import json, os, re, subprocess, sys, urllib.request
@@ -79,6 +84,10 @@ jobs:
           }
           payload = {"username": "Termux Launcher releases", "embeds": [embed],
                      "allowed_mentions": {"parse": []}}  # release notes never ping anyone
+          testers = os.environ.get("TESTERS_ROLE_ID", "")
+          if kind == "pre-release" and testers.isdigit():
+              payload["content"] = f"<@&{testers}> {tag} is out, test build below 👇"
+              payload["allowed_mentions"] = {"parse": [], "roles": [testers]}
           req = urllib.request.Request(hook, data=json.dumps(payload).encode(), method="POST",
                                        headers={"Content-Type": "application/json",
                                                 "User-Agent": "termux-launcher-release-announcer"})
