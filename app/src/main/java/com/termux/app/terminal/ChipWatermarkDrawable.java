@@ -20,6 +20,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.graphics.ColorUtils;
 
+import com.termux.app.statusbar.RingStyleSwitch;
 import com.termux.app.statusbar.WindowActivityRing;
 
 /**
@@ -82,7 +83,11 @@ final class ChipWatermarkDrawable extends Drawable {
 
 
     private boolean mRtl;
-    /** Invalidated with the bounds; the travelling arc needs the outline's length, not its shape. */
+    /**
+     * Invalidated with the outline; the travelling arc needs the outline's length, not its shape.
+     * Set together with {@link #mMeasure}'s path, so a measure that has a length is a measure of
+     * the current outline and a draw never has to hand it the path again.
+     */
     private float mPathLengthPx = -1f;
 
     ChipWatermarkDrawable(float density) {
@@ -370,8 +375,22 @@ final class ChipWatermarkDrawable extends Drawable {
         float length = pathLengthPx();
         if (length <= 0f) return;
         if (mProgress == TerminalWindowBar.WindowItem.NO_PERCENTAGE) {
-            float phase = ChipWatermarkGeometry.ringStartFraction(
-                WindowActivityRing.phase(SystemClock.uptimeMillis()));
+            long now = SystemClock.uptimeMillis();
+            // TEMP ring-style A/B: the smooth arc is the default; the other two are on trial.
+            WindowActivityRing.Style style = RingStyleSwitch.current(now);
+            if (style == WindowActivityRing.Style.CHASER) {
+                drawChaser(canvas, length, now);
+                return;
+            }
+            float turn;
+            if (style == WindowActivityRing.Style.HEARTBEAT) {
+                turn = WindowActivityRing.heartbeatPassPhase(now);
+                // Resting between laps: the outline drawn above is the whole ring.
+                if (turn == WindowActivityRing.HEARTBEAT_RESTING) return;
+            } else {
+                turn = WindowActivityRing.phase(now);
+            }
+            float phase = ChipWatermarkGeometry.ringStartFraction(turn);
             mStrokePaint.setColor(mRingColor);
             drawSegment(canvas, length, ChipWatermarkGeometry.segmentStartPx(length, phase),
                 ChipWatermarkGeometry.segmentSweepPx(length,
@@ -394,9 +413,32 @@ final class ChipWatermarkDrawable extends Drawable {
         drawSegment(canvas, length, 0f, filled);
     }
 
-    /** One run along the outline, continued from the start when it runs off the end. */
+    /**
+     * TEMP ring-style A/B. The chaser: the lit dash at the ring's full alpha and the two behind it
+     * fading, every other dash left to the resting outline. Dashes start at the path's own start,
+     * where the smooth arc does, and step the way the arc travels; none of them crosses the seam.
+     */
+    private void drawChaser(@NonNull Canvas canvas, float length, long now) {
+        int lit = WindowActivityRing.chaserLitDash(now);
+        float dashPx = length * WindowActivityRing.chaserDashLengthFraction();
+        int ringAlpha = Color.alpha(mRingColor);
+        for (int behind = 0; behind < WindowActivityRing.CHASER_TRAIL_LENGTH; behind++) {
+            int alpha = Math.round(ringAlpha * WindowActivityRing.chaserTrailAlpha(behind));
+            if (alpha <= 0) continue;
+            float startPx = length * WindowActivityRing.chaserDashStartFraction(lit - behind);
+            mStrokePaint.setColor(ColorUtils.setAlphaComponent(mRingColor, alpha));
+            mArc.rewind();
+            mMeasure.getSegment(startPx, Math.min(length, startPx + dashPx), mArc, true);
+            canvas.drawPath(mArc, mStrokePaint);
+        }
+    }
+
+    /**
+     * One run along the outline, continued from the start when it runs off the end. Relies on
+     * {@link #pathLengthPx()} having produced {@code length}, which leaves the measure on the
+     * current outline.
+     */
     private void drawSegment(@NonNull Canvas canvas, float length, float startPx, float sweepPx) {
-        mMeasure.setPath(mOutline, false);
         mArc.rewind();
         float tail = ChipWatermarkGeometry.segmentTailPx(length, startPx, sweepPx);
         mMeasure.getSegment(startPx, Math.min(length, startPx + sweepPx), mArc, true);

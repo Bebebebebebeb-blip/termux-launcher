@@ -36,6 +36,7 @@ import androidx.core.widget.ImageViewCompat;
 
 import com.google.android.material.color.MaterialColors;
 import com.termux.R;
+import com.termux.app.statusbar.RingStyleSwitch;
 import com.termux.app.statusbar.WindowActivityRing;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.terminal.TerminalSession;
@@ -1094,8 +1095,10 @@ public final class TerminalWindowBar extends HorizontalScrollView {
     /**
      * One clock for the whole bar rather than one per pill: setWindows's removeAllViews() then has
      * nothing to clean up, and every ring turns in phase. It only invalidates the pills that carry
-     * a turning arc; a percentage ring and a bell are as static as the label. It runs on a timer at
-     * about 30 a second, and not at all in lazy mode, where a working chip is a still tint.
+     * a turning arc; a percentage ring and a bell are as static as the label. It runs on a timer —
+     * about 30 a second for the smooth arc, less for the styles on trial, see
+     * {@link WindowActivityRing#nextTickDelayMs} — and not at all in lazy mode, where a working chip
+     * is a still tint.
      *
      * <p>Deliberately not folded into mSelectionAnimator. Both only invalidate, so they compose;
      * sharing one animator would stall the activity indication for the length of every window switch.
@@ -1111,11 +1114,20 @@ public final class TerminalWindowBar extends HorizontalScrollView {
                 @Override public void run() {
                     if (mSmoothTick != this) return;
                     invalidateTurningRings();
-                    postDelayed(this, WindowActivityRing.SMOOTH_TICK_MS);
+                    postDelayed(this, nextRingTickDelayMs());
                 }
             };
-            postDelayed(mSmoothTick, WindowActivityRing.SMOOTH_TICK_MS);
+            postDelayed(mSmoothTick, nextRingTickDelayMs());
         }
+    }
+
+    /**
+     * TEMP ring-style A/B: the wait until the rings next need a redraw, from the style on trial.
+     * The smooth arc's is the fixed {@link WindowActivityRing#SMOOTH_TICK_MS} it always was.
+     */
+    private static long nextRingTickDelayMs() {
+        long now = SystemClock.uptimeMillis();
+        return WindowActivityRing.nextTickDelayMs(RingStyleSwitch.current(now), now);
     }
 
     /**
