@@ -16,10 +16,11 @@ Latest stable: v1.0.4.
 - A fresh install comes with the current tlstore (0.13).
 
 ## Experimental
-<!-- One entry per experiment branch merged into this drop and not on dev; name the branch so the next drop can leave it out. -->
+<!-- What is on pre and not yet on dev, one line each; name the pull request or branch it came from. -->
 These may change or be dropped before they reach a stable release.
 
-- Search contacts from the command palette: type a name or a number, tap the result to open the contact, or tap its phone chip to dial. The first search offers a row to allow contact access. Thanks to @AbineshDev01 (#52, #53). Branch `exp/palette-contacts`.
+- Search contacts from the command palette: type a name or a number, tap the result to open the contact, or tap its phone chip to dial. The first search offers a row to allow contact access. Thanks to @AbineshDev01 (#52, #53).
+- Settings › About & help has an Ask on Discord row, Documentation opens the website guide, and the help panel's support link goes to Discord (#58).
 
 ## Editions
 <!-- Only what is exclusive to the Nix or VAJ build of this drop; say so when nothing is. -->
