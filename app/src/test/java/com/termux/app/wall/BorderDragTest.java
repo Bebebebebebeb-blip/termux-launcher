@@ -11,8 +11,9 @@ import org.junit.Test;
  * The border a press finds, the hold that claims it, and the drag that follows. The border lives
  * in the air between the page and the wall's edge, never on the page: a press on the page's first
  * or last pixel is the content's. A finger on a border claims nothing until it has held still
- * through the hold, or set off up or down from the top or bottom border, and is the wall's from
- * there to the lift, whichever of the four borders it started on.
+ * through the hold, set off up or down from the top or bottom border, or set off sideways from the
+ * air beyond the top or bottom edge, and is the wall's from there to the lift, whichever of the
+ * four borders it started on.
  */
 public class BorderDragTest {
 
@@ -359,12 +360,17 @@ public class BorderDragTest {
     }
 
     @Test
-    public void aFingerThatSetsOffSidewaysBeforeTheHoldIsGivenUp() {
-        BorderDrag sideways = armed(MID_X, TOP - 10f);
-        assertEquals(BorderDrag.Claim.ABANDONED, sideways.move(MID_X + SLOP + 1f, TOP - 10f));
-        assertFalse("the hold finds nothing to claim", sideways.holdElapsed());
-        assertEquals(BorderDrag.Claim.ABANDONED, sideways.claim());
-        assertTrue("armed to the lift, so the rest of the stream is known", sideways.isArmed());
+    public void aFingerThatSetsOffSidewaysFromASideBorderBeforeTheHoldIsGivenUp() {
+        float[][] presses = {{LEFT - 10f, MID_Y}, {RIGHT + 10f, MID_Y}, {LEFT + 2f, MID_Y}};
+        for (float[] p : presses) {
+            BorderDrag sideways = armed(p[0], p[1]);
+            assertFalse("the back swipe's edges never slide", sideways.slidePages());
+            assertEquals(BorderDrag.Claim.ABANDONED, sideways.move(p[0] + SLOP + 1f, p[1]));
+            assertFalse("the hold finds nothing to claim", sideways.holdElapsed());
+            assertEquals(BorderDrag.Claim.ABANDONED, sideways.claim());
+            assertTrue("armed to the lift, so the rest of the stream is known",
+                sideways.isArmed());
+        }
         // Without the status swipe, a vertical start from the top is given up as well.
         BorderDrag downward = armed(MID_X, TOP - 10f, zone(GAP), true, true, false, NO_LIMIT);
         assertEquals(BorderDrag.Claim.ABANDONED, downward.move(MID_X, TOP - 10f + SLOP + 1f));
@@ -535,16 +541,93 @@ public class BorderDragTest {
     }
 
     @Test
-    public void aSidewaysStartFromTheBottomGapIsGivenUp() {
+    public void aSidewaysStartFromTheBottomGapPagesAtOnce() {
         BorderDrag drag = armed(MID_X, BOTTOM + 10f);
-        assertEquals(BorderDrag.Claim.ABANDONED, drag.move(MID_X + SLOP + 5f, BOTTOM + 10f - 4f));
+        assertTrue(drag.slidePages());
+        float claimX = MID_X + SLOP + 5f;
+        assertEquals(BorderDrag.Claim.PAGING, drag.move(claimX, BOTTOM + 10f - 4f));
+        assertTrue("the wall's, with no hold", drag.isPaging());
         assertFalse(drag.isKeyboardSwipe());
-        assertFalse(drag.holdElapsed());
-        // A diagonal exactly as much across as up is not a clear vertical swipe either.
+        assertFalse("claimed before the hold, the hold claims nothing new", drag.holdElapsed());
+        assertEquals("measured from the claim, so the wall does not jump by the slop", 0f,
+            drag.travel(claimX), 0.01f);
+        assertEquals(-300f, drag.travel(claimX - 300f), 0.01f);
+        assertEquals("a vertical move after the claim is still the drag's",
+            BorderDrag.Claim.PAGING, drag.move(claimX, BOTTOM - 400f));
+        assertEquals(BorderDrag.KeyboardSwipe.NONE,
+            drag.keyboardRelease(BOTTOM - 400f, 0f, COMMIT, FLING));
+        // A diagonal exactly as much across as up is not a clear vertical swipe: it slides.
         BorderDrag diagonal = armed(MID_X, BOTTOM + 10f);
-        assertEquals(BorderDrag.Claim.ABANDONED, diagonal.move(MID_X + 30f, BOTTOM + 10f - 30f));
+        assertEquals(BorderDrag.Claim.PAGING, diagonal.move(MID_X + 30f, BOTTOM + 10f - 30f));
         assertEquals(BorderDrag.KeyboardSwipe.NONE,
             diagonal.keyboardRelease(BOTTOM + 10f - COMMIT, 0f, COMMIT, FLING));
+    }
+
+    /**
+     * Where the content could be under the finger, or the back swipe or the phone's own strip
+     * share the edge, sideways is never taken: only the air beyond the top and bottom edges,
+     * below the strip, on a wall with somewhere to go.
+     */
+    @Test
+    public void onlyTheTopAndBottomAirBeyondThePageSlides() {
+        float[][] slide = {{MID_X, TOP - 1f}, {MID_X, TOP - GAP}, {MID_X, BOTTOM},
+            {MID_X, BOTTOM + GAP}};
+        for (float[] p : slide) {
+            assertTrue(p[1] + " slides", armed(p[0], p[1]).slidePages());
+        }
+        // The minimum band where it reaches into the page, at Margin 0 or a thin gap.
+        BorderDrag.Zone flush = zone(0f);
+        float[][] band = {{MID_X, TOP + 1f}, {MID_X, BOTTOM - 1f}};
+        for (float[] p : band) {
+            BorderDrag drag = armed(p[0], p[1], flush, true, true, true, NO_LIMIT);
+            assertTrue("the band is armed", drag.isArmed());
+            assertFalse("but its sideways drag is the content's", drag.slidePages());
+            assertEquals(BorderDrag.Claim.ABANDONED, drag.move(p[0] + 100f, p[1]));
+        }
+        BorderDrag.Zone thin = zone(GAP, 6f, GAP, 6f);
+        assertTrue("its air still slides", armed(MID_X, TOP - 3f, thin, true, true, true,
+            NO_LIMIT).slidePages());
+        assertFalse("the shortfall inside does not", armed(MID_X, TOP + 3f, thin, true, true,
+            true, NO_LIMIT).slidePages());
+        // The boxes by the pills, inside the page.
+        assertFalse(pressed(MID_X, BOTTOM - 20f).slidePages());
+        assertFalse(pressed(MID_X, TOP + 20f).slidePages());
+        // A wall of one place: the bottom and top swipes arm, sideways goes to the content.
+        BorderDrag onePlace = armed(MID_X, BOTTOM + 10f, zone(GAP), false, true, true, NO_LIMIT);
+        assertTrue(onePlace.isArmed());
+        assertFalse(onePlace.slidePages());
+        assertEquals(BorderDrag.Claim.ABANDONED, onePlace.move(MID_X + 100f, BOTTOM + 10f));
+        // The phone's own strip at the top: its hold pages as before, its slide is never taken.
+        float limit = TOP - 20f;
+        BorderDrag inStrip = armed(MID_X, TOP - 30f, zone(GAP), true, true, true, limit);
+        assertFalse(inStrip.slidePages());
+        assertEquals(BorderDrag.Claim.ABANDONED, inStrip.move(MID_X + 100f, TOP - 30f));
+        assertTrue("just below it slides", armed(MID_X, TOP - 10f, zone(GAP), true, true, true,
+            limit).slidePages());
+        // With both swipes off, the slide is still there, and the strip still never slides.
+        assertTrue(armed(MID_X, BOTTOM + 10f, zone(GAP), true, false, false, NO_LIMIT)
+            .slidePages());
+        assertFalse(armed(MID_X, TOP - 30f, zone(GAP), true, false, false, limit).slidePages());
+    }
+
+    @Test
+    public void aSlidePressStillSwipesUpOrDownAndStillPagesOnTheHold() {
+        BorderDrag up = armed(MID_X, BOTTOM + 10f);
+        assertTrue(up.slidePages());
+        assertEquals(BorderDrag.Claim.KEYBOARD, up.move(MID_X + 5f, BOTTOM - 200f));
+        BorderDrag down = armed(MID_X, TOP - 10f);
+        assertTrue(down.slidePages());
+        assertEquals(BorderDrag.Claim.STATUS, down.move(MID_X - 5f, TOP + 200f));
+        // Held still: the hold pages exactly as before, measured from the DOWN.
+        BorderDrag held = armed(MID_X, BOTTOM + 10f);
+        assertEquals(BorderDrag.Claim.PENDING, held.move(MID_X + SLOP, BOTTOM + 10f));
+        assertTrue(held.holdElapsed());
+        assertEquals(-200f, held.travel(MID_X - 200f), 0.01f);
+        // A second finger before it goes anywhere is still a pinch.
+        assertEquals(BorderDrag.Claim.ABANDONED, armed(MID_X, BOTTOM + 10f).secondPointer());
+        // And reset forgets it.
+        held.reset();
+        assertFalse(held.slidePages());
     }
 
     @Test
@@ -668,9 +751,9 @@ public class BorderDragTest {
     }
 
     @Test
-    public void aSidewaysStartOrAHoldOnTheTopBorderStayAsTheyWere() {
+    public void aSidewaysStartOnTheTopBorderPagesAndAHoldStaysAsItWas() {
         BorderDrag sideways = armed(MID_X, TOP - 10f);
-        assertEquals(BorderDrag.Claim.ABANDONED, sideways.move(MID_X + SLOP + 5f, TOP - 6f));
+        assertEquals(BorderDrag.Claim.PAGING, sideways.move(MID_X + SLOP + 5f, TOP - 6f));
         assertFalse(sideways.isStatusSwipe());
 
         BorderDrag held = armed(MID_X, TOP - 10f);

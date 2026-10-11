@@ -157,16 +157,17 @@ public final class HelpTargets {
         return s;
     }
     /**
-     * The page's border as one strip along its left edge, less the corner squares: the frame line
-     * and the air beside it, from the wall's edge to the page's, where a border drag is held. Any
-     * side takes the drag; the left one is shown because the bottom edge already carries the dock
-     * and the keyboard swipe's pill, and a card for the border there would have nowhere to stand.
+     * The page's border as one strip along its top edge, less the corner squares: the frame line
+     * and the air above it, from the wall's edge to the page's, where a sideways swipe changes
+     * place. The bottom edge takes the same swipe and the sides take a hold and drag; the top one
+     * is shown because the bottom edge already carries the dock and the keyboard swipe's pill, and
+     * a card for the border there would have nowhere to stand. The card's text names both.
      */
     private void pageBorder(Snapshot s, Rect wall) {
         View wallView = finder.findHelpView(R.id.terminal_pane_wall);
         if (!(wallView instanceof PaneWallLayout)) return;
         Rect strip = new Rect();
-        if (!((PaneWallLayout) wallView).borderZone(BorderDrag.Border.LEFT, strip)) return;
+        if (!((PaneWallLayout) wallView).borderZone(BorderDrag.Border.TOP, strip)) return;
         strip.offset(wall.left, wall.top);
         add(s, "border", strip, 0);
     }

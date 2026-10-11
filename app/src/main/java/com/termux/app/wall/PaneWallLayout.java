@@ -684,7 +684,11 @@ public final class PaneWallLayout extends ViewGroup {
      * ({@link #cancelChildGesture}), so the terminal has released whatever mouse button or hold
      * it had begun, and every later event is read here and goes no further.
      *
-     * <p>The keyboard swipe is claimed the same way, by the move rather than by the timer: a
+     * <p>On the top and bottom borders out in the air beyond the page, a finger that sets off
+     * sideways before the hold claims the wall by that move ({@link BorderDrag#slidePages}), and
+     * the drag begins there as the hold's would ({@link #takeBorderDrag}).
+     *
+     * <p>The keyboard swipe is claimed by the move rather than by the timer too: a
      * finger that sets off up or down from the bottom border, or from the box by its grabber a row
      * into the page, before the hold is the keyboard's ({@link BorderDrag#move}). Where the
      * listener can move the keyboard with it, the keyboard follows the finger and the lift
@@ -731,6 +735,14 @@ public final class PaneWallLayout extends ViewGroup {
                 }
                 if (claim == BorderDrag.Claim.STATUS) {
                     claimStatusSwipe(event);
+                    return true;
+                }
+                if (claim == BorderDrag.Claim.PAGING) {
+                    // Slid sideways off the top or bottom border: the wall's at once, no hold.
+                    mHoldHandler.removeCallbacks(mHoldElapsed);
+                    if (takeBorderDrag(event.getX()) && mBorderVelocity != null) {
+                        mBorderVelocity.addMovement(event);
+                    }
                     return true;
                 }
                 if (claim == BorderDrag.Claim.ABANDONED) {
@@ -837,16 +849,22 @@ public final class PaneWallLayout extends ViewGroup {
         if (!loadBorderZone(true)) return;
         boolean armed = mBorderDrag.down(event.getX(), event.getY(), mBorderZone,
             ViewConfiguration.get(getContext()).getScaledTouchSlop(), canPage, keyboardSwipe,
-            statusSwipe, statusSwipe ? topGestureLimit() : Float.NEGATIVE_INFINITY);
+            statusSwipe, topGestureLimit());
         if (!armed) return;
         mBorderDownX = event.getX();
         mBorderDownY = event.getY();
         long holdMs = HoldTiming.holdTimeoutMs();
         mHoldHandler.postDelayed(mHoldElapsed, holdMs);
-        // A press whose hold could page lights its border at once and fills over the hold.
+        // A press that could page lights its border at once: full where a slide pages at once,
+        // and filling over the hold where only the hold does.
         if (mBorderDrag.holdPages()) {
             mGlowPage = mPageViews.get(mCurrent);
-            mGlow.press(mBorderDrag.border(), SystemClock.uptimeMillis(), holdMs, mReducedMotion);
+            if (mBorderDrag.slidePages()) {
+                mGlow.light(mBorderDrag.border());
+            } else {
+                mGlow.press(mBorderDrag.border(), SystemClock.uptimeMillis(), holdMs,
+                    mReducedMotion);
+            }
         }
     }
 
@@ -928,12 +946,8 @@ public final class PaneWallLayout extends ViewGroup {
     }
 
     /**
-     * The hold time passed with the finger still on the border. The wall takes the gesture from
-     * here: the child is told its touch is over, the hand is told the hold was heard, and the
-     * drag begins where the finger stands, so the first move after the hold is the first pixel
-     * of travel. The velocity tracker starts here too: the hold's stillness is not the flick's.
-     * And the page sinks under the finger ({@link PageSink}), pushed in on the held side where
-     * the plank is on: the weight is what says the hold was taken.
+     * The hold time passed with the finger still on the border: the wall takes the gesture from
+     * here ({@link #takeBorderDrag}), from where the finger landed.
      */
     private void onBorderHoldElapsed() {
         if (!mBorderDrag.holdElapsed()) {
@@ -946,23 +960,41 @@ public final class PaneWallLayout extends ViewGroup {
             syncBorderGlow();
             return;
         }
+        takeBorderDrag(mBorderDownX);
+    }
+
+    /**
+     * The border drag just claimed the finger — the hold elapsed, or a slide set off sideways —
+     * and the wall takes the gesture: the child is told its touch is over, the hand is told the
+     * claim was heard, and the drag begins where the finger stands, so the next move is the first
+     * pixel of travel. The velocity tracker starts here too: the hold's stillness is not the
+     * flick's. And the page sinks under the finger ({@link PageSink}), pushed in on a held side
+     * where the plank is on: the weight is what says the wall was taken. Both claims go through
+     * here, so a slide and a hold feel and look the same from the claim on.
+     *
+     * @param fingerX where the finger stands, for the plank's weight
+     * @return whether the drag began; false where the wall can no longer page and the rest of the
+     *         gesture is swallowed
+     */
+    private boolean takeBorderDrag(float fingerX) {
         if (!mGesturesEnabled || mPages.size() <= 1) {
             mBorderDrag.abandon();
             syncBorderGlow();
-            return;
+            return false;
         }
         cancelChildGesture();
         Haptics.tick(this, HapticFeedbackConstants.GESTURE_START);
         if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
-        // The hold made the finger the wall's, not the keyboard's: the grabber goes back to rest.
+        // The claim made the finger the wall's, not a swipe's: the grabbers go back to rest.
         mGrabber.setPressed(false, 0f, mReducedMotion);
         mStatusGrabber.setPressed(false, 0f, mReducedMotion);
         mBorderVelocity = VelocityTracker.obtain();
-        // The glow has filled with the hold: full from here until the drag ends.
+        // The glow is full from here until the drag ends.
         syncBorderGlow();
-        beginDrag(true, mBorderDownX);
+        beginDrag(true, fingerX);
         engageSink(mBorderDrag.border());
         dragTo(0f);
+        return true;
     }
 
     /**
@@ -1333,9 +1365,10 @@ public final class PaneWallLayout extends ViewGroup {
     // ---- The hold's glow ---------------------------------------------------------------------
 
     /**
-     * The glow follows the press it was lit for ({@link BorderGlow}): full once the hold claims
-     * the finger, and fading out once the press is given up or the drag ends — whatever made the
-     * finger anything but a pending hold that can page, or the wall's drag.
+     * The glow follows the press it was lit for ({@link BorderGlow}): full once the wall claims
+     * the finger, and fading out once the press is given up, handed to the keyboard's or the
+     * status bar's grabber, or the drag ends — whatever made the finger anything but a pending
+     * press that can page, or the wall's drag.
      */
     private void syncBorderGlow() {
         if (!mGlow.isHeld()) return;
