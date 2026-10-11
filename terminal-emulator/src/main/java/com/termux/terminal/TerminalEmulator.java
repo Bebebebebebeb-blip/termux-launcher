@@ -43,6 +43,12 @@ public final class TerminalEmulator {
      */
     public static final int MOUSE_LEFT_BUTTON_MOVED = 32;
 
+    /**
+     * Mouse moving with no button held: xterm's "no button" code 3 plus 32 for motion. Reported only
+     * while any-event tracking (DECSET 1003) is on.
+     */
+    public static final int MOUSE_MOVED_NO_BUTTON = 35;
+
     public static final int MOUSE_WHEELUP_BUTTON = 64;
 
     public static final int MOUSE_WHEELDOWN_BUTTON = 65;
@@ -266,10 +272,19 @@ public final class TerminalEmulator {
     private static final int DECSET_BIT_MOUSE_PROTOCOL_SGR = 1 << 9;
 
     /**
+     * DECSET 1003 - like 1002, but report motion with no button held too.
+     */
+    private static final int DECSET_BIT_MOUSE_TRACKING_ANY_EVENT = 1 << 17;
+
+    /**
      * DECSET 1016 - SGR-Pixels: the SGR format (whether or not 1006 is set), with the position in
      * pixels of the text area instead of cells, as in xterm, kitty, foot and WezTerm.
      */
     private static final int DECSET_BIT_MOUSE_PROTOCOL_SGR_PIXELS = 1 << 18;
+
+    /** DECSET 1000, 1002 and 1003, of which at most one is on. */
+    private static final int DECSET_BITS_MOUSE_TRACKING = DECSET_BIT_MOUSE_TRACKING_PRESS_RELEASE
+        | DECSET_BIT_MOUSE_TRACKING_BUTTON_EVENT | DECSET_BIT_MOUSE_TRACKING_ANY_EVENT;
 
     /**
      * DECSET 2004 - see {@link #paste(String)}
@@ -820,14 +835,10 @@ public final class TerminalEmulator {
 
     private void setDecsetinternalBit(int internalBit, boolean set) {
         if (set) {
-            // The mouse modes are mutually exclusive.
-            if (internalBit == DECSET_BIT_MOUSE_TRACKING_PRESS_RELEASE) {
-                setDecsetinternalBit(DECSET_BIT_MOUSE_TRACKING_BUTTON_EVENT, false);
-            } else if (internalBit == DECSET_BIT_MOUSE_TRACKING_BUTTON_EVENT) {
-                setDecsetinternalBit(DECSET_BIT_MOUSE_TRACKING_PRESS_RELEASE, false);
+            // The mouse tracking modes are mutually exclusive.
+            if ((internalBit & DECSET_BITS_MOUSE_TRACKING) != 0) {
+                mCurrentDecSetFlags &= ~DECSET_BITS_MOUSE_TRACKING;
             }
-        }
-        if (set) {
             mCurrentDecSetFlags |= internalBit;
         } else {
             mCurrentDecSetFlags &= ~internalBit;
@@ -853,8 +864,9 @@ public final class TerminalEmulator {
             case 1000:
                 return DECSET_BIT_MOUSE_TRACKING_PRESS_RELEASE;
             case 1002:
-            case 1003:
                 return DECSET_BIT_MOUSE_TRACKING_BUTTON_EVENT;
+            case 1003:
+                return DECSET_BIT_MOUSE_TRACKING_ANY_EVENT;
             case 1004:
                 return DECSET_BIT_SEND_FOCUS_EVENTS;
             case 1006:
@@ -957,8 +969,10 @@ public final class TerminalEmulator {
             row = 1;
         if (row > mRows)
             row = mRows;
-        if (mouseButton == MOUSE_LEFT_BUTTON_MOVED && !isDecsetInternalBitSet(DECSET_BIT_MOUSE_TRACKING_BUTTON_EVENT)) {
+        if (mouseButton == MOUSE_LEFT_BUTTON_MOVED && !isMouseTrackingMotionActive()) {
             // Do not send tracking.
+        } else if (mouseButton == MOUSE_MOVED_NO_BUTTON && !isMouseTrackingAnyEventActive()) {
+            // Motion with no button held is only for any-event tracking.
         } else if (isMousePixelPositionActive()) {
             pixelX = Math.max(0, Math.min(mColumns * mCellWidthPixels - 1, pixelX));
             pixelY = Math.max(0, Math.min(mRows * mCellHeightPixels - 1, pixelY));
@@ -1265,14 +1279,22 @@ public final class TerminalEmulator {
      * If mouse events are being sent as escape codes to the terminal.
      */
     public boolean isMouseTrackingActive() {
-        return isDecsetInternalBitSet(DECSET_BIT_MOUSE_TRACKING_PRESS_RELEASE) || isDecsetInternalBitSet(DECSET_BIT_MOUSE_TRACKING_BUTTON_EVENT);
+        return isDecsetInternalBitSet(DECSET_BITS_MOUSE_TRACKING);
     }
 
     /**
      * If motion while a button is held should be reported, i.e. DECSET 1002 or 1003 is set.
      */
     public boolean isMouseTrackingMotionActive() {
-        return isDecsetInternalBitSet(DECSET_BIT_MOUSE_TRACKING_BUTTON_EVENT);
+        return isDecsetInternalBitSet(DECSET_BIT_MOUSE_TRACKING_BUTTON_EVENT | DECSET_BIT_MOUSE_TRACKING_ANY_EVENT);
+    }
+
+    /**
+     * If motion with no button held should be reported too, i.e. DECSET 1003 is set; see
+     * {@link #MOUSE_MOVED_NO_BUTTON}.
+     */
+    public boolean isMouseTrackingAnyEventActive() {
+        return isDecsetInternalBitSet(DECSET_BIT_MOUSE_TRACKING_ANY_EVENT);
     }
 
     /**

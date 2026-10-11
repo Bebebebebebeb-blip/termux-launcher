@@ -263,8 +263,8 @@ public final class TerminalView extends View {
     private final MousePoint mMouseScrollStart = new MousePoint();
 
     /**
-     * Where a real pointer was last reported, so motion that would repeat its pixel is not sent
-     * again to a program that asked for pixels.
+     * Where a real pointer was last reported, so motion that would repeat it is not sent again:
+     * per pixel when the program asked for pixels, per cell for hovering.
      */
     private final MousePoint mMouseMotionLast = new MousePoint();
 
@@ -1523,6 +1523,11 @@ public final class TerminalView extends View {
             pixelY = other.pixelY;
         }
 
+        /** Hold no position, so whatever comes next is news. */
+        void forget() {
+            column = row = pixelX = pixelY = Integer.MIN_VALUE;
+        }
+
         /** Whether moving here from {@code other} is no news: the same pixel, or the same cell. */
         boolean sameAs(MousePoint other, boolean pixels) {
             return pixels ? pixelX == other.pixelX && pixelY == other.pixelY
@@ -1852,11 +1857,13 @@ public final class TerminalView extends View {
             }
         } else if (!isWheelButton(button)) {
             // A pointer's motion arrives here from more than one path. Per cell, a dragged button's
-            // motion has always gone out as it came; per pixel, a repeat of the last position
-            // reported is no news.
+            // motion has always gone out as it came; per pixel, and when hovering, a repeat of the
+            // last position reported is no news.
             boolean pixels = mEmulator.isMousePixelPositionActive();
-            if (button == TerminalEmulator.MOUSE_LEFT_BUTTON_MOVED && pixels
-                && at.sameAs(mMouseMotionLast, true))
+            boolean motion = button == TerminalEmulator.MOUSE_LEFT_BUTTON_MOVED
+                || button == TerminalEmulator.MOUSE_MOVED_NO_BUTTON;
+            if (motion && (pixels || button == TerminalEmulator.MOUSE_MOVED_NO_BUTTON)
+                && at.sameAs(mMouseMotionLast, pixels))
                 return;
             mMouseMotionLast.set(at);
         }
@@ -1871,11 +1878,13 @@ public final class TerminalView extends View {
     /**
      * The modifier bits a mouse report owes. A left press reads the keyboard and the extra keys row
      * (consuming a one-shot latch, which so covers the press and its release) and remembers the
-     * bits; motion and release repeat them. A wheel notch takes only what the hardware keyboard
-     * holds, so scrolling does not eat a latch meant for the next click.
+     * bits; motion and release repeat them. A wheel notch, like a pointer hovering with no button
+     * held, takes only what the hardware keyboard holds, so it does not eat a latch meant for the
+     * next click.
      */
     private int mouseModifiersFor(MotionEvent e, int button, boolean pressed) {
-        if (isWheelButton(button)) return e == null ? 0 : modifiersOf(e, false, false, false);
+        if (isWheelButton(button) || button == TerminalEmulator.MOUSE_MOVED_NO_BUTTON)
+            return e == null ? 0 : modifiersOf(e, false, false, false);
         if (button == TerminalEmulator.MOUSE_LEFT_BUTTON && pressed)
             return mMousePressModifiers = takeMouseModifiers(e);
         int modifiers = mMousePressModifiers;
@@ -2286,6 +2295,24 @@ public final class TerminalView extends View {
             return true;
         }
         return false;
+    }
+
+    /**
+     * A mouse or trackpad pointer moving with no button held, which a program that asked for every
+     * motion (DECSET 1003) is told about. The framework still gets every hover event after.
+     */
+    @Override
+    public boolean onHoverEvent(MotionEvent event) {
+        if (mEmulator != null && mRenderer != null && event.isFromSource(InputDevice.SOURCE_MOUSE)) {
+            int action = event.getActionMasked();
+            if (action == MotionEvent.ACTION_HOVER_MOVE && mEmulator.isMouseTrackingAnyEventActive()) {
+                sendMouseEventCode(event, TerminalEmulator.MOUSE_MOVED_NO_BUTTON, true);
+            } else if (action == MotionEvent.ACTION_HOVER_EXIT) {
+                // Coming back in is news, wherever it lands.
+                mMouseMotionLast.forget();
+            }
+        }
+        return super.onHoverEvent(event);
     }
 
     @SuppressLint("ClickableViewAccessibility")

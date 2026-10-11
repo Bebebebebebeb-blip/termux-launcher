@@ -131,6 +131,25 @@ public class TerminalViewMousePixelsTest {
     }
 
     @Test
+    public void aHoveringPointerIsReportedOnlyUnderAnyEventTracking() {
+        enter("\u001b[?1002h\u001b[?1006h");
+        float x = xInCell(6, 0.5f);
+        float y = yInCell(3, 0.5f);
+        hover(x, y);
+        assertEquals("", written());
+
+        enter("\u001b[?1003h");
+        hover(x, y);
+        hover(x + 2f, y);
+        assertEquals("a second hover in the same cell is no news",
+            printable("\u001b[<35;7;4M"), printable(written()));
+
+        enter("\u001b[?1016h");
+        hover(x + 2f, y);
+        assertEquals(printable("\u001b[<35;" + expectedPixel(x + 2f, y) + "M"), printable(written()));
+    }
+
+    @Test
     public void aPixelDividesBackToItsCellWhateverTheDrawnWidth() {
         // A 17.6 px advance told to the program as 17: column 55 starts at 968 drawn pixels.
         int pixel = TerminalView.textAreaPixel(973f, 17.6f, 17, 60);
@@ -178,6 +197,14 @@ public class TerminalViewMousePixelsTest {
         long down = SystemClock.uptimeMillis();
         dispatch(MotionEvent.obtain(down, down, MotionEvent.ACTION_DOWN, x, y, 0));
         dispatch(MotionEvent.obtain(down, down + 40, MotionEvent.ACTION_UP, x, y, 0));
+    }
+
+    private void hover(float x, float y) {
+        long now = SystemClock.uptimeMillis();
+        MotionEvent event = MotionEvent.obtain(now, now, MotionEvent.ACTION_HOVER_MOVE, x, y, 0);
+        event.setSource(InputDevice.SOURCE_MOUSE);
+        mView.onHoverEvent(event);
+        event.recycle();
     }
 
     private void enter(String sequence) {

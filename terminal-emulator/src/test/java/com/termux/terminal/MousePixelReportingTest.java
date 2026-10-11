@@ -1,9 +1,9 @@
 package com.termux.terminal;
 
 /**
- * SGR-Pixels mouse reporting (DECSET 1016). The terminal is 10x10 cells of
- * {@link #INITIAL_CELL_WIDTH_PIXELS} x {@link #INITIAL_CELL_HEIGHT_PIXELS}, so its text area is
- * 130 x 150 pixels.
+ * SGR-Pixels mouse reporting (DECSET 1016) and any-event tracking (DECSET 1003). The terminal is
+ * 10x10 cells of {@link #INITIAL_CELL_WIDTH_PIXELS} x {@link #INITIAL_CELL_HEIGHT_PIXELS}, so its
+ * text area is 130 x 150 pixels.
  */
 public class MousePixelReportingTest extends TerminalTestCase {
 
@@ -81,5 +81,58 @@ public class MousePixelReportingTest extends TerminalTestCase {
 		enterString("\033[?1006l");
 		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_LEFT_BUTTON, 3, 4, 30, 50, false, 0);
 		assertEquals("\033[M" + (char) (32 + 3) + (char) (32 + 3) + (char) (32 + 4), mOutput.getOutputAndClear());
+	}
+
+	public void testAnyEventTrackingReportsMotionWithNoButton() {
+		withTerminalSized(10, 10);
+		enterString("\033[?1003h\033[?1006h");
+		assertTrue(mTerminal.isMouseTrackingActive());
+		assertTrue(mTerminal.isMouseTrackingMotionActive());
+		assertTrue(mTerminal.isMouseTrackingAnyEventActive());
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_MOVED_NO_BUTTON, 3, 4, true);
+		assertEquals("\033[<35;3;4M", mOutput.getOutputAndClear());
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_MOVED_NO_BUTTON, 3, 4, true,
+			TerminalEmulator.MOUSE_MODIFIER_SHIFT);
+		assertEquals("\033[<39;3;4M", mOutput.getOutputAndClear());
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_LEFT_BUTTON_MOVED, 3, 4, true);
+		assertEquals("\033[<32;3;4M", mOutput.getOutputAndClear());
+
+		enterString("\033[?1016h");
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_MOVED_NO_BUTTON, 3, 4, 30, 50, true, 0);
+		assertEquals("\033[<35;31;51M", mOutput.getOutputAndClear());
+
+		enterString("\033[?1016l\033[?1006l");
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_MOVED_NO_BUTTON, 3, 4, true);
+		assertEquals("\033[M" + (char) (32 + 35) + (char) (32 + 3) + (char) (32 + 4), mOutput.getOutputAndClear());
+	}
+
+	public void testButtonEventTrackingDoesNotReportMotionWithNoButton() {
+		withTerminalSized(10, 10);
+		enterString("\033[?1002h\033[?1006h");
+		assertTrue(mTerminal.isMouseTrackingMotionActive());
+		assertFalse(mTerminal.isMouseTrackingAnyEventActive());
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_MOVED_NO_BUTTON, 3, 4, true);
+		assertEquals("", mOutput.getOutputAndClear());
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_LEFT_BUTTON_MOVED, 3, 4, true);
+		assertEquals("\033[<32;3;4M", mOutput.getOutputAndClear());
+
+		enterString("\033[?1000h");
+		assertFalse(mTerminal.isMouseTrackingMotionActive());
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_MOVED_NO_BUTTON, 3, 4, true);
+		mTerminal.sendMouseEvent(TerminalEmulator.MOUSE_LEFT_BUTTON_MOVED, 3, 4, true);
+		assertEquals("", mOutput.getOutputAndClear());
+	}
+
+	public void testTrackingModesAreMutuallyExclusive() {
+		withTerminalSized(10, 10);
+		enterString("\033[?1000h\033[?1002h\033[?1003h");
+		assertEnteringStringGivesResponse("\033[?1000$p", "\033[?1000;2$y");
+		assertEnteringStringGivesResponse("\033[?1002$p", "\033[?1002;2$y");
+		assertEnteringStringGivesResponse("\033[?1003$p", "\033[?1003;1$y");
+		enterString("\033[?1002h");
+		assertEnteringStringGivesResponse("\033[?1003$p", "\033[?1003;2$y");
+		assertEnteringStringGivesResponse("\033[?1002$p", "\033[?1002;1$y");
+		enterString("\033[?1003h\033[?1003l");
+		assertFalse(mTerminal.isMouseTrackingActive());
 	}
 }
