@@ -15,13 +15,17 @@ import androidx.annotation.Nullable;
 
 
 /**
- * The hold's glow: the border a finger holds, lit along that one edge of the page, so the hold
- * answers before it takes. It comes up the moment a finger lands where its hold could page the wall
- * ({@link BorderDrag#holdPages}) — "you are on it" — and brightens over the hold, so a glow nearly
- * full says it is about to take. Once the hold claims it stays full until the drag ends; a press
- * given up first (moved, joined, lifted, left to the content) fades it out quickly. A press that
- * can only become the keyboard's or the status bar's swipe has its grabber ({@link BorderGrabber})
- * and no glow. Under reduced motion it is full at once and gone at once.
+ * The border's glow: the border a finger is on, lit along that one edge of the page, so the press
+ * answers before it takes. It comes up the moment a finger lands where it could page the wall
+ * ({@link BorderDrag#holdPages}) — "you are on it". On the top and bottom borders out in the air,
+ * where a sideways slide pages at once ({@link BorderDrag#slidePages}), it is full from the touch
+ * ({@link #light}): nothing is waiting to happen there. On the side borders and inside the page,
+ * where only the hold pages, it brightens over the hold ({@link #press}), so a glow nearly full
+ * says it is about to take. Once the wall claims the finger it stays full until the drag ends; a
+ * press given up or claimed by a swipe first (moved, joined, lifted, left to the content, handed
+ * to a grabber) fades it out quickly. A press that can only become the keyboard's or the status
+ * bar's swipe has its grabber ({@link BorderGrabber}) and no glow. Under reduced motion it is
+ * full at once and gone at once.
  *
  * <p>Drawn by the wall ({@link PaneWallLayout#dispatchDraw}) in the accent the grabbers use, as a
  * band along the held edge of the page as drawn — slid and sunk with it — lit through the page's
@@ -102,7 +106,18 @@ public final class BorderGlow {
         mHost.invalidate();
     }
 
-    /** The hold claimed the finger: full, and held there until the drag ends. */
+    /**
+     * A finger landed on {@code side} where a sideways slide pages at once: full from the touch,
+     * with no rise, since there is no hold to count down.
+     */
+    void light(@NonNull BorderDrag.Border side) {
+        if (side == BorderDrag.Border.NONE) return;
+        mSide = side;
+        mPhase = Phase.FULL;
+        mHost.invalidate();
+    }
+
+    /** The wall claimed the finger: full, and held there until the drag ends. */
     void claim() {
         if (mPhase != Phase.RISING) return;
         mPhase = Phase.FULL;

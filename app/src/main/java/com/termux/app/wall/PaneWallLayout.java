@@ -848,10 +848,16 @@ public final class PaneWallLayout extends ViewGroup {
         mBorderDownY = event.getY();
         long holdMs = HoldTiming.holdTimeoutMs();
         mHoldHandler.postDelayed(mHoldElapsed, holdMs);
-        // A press whose hold could page lights its border at once and fills over the hold.
+        // A press that could page lights its border at once: full where a slide pages at once,
+        // and filling over the hold where only the hold does.
         if (mBorderDrag.holdPages()) {
             mGlowPage = mPageViews.get(mCurrent);
-            mGlow.press(mBorderDrag.border(), SystemClock.uptimeMillis(), holdMs, mReducedMotion);
+            if (mBorderDrag.slidePages()) {
+                mGlow.light(mBorderDrag.border());
+            } else {
+                mGlow.press(mBorderDrag.border(), SystemClock.uptimeMillis(), holdMs,
+                    mReducedMotion);
+            }
         }
     }
 
@@ -1352,9 +1358,10 @@ public final class PaneWallLayout extends ViewGroup {
     // ---- The hold's glow ---------------------------------------------------------------------
 
     /**
-     * The glow follows the press it was lit for ({@link BorderGlow}): full once the hold claims
-     * the finger, and fading out once the press is given up or the drag ends — whatever made the
-     * finger anything but a pending hold that can page, or the wall's drag.
+     * The glow follows the press it was lit for ({@link BorderGlow}): full once the wall claims
+     * the finger, and fading out once the press is given up, handed to the keyboard's or the
+     * status bar's grabber, or the drag ends — whatever made the finger anything but a pending
+     * press that can page, or the wall's drag.
      */
     private void syncBorderGlow() {
         if (!mGlow.isHeld()) return;
