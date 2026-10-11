@@ -177,13 +177,13 @@ public final class TerminalCommandPaletteController
     /**
      * The warm contact cache the current search narrows, loaded when the
      * palette opens with contact access already granted, or when access
-     * lands after the palette asked for it on a query.
+     * lands after the allow row asked for it.
      */
     @NonNull private List<CommandPaletteContacts.Contact> mContacts =
         java.util.Collections.emptyList();
     /** Whether contact search is live: the permission granted. */
     private boolean mContactsAccess;
-    /** Whether this show already asked for contact access, so one query asks once. */
+    /** Whether this show already asked for contact access; the allow row stays hidden once it has. */
     private boolean mContactsRequested;
 
     private Mode mMode = Mode.LIST;
@@ -653,24 +653,25 @@ public final class TerminalCommandPaletteController
                 ranked.addAll(
                     TerminalCommandPalette.buildContactEntries(mActivity, matches));
                 if (!matches.isEmpty()) ensureCallIcon();
-            } else {
-                // The ask is on its way or was refused; either way the
-                // row says why contacts are not in the results yet.
-                rows.add(CommandPaletteView.Row.notice(
-                    mActivity.getString(R.string.palette_contacts_notice)));
-                mRowEntries.add(null);
             }
         }
+        // Without contact access a search offers it once per show, as the last row, so
+        // the ask follows a choice rather than a keystroke.
+        CommandPaletteFilter.Entry allow =
+            !mQuery.trim().isEmpty() && !mContactsAccess && !mContactsRequested
+                ? TerminalCommandPalette.buildContactsAllowEntry(mActivity) : null;
         if (ranked.isEmpty()) {
             rows.add(CommandPaletteView.Row.notice(
                 mActivity.getString(R.string.palette_no_match, upper(mQuery))));
             mRowEntries.add(null);
+            if (allow != null) addEntryRow(rows, allow);
             return;
         }
         // A ranked result is one flat list: grouping it would fight the ranking. Only the
         // unfiltered view carries the category rules.
         if (!mQuery.trim().isEmpty()) {
             for (CommandPaletteFilter.Entry entry : ranked) addEntryRow(rows, entry);
+            if (allow != null) addEntryRow(rows, allow);
             return;
         }
         Map<String, List<CommandPaletteFilter.Entry>> byCategory = new LinkedHashMap<>();
@@ -692,12 +693,13 @@ public final class TerminalCommandPaletteController
 
     private void addEntryRow(@NonNull List<CommandPaletteView.Row> rows,
                              @NonNull CommandPaletteFilter.Entry entry) {
-        boolean contact = TerminalCommandPalette.CATEGORY_CONTACTS.equals(entry.category);
+        boolean contact = TerminalCommandPalette.CATEGORY_CONTACTS.equals(entry.category)
+            && !isContactsAllow(entry);
         rows.add(CommandPaletteView.Row.entry(entry.title,
             entry.enabled ? entry.subtitle : entry.disabledReason,
             entry.shortcutLabel(), entry.enabled,
             entry.iconKey == null ? null : mRowIcons.get(entry.iconKey),
-            // A contact row carries its call button; no other row has one.
+            // A contact row carries its call button; no other row has one, the allow row included.
             contact ? new CommandPaletteView.Row.Action(mCallIcon) : null));
         mRowEntries.add(entry);
     }
@@ -713,7 +715,8 @@ public final class TerminalCommandPaletteController
         if (mMode == Mode.LIST && !mListRevealed && mQuery.trim().isEmpty())
             return mActivity.getString(R.string.palette_meta_idle);
         int count = 0;
-        for (CommandPaletteFilter.Entry entry : mRowEntries) if (entry != null) count++;
+        for (CommandPaletteFilter.Entry entry : mRowEntries)
+            if (entry != null && !isContactsAllow(entry)) count++;
         return mActivity.getResources().getQuantityString(R.plurals.palette_meta_results,
             count, count);
     }
@@ -727,9 +730,20 @@ public final class TerminalCommandPaletteController
             mFocus = firstSelectable();
     }
 
+    /**
+     * The row a fresh query focuses. Never the allow row: with nothing else
+     * matched, ⏎ still hands the query to the shell rather than asking for access.
+     */
     private int firstSelectable() {
-        for (int i = 0; i < mRowEntries.size(); i++) if (mRowEntries.get(i) != null) return i;
+        for (int i = 0; i < mRowEntries.size(); i++) {
+            CommandPaletteFilter.Entry entry = mRowEntries.get(i);
+            if (entry != null && !isContactsAllow(entry)) return i;
+        }
         return -1;
+    }
+
+    private static boolean isContactsAllow(@NonNull CommandPaletteFilter.Entry entry) {
+        return TerminalCommandPalette.TOOL_CONTACTS_ALLOW.equals(entry.toolName);
     }
 
     private void moveFocus(int delta) {
@@ -966,9 +980,6 @@ public final class TerminalCommandPaletteController
             mView.setHeader(headerMeta(), mCrumb);
             return;
         }
-        // The contacts section is search-only, so the ask belongs to the
-        // first thing typed, not to the palette opening.
-        if (!mQuery.trim().isEmpty()) maybeRequestContactCallAccess();
         mFocus = 0;
         rebuildRows();
     }
@@ -996,25 +1007,17 @@ public final class TerminalCommandPaletteController
     }
 
     /**
-     * Asks for contact access once per show, on the first query,
-     * together with call access so a result's call button can
-     * place the call itself. A denial stands for the rest of the
-     * show — the notice row says why contacts are absent — and
-     * the system keeps its own "ask no more" decision.
+     * The allow row, picked: asks for contact access once per show. The row
+     * leaves with the ask, and a refusal keeps it away for the rest of the
+     * show; the system keeps its own "ask no more" decision.
      */
-    private void maybeRequestContactCallAccess() {
-        if (mContactsAccess && callAccessGranted() || mContactsRequested) return;
+    private void requestContactsAccess() {
+        if (mContactsAccess || mContactsRequested) return;
         mContactsRequested = true;
+        rebuildRows();
         ActivityCompat.requestPermissions(mActivity,
-            new String[]{Manifest.permission.READ_CONTACTS,
-                Manifest.permission.CALL_PHONE},
+            new String[]{Manifest.permission.READ_CONTACTS},
             TermuxActivity.REQUEST_CODE_PALETTE_CONTACTS);
-    }
-
-    /** Call access as it stands now, so a tap never places a call without it. */
-    private boolean callAccessGranted() {
-        return ContextCompat.checkSelfPermission(mActivity,
-            Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED;
     }
 
     private void popMode() {
@@ -1261,9 +1264,11 @@ public final class TerminalCommandPaletteController
             return;
         }
         // Contact rows carry their own outcome: the row opens the
-        // contact, its chip dials. Neither is a registry tool.
+        // contact, its chip dials, and the allow row asks for access.
+        // None is a registry tool.
         if (TerminalCommandPalette.CATEGORY_CONTACTS.equals(entry.category)) {
-            openContact(entry);
+            if (isContactsAllow(entry)) requestContactsAccess();
+            else openContact(entry);
             return;
         }
         if (entry.isSubmenu()) {
@@ -1357,7 +1362,7 @@ public final class TerminalCommandPaletteController
         }
     }
 
-    /** Dials the number the row carries: places the call itself with call access, the dialer otherwise. */
+    /** Hands the number the row carries to the dialer; the user places the call there. */
     private void callContact(@NonNull CommandPaletteFilter.Entry entry) {
         JSONObject arguments = entry.arguments;
         String number = arguments == null ? "" : arguments.optString("number", "");
@@ -1365,8 +1370,7 @@ public final class TerminalCommandPaletteController
         playTick();
         collapse();
         Uri tel = Uri.parse("tel:" + Uri.encode(number));
-        Intent intent = new Intent(callAccessGranted()
-            ? Intent.ACTION_CALL : Intent.ACTION_DIAL, tel);
+        Intent intent = new Intent(Intent.ACTION_DIAL, tel);
         try {
             mActivity.startActivity(intent);
         } catch (ActivityNotFoundException e) {
@@ -1439,7 +1443,7 @@ public final class TerminalCommandPaletteController
         beginCapture(entry);
     }
 
-    /** A contact row's call chip: dials the number the row carries. */
+    /** A contact row's call chip: opens the dialer on the number the row carries. */
     @Override
     public void onRowActionTapped(int index) {
         if (index < 0 || index >= mRowEntries.size()) return;

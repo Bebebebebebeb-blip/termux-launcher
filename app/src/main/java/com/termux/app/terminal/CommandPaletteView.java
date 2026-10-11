@@ -145,7 +145,8 @@ public final class CommandPaletteView extends View {
 
         /**
          * A trailing chip: an icon drawn inside its own round, so a
-         * contact's call button is a button, not a word.
+         * contact's call button is a button, not a word. Tapping it
+         * opens the dialer on the row's number; the user places the call.
          */
         public static final class Action {
             @NonNull public final Drawable icon;
