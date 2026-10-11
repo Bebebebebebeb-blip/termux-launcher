@@ -1,6 +1,7 @@
 package com.termux.app.wall;
 
 import android.animation.ValueAnimator;
+import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
@@ -76,9 +77,7 @@ public final class BorderGrabber {
 
     /** Re-read the accent: the scheme or the theme may have moved under it. */
     void refreshColor() {
-        int color = MaterialColors.getColor(mHost.getContext(),
-            androidx.appcompat.R.attr.colorPrimary,
-            ContextCompat.getColor(mHost.getContext(), com.termux.R.color.termux_primary));
+        int color = accent(mHost.getContext());
         if (color == mColor) return;
         mColor = color;
         mHost.invalidate();
@@ -144,6 +143,15 @@ public final class BorderGrabber {
         mPressed = false;
         mEmphasis = 0f;
         mTrackPx = 0f;
+    }
+
+    /**
+     * The rim's accent the border's marks are drawn in, the grabbers and the hold's glow
+     * ({@link BorderGlow}) alike: the theme's primary, which follows light, dark and the scheme.
+     */
+    static int accent(@NonNull Context context) {
+        return MaterialColors.getColor(context, androidx.appcompat.R.attr.colorPrimary,
+            ContextCompat.getColor(context, com.termux.R.color.termux_primary));
     }
 
     /** Whether it marks the top border. */

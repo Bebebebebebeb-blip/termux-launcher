@@ -32,7 +32,10 @@ vertical swipe off the bottom border is the keyboard swipe, and one off the top 
 status swipe. The border
 is always drawn while the
 border preference is on (the slab's rim on glass, the plain stroke otherwise), on the terminal,
-the Widgets page and the Display page alike, so the gesture has a line to find. The hold sinks
+the Widgets page and the Display page alike, so the gesture has a line to find. A finger that
+lands where its hold can page lights that edge at once, in the accent the grabbers use, and the
+glow brightens until the hold takes, stays full through the drag and fades if the press is given
+up (full and gone at once when motion is reduced). The hold sinks
 the page away from the user until the finger lets go, in every mode unless motion is reduced;
 where the extra glass is active (see **Fancier Glass**) the page held and the page arriving both tip
 like planks toward the finger, as if it pressed its weight into them, and lie flat as the settle lands; the Display place does

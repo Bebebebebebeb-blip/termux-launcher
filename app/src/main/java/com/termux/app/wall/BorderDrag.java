@@ -447,6 +447,7 @@ public final class BorderDrag {
     public void reset() {
         mClaim = Claim.NONE;
         mBorder = Border.NONE;
+        mHoldPages = false;
         mKeyboardEligible = false;
         mStatusEligible = false;
     }
@@ -465,6 +466,14 @@ public final class BorderDrag {
     /** True from the DOWN on a border until the lift, whichever way the claim went. */
     public boolean isArmed() {
         return mClaim != Claim.NONE;
+    }
+
+    /**
+     * True from a DOWN whose hold may page the wall — on a border, with another place to go —
+     * until the lift, whichever way the claim went.
+     */
+    public boolean holdPages() {
+        return mHoldPages;
     }
 
     /** True while the wall owns the finger. */

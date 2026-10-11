@@ -271,6 +271,22 @@ public class BorderDragTest {
             zone(0f).minBand(0f).sideReach(0f).bounds(BorderDrag.Border.LEFT, out));
     }
 
+    @Test
+    public void onlyAPressOnABorderOfAWallThatCanPageHasAHoldThatPages() {
+        assertTrue(armed(LEFT - 1f, MID_Y).holdPages());
+        assertTrue(armed(MID_X, BOTTOM).holdPages());
+        BorderDrag onePlace = armed(MID_X, BOTTOM, zone(GAP), false, true, true, NO_LIMIT);
+        assertTrue("armed for the keyboard's swipe", onePlace.isArmed());
+        assertFalse(onePlace.holdPages());
+        BorderDrag.Zone pills = zone(GAP).pills(MID_X, PILL_WIDTH, PILL_REACH);
+        BorderDrag byPill = armed(MID_X, BOTTOM - 1f, pills, true, true, true, NO_LIMIT);
+        assertTrue("armed for the keyboard's swipe", byPill.isArmed());
+        assertFalse("never pages from the pill's box", byPill.holdPages());
+        BorderDrag lifted = armed(LEFT - 1f, MID_Y);
+        lifted.reset();
+        assertFalse(lifted.holdPages());
+    }
+
     // ---- The side reach, into the page's clearance -------------------------------------------
 
     @Test

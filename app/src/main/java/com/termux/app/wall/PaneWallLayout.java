@@ -264,6 +264,10 @@ public final class PaneWallLayout extends ViewGroup {
     private float mGrabberDrawnSink = Float.NaN;
     /** The status bar swipe's grabber on the current page's top border. */
     @NonNull private final BorderGrabber mStatusGrabber;
+    /** The glow along the border a hold that can page is on ({@link BorderGlow}). */
+    @NonNull private final BorderGlow mGlow;
+    /** The page the glow is drawn on: the one the wall rested on when the finger landed. */
+    @Nullable private View mGlowPage;
     /**
      * The status bar's fold the finger drives ({@link Listener#onStatusFoldBegin}): its whole way
      * in px from the claim to the lift, 0 while no fold is engaged. The fold is carried on the
@@ -332,6 +336,7 @@ public final class PaneWallLayout extends ViewGroup {
         setClipToPadding(false);
         mGrabber = new BorderGrabber(this);
         mStatusGrabber = new BorderGrabber(this, true);
+        mGlow = new BorderGlow(this);
     }
 
     public void setListener(@Nullable Listener listener) {
@@ -354,6 +359,10 @@ public final class PaneWallLayout extends ViewGroup {
             releasePlankPage(previous);
         }
         if (previous != null && previous != view && previous == mWeightPage) mWeightPage = null;
+        if (previous != null && previous != view && previous == mGlowPage) {
+            mGlow.reset();
+            mGlowPage = null;
+        }
         // A surface page leaving the wall lets go of its stand-in and the copy it kept.
         if (previous instanceof SurfacePage && previous != view) {
             mStillPlaces.remove(page);
@@ -646,6 +655,7 @@ public final class PaneWallLayout extends ViewGroup {
         // The wall's own border drag is a claimant like the others: the rest of its finger's
         // travel is swallowed and moves nothing.
         mBorderDrag.abandon();
+        syncBorderGlow();
     }
 
     // ---- The border drag ---------------------------------------------------------------------
@@ -679,8 +689,10 @@ public final class PaneWallLayout extends ViewGroup {
     public boolean dispatchTouchEvent(MotionEvent event) {
         if (mCancellingChild) return super.dispatchTouchEvent(event);
         boolean handled = dispatchBorderTouch(event);
-        // The grabber answers whatever the event made of the finger in its zone.
+        // The grabber answers whatever the event made of the finger in its zone, and so does
+        // the glow of a hold.
         syncGrabberPress(event);
+        syncBorderGlow();
         return handled;
     }
 
@@ -822,7 +834,13 @@ public final class PaneWallLayout extends ViewGroup {
         if (!armed) return;
         mBorderDownX = event.getX();
         mBorderDownY = event.getY();
-        mHoldHandler.postDelayed(mHoldElapsed, HoldTiming.holdTimeoutMs());
+        long holdMs = HoldTiming.holdTimeoutMs();
+        mHoldHandler.postDelayed(mHoldElapsed, holdMs);
+        // A press whose hold could page lights its border at once and fills over the hold.
+        if (mBorderDrag.holdPages()) {
+            mGlowPage = mPageViews.get(mCurrent);
+            mGlow.press(mBorderDrag.border(), SystemClock.uptimeMillis(), holdMs, mReducedMotion);
+        }
     }
 
     /**
@@ -918,10 +936,12 @@ public final class PaneWallLayout extends ViewGroup {
                 mGrabber.setPressed(false, 0f, mReducedMotion);
                 mStatusGrabber.setPressed(false, 0f, mReducedMotion);
             }
+            syncBorderGlow();
             return;
         }
         if (!mGesturesEnabled || mPages.size() <= 1) {
             mBorderDrag.abandon();
+            syncBorderGlow();
             return;
         }
         cancelChildGesture();
@@ -931,6 +951,8 @@ public final class PaneWallLayout extends ViewGroup {
         mGrabber.setPressed(false, 0f, mReducedMotion);
         mStatusGrabber.setPressed(false, 0f, mReducedMotion);
         mBorderVelocity = VelocityTracker.obtain();
+        // The glow has filled with the hold: full from here until the drag ends.
+        syncBorderGlow();
         beginDrag(true, mBorderDownX);
         engageSink(mBorderDrag.border());
         dragTo(0f);
@@ -1294,10 +1316,57 @@ public final class PaneWallLayout extends ViewGroup {
             mReducedMotion);
     }
 
-    /** Re-read the grabber's accent, after a theme or scheme change. */
+    /** Re-read the grabbers' and the glow's accent, after a theme or scheme change. */
     public void refreshGrabberColor() {
         mGrabber.refreshColor();
         mStatusGrabber.refreshColor();
+        mGlow.refreshColor();
+    }
+
+    // ---- The hold's glow ---------------------------------------------------------------------
+
+    /**
+     * The glow follows the press it was lit for ({@link BorderGlow}): full once the hold claims
+     * the finger, and fading out once the press is given up or the drag ends — whatever made the
+     * finger anything but a pending hold that can page, or the wall's drag.
+     */
+    private void syncBorderGlow() {
+        if (!mGlow.isHeld()) return;
+        BorderDrag.Claim claim = mBorderDrag.claim();
+        if (claim == BorderDrag.Claim.PAGING) {
+            mGlow.claim();
+        } else if (claim != BorderDrag.Claim.PENDING || !mBorderDrag.holdPages()) {
+            mGlow.release(SystemClock.uptimeMillis(), mReducedMotion);
+        }
+    }
+
+    /**
+     * The glow along the held edge of the page it was lit on, as that page is drawn now: slid,
+     * sunk about its pivot, and faded with its outline as it leaves its rest.
+     */
+    private void drawBorderGlow(@NonNull android.graphics.Canvas canvas) {
+        View page = mGlowPage;
+        if (page == null || !mGlow.isShowing()) return;
+        if (page.getVisibility() != VISIBLE || page.getWidth() <= 0 || page.getHeight() <= 0) {
+            return;
+        }
+        float visibility = PaneWallPolicy.pageOutlineAlpha(page.getTranslationX(), getWidth());
+        float scaleX = page.getScaleX();
+        float scaleY = page.getScaleY();
+        float pivotX = page.getLeft() + page.getTranslationX() + page.getPivotX();
+        float pivotY = page.getTop() + page.getTranslationY() + page.getPivotY();
+        float left = pivotX - page.getPivotX() * scaleX;
+        float right = pivotX + (page.getWidth() - page.getPivotX()) * scaleX;
+        float top = pivotY - page.getPivotY() * scaleY;
+        float bottom = pivotY + (page.getHeight() - page.getPivotY()) * scaleY;
+        mGlow.draw(canvas, left, top, right, bottom, scaleY, visibility,
+            SystemClock.uptimeMillis());
+    }
+
+    /** The hold's glow, for tests. */
+    @NonNull
+    BorderGlow borderGlow() {
+        return mGlow;
     }
 
     /** The grabber, for tests. */
@@ -1313,13 +1382,15 @@ public final class PaneWallLayout extends ViewGroup {
     }
 
     /**
-     * The pages first, then the grabbers over the bottom and top borders of each page on screen:
-     * faded with the page's own outline as it leaves its rest, so a slide shows one, and scaled
-     * with a sunk page about its centre, so each stays on the edge it marks.
+     * The pages first, then the glow of a hold along the border it is on, then the grabbers over
+     * the bottom and top borders of each page on screen: faded with the page's own outline as it
+     * leaves its rest, so a slide shows one, and scaled with a sunk page about its centre, so
+     * each stays on the edge it marks.
      */
     @Override
     protected void dispatchDraw(android.graphics.Canvas canvas) {
         super.dispatchDraw(canvas);
+        drawBorderGlow(canvas);
         mGrabberDrawnOffsetPx = mOffsetPx;
         mGrabberDrawnSink = mSink;
         boolean bottom = isGrabberShown();
@@ -1344,9 +1415,12 @@ public final class PaneWallLayout extends ViewGroup {
         }
     }
 
-    /** The grabber follows its page: a frame that moved the wall or sank the page redraws it. */
+    /**
+     * The grabbers and the glow follow their page: a frame that moved the wall or sank the page
+     * redraws them.
+     */
     private void invalidateGrabberIfMoved() {
-        if (!isGrabberShown() && !isStatusGrabberShown()) return;
+        if (!isGrabberShown() && !isStatusGrabberShown() && !mGlow.isShowing()) return;
         if (mOffsetPx == mGrabberDrawnOffsetPx && mSink == mGrabberDrawnSink) return;
         invalidate();
     }
@@ -2015,5 +2089,7 @@ public final class PaneWallLayout extends ViewGroup {
         releaseStills();
         mGrabber.reset();
         mStatusGrabber.reset();
+        mGlow.reset();
+        mGlowPage = null;
     }
 }
