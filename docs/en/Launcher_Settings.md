@@ -48,8 +48,8 @@ search** and **Double-tap to lock** pages. See [Home screen and apps](Home_Scree
 
 ## Status bar
 
-"Clock, indicators and weather": **12-hour time**, **CPU usage**, **Memory usage**, **Weather**,
-**Fahrenheit** and the weather **Location**. See [Status bar](Status_Bar.md).
+"Clock, indicators and weather": **12-hour time**, **CPU usage**, **Memory usage**, **Media**,
+**Weather**, **Fahrenheit** and the weather **Location**. See [Status bar](Status_Bar.md).
 
 ## Notifications
 

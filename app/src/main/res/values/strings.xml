@@ -136,6 +136,8 @@
     <string name="settings_cpu_usage_title">CPU usage</string>
     <string name="settings_memory_usage_title">Memory usage</string>
     <string name="settings_memory_usage_summary"></string>
+    <string name="settings_status_media_title">Media</string>
+    <string name="settings_status_media_summary">Show what\'s playing in the status bar.</string>
     <string name="settings_weather_title">Weather</string>
     <string name="settings_weather_summary">Uses your device location, which needs location permission, or the location set below.</string>
     <string name="settings_weather_fahrenheit_title">Fahrenheit</string>

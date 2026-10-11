@@ -72,7 +72,7 @@ public final class TourRun {
         return TourStep.lesson(BORDER_DRAG, 0, R.string.tour_chapter_getting_around,
             TourStep.Placement.AUTO,
             new TourStep.Stage(R.string.tour_title_places, R.string.tour_body_places,
-                TourTargets.PAGE_BORDER, TourSignals.PLACE_CHANGED, TourGesture.HOLD_DRAG));
+                TourTargets.PAGE_BORDER, TourSignals.PLACE_CHANGED, TourGesture.SWIPE_LEFT));
     }
 
     /**

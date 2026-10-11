@@ -22312,6 +22312,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         boolean cpuOn = mPreferences != null && mPreferences.isStatusWidgetCpuEnabled();
         boolean ramOn = mPreferences != null && mPreferences.isStatusWidgetRamEnabled();
         boolean weatherOn = mPreferences != null && mPreferences.isStatusWidgetWeatherEnabled();
+        View widgetSlot = findViewById(R.id.terminal_top_widget_area);
+        if (widgetSlot instanceof com.termux.app.statusbar.TopPaneWidgetSlot) {
+            ((com.termux.app.statusbar.TopPaneWidgetSlot) widgetSlot).setMediaEnabled(
+                mPreferences == null || mPreferences.isStatusWidgetMediaEnabled());
+        }
 
         if (cpu != null) {
             cpu.setVisibility(cpuOn ? View.VISIBLE : View.GONE);
