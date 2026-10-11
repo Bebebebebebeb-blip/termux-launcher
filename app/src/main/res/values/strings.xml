@@ -948,6 +948,11 @@
                 <string name="termux_status_widget_ai_loading">…</string>
                 <string name="termux_status_widget_ai_resident">on</string>
                 <string name="termux_status_widget_ai_unloaded">off</string>
+                <string name="termux_status_widget_ai_unloads_within_a_minute">AI model unloads in less than a minute</string>
+                <plurals name="termux_status_widget_ai_unloads_in_minutes">
+                    <item quantity="one">AI model unloads in %d minute</item>
+                    <item quantity="other">AI model unloads in %d minutes</item>
+                </plurals>
                 <string name="termux_status_widget_cpu_summary">Tap the widget for cores, load and top processes.</string>
                 <string name="termux_top_pane_clock_style_flip">Flip</string>
                 <string name="termux_top_pane_clock_style_lcd">LCD</string>
