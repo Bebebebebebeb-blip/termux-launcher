@@ -28,7 +28,7 @@ Besides the actions, the palette has three sections of its own:
 
 - **Apps**: your most-used apps with nothing typed, the best matches while you type. A row shows
   any shortcut bound to it. Hold a row to bind a key to it (see
-  [Custom keybindings](Custom_Keybindings.md#bind-an-app-from-the-palette)).
+  [Custom keybindings](Custom_Keybindings.md#bind-from-the-palette)).
 - **Sessions**: two rows per session, one to switch to it and one to rename it.
 - **Keyboard**: a row per keyboard type and, once you cycle through more than one layout, a row per
   layout, with the one in use marked.
@@ -198,6 +198,7 @@ These have no palette row at all but can still be bound:
 | `workspace.load` | `name` (required); `mode`: `append` (default) or `replace`; `runCommands`: `true` or `false` (default) | Load a workspace |
 | `workspace.list` | | List saved workspaces |
 | `workspace.delete` | `name` (required) | Delete a saved workspace |
+| `contact.open` | `lookup_key` (required); `contact_id` | Open a contact's card |
 
 ## Actions for programs only
 
