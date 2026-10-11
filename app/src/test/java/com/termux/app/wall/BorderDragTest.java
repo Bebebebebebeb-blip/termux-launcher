@@ -663,4 +663,75 @@ public class BorderDragTest {
         assertTrue(bottomArmed(LEFT + BAND - 1f, 1000f, true, REACH).holdElapsed());
         assertTrue(bottomArmed(RIGHT - BAND + 1f, 1000f, true, REACH).holdElapsed());
     }
+
+    // ---- The top band's hold: the line, not the first rows -----------------------------------
+
+    private static final float TOP_HOLD_REACH = 9f;  // TOP_HOLD_REACH_DP at 3x
+
+    private static BorderDrag topArmed(float x, float y, boolean canPage, float statusReach) {
+        BorderDrag drag = new BorderDrag();
+        drag.down(x, y, LEFT, TOP, RIGHT, BOTTOM, BAND, CORNER, SLOP, canPage, REACH,
+            statusReach, NO_LIMIT, TOP_HOLD_REACH, HOLD_REACH, AIR_BELOW);
+        return drag;
+    }
+
+    @Test
+    public void theShippedTopHoldReachIsWhatTheseTestsAssume() {
+        assertEquals(TOP_HOLD_REACH, BorderDrag.TOP_HOLD_REACH_DP * DENSITY, 0.01f);
+        assertTrue("a hold reaches less far in than the status swipe",
+            BorderDrag.TOP_HOLD_REACH_DP < BorderDrag.STATUS_REACH_DP);
+    }
+
+    @Test
+    public void aHoldOnTheFirstTextRowIsNotABorder() {
+        // The middle of the first row, well inside the old band but past the hold's reach.
+        float firstRow = TOP + 30f;
+        BorderDrag paging = topArmed(550f, firstRow, true, 0f);
+        assertFalse("without the status swipe nothing arms there", paging.isArmed());
+        assertFalse(paging.holdElapsed());
+
+        // With the status swipe on, the row arms for the swipe, but a still finger stays the
+        // content's long press.
+        BorderDrag held = topArmed(550f, firstRow, true, STATUS_REACH);
+        assertTrue(held.isArmed());
+        assertFalse("the long press is the content's", held.holdElapsed());
+        assertEquals(BorderDrag.Claim.ABANDONED, held.claim());
+        assertFalse(held.isPaging());
+
+        // Just past the hold's reach is still the row; at it, and on the line, the border.
+        assertFalse(topArmed(550f, TOP + TOP_HOLD_REACH + 1f, true, STATUS_REACH).holdElapsed());
+        assertTrue(topArmed(550f, TOP + TOP_HOLD_REACH, true, STATUS_REACH).holdElapsed());
+        assertTrue("on the line itself", topArmed(550f, TOP, true, 0f).holdElapsed());
+    }
+
+    @Test
+    public void aHoldAboveTheTopLineStillPagesAcrossTheWholeBand() {
+        BorderDrag drag = topArmed(550f, TOP - BAND + 1f, true, STATUS_REACH);
+        assertEquals(BorderDrag.Border.TOP, drag.border());
+        assertTrue(drag.holdElapsed());
+        assertEquals(-300f, drag.travel(250f), 0.01f);
+        assertFalse("past the band is not the border",
+            topArmed(550f, TOP - BAND - 1f, true, STATUS_REACH).isArmed());
+    }
+
+    @Test
+    public void theStatusSwipesReachInsideTheLineIsUnchanged() {
+        BorderDrag atReach = topArmed(550f, TOP + STATUS_REACH, true, STATUS_REACH);
+        assertTrue(atReach.isStatusEligible());
+        assertEquals(BorderDrag.Claim.STATUS, atReach.move(550f, TOP + STATUS_REACH + 200f));
+        BorderDrag below = topArmed(550f, TOP + STATUS_REACH + 1f, true, STATUS_REACH);
+        assertFalse("below the reach a still finger and a swipe are both the content's",
+            below.isArmed());
+        assertEquals(BorderDrag.Claim.NONE, below.move(550f, TOP + STATUS_REACH + 200f));
+    }
+
+    @Test
+    public void theSideBandsKeepTheirReachNearTheTop() {
+        // Below the top hold's reach, a press on a side band is that side's, and still pages.
+        BorderDrag side = topArmed(LEFT + BAND - 1f, TOP + CORNER + 1f, true, STATUS_REACH);
+        assertEquals(BorderDrag.Border.LEFT, side.border());
+        assertTrue(side.holdElapsed());
+        assertEquals(BorderDrag.Border.NONE, BorderDrag.borderAt(550f, TOP + 30f, LEFT, TOP,
+            RIGHT, BOTTOM, BAND, CORNER, TOP_HOLD_REACH, HOLD_REACH, AIR_BELOW));
+    }
 }
