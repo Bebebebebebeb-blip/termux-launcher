@@ -14,6 +14,7 @@ Latest stable: v1.0.4.
 <!-- Everything on dev since the latest stable; ships in the next stable as it stands. -->
 
 - A fresh install comes with the current tlstore (0.13).
+- Opening the widget picker no longer closes the launcher on Android 11 and earlier (#62).
 
 ## Experimental
 <!-- What is on pre and not yet on dev, one line each; name the pull request or branch it came from. -->
