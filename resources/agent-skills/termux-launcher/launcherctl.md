@@ -28,17 +28,48 @@ launcherctl launch com.example.maps
 ## Panes
 
 ```sh
-launcherctl pane open [--cwd DIR] [--title NAME] [--tag TAG] [--no-focus] [--] [CMD ARGS...]
+launcherctl pane open [--cwd DIR] [--title NAME] [--tag TAG] [--no-focus]
+                      [--from ID] [--direction right|left|down|up]
+                      [--size 0.1-0.9 | --columns N | --rows N] [--] [CMD ARGS...]
 launcherctl pane list
 launcherctl pane focus <id>
+launcherctl pane resize <id> --size 0.1-0.9 | --columns N | --rows N
 launcherctl pane write <id> [--enter] <text>       # or: ... write <id> [--enter] < file
 launcherctl pane read <id> [--lines N]             # default 60, max 500
 launcherctl pane close <id>
 ```
 
-**Ownership is the security boundary**: `write`, `read` and `close` work only on panes *you*
-opened with `pane open` — every other pane, including the user's own shells, answers HTTP 403
-`not_owned`. `list` and `focus` work on every pane.
+**Ownership is the security boundary**: `write`, `read`, `resize` and `close` work only on panes
+*you* opened with `pane open` — every other pane, including the user's own shells, answers HTTP
+403 `not_owned`. `list` and `focus` work on every pane.
+
+### Where the pane goes
+
+`pane open` splits **your own pane** (`$TERMUX_LAUNCHER_PANE`) by default, so the new pane lands
+next to you, in your window, even when the user is looking at another one. `--from ID` splits a
+different pane instead (ids from `pane list`). If your pane can't be split (it floats, or you
+have no `TERMUX_LAUNCHER_PANE`), the user's focused pane is split, as before.
+
+- `--direction right|left|down|up` (alias `--split`): the side of that pane the new one goes on.
+  Without it the user's layout chooses.
+- `--size 0.4`: the new pane takes 40% of the split pane (0.1–0.9, default 0.5). Or
+  `--columns 60` / `--rows 12`: a width or height in cells, clamped so neither pane is crushed.
+- A direction or size in a window with an automatic layout (grid, tall, ...) switches that window
+  to manual splits — the response's `"layout"` says what is in effect (`null` = manual). Only ask
+  for a placement when it matters; `pane open --no-focus -- <cmd>` alone respects the user's layout.
+- `pane resize <id> --size 0.3` (its share of the split it sits in), `--columns N` or `--rows N`
+  changes it later. 409 `no_split` means it has nothing beside (or above/below) it to give way.
+- Every pane record has `"window"` (window id), `"floating"`, and `"geometry"`:
+  `{"left","top","columns","rows"}` in cells within its window — use it to pick a sensible size.
+- `pane list` has `"features": ["placement","resize","geometry","windows"]`; if it's missing, the
+  launcher is older and ignores these flags.
+
+```sh
+# A 40%-wide pane to the right of this one, without taking the keyboard:
+id=$(launcherctl pane open --direction right --size 0.4 --no-focus -- htop \
+     | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+launcherctl pane resize "$id" --columns 50
+```
 
 - The command always runs as an **argv array** — `pane open -- kitten icat out.png`, not a shell
   string. There is no `sh -c` form built in, so **for a pipe, name `sh -c` explicitly**:
@@ -63,7 +94,7 @@ launcherctl pane focus "$id"
 launcherctl pane close "$id"      # close it when you're done — don't leave litter
 ```
 
-Rate limits/min: open 30, write/read/list 240, focus 120, close 60.
+Rate limits/min: open 30, write/read/list 240, focus/resize 120, close 60.
 
 ## Windows
 
@@ -72,19 +103,26 @@ pane sharing the one on screen. Unlike a pane, the window's lifetime IS the comm
 exits the window closes.
 
 ```sh
-launcherctl window open [--title NAME] [--no-focus] [--] CMD ARGS...
+launcherctl window open [--cwd DIR] [--title NAME] [--no-focus] [--] CMD ARGS...
+launcherctl window list                 # same JSON as pane list
+launcherctl window focus <id>           # any window
+launcherctl window close <id>           # only a window you opened
 ```
 
 `CMD` is required (unlike `pane open`). The opened pane is owned exactly like `pane open`'s, so
-`pane write|read|close|focus` reach it the same way.
+`pane write|read|close|focus|resize` reach it the same way; the answer has its pane id as `id`
+(and `pane`) and the window's id as `windowId`. `window focus|close` take a window id from
+`pane list` or the id of any pane in it. `close` answers 403 `not_owned` unless every pane in the
+window is yours.
 
 ```sh
 id=$(launcherctl window open --title tlstore --no-focus -- tlstore \
      | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
 launcherctl pane read "$id" --lines 40
+launcherctl window close "$id"
 ```
 
-30 requests/min.
+Requests/min: open 30, focus 120, close 60.
 
 ## Agent status
 
@@ -213,6 +251,9 @@ eval "$(launcherctl x11 gpu --env)"
 - `pane_open_failed` / `window_open_failed` (409): no active session, terminal limit hit, or
   compatibility mode on.
 - `pane_not_found` (404): stale id — the user closed your pane; `pane list` to resync.
+  `window_not_found` (404) is the same for a window.
+- `pane_not_tiled` (409): `--from` (or the pane you resize) floats, so it has no split.
+- `bad_request` (400): a `--direction`, `--size`, `--columns` or `--rows` that isn't valid.
 - `not_owned` (403): that pane/window isn't one you opened.
 - `launcher_not_visible` (409): `clipboard paste` only works with the launcher on screen;
   `clipboard_read_disabled` (403): the user turned clipboard reads off. Say so, don't retry.

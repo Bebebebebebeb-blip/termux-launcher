@@ -40,17 +40,32 @@ launcherctl launch whatsapp
 ## pane
 
 ```text
-launcherctl pane open [--cwd DIR] [--title NAME] [--tag TAG] [--no-focus] [--] [CMD ARGS...]
+launcherctl pane open [--cwd DIR] [--title NAME] [--tag TAG] [--no-focus]
+                      [--from ID] [--direction right|left|down|up]
+                      [--size 0.1-0.9 | --columns N | --rows N] [--] [CMD ARGS...]
 launcherctl pane list
 launcherctl pane focus <id>
+launcherctl pane resize <id> --size 0.1-0.9 | --columns N | --rows N
 launcherctl pane write <id> [--enter] <text>      (or the text on stdin)
 launcherctl pane read <id> [--lines N]
 launcherctl pane close <id>
 ```
 
-- `open` splits a new pane into the current window and prints its `id`. With a command it runs that
-  command in your login shell, and the shell stays when the command ends. `--no-focus` leaves the
-  keyboard where it is; `--tag` is a label `list` reports back.
+- `open` splits a new pane off the pane the command runs in and prints its `id`. With a command it
+  runs that command in your login shell, and the shell stays when the command ends. `--no-focus`
+  leaves the keyboard where it is; `--tag` is a label `list` reports back.
+- Where the pane goes: `--from` names the pane to split instead (an `id` from `list`). When the
+  command does not run in a pane, or its pane floats or is in another session, the focused pane is
+  split, as before. `--direction` (or `--split`) puts the new pane `right`, `left`, `down` or `up`
+  of it; without it the layout chooses. `--size` is the new pane's share of the split pane, from
+  0.1 to 0.9 (default 0.5); `--columns` or `--rows` asks for a width or height in cells instead,
+  kept so both panes stay usable. Asking for a direction or size in a window with an automatic
+  layout (grid, tall, ...) switches that window to manual splits, so the layout cannot move the
+  pane away again.
+- `resize` sets a pane's share of the split it sits in (`--size`), or its width (`--columns`) or
+  height (`--rows`) in cells. Only for panes opened with `pane open` or `window open`.
+- `list` prints every window and pane. Each pane reports its `window`, whether it floats, and its
+  `geometry`: left, top, columns and rows in cells within its window.
 - `write` types into the pane; `--enter` presses Enter after it. At most 16 KiB per call.
 - `read` prints the last lines of the pane, 60 by default, up to 500.
 
@@ -58,17 +73,27 @@ launcherctl pane close <id>
 id=$(launcherctl pane open --title preview --no-focus -- kitten icat out.png | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
 launcherctl pane write "$id" --enter 'make test'
 launcherctl pane read "$id" --lines 40
+launcherctl pane open --direction right --size 0.4 --no-focus -- htop   # beside this pane
+launcherctl pane resize "$id" --columns 60
 ```
 
 ## window
 
 ```text
-launcherctl window open [--title NAME] [--no-focus] [--] CMD ARGS...
+launcherctl window open [--cwd DIR] [--title NAME] [--no-focus] [--] CMD ARGS...
+launcherctl window list
+launcherctl window focus <id>
+launcherctl window close <id>
 ```
 
-Opens a whole new full-size window with its own chip, not a pane beside the one on screen. The
-command is required, and the window closes when it ends. `--no-focus` keeps the current window in
-front while the new one runs behind it. The `pane` commands reach the new window by its `id`.
+`open` opens a whole new full-size window with its own chip, not a pane beside the one on screen.
+The command is required, and the window closes when it ends. `--cwd` is the folder it starts in;
+`--no-focus` keeps the current window in front while the new one runs behind it. The `pane`
+commands reach the new window's pane by its `id` (also printed as `pane`).
+
+`list` prints the same windows and panes as `pane list`. `focus` brings a window to the front;
+`close` closes one opened with `window open`, and only while every pane in it was opened that way.
+Both take a window's `id` from `list`, or the `id` of any pane in it.
 
 ```sh
 id=$(launcherctl window open --title tlstore --no-focus -- tlstore | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
