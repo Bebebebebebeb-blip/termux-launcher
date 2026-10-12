@@ -563,14 +563,16 @@ public class LauncherCtlApiServer {
                     return jsonResponse(error);
                 }
                 return jsonResponse(runPaneRequest(request));
-            } else if ("POST".equals(request.method) && "/v1/windows".equals(request.path)) {
+            } else if (("POST".equals(request.method) && "/v1/windows".equals(request.path))
+                    || request.path.startsWith("/v1/windows/")) {
                 if (!TermuxAppSharedPreferences.build(context).isAgentPanesEnabled()) {
                     JSONObject error = jsonError("panes_api_disabled",
                         "Pane access for scripts is switched off in Settings > Terminal & Status > Sessions and panes");
                     error.put("_statusCode", 403);
                     return jsonResponse(error);
                 }
-                return jsonResponse(runWindowOpenRequest(request));
+                if ("/v1/windows".equals(request.path)) return jsonResponse(runWindowOpenRequest(request));
+                return jsonResponse(runWindowRequest(request));
             } else if (request.path.startsWith("/v1/keyboard/")) {
                 return jsonResponse(runKeyboardRequest(request));
             } else if (LauncherCtlNotificationRoutes.handles(request.method, request.path)) {
@@ -1097,10 +1099,10 @@ public class LauncherCtlApiServer {
      */
     /**
      * The pane routes, for agents and scripts that want a pane of their own to show their work in:
-     * {@code GET /v1/panes}, {@code POST /v1/panes}, {@code POST /v1/panes/{id}/focus|close|write}
+     * {@code GET /v1/panes}, {@code POST /v1/panes}, {@code POST /v1/panes/{id}/focus|close|write|resize}
      * and {@code GET /v1/panes/{id}/text}. Each is one terminal action run on the UI thread, and
-     * the dispatcher enforces that write, text and close only reach panes opened through this API
-     * — the token buys a pane, never the user's shells.
+     * the dispatcher enforces that write, text, resize and close only reach panes opened through
+     * this API — the token buys a pane, never the user's shells.
      *
      * <p>{@code isAttached()} only fails once the Activity is gone (finishing or destroyed) — every
      * pane tool is in {@link com.termux.app.terminal.TerminalActionDispatcher}'s background-safe
@@ -1176,6 +1178,32 @@ public class LauncherCtlApiServer {
         }
         return dispatcher.execute(
             com.termux.app.terminal.TerminalActionDispatcher.TOOL_WINDOW_OPEN, arguments);
+    }
+
+    /**
+     * {@code POST /v1/windows/{id}/focus|close}: bring up a window of the current session, or close
+     * one this API opened, by the window id {@code GET /v1/panes} lists (or the id of a pane in
+     * it). Background-safe like the pane routes; the dispatcher enforces that close only reaches
+     * windows whose every pane was opened through this API.
+     */
+    private JSONObject runWindowRequest(HttpRequest request) throws JSONException {
+        String toolName = windowToolFor(request.method, request.path);
+        if (toolName == null) {
+            JSONObject error = jsonError("not_found", "Unknown window endpoint");
+            error.put("_statusCode", 404);
+            return error;
+        }
+        JSONObject arguments = new JSONObject();
+        arguments.put("id", paneIdFrom(request.path));
+        com.termux.app.terminal.TerminalActionDispatcher dispatcher =
+            com.termux.app.terminal.TerminalActionDispatcher.getInstance();
+        if (!dispatcher.isAttached()) {
+            JSONObject error = jsonError("activity_not_running",
+                "The launcher is not running right now, so windows cannot be driven");
+            error.put("_statusCode", 409);
+            return error;
+        }
+        return dispatcher.execute(toolName, arguments);
     }
 
     /**
@@ -1346,8 +1374,24 @@ public class LauncherCtlApiServer {
                 return "GET".equals(method) ? com.termux.app.terminal.TerminalActionDispatcher.TOOL_PANE_READ : null;
             case "agent":
                 return "POST".equals(method) ? com.termux.app.terminal.TerminalActionDispatcher.TOOL_AGENT_STATUS : null;
+            case "resize":
+                return "POST".equals(method) ? com.termux.app.terminal.TerminalActionDispatcher.TOOL_PANE_SET_SIZE : null;
             default:
                 return null;
+        }
+    }
+
+    /** The terminal action a {@code /v1/windows/{id}/…} route maps to, or null for any other path. */
+    @Nullable
+    static String windowToolFor(@NonNull String method, @NonNull String path) {
+        if (!"POST".equals(method)) return null;
+        String[] parts = path.split("/");
+        // "", "v1", "windows", "<id>", "<action>"
+        if (parts.length != 5 || !"windows".equals(parts[2]) || parts[3].isEmpty()) return null;
+        switch (parts[4]) {
+            case "focus": return com.termux.app.terminal.TerminalActionDispatcher.TOOL_WINDOW_FOCUS;
+            case "close": return com.termux.app.terminal.TerminalActionDispatcher.TOOL_WINDOW_CLOSE_BY_ID;
+            default: return null;
         }
     }
 
@@ -1357,10 +1401,11 @@ public class LauncherCtlApiServer {
         return parts.length == 5 && !parts[3].isEmpty() ? parts[3] : null;
     }
 
-    /** Rate-limit key for a request; pane routes share one bucket per action across ids. */
+    /** Rate-limit key for a request; pane and window routes share one bucket per action across ids. */
     @NonNull
     static String rateLimitKey(@NonNull String method, @NonNull String path) {
-        String id = path.startsWith("/v1/panes/") ? paneIdFrom(path) : null;
+        String id = path.startsWith("/v1/panes/") || path.startsWith("/v1/windows/")
+            ? paneIdFrom(path) : null;
         if (id != null) path = path.replace("/" + id + "/", "/*/");
         return method + ":" + path;
     }
@@ -1860,6 +1905,9 @@ public class LauncherCtlApiServer {
         rateLimiters.put("POST:/v1/windows", new SimpleRateLimiter(30, 60_000));
         rateLimiters.put("POST:/v1/panes/*/focus", new SimpleRateLimiter(120, 60_000));
         rateLimiters.put("POST:/v1/panes/*/close", new SimpleRateLimiter(60, 60_000));
+        rateLimiters.put("POST:/v1/panes/*/resize", new SimpleRateLimiter(120, 60_000));
+        rateLimiters.put("POST:/v1/windows/*/focus", new SimpleRateLimiter(120, 60_000));
+        rateLimiters.put("POST:/v1/windows/*/close", new SimpleRateLimiter(60, 60_000));
         rateLimiters.put("POST:/v1/panes/*/write", new SimpleRateLimiter(240, 60_000));
         rateLimiters.put("GET:/v1/panes/*/text", new SimpleRateLimiter(240, 60_000));
         // Agent hooks fire on every prompt, tool approval and turn end, so the ceiling is high; the
