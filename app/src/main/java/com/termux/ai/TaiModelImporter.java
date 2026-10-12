@@ -373,7 +373,8 @@ public final class TaiModelImporter {
     /**
      * The saved models in a picked folder: the folder itself when it is one model's folder, else
      * each model folder directly inside it (the {@link TaiModelExport#FOLDER_NAME} folder the export
-     * made). Empty for any other folder, and when the folder cannot be read. Reads the small
+     * made), or inside a {@link TaiModelExport#FOLDER_NAME} folder in it (the folder the export was
+     * pointed at). Empty for any other folder, and when the folder cannot be read. Reads the small
      * manifests only; nothing is copied.
      */
     @NonNull
@@ -389,8 +390,18 @@ public final class TaiModelImporter {
             }
             for (String[] child : top) {
                 if (!android.provider.DocumentsContract.Document.MIME_TYPE_DIR.equals(child[2])) continue;
-                ExportedModel model = exportedModel(tree, child[0], listChildren(tree, child[0]));
-                if (model != null) found.add(model);
+                java.util.List<String[]> children = listChildren(tree, child[0]);
+                ExportedModel model = exportedModel(tree, child[0], children);
+                if (model != null) {
+                    found.add(model);
+                } else if (TaiModelExport.FOLDER_NAME.equals(child[1])) {
+                    // The folder the export was pointed at, picked again: its models sit one level down.
+                    for (String[] grandchild : children) {
+                        if (!android.provider.DocumentsContract.Document.MIME_TYPE_DIR.equals(grandchild[2])) continue;
+                        ExportedModel nested = exportedModel(tree, grandchild[0], listChildren(tree, grandchild[0]));
+                        if (nested != null) found.add(nested);
+                    }
+                }
             }
         } catch (Exception e) {
             found.clear();
