@@ -491,7 +491,7 @@ _Avoid_: plugins, add-ons (the README's word for the same apps)
 **Edition**:
 One shipped applicationId, each on its own release branch: `com.termux` (the Termux edition, on
 `main`), `com.termux.launcher.nix` (the Nix edition, on `nix-edition`) and `io.vaj.tl` (the VAJ
-edition, on `io-vaj-package`). Features live on `dev` and reach an edition only by merging. An
+edition, on `io-vaj-package`). Content reaches an edition only by merging `dev`. An
 edition owns its identity (applicationId, package name, manifest placeholders, ABI and bootstrap
 rules) and nothing else. Every edition has its own package and so its own prefix,
 `/data/data/<pkg>/files/usr`; a literal `com.termux` in code is a bug on the other two.

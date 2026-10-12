@@ -51,12 +51,13 @@ structural fixes (derive the position, own the outline) over tuning durations.
 frames.** Read UI complaints as aesthetic first and ask before optimising a frame budget nobody
 complained about.
 
-### 4. Three editions, one development branch
+### 4. Three editions, fed only by merging
 
-Features live on `dev` and reach the three release branches (`main`, `nix-edition`,
-`io-vaj-package`) only by merging. A release branch carries nothing but its identity: applicationId,
+Content reaches the three release branches (`main`, `nix-edition`, `io-vaj-package`) only by
+merging `dev`. A release branch carries nothing but its identity: applicationId,
 `TERMUX_PACKAGE_NAME` (in `app/build.gradle` and `TermuxConstants`), `versionName`, manifest
-placeholders, ABI/split rules, bootstrap handling, CI matrix. Develop on `dev`, always.
+placeholders, ABI/split rules, bootstrap handling, CI matrix. New work starts on `pre`, and fixes
+for the current stable start on `dev`; see "Branches and releases".
 
 Every edition has its own package and so its own prefix, `/data/data/<pkg>/files/usr`. Name the
 package through `context.getPackageName()` or `TermuxConstants`; a literal `com.termux` in code is
@@ -305,7 +306,15 @@ These were settled deliberately. Raise them if you think they are wrong; do not 
 
 ## Branches and releases
 
-All development happens on `dev`. Editions receive features exclusively by merging `dev`:
+Pick the route before you branch. Content only ever moves `pre` → `dev` → the release branches:
+
+| The work | Branch from and merge into | Reaches users as |
+|---|---|---|
+| A feature, or any change in behaviour | `pre` | the next pre-release drop; then the next stable, once `pre` is promoted into `dev` |
+| A fix for something the current stable has | `dev` | the next patch release (`dev` merged into each release branch); the next drop merges it into `pre` |
+| A fix for something only the channel has | `pre` | the next drop |
+
+Each edition has its own release branch, which receives `dev` by merging:
 
 - `main` — the Termux edition (`com.termux`). Merge `dev`, tag `vX.Y.Z`.
 - `nix-edition` — the Nix edition (`com.termux.launcher.nix`), tag `nix-vX.Y.Z`, published with
@@ -381,10 +390,12 @@ ones to keep if it changes:
   bound for the channel target `pre` and merge there; nothing is force-pushed. A drop first brings
   `pre` level with `dev` (merged `--no-ff`), then merges any extra branch named on the command
   line, then adds one `release: vX.Y.Z-pre.N` commit setting `versionName`. **Promotion is a
-  merge of `pre` into `dev`** when the developer accepts what the channel has had a round with;
-  resolve `versionName` to `dev`'s side. To leave something out of a promotion, revert it on
-  `pre` before merging. A fix that must reach the next stable without a channel round can still
-  land on `dev` directly; the next drop merges it down.
+  merge of `pre` into `dev`** when the developer accepts what the channel has had a round with.
+  Keep `dev`'s `versionName`: `dev` has usually not touched that line since the last drop, so git
+  takes `pre`'s `-pre.N` value without a conflict. Check `app/build.gradle` before committing the
+  merge, and put `dev`'s value back if needed. To leave something out of a promotion, revert it on
+  `pre` before merging. A fix for the current stable lands on `dev` (see the table above), and the
+  next drop merges it into `pre`.
 - **`pre-nix` and `pre-vaj` are disposable build branches**: rebuilt per drop in worktrees from
   `origin/nix-edition` and `origin/io-vaj-package` with `pre` merged in, keeping their edition's
   identity exactly as a release cut does (the script checks `applicationId` after the merge and
@@ -418,7 +429,7 @@ ones to keep if it changes:
   `1.1.0-pre.N` builds: a store item can name the stable it will ship in and still show in the
   channel. On `1.0.x` it stays hidden.
 - Bug reports from the channel: ask for the version string from About, which ends in `-pre.N`;
-  the fix goes to `pre` as usual.
+  the fix goes to `pre`, or to `dev` when the current stable has the bug too.
 
 The cut, as the script does it: `scripts/cut-prerelease.sh X.Y.Z-pre.N [branch …]` opens `pre`
 in a worktree, merges `dev` and the named branches, sets `versionName`, commits and tags, builds
