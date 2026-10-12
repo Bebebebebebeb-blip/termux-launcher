@@ -11523,6 +11523,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mChrome.requestSync(ChromeRenderer.SCOPE_APPLY_THIS_FRAME | ChromeRenderer.SCOPE_ACCESSORY_RENDER);
         }
 
+        @Override public boolean isGlassRefractionActive() {
+            return currentFancierGlassLook() != null;
+        }
+
         @Override @Nullable public int[] terminalFrameRectInRoot() {
             View host = findViewById(R.id.terminal_surface_host);
             View root = findViewById(R.id.terminal_root_container);
