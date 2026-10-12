@@ -6,7 +6,7 @@ user needs to open Termux Launcher once. All output is JSON; every command print
 JSON body and **exits 1 on an HTTP error**, with the error code (e.g. `not_owned`,
 `pane_not_found`) inside that body — always check the exit status, do not just parse stdout.
 
-Full route tables, auth and rate limits: `docs/en/LauncherCtl_API.md`. This page is the exact CLI
+Full route tables, auth and rate limits: `docs/LauncherCtl_API.md`. This page is the exact CLI
 surface, taken from the client script itself (`LauncherCtlApiServer.java`). The installed script
 has the last word: `launcherctl <group> --help` prints a group's usage and every flag, and a group
 that needs a command, run bare, prints the same and exits 2 without acting. A mistake in the
@@ -212,7 +212,7 @@ Requests/min: open 30, focus 120, close 60.
 ## Agent status
 
 Tells the window chips and sessions browser what you're doing: **Working**, **Needs you**, or
-**Idle**. See `docs/en/Agent_Status.md` for the full picture (screen-rule fallback, hook wiring).
+**Idle**. See `docs/Agent_Status.md` for the full picture (screen-rule fallback, hook wiring).
 
 ```sh
 launcherctl agent working|blocked|idle|clear [--agent NAME] [--pane ID]
