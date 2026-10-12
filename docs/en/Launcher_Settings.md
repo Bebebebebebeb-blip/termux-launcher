@@ -90,6 +90,32 @@ Under **App**. "Battery use and vibration": **Reduce idle activity** (lazy mode)
 switches, and **Show in Recents when not the default launcher**. See
 [Look and themes](Look_And_Themes.md#reduce-idle-activity).
 
+## Backup & restore
+
+"Move your setup to another phone": **Export settings** saves your launcher setup to one `.zip`
+file (it suggests Downloads), and **Import settings** restores it, on this phone or a new one, on
+any edition.
+
+The file holds:
+
+- the launcher's settings: Appearance, Layout, dock, drawer, pinned and hidden apps, status bar,
+  keyboard, terminal, display, on-device AI settings, terminal font choices and Shizuku switches;
+- your config files in `~/.termux`: `termux.properties`, `colors.properties`, `font.ttf`,
+  `font-italic.ttf`, `fonts.conf` and your own files in `fonts.d/`,
+  `termux-launcher-bindings.conf`, `keyboard/layout.xml`, `launcher-theme.properties`,
+  `app-categories.conf`, `shell`, and the `theme-templates/`, `workspaces/` and `background/`
+  folders, plus `~/.config/termux/termux.properties`;
+- the keyboard's label font, and the home and lock screen pictures you set from the launcher.
+
+It leaves out your home folder, installed packages, tokens and API keys, usage history, the
+clipboard, notification history and widgets. A file over 20 MB is left out of the export.
+
+Importing replaces your current launcher settings and restarts the launcher, which closes open
+terminal sessions. Afterwards, add your widgets again, grant the permissions the launcher asks
+for, and pick your downloaded terminal font and AI models again so they download on this phone.
+
+For your home folder and packages, use `termux-backup` and `termux-restore` in the terminal.
+
 ## Permissions & services
 
 "Access and connected services": **Files and media**, **Wallpaper access**, **Notification

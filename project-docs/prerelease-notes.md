@@ -22,6 +22,7 @@ These may change or be dropped before they reach a stable release.
 - Search contacts from the command palette: type a name or a number, tap the result to open the contact, or tap its phone chip to dial. The first search offers a row to allow contact access. Thanks to @AbineshDev01 (#52, #53).
 - Settings › About & help has an Ask on Discord row, Documentation opens the website guide, and the help panel's support link goes to Discord (#58).
 - Hold any action or contact in the command palette to give it a keyboard shortcut, the way you already could with apps. Binding a row again moves its shortcut instead of adding a second one.
+- Settings › Backup & restore saves your launcher settings and config files to one file and restores them on this phone or a new one (#40).
 
 ## Editions
 <!-- Only what is exclusive to the Nix or VAJ build of this drop; say so when nothing is. -->
