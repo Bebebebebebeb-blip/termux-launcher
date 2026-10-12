@@ -51,7 +51,10 @@ header() {
   local model release version refresh
   model="$(sh_ getprop ro.product.model)"
   release="$(sh_ getprop ro.build.version.release)"
-  version="$(sh_ dumpsys package "$PKG" | awk -F= '/versionName=/ { print $2; exit }')"
+  # Capture first: an awk that exits on its first match closes the pipe on a long dumpsys, and
+  # under pipefail the writer's SIGPIPE (exit 141) would end the script.
+  version="$(sh_ dumpsys package "$PKG")"
+  version="$(awk -F= '/versionName=/ { print $2; exit }' <<<"$version")"
   [ -n "$version" ] || die "versionName not found in 'dumpsys package $PKG' (is $PKG installed?)"
   # SurfaceFlinger's "refresh-rate : 90.00 Hz" is the active mode; dumpsys display lists the
   # supported modes first, so its first value is only a fallback.
