@@ -350,6 +350,8 @@ name. `versionCode` stays **1020** for upstream parity — never change it. The 
 - **Nightlies** (`debug_build.yml`) build as `X.Y.Z+dev.<shortsha>`: semver build metadata, so a
   nightly sorts equal to the release it follows. That string is the in-app `versionName` and goes
   verbatim into the APK name. The TAI bench groups results by the `X.Y.Z` core only.
+  Pushes to `dev` prune artifacts to the newest two runs per live branch (`prune_artifacts.yml`), so
+  a nightly APK must be fetched from one of the last two runs or built from the tag.
 - **APK names** follow one pattern, release and nightly alike:
   `termux-app_v<versionName>_<edition>_<variant>_<abi>.apk`, with `<edition>` one of `termux`,
   `nix`, `vaj`; e.g. `termux-app_v1.0.0_termux_apt-android-7_arm64-v8a.apk` and
