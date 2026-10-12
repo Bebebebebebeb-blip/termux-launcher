@@ -441,6 +441,16 @@ public final class TerminalSession extends TerminalOutput {
     }
 
     @Override
+    public void onReadClipboard(boolean pasted, KittyClipboard.ReadCallback callback) {
+        mClient.onReadClipboard(this, pasted, callback);
+    }
+
+    @Override
+    public void onWriteClipboard(java.util.Map<String, byte[]> images, String text) {
+        mClient.onWriteClipboard(this, images, text);
+    }
+
+    @Override
     public void onBell() {
         mClient.onBell(this);
     }
