@@ -2793,13 +2793,19 @@ public class LauncherCtlApiServer {
             "\n" +
             "Usage:\n" +
             "  launcherctl launch <app name, package, or activity>\n" +
-            "  launcherctl pane open [--cwd DIR] [--title NAME] [--tag TAG] [--no-focus] [--] [CMD ARGS...]\n" +
+            "  launcherctl pane open [--cwd DIR] [--title NAME] [--tag TAG] [--no-focus]\n" +
+            "                        [--from ID] [--direction right|left|down|up]\n" +
+            "                        [--size 0.1-0.9 | --columns N | --rows N] [--] [CMD ARGS...]\n" +
             "  launcherctl pane list\n" +
             "  launcherctl pane focus <id>\n" +
+            "  launcherctl pane resize <id> --size 0.1-0.9 | --columns N | --rows N\n" +
             "  launcherctl pane write <id> [--enter] <text> | launcherctl pane write <id> [--enter] < file\n" +
             "  launcherctl pane read <id> [--lines N]\n" +
             "  launcherctl pane close <id>\n" +
-            "  launcherctl window open [--title NAME] [--no-focus] [--] CMD ARGS...\n" +
+            "  launcherctl window open [--cwd DIR] [--title NAME] [--no-focus] [--] CMD ARGS...\n" +
+            "  launcherctl window list\n" +
+            "  launcherctl window focus <id>\n" +
+            "  launcherctl window close <id>\n" +
             "  launcherctl agent working|blocked|idle|clear [--agent NAME] [--pane ID]\n" +
             "  launcherctl agent install-hooks\n" +
             "  launcherctl notify [--title T] [--id ID] [--urgency low|normal|critical] [--pane ID] <body> | ... < file\n" +
@@ -2825,6 +2831,8 @@ public class LauncherCtlApiServer {
             "  id=$(launcherctl pane open --title preview --no-focus -- kitten icat out.png | sed -n 's/.*\"id\":\"\\([^\"]*\\)\".*/\\1/p')\n" +
             "  launcherctl pane write \"$id\" --enter 'make test'\n" +
             "  launcherctl pane read \"$id\" --lines 40\n" +
+            "  launcherctl pane open --direction right --size 0.4 --no-focus -- htop   # beside this pane\n" +
+            "  launcherctl pane resize \"$id\" --columns 60\n" +
             "  id=$(launcherctl window open --title tlstore --no-focus -- tlstore | sed -n 's/.*\"id\":\"\\([^\"]*\\)\".*/\\1/p')\n" +
             "  launcherctl notify --title Build '42 tests passed'   # the phone's notification shade\n" +
             "  launcherctl progress 42; launcherctl progress clear  # the ring on this window's chip\n" +
@@ -2837,6 +2845,13 @@ public class LauncherCtlApiServer {
             "JSON. A window is a whole new full-size window with its own chip, not a pane sharing\n" +
             "the one on screen; --no-focus leaves the current window up front while the new one\n" +
             "runs behind it.\n" +
+            "\n" +
+            "pane open splits $TERMUX_LAUNCHER_PANE (the pane this command runs in) unless --from\n" +
+            "names another, and the focused pane when neither applies. --direction (or --split)\n" +
+            "puts the new pane on that side; --size is its share of the split pane, --columns or\n" +
+            "--rows its width or height in cells. pane resize only works on panes opened here.\n" +
+            "window focus works on any window; window close only on one opened here. window list\n" +
+            "prints the same JSON as pane list.\n" +
             "\n" +
             "launcherctl agent tells the window chips and the sessions browser what the AI coding\n" +
             "agent in this pane is doing, so a pane that needs an answer is visible from anywhere;\n" +
@@ -2923,13 +2938,18 @@ public class LauncherCtlApiServer {
             "  [ -n \"$sub\" ] && shift || { print_help >&2; exit 2; }\n" +
             "  case \"$sub\" in\n" +
             "    open)\n" +
-            "      cwd= title= tag= focus=true\n" +
+            "      cwd= title= tag= focus=true from= direction= size= columns= rows=\n" +
             "      while [ \"$#\" -gt 0 ]; do\n" +
             "        case \"$1\" in\n" +
             "          --cwd) cwd=\"$2\"; shift 2 ;;\n" +
             "          --title) title=\"$2\"; shift 2 ;;\n" +
             "          --tag) tag=\"$2\"; shift 2 ;;\n" +
             "          --no-focus) focus=false; shift ;;\n" +
+            "          --from) from=\"${2:-}\"; shift 2 ;;\n" +
+            "          --direction|--split) direction=\"${2:-}\"; shift 2 ;;\n" +
+            "          --size) size=\"${2:-}\"; shift 2 ;;\n" +
+            "          --columns) columns=\"${2:-}\"; shift 2 ;;\n" +
+            "          --rows) rows=\"${2:-}\"; shift 2 ;;\n" +
             "          --) shift; break ;;\n" +
             "          -*) echo \"launcherctl pane open: unknown option $1\" >&2; exit 2 ;;\n" +
             "          *) break ;;\n" +
@@ -2939,12 +2959,34 @@ public class LauncherCtlApiServer {
             "      [ -n \"$cwd\" ] && body=\"$body,\\\"cwd\\\":$(printf '%s' \"$cwd\" | json_str)\"\n" +
             "      [ -n \"$title\" ] && body=\"$body,\\\"title\\\":$(printf '%s' \"$title\" | json_str)\"\n" +
             "      [ -n \"$tag\" ] && body=\"$body,\\\"tag\\\":$(printf '%s' \"$tag\" | json_str)\"\n" +
+            "      # Numbers go as strings: the server parses them, so a typo is a clear 400, not bad JSON.\n" +
+            "      [ -n \"$direction\" ] && body=\"$body,\\\"direction\\\":$(printf '%s' \"$direction\" | json_str)\"\n" +
+            "      [ -n \"$size\" ] && body=\"$body,\\\"size\\\":$(printf '%s' \"$size\" | json_str)\"\n" +
+            "      [ -n \"$columns\" ] && body=\"$body,\\\"columns\\\":$(printf '%s' \"$columns\" | json_str)\"\n" +
+            "      [ -n \"$rows\" ] && body=\"$body,\\\"rows\\\":$(printf '%s' \"$rows\" | json_str)\"\n" +
             "      if [ \"$#\" -gt 0 ]; then\n" +
             "        argv=\n" +
             "        for a in \"$@\"; do\n" +
             "          argv=\"$argv${argv:+,}$(printf '%s' \"$a\" | json_str)\"\n" +
             "        done\n" +
             "        body=\"$body,\\\"command\\\":[$argv]\"\n" +
+            "      fi\n" +
+            "      if [ -n \"$from\" ]; then\n" +
+            "        api POST /v1/panes \"$body,\\\"from\\\":$(printf '%s' \"$from\" | json_str)}\"\n" +
+            "        return\n" +
+            "      fi\n" +
+            "      # Without --from the new pane splits the pane this runs in. When that pane cannot be\n" +
+            "      # split (another session's, or a floating one) nothing was opened, so ask again for\n" +
+            "      # the focused pane, as before --from existed.\n" +
+            "      if [ -n \"${TERMUX_LAUNCHER_PANE:-}\" ]; then\n" +
+            "        if out=$(api POST /v1/panes \"$body,\\\"from\\\":$(printf '%s' \"$TERMUX_LAUNCHER_PANE\" | json_str)}\"); then\n" +
+            "          printf '%s\\n' \"$out\"\n" +
+            "          return\n" +
+            "        fi\n" +
+            "        case \"$out\" in\n" +
+            "          *'\"pane_not_found\"'*|*'\"pane_not_tiled\"'*) ;;\n" +
+            "          *) printf '%s\\n' \"$out\"; exit 1 ;;\n" +
+            "        esac\n" +
             "      fi\n" +
             "      api POST /v1/panes \"$body}\"\n" +
             "      ;;\n" +
@@ -2954,6 +2996,16 @@ public class LauncherCtlApiServer {
             "    focus|close)\n" +
             "      [ \"$#\" -ge 1 ] || { echo \"usage: launcherctl pane $sub <id>\" >&2; exit 2; }\n" +
             "      api POST \"/v1/panes/$1/$sub\" '{}'\n" +
+            "      ;;\n" +
+            "    resize)\n" +
+            "      usage='usage: launcherctl pane resize <id> --size 0.1-0.9 | --columns N | --rows N'\n" +
+            "      [ \"$#\" -ge 3 ] || { echo \"$usage\" >&2; exit 2; }\n" +
+            "      id=\"$1\"; shift\n" +
+            "      case \"$1\" in\n" +
+            "        --size|--columns|--rows) key=\"${1#--}\" ;;\n" +
+            "        *) echo \"$usage\" >&2; exit 2 ;;\n" +
+            "      esac\n" +
+            "      api POST \"/v1/panes/$id/resize\" \"{\\\"$key\\\":$(printf '%s' \"$2\" | json_str)}\"\n" +
             "      ;;\n" +
             "    write)\n" +
             "      [ \"$#\" -ge 1 ] || { echo \"usage: launcherctl pane write <id> [--enter] <text>\" >&2; exit 2; }\n" +
@@ -2979,13 +3031,21 @@ public class LauncherCtlApiServer {
             "}\n" +
             "window_cmd() {\n" +
             "  sub=\"${1:-}\"\n" +
-            "  usage='usage: launcherctl window open [--title NAME] [--no-focus] [--] CMD ARGS...'\n" +
+            "  usage='usage: launcherctl window open [--cwd DIR] [--title NAME] [--no-focus] [--] CMD ARGS... | list | focus <id> | close <id>'\n" +
             "  [ -n \"$sub\" ] && shift || { echo \"$usage\" >&2; exit 2; }\n" +
             "  case \"$sub\" in\n" +
+            "    list|ls)\n" +
+            "      api GET /v1/panes\n" +
+            "      ;;\n" +
+            "    focus|close)\n" +
+            "      [ \"$#\" -ge 1 ] || { echo \"usage: launcherctl window $sub <id>\" >&2; exit 2; }\n" +
+            "      api POST \"/v1/windows/$1/$sub\" '{}'\n" +
+            "      ;;\n" +
             "    open)\n" +
-            "      title= focus=true\n" +
+            "      title= focus=true cwd=\n" +
             "      while [ \"$#\" -gt 0 ]; do\n" +
             "        case \"$1\" in\n" +
+            "          --cwd) cwd=\"$2\"; shift 2 ;;\n" +
             "          --title) title=\"$2\"; shift 2 ;;\n" +
             "          --no-focus) focus=false; shift ;;\n" +
             "          --) shift; break ;;\n" +
@@ -3000,6 +3060,7 @@ public class LauncherCtlApiServer {
             "      done\n" +
             "      body=\"{\\\"focus\\\":$focus,\\\"command\\\":[$argv]\"\n" +
             "      [ -n \"$title\" ] && body=\"$body,\\\"title\\\":$(printf '%s' \"$title\" | json_str)\"\n" +
+            "      [ -n \"$cwd\" ] && body=\"$body,\\\"cwd\\\":$(printf '%s' \"$cwd\" | json_str)\"\n" +
             "      api POST /v1/windows \"$body}\"\n" +
             "      ;;\n" +
             "    *)\n" +
