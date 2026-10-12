@@ -11,7 +11,7 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
 /**
- * While the clipboard holds a picture, paste draws a photo glyph in the symbols face instead of
+ * While paste will put in a picture, paste draws a photo glyph in the symbols face instead of
  * its own key-font glyph, under a modifier too (pasteAsPlainText), and nothing else changes.
  */
 @RunWith(RobolectricTestRunner.class)
@@ -51,7 +51,7 @@ public class Keyboard2ViewPasteGlyphTest
   @Test
   public void aPictureOnTheClipboardSwapsBothPasteKeysToThePhotoGlyph()
   {
-    view.setClipboardHoldsPicture(true);
+    view.setPasteShowsPicture(true);
 
     assertEquals(PHOTO, Keyboard2View.PASTE_PICTURE_GLYPH);
     assertEquals(PHOTO, view.labelForDrawing(PASTE));
@@ -65,12 +65,12 @@ public class Keyboard2ViewPasteGlyphTest
   {
     KeyValue copy = KeyValue.getKeyByName("copy");
     String copyGlyph = copy.getString();
-    view.setClipboardHoldsPicture(true);
+    view.setPasteShowsPicture(true);
     assertEquals(copyGlyph, view.labelForDrawing(copy));
     assertEquals(LabelFace.KEY, view.labelFaceForDrawing(copy));
     assertEquals("v", view.labelForDrawing(KeyValue.getKeyByName("v")));
 
-    view.setClipboardHoldsPicture(false);
+    view.setPasteShowsPicture(false);
     assertEquals("", view.labelForDrawing(PASTE));
     assertEquals(LabelFace.KEY, view.labelFaceForDrawing(PASTE));
   }

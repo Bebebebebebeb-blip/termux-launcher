@@ -139,8 +139,20 @@ public final class TermuxInAppKeyboard {
     @Nullable private ClipboardManager mWatchedClipboard;
     /** Where the focus listener went; the clipboard can only be read while the window has focus. */
     @Nullable private ViewTreeObserver mWatchedFocusObserver;
-    /** The last answer of {@link #clipboardHoldsPicture}, handed to every keyboard view made. */
+    /** The last answer of {@link #clipboardHoldsPicture}. */
     private boolean mClipboardHoldsPicture;
+    /** When the clip was set, wall clock, as last read; 0 for none or an unreadable clipboard. */
+    private long mClipMillis;
+    /** The newest screenshot while the keys are up and may read it; null otherwise. */
+    @Nullable private RecentScreenshot.Shot mScreenshot;
+    /** The screenshot a paste already took, so the key goes back to the clipboard; memory only. */
+    private long mConsumedScreenshotId = PasteOffer.NONE_CONSUMED;
+    /** What the paste key puts in now, handed to every keyboard view made. */
+    @NonNull private PasteOffer mPasteOffer = PasteOffer.CLIPBOARD;
+    private final RecentScreenshot mScreenshots;
+    private final Handler mMainHandler = new Handler(Looper.getMainLooper());
+    /** Puts the key back to the clipboard once the offered screenshot stops being fresh. */
+    private final Runnable mPasteOfferExpiry = this::updatePasteOffer;
     private final ClipboardManager.OnPrimaryClipChangedListener mClipChangedListener =
         this::readClipboardPicture;
     private final ViewTreeObserver.OnWindowFocusChangeListener mWindowFocusListener = hasFocus -> {
@@ -215,6 +227,10 @@ public final class TermuxInAppKeyboard {
             TapCorrectionController.modelFile(context), mLayoutExecutor,
             new Handler(Looper.getMainLooper()));
         mTapCorrection.setEnabled(mPreferences.isInAppKeyboardTapCorrectionEnabled());
+        mScreenshots = new RecentScreenshot(context, mLayoutExecutor, mMainHandler, shot -> {
+            mScreenshot = shot;
+            updatePasteOffer();
+        });
         mExtraKeysStoredValue = mPreferences.getInAppKeyboardExtraKeys();
         mLayoutOptions = buildLayoutOptions(mExtraKeysStoredValue);
         if (layoutFile == null) {
@@ -338,6 +354,7 @@ public final class TermuxInAppKeyboard {
     public void onStop() {
         mStopped = true;
         unwatchClipboard();
+        unwatchScreenshots();
         resetInputPipeline();
         mTapCorrection.flush();
     }
@@ -348,6 +365,7 @@ public final class TermuxInAppKeyboard {
         mDestroyed = true;
         mLastHideReason = HideReason.DESTROYED;
         unwatchClipboard();
+        unwatchScreenshots();
         resetInputPipeline();
         TerminalView terminalView = mHost == null ? null : mHost.getTerminalView();
         if (terminalView != null && mSystemImeFocusListener != null)
@@ -1376,6 +1394,7 @@ public final class TermuxInAppKeyboard {
             refreshMaterialPaletteIfSignatureMoved();
             setContainerVisible(true);
             watchClipboard();
+            watchScreenshots();
             mHost.requestAccessoryGeometrySync();
             recheckLayout();
         } finally {
@@ -1413,7 +1432,7 @@ public final class TermuxInAppKeyboard {
         mKeyboardView.setKeyOpacity(mKeyOpacity < 0 ? -1f : mKeyOpacity / 100f);
         mTapCorrection.setLayoutId(mSelectedLayoutId);
         mKeyboardView.setTapResolver(mTapCorrection);
-        mKeyboardView.setClipboardHoldsPicture(mClipboardHoldsPicture);
+        mKeyboardView.setPasteShowsPicture(mPasteOffer.showsPicture());
         applyKeyboardToView(getSelectedLayoutData());
         applyCustomColorScheme();
         mHost.attachKeyboardView(mKeyboardView);
@@ -1960,8 +1979,10 @@ public final class TermuxInAppKeyboard {
     }
 
     private void setContainerVisible(boolean visible) {
-        if (!visible)
+        if (!visible) {
             unwatchClipboard();
+            unwatchScreenshots();
+        }
         if (mHost != null) {
             mHost.setKeyboardContainerVisible(visible);
         }
@@ -2018,9 +2039,64 @@ public final class TermuxInAppKeyboard {
             description = null;
         }
         mClipboardHoldsPicture = clipboardHoldsPicture(description);
+        mClipMillis = description == null ? 0 : description.getTimestamp();
+        updatePasteOffer();
+    }
+
+    /**
+     * Follows the newest screenshot while the keys are up, so paste can offer one taken after the
+     * last copy. Down, the paste key is the clipboard's alone.
+     */
+    private void watchScreenshots() {
+        if (mStopped || mHost == null)
+            return;
+        mScreenshots.start();
+    }
+
+    private void unwatchScreenshots() {
+        mScreenshots.stop();
+        if (mScreenshot != null) {
+            mScreenshot = null;
+            updatePasteOffer();
+        }
+    }
+
+    /** Settles what paste puts in from what is known now, and shows it on the key. */
+    private void updatePasteOffer() {
+        long now = System.currentTimeMillis();
+        mPasteOffer = PasteOffer.decide(mClipMillis, mClipboardHoldsPicture, mScreenshot,
+            mConsumedScreenshotId, now);
+        mMainHandler.removeCallbacks(mPasteOfferExpiry);
+        if (mPasteOffer == PasteOffer.SCREENSHOT && mScreenshot != null)
+            mMainHandler.postDelayed(mPasteOfferExpiry, PasteOffer.millisUntilStale(mScreenshot, now));
         Keyboard2View view = mKeyboardView;
         if (view != null)
-            view.setClipboardHoldsPicture(mClipboardHoldsPicture);
+            view.setPasteShowsPicture(mPasteOffer.showsPicture());
+    }
+
+    /**
+     * The screenshot the keyboard's paste puts in instead of the clipboard, or null to paste the
+     * clipboard. A screenshot is taken once: the key then goes back to the clipboard until a newer
+     * one is taken. The clipboard is read again first, as a copy made just before this paste (the
+     * clipboard panel's) has not been heard of yet and must win.
+     */
+    @Nullable
+    public RecentScreenshot.Shot takeScreenshotToPaste() {
+        if (!isVisible())
+            return null;
+        readClipboardPicture();
+        RecentScreenshot.Shot shot = mScreenshot;
+        if (mPasteOffer != PasteOffer.SCREENSHOT || shot == null)
+            return null;
+        mConsumedScreenshotId = shot.id;
+        updatePasteOffer();
+        return shot;
+    }
+
+    /** What the paste key puts in now; for tests. */
+    @NonNull
+    PasteOffer getPasteOffer() {
+        return mPasteOffer;
     }
 
     /**

@@ -30,10 +30,12 @@ under twenty items; past that, the oldest are re-judged first.
 - 2026-10-12 · PR #67 · Export AI models with a model over 1 GB: leave Settings mid-copy, Cancel
   from the notification removes the half-written file and keeps finished models; Export again
   skips them · Waydroid.
-- 2026-10-12 · commit "feat(keyboard): show a photo on paste" · The "v" key's paste corner shows the photo glyph
-  after a screenshot's Copy, sits where the paste glyph sat, and turns back to paste once text is
-  copied · pong with the go-ahead, or Waydroid: screenshot, tap Copy in its preview, return to the
-  keyboard; then copy a word in the terminal.
+- 2026-10-12 · commit "feat(keyboard): paste a fresh screenshot from the paste key" · With the
+  storage permission granted and text copied first: take a screenshot, open the keyboard; the "v"
+  key's paste corner shows the photo where the paste glyph sat; paste types a path to a copy of
+  the screenshot under `$PREFIX/tmp/clipboard`; paste again gives the clipboard text and the glyph
+  is back to paste; take another screenshot and paste with a modifier: the clipboard text, while
+  the photo still shows · pong with the go-ahead.
 
 ## Developer
 
