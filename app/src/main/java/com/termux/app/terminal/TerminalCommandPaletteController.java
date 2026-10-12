@@ -754,7 +754,7 @@ public final class TerminalCommandPaletteController
             }
         }
         return CommandPaletteRanking.rank(candidates, mAppUsage, mRowUsage,
-            mQueryMemory.picksFor(mQuery));
+            mQueryMemory.picksFor(mQuery, System.currentTimeMillis()));
     }
 
     private void addEntryRow(@NonNull List<CommandPaletteView.Row> rows,

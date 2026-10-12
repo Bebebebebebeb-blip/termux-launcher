@@ -27,9 +27,11 @@ import java.util.Map;
  *
  * <p>Queries are normalized the way {@link CommandPaletteRanking.Query} reads them (trimmed, lower
  * case, the actions-only {@code >} dropped) and point at rows by
- * {@link CommandPaletteActionStats#keyFor}. Each pick keeps a count and when it last happened; the
- * newest pick for a query is the one that leads. The least recently picked queries are forgotten
- * past {@link #MAX_QUERIES}.
+ * {@link CommandPaletteActionStats#keyFor}. Each pick keeps a count and when it last happened, and
+ * the row that leads is the one picked most for that query, its count decayed by
+ * {@link com.termux.app.launcher.data.LauncherUsageStatsStore#decayedScore} the way usage is, so a
+ * one-off pick of something else does not unseat a habit; recency only breaks ties. The least
+ * recently picked queries are forgotten past {@link #MAX_QUERIES}.
  *
  * <p>The book itself is pure and unit-tested; {@link Store} persists it the way the action stats
  * do, as one debounced JSON blob in the default preferences file.
@@ -74,14 +76,18 @@ public final class CommandPaletteQueryMemory {
         return true;
     }
 
-    /** Rows picked for exactly this query, row key to when it was last picked. */
+    /** Rows picked for exactly this query, row key to its weight as of {@code nowEpochMs}. */
     @NonNull
-    Map<String, Long> picksFor(@Nullable String query) {
+    Map<String, Remembered> picksFor(@Nullable String query, long nowEpochMs) {
         LinkedHashMap<String, Pick> picks = mByQuery.get(normalize(query));
         if (picks == null || picks.isEmpty()) return Collections.emptyMap();
-        Map<String, Long> out = new HashMap<>(picks.size());
-        for (Map.Entry<String, Pick> pick : picks.entrySet())
-            out.put(pick.getKey(), pick.getValue().lastEpochMs);
+        Map<String, Remembered> out = new HashMap<>(picks.size());
+        for (Map.Entry<String, Pick> pick : picks.entrySet()) {
+            Pick value = pick.getValue();
+            out.put(pick.getKey(), new Remembered(com.termux.app.launcher.data
+                .LauncherUsageStatsStore.decayedScore(value.count, value.lastEpochMs, nowEpochMs),
+                value.lastEpochMs));
+        }
         return out;
     }
 
@@ -171,6 +177,38 @@ public final class CommandPaletteQueryMemory {
         long lastEpochMs;
     }
 
+    /**
+     * One remembered row's weight for a query: its decayed pick count, and when it was last picked
+     * for the tie-break.
+     */
+    static final class Remembered {
+        final double score;
+        final long lastEpochMs;
+
+        Remembered(double score, long lastEpochMs) {
+            this.score = score;
+            this.lastEpochMs = lastEpochMs;
+        }
+
+        /** Whether this row leads {@code other}: the heavier pick, then the more recent one. */
+        boolean outranks(@NonNull Remembered other) {
+            int byScore = Double.compare(score, other.score);
+            return byScore != 0 ? byScore > 0 : lastEpochMs > other.lastEpochMs;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!(o instanceof Remembered)) return false;
+            Remembered other = (Remembered) o;
+            return Double.compare(score, other.score) == 0 && lastEpochMs == other.lastEpochMs;
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * Double.hashCode(score) + Long.hashCode(lastEpochMs);
+        }
+    }
+
     private static final class Loaded {
         final String query;
         final List<Map.Entry<String, Pick>> picks;
@@ -210,8 +248,8 @@ public final class CommandPaletteQueryMemory {
         }
 
         @NonNull
-        synchronized Map<String, Long> picksFor(@Nullable String query) {
-            return memory().picksFor(query);
+        synchronized Map<String, Remembered> picksFor(@Nullable String query, long nowEpochMs) {
+            return memory().picksFor(query, nowEpochMs);
         }
 
         @NonNull
