@@ -26,6 +26,9 @@ These may change or be dropped before they reach a stable release.
 - The chips under the command palette's search box show what you use most: actions, apps (with their icon) and contacts (with their photo, or their initial). Each chip is named after what it does, so the keyboard's split, docked and floating no longer all read "set".
 - A search you repeat puts the result you pick most at the top, rather than the one you picked last.
 - Settings › Backup & restore saves your launcher settings and config files to one file, and your downloaded AI models to a folder, and restores both on this phone or a new one (#40).
+- Look › Custom now has Surface and Edge groups. Edge brings back Bend, Edge width and Edge light, and adds Shine (a light along the glass rim) and Dispersion (colour fringing at the rim); both sit at zero in every shipped Look, so nothing changes until you turn them up. Corners is now called Corner radius (#63).
+- Scripts and agents in a pane can place, size, inspect, wait on and close panes and windows through launcherctl: `pane open --from --direction --size`, `pane resize`, `pane wait`, `window list|focus|close`, and `launcherctl <group> --help` (#66).
+- Pictures travel through the terminal clipboard: programs that speak kitty's clipboard protocol (OSC 5522) can read a picture from Android's clipboard and copy one to it, pasting a picture into a shell or an agent pastes it as a file path under `$PREFIX/tmp/clipboard`, and pictures inserted from the keyboard land the same way (#61).
 
 ## Editions
 <!-- Only what is exclusive to the Nix or VAJ build of this drop; say so when nothing is. -->
