@@ -38,11 +38,14 @@ public class Keyboard2View extends View
   private KeyboardData.Key _compose_key;
   /** The host is listening for voice input: the voice key draws as pressed. */
   private boolean _voiceTypingActive;
-  /** The clipboard holds a picture: the paste keys draw {@link #PASTE_PICTURE_GLYPH}. */
-  private boolean _clipboardHoldsPicture;
+  /**
+   * Paste will put in a picture (one on the clipboard, or a fresh screenshot the launcher offers):
+   * the paste keys draw {@link #PASTE_PICTURE_GLYPH}.
+   */
+  private boolean _pasteShowsPicture;
 
   /**
-   * Nerd Font nf-md-image, the paste keys' glyph while the clipboard holds a picture. A private-use
+   * Nerd Font nf-md-image, the paste keys' glyph while paste will put in a picture. A private-use
    * code point without the key-font flag, so it is drawn in the symbols face ({@link LabelFace}).
    */
   static final String PASTE_PICTURE_GLYPH = new String(Character.toChars(0xF02E9));
@@ -1417,25 +1420,26 @@ public class Keyboard2View extends View
   }
 
   /**
-   * Draws the paste keys with a photo glyph while the clipboard holds a picture, so the user can
-   * see a paste will insert one. Only the glyph changes; the keys still send paste.
+   * Draws the paste keys with a photo glyph while paste will put in a picture, so the user can see
+   * it will insert one. Only the glyph changes; the keys still send paste.
    */
-  public void setClipboardHoldsPicture(boolean holdsPicture)
+  public void setPasteShowsPicture(boolean showsPicture)
   {
     requireMainThread();
-    if (_clipboardHoldsPicture == holdsPicture)
+    if (_pasteShowsPicture == showsPicture)
       return;
-    _clipboardHoldsPicture = holdsPicture;
+    _pasteShowsPicture = showsPicture;
     invalidate();
   }
 
   /**
    * Whether [kv], already modified, is a paste the photo glyph stands in for. A modifier turns
-   * paste into pasteAsPlainText, which pastes the picture all the same, so both swap.
+   * paste into pasteAsPlainText, which swaps too: a clipboard picture pastes all the same, while
+   * the launcher has plain paste put in the clipboard rather than an offered screenshot.
    */
   private boolean showsPictureGlyph(KeyValue kv)
   {
-    if (!_clipboardHoldsPicture || kv.getKind() != KeyValue.Kind.Editing)
+    if (!_pasteShowsPicture || kv.getKind() != KeyValue.Kind.Editing)
       return false;
     KeyValue.Editing editing = kv.getEditing();
     return editing == KeyValue.Editing.PASTE || editing == KeyValue.Editing.PASTE_PLAIN;

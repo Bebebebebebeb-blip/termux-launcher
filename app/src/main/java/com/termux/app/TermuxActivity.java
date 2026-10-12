@@ -12034,6 +12034,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         @Override
         public void paste() {
+            if (mTermuxTerminalSessionActivityClient == null)
+                return;
+            com.termux.app.terminal.inappkeyboard.RecentScreenshot.Shot screenshot =
+                mInAppKeyboard == null ? null : mInAppKeyboard.takeScreenshotToPaste();
+            if (screenshot != null)
+                mTermuxTerminalSessionActivityClient.pasteContentIntoFocused(screenshot.uri(), screenshot.mime);
+            else
+                mTermuxTerminalSessionActivityClient.onPasteTextFromClipboard(getCurrentSession());
+        }
+
+        @Override
+        public void pasteClipboard() {
             if (mTermuxTerminalSessionActivityClient != null)
                 mTermuxTerminalSessionActivityClient.onPasteTextFromClipboard(getCurrentSession());
         }
