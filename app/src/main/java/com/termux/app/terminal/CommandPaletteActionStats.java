@@ -21,7 +21,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Frequency and recency of palette action runs, used to fill the frequent-action keycap strip.
+ * Frequency and recency of palette action runs, used to fill the frequent-action keycap strip and
+ * to break ties between equally good matches in a search.
  *
  * <p>Mirrors {@link com.termux.app.launcher.data.LauncherUsageStatsStore}: one debounced
  * SharedPreferences blob, counts kept per stable key. The key here is the tool name plus its
@@ -92,6 +93,24 @@ public final class CommandPaletteActionStats {
         List<CommandPaletteFilter.Entry> out = new ArrayList<>(Math.min(limit, ranked.size()));
         for (int i = 0; i < ranked.size() && out.size() < limit; i++) out.add(ranked.get(i).entry);
         return out;
+    }
+
+    /**
+     * Decayed usage per row key, by the launcher's own formula
+     * ({@link com.termux.app.launcher.data.LauncherUsageStatsStore#decayedScore}). This is what
+     * breaks ties between equal matches in a search; the strip above keeps its plain counts.
+     */
+    @NonNull
+    public synchronized Map<String, Double> decayedScores(long nowEpochMs) {
+        ensureLoaded();
+        Map<String, Double> scores = new HashMap<>();
+        for (Map.Entry<String, Stat> entry : statsByKey.entrySet()) {
+            Stat stat = entry.getValue();
+            if (stat == null || stat.count <= 0) continue;
+            scores.put(entry.getKey(), com.termux.app.launcher.data.LauncherUsageStatsStore
+                .decayedScore(stat.count, stat.lastRunEpochMs, nowEpochMs));
+        }
+        return scores;
     }
 
     /** Stable identity of a row: the tool plus the arguments that row supplies. */

@@ -2049,6 +2049,7 @@
     <string name="palette_confirm_run">Run</string>
     <string name="palette_action_failed">Could not run %1$s</string>
     <string name="palette_no_match">NO MATCH — ⏎ RUNS \"%1$s\" IN THE SHELL</string>
+    <string name="palette_no_action_match">NO ACTION MATCHES \"%1$s\"</string>
     <string name="palette_contacts_allow">Search contacts too</string>
     <string name="palette_contacts_allow_hint">Allow contact access to find people by name or number</string>
     <string name="palette_category_contacts">Contacts</string>
