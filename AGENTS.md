@@ -233,7 +233,9 @@ before you hand work over. CI owns the rest.
   `font_scale`, and **force-stop the app after a density or font change** or the layout keeps the
   old dp scale.
 - **Be honest about the boundary.** Say which items you verified, on what, and which are reasoned
-  from the code and still owe a device check. "Device-verified" means you saw it.
+  from the code and still owe a device check. "Device-verified" means you saw it. Whatever still
+  owes one goes on `project-docs/device-checks.md` in the same commit, under Agent (drivable over
+  adb) or Developer (a hand on the phone); it is deleted there once seen.
 - Do not verify with browsers or computer use unless the developer asks.
 - Compile-check any API claim before you rely on it. `UserHandle.getIdentifier` looks public and is
   `@SystemApi`; a worker asserted otherwise and was wrong.

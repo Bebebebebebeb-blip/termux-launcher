@@ -70,7 +70,8 @@ or more behind). The last shipped version is the one on `main`, `nix-edition` an
 
 ## Cutting a stable release
 
-Per edition, as in `Release v1.0.1 (merge dev into io-vaj-package)` followed by `release: vaj-v1.0.1`:
+First `project-docs/device-checks.md`: run its Agent items, hand its Developer items over, and
+cut only once the list is empty or the developer has accepted what is left. Then, per edition, as in `Release v1.0.1 (merge dev into io-vaj-package)` followed by `release: vaj-v1.0.1`:
 merge `dev`, then set `versionName` to the plain `X.Y.Z` in a `release:` commit (it **must** equal
 the tag minus its edition prefix and `v`, or CI aborts), push, tag, `gh release create --notes-file …`
 (`--latest` on `vX.Y.Z`, `--latest=false` on the edition tags, never `--prerelease` on a stable),
@@ -82,7 +83,8 @@ linking all three edition releases, so create the three in one pass and the plai
 
 A second, rolling channel beside the stable releases, and **the first stop for new work**: the
 order is `pre` → `dev` → the release branches. Like a stable, a drop ships all three editions.
-`scripts/cut-prerelease.sh` performs a drop end to end; these are the rules it encodes, and the
+`scripts/cut-prerelease.sh` performs a drop end to end, printing `project-docs/device-checks.md`
+first so a drop never ships an unseen item unknowingly; these are the rules it encodes, and the
 ones to keep if it changes:
 
 - **`pre` is the channel's own, persistent branch.** Feature work and pull requests that are
