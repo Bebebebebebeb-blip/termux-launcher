@@ -3097,4 +3097,22 @@
     <string name="termux_ai_memory_limits_unrestricted">Unrestricted</string>
     <string name="termux_ai_memory_limits_relaxed_summary">Keeps enough memory free for the phone to stay responsive while a model loads.</string>
     <string name="termux_ai_memory_limits_unrestricted_summary">Loads larger models by letting Android close apps in the background. The phone may slow down while a model loads.</string>
+    <!-- Settings › Backup & restore -->
+    <string name="settings_destination_backup_restore">Backup &amp; restore</string>
+    <string name="settings_destination_backup_restore_summary">Move your setup to another phone</string>
+    <string name="settings_backup_export_title">Export settings</string>
+    <string name="settings_backup_export_summary">Save your launcher setup to a file</string>
+    <string name="settings_backup_import_title">Import settings</string>
+    <string name="settings_backup_import_summary">Restore your setup from a saved file</string>
+    <string name="settings_backup_exported">Settings saved</string>
+    <string name="settings_backup_exported_skipped">Settings saved, leaving out files over 20 MB</string>
+    <string name="settings_backup_export_failed">Couldn\'t save your settings.</string>
+    <string name="settings_backup_import_not_backup">This file isn\'t a launcher settings backup.</string>
+    <string name="settings_backup_import_newer">This backup is from a newer version of the launcher.</string>
+    <string name="settings_backup_import_too_large">This backup is too large to restore.</string>
+    <string name="settings_backup_import_read_failed">Couldn\'t open that file.</string>
+    <string name="settings_backup_import_confirm_title">Restore settings from %1$s?</string>
+    <string name="settings_backup_import_confirm_message">This replaces your launcher settings with the ones saved by version %1$s and restarts the launcher, closing open terminal sessions; widgets and app permissions need setting up again.</string>
+    <string name="settings_backup_import_confirm_action">Restore</string>
+    <string name="settings_backup_import_partial">Some settings couldn\'t be restored.</string>
 </resources>
