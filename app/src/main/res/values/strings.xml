@@ -3115,4 +3115,27 @@
     <string name="settings_backup_import_confirm_message">This replaces your launcher settings with the ones saved by version %1$s and restarts the launcher, closing open terminal sessions; widgets and app permissions need setting up again.</string>
     <string name="settings_backup_import_confirm_action">Restore</string>
     <string name="settings_backup_import_partial">Some settings couldn\'t be restored.</string>
+    <!-- Size line for the saved AI models: "3 models · 6.2 GB". -->
+    <plurals name="settings_backup_models_count">
+        <item quantity="one">%1$d model</item>
+        <item quantity="other">%1$d models</item>
+    </plurals>
+    <string name="settings_backup_models_size">%1$s · %2$s</string>
+    <!-- Model centre folder import of a folder saved by Export AI models. -->
+    <plurals name="tai_import_saved_adding">
+        <item quantity="one">Adding %1$d model…</item>
+        <item quantity="other">Adding %1$d models…</item>
+    </plurals>
+    <plurals name="tai_import_saved_added">
+        <item quantity="one">%1$d model added.</item>
+        <item quantity="other">%1$d models added.</item>
+    </plurals>
+    <plurals name="tai_import_saved_present">
+        <item quantity="one">%1$d was already here.</item>
+        <item quantity="other">%1$d were already here.</item>
+    </plurals>
+    <plurals name="tai_import_saved_failed">
+        <item quantity="one">%1$d couldn\'t be added.</item>
+        <item quantity="other">%1$d couldn\'t be added.</item>
+    </plurals>
 </resources>
