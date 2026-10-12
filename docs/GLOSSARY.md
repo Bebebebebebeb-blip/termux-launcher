@@ -67,6 +67,12 @@ bottom by default. Its shape follows the **Style**. Its rows may stand under the
 over it. Not the same as the Layout editor's restore tray, which holds elements that are put away.
 _Avoid_: taskbar, nav bar, hotseat
 
+**Grabber**:
+The small pill on a page's bottom or top border that marks the **keyboard swipe** or the **status
+swipe**. A swipe starting on it, or one row into the page beside it, is taken. A tap on it, a long
+press or a sideways drag stays with the page. When a border drag's glow hands over, the grabber lights.
+_Avoid_: handle (the Layout editor's size control), pull tab
+
 **Keyboard swipe**:
 The one way to the keyboard every place and every mode shares: a swipe that sets off up or down
 from the current page's bottom border — the frame line and the air below it down to the dock or
@@ -140,6 +146,12 @@ places (one layout per orientation and layout variant), and so is minimal mode. 
 whether the keyboard is up.
 _Avoid_: screen, tab. "Page" and "wall page" are the code's word for a place (`PaneWallPage`); in prose say place.
 
+**Session**, **window**:
+The terminal's own layers: a session holds windows, and a window holds a tree of **panes**. Each
+pane runs its own shell, which is a `TerminalSession` in code; that is the code's word for a pane's
+shell, not for a session. See `project-docs/reference/terminal/split-panes.md`.
+_Avoid_: tab (for a window), terminal (for a pane)
+
 **Status swipe**:
 The keyboard swipe's mirror on the current page's top border: a swipe that sets off down or up
 from it — the frame line and the air above it up to the status bar — before the border drag's
@@ -179,7 +191,28 @@ keyboard keeps its own shape, and only a docked keyboard joins the frame or beco
 _Avoid_: surface mode, dock style (it is no longer the dock's alone),
 capsule, rounded
 
+**Surface**:
+One piece of glass whose look can be set: the dock, the keyboard, the status bar or the canvas
+(the terminal pane). In code it is a `SurfaceSlot`. Each surface carries some of blur, opacity,
+grain, tint, corner radius and side gap, and each of those either follows **Base** or holds an
+override of its own. AGENTS.md's "Hit every surface" uses the word more broadly, for every path a
+change has to cover.
+_Avoid_: panel, layer, widget
+
+**Usage mode**:
+Which places exist: Terminal alone, Terminal with Home, or all three with the Display. A place
+that is off is not built at all.
+_Avoid_: edition (a different thing), profile
+
 ### Look and motion
+
+**Base**:
+The shared value of a surface property (blur, opacity, grain, tint, corner radius, side gap) that
+every surface follows until it is given its own. A surface that follows Base is **inherited**; one
+with its own value is **detached**, holding an override. The resolution happens in
+`TermuxAppSharedPreferences`, so every getter returns the resolved value. Setters write through the
+link, so a slider or the wallpaper mode leaves a surface inherited.
+_Avoid_: global, default (the shipped value is the default; Base is what the user set)
 
 **Fancier Glass**:
 The extra glass: refraction at glass edges on every glass surface and the
@@ -194,6 +227,12 @@ The Battery setting that stops the launcher animating while nobody is watching: 
 digits instead of folding them, a working window's rim holds lit, and the status readings are sampled
 less often. It is meant to become the default. See `docs/en/Launcher_Settings.md`.
 _Avoid_: battery saver (Android's own), low-power mode
+
+**Look**:
+The one appearance the launcher has, set by the Appearance editor's slider. The slider has five
+stops: Clear, Mist, Tint, Solid and Custom. Only Custom shows controls for each surface. One look
+covers every place and both orientations.
+_Avoid_: theme (the light, dark and black scheme is separate), preset, skin
 
 **Material palette**:
 The colours the launcher takes from the system's Material roles, from the wallpaper or from a colour
@@ -390,10 +429,8 @@ _Avoid_: the API server, the launcher daemon
 
 **On-device AI**:
 The launcher's on-device AI: the models it holds and the local endpoint programs in the terminal
-talk to. Programs reach it the way they reach any OpenAI-compatible service. `tai` is the
-command-line tool and the internal code prefix (`com.termux.ai`, `:tai_runtime`); "TAI" as a
-product name is retired from prose but survives in the CLI, code identifiers, and a few in-app
-strings that still say it.
+talk to. Programs reach it the way they reach any OpenAI-compatible service. Its runtime and
+command are **TAI**.
 _Avoid_: the AI backend, the internal AI, the model server, TAI (as a product name in prose)
 
 **TAI**:
@@ -430,7 +467,8 @@ _Avoid_: voice typing (the Android recognizer's path), voice session
 **Insert**:
 ✓: the dictation typed once where the keyboard would type on the place on screen, never with an
 Enter. Where nothing takes typing, it copies instead.
-_Avoid_: replace, swap (the retired in-place rewrite of the terminal line)
+_Avoid_: replace, swap (the retired in-place rewrite of the terminal line). The pane's rounded
+"insert" under the Docked **Style** is a different thing; say "the pane insert" there.
 
 **Mic sensitivity**:
 How readily quiet speech opens a phrase: Normal (the default) or High. It sets how far the audio
@@ -480,11 +518,23 @@ _Avoid_: close (on its own), bin (retired)
 
 The words for how the project is built, shipped and tested. AGENTS.md has the rules; these are the names.
 
+**Baseline**:
+A performance number measured on pong that a change must not move the wrong way: idle PSS, frame
+time while typing, frame rate at rest, cold start. A move bigger than the noise in the wrong
+direction makes the change **red**. The table is in `docs/agents/performance.md`.
+_Avoid_: benchmark (that is `tai benchmark`), target (a target is a goal not yet met)
+
+**Budget**:
+A limit the code enforces on what a store may keep, as a constant beside the store with a test that
+asserts it: `KittyImageStore.FrameBudget`, `LauncherIconStore`, `DockIconCache`,
+`WallpaperBlurCache`. Anything that holds pixels has one. See `docs/agents/performance.md`.
+_Avoid_: cap, quota (in prose; `frameQuotaForThisDevice` is the code's name for a budget's size)
+
 **Companion apps**:
 Forks of the Termux plugins (termux-api, termux-styling, termux-boot), one branch per edition and
 released on their own cadence, not with a launcher cut. A plugin is only granted the launcher's
 permissions when it shares that edition's `sharedUserId` and signature, so each edition needs its
-own build; all are debug-signed with the shared `testkey_untrusted.jks`, which is why an F-Droid
+own build; all are signed with the shared `testkey_untrusted.jks`, which is why an F-Droid
 plugin never pairs. The Nix edition's are TLNix API, Styling and Boot.
 _Avoid_: plugins, add-ons (the README's word for the same apps)
 
@@ -507,7 +557,13 @@ A throwaway branch named `integ/<topic-or-device-date>` that combines `dev` with
 on it yet, so that one build can carry it to the developer's phone. It is what is installed on pong
 when the note says "integ 8f3d7ed0 = dev plus the dictation marks". It is never released, and
 nothing is merged from it.
-_Avoid_: staging, release candidate
+_Avoid_: staging (the build type), release candidate
+
+**Janky**:
+In the developer's words, something that looks wrong: misplaced, stale, abrupt or ugly. Read it as
+a visual complaint first. For frames that miss their deadline, write "long frame" or "dropped
+frame" and give the number.
+_Avoid_: janky (for a frame-time measurement; say "long frame" there)
 
 **Lane**:
 The privileged lane: it runs allowlisted tlstore tools as the shell uid (2000) through Shizuku.
@@ -530,6 +586,12 @@ while an agent works: ask before installing, force-stopping or sending input to 
 usually come from an integ branch.
 _Avoid_: the device (when a note means a phone the agent owns), the emulator
 
+**Pre-release**:
+The rolling channel that gets new work first. The order is `pre`, then `dev`, then the release
+branches. A **drop** is one pre-release, versioned `X.Y.Z-pre.N` and shipped in all three editions.
+`X.Y.Z` is the next minor version above the current stable. The rules are in AGENTS.md.
+_Avoid_: beta, nightly (a nightly is any build of `dev`), release candidate
+
 **Release**:
 A published version, written as plain `X.Y.Z` and shared by every edition: the three editions ship
 the same number in the same pass. Each release branch owns its `versionName`; `dev`'s is not
@@ -541,6 +603,12 @@ The deep modules and their host interfaces that were extracted out of `TermuxAct
 `TerminalHost`, `SurfaceEditorController.Host`, `ChromeRenderer` and friends. Work on a controller
 through its seam, not through the activity.
 _Avoid_: managers, helpers
+
+**Staging build**:
+`assembleStaging`: the release build's R8 shrinking and keep rules, but debuggable (so `run-as`
+works) and signed with the published test key. Nightlies and phones get this build. A debug build
+skips R8, so it cannot show a hole in the keep rules.
+_Avoid_: release build (that is the published, non-debuggable type), debug build
 
 **Tag**:
 The git tag of a release, one per edition: `vX.Y.Z` for the Termux edition, `nix-vX.Y.Z` for the

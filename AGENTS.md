@@ -28,10 +28,11 @@ consequences you will meet repeatedly:
 
 ### 2. Memory discipline
 
-An app that never dies pays for every byte it retains forever. The 2026-08 RAM work took the
-process from **PSS 601 MB to 171 MB** (native heap 437 → 82 MB, reachable bitmaps 340 → 28.8 MB),
-and that ground is not to be given back. Anything that holds pixels — kitty graphics frames, app
-icons, wallpaper blurs — belongs behind a bounded store with an explicit budget:
+An app that never dies pays for every byte it retains forever. The 2026-08 RAM work bounded
+growth: memory now comes back on `clear`, on pane close and under pressure, and a live terminal
+idles at about 185–200 MB PSS on pong. That ground is not to be given back. Anything that holds
+pixels — kitty graphics frames, app icons, wallpaper blurs — belongs behind a bounded store with an
+explicit budget:
 
 - Kitty frames are charged against a process-wide `KittyImageStore.FrameBudget` sized from
   `/proc/meminfo`, settled at commit rather than accept, and folded rather than refused when full.
@@ -46,6 +47,11 @@ icons, wallpaper blurs — belongs behind a bounded store with an explicit budge
 Users drive this thing with their thumbs all day and notice a dropped frame, a mispositioned chip
 and a stale label. No continuously repainting animations. No layout work per frame. Prefer
 structural fixes (derive the position, own the outline) over tuning durations.
+
+**Performance has numbers.** Before a change that keeps pixels or memory, runs per frame or at
+rest, sits on the start-up or page-change path, or loads a model, read
+[`docs/agents/performance.md`](docs/agents/performance.md): the budgets, the pong baselines, how to
+measure them, and what your report must show.
 
 **When the developer calls something "janky", they mean it looks bad — not that it dropped
 frames.** Read UI complaints as aesthetic first and ask before optimising a frame budget nobody
@@ -62,16 +68,12 @@ Every edition has its own package and so its own prefix, `/data/data/<pkg>/files
 package through `context.getPackageName()` or `TermuxConstants`; a literal `com.termux` in code is
 correct on one edition and a bug on the other two.
 
-## A small glossary
+## Words
 
-The full glossary is [`docs/GLOSSARY.md`](docs/GLOSSARY.md); use its language, it is what the code
-and the developer use. The three words you need before you open it:
-
-- **you** — the agent reading this file and changing the launcher.
-- **the developer / the user** — the maintainer you are talking to, who also uses the launcher as
-  their daily driver and is often testing your change on their own phone while you work.
-- **the device / pong** — that phone, the real device of record; yours is whatever physical phone
-  you test on.
+**You** are the agent reading this. **The developer** is the maintainer you are talking to, who
+uses the launcher as their daily driver. **Pong** is their phone and the device of record. For every
+other name (a place, a surface, a gesture, an edition), look it up in
+[`docs/GLOSSARY.md`](docs/GLOSSARY.md) before you name it in code, a commit, a string or a report.
 
 ## The five ways to hurt yourself
 
