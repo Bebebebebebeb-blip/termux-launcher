@@ -372,13 +372,6 @@ public final class TerminalCommandPalette {
         for (int i = 0; i < limit; i++) {
             LauncherAppEntry app = ranked.get(i);
             String stableId = app.appRef.stableId();
-            JSONObject arguments = new JSONObject();
-            try {
-                // The stable id targets one activity exactly, so a row cannot drift
-                // to a different app of the same package.
-                arguments.put("query", stableId);
-            } catch (JSONException ignored) {
-            }
             if (iconsOut != null) {
                 android.graphics.drawable.Drawable artwork = com.termux.app.launcher.data
                     .LauncherAppDataProvider.artworkFor(context, app);
@@ -386,26 +379,45 @@ public final class TerminalCommandPalette {
             }
             if (scoresOut != null && !trimmed.isEmpty())
                 scoresOut.put(stableId, CommandPaletteAppMatch.score(app, trimmed));
-            String stroke = shortcuts.get(stableId);
-            entries.add(new CommandPaletteFilter.Entry(
-                LauncherToolRegistry.TOOL_APP_LAUNCH,
-                app.label,
-                // The subtitle doubles as the only place the palette says a row is bindable;
-                // drawRow renders the description on the focused row alone, so this costs no rows.
-                context.getString(R.string.palette_app_row_subtitle, app.appRef.packageName),
-                LauncherToolRegistry.CATEGORY_APPS,
-                stroke == null ? Collections.<String>emptyList()
-                    : Collections.singletonList(stroke),
-                true,
-                null,
-                false,
-                LauncherToolRegistry.ToolRisk.MEDIUM,
-                arguments,
-                null,
-                null,
-                stableId));
+            entries.add(appEntry(context, app, shortcuts));
         }
         return entries;
+    }
+
+    /**
+     * One app's row, launched by stable id. The keycap strip builds its app chips with this too,
+     * so a chip launches exactly as the row does.
+     */
+    @NonNull
+    static CommandPaletteFilter.Entry appEntry(@NonNull Context context,
+                                               @NonNull LauncherAppEntry app,
+                                               @NonNull Map<String, String> shortcuts) {
+        String stableId = app.appRef.stableId();
+        JSONObject arguments = new JSONObject();
+        try {
+            // The stable id targets one activity exactly, so a row cannot drift
+            // to a different app of the same package.
+            arguments.put("query", stableId);
+        } catch (JSONException ignored) {
+        }
+        String stroke = shortcuts.get(stableId);
+        return new CommandPaletteFilter.Entry(
+            LauncherToolRegistry.TOOL_APP_LAUNCH,
+            app.label,
+            // The subtitle doubles as the only place the palette says a row is bindable;
+            // drawRow renders the description on the focused row alone, so this costs no rows.
+            context.getString(R.string.palette_app_row_subtitle, app.appRef.packageName),
+            LauncherToolRegistry.CATEGORY_APPS,
+            stroke == null ? Collections.<String>emptyList()
+                : Collections.singletonList(stroke),
+            true,
+            null,
+            false,
+            LauncherToolRegistry.ToolRisk.MEDIUM,
+            arguments,
+            null,
+            null,
+            stableId);
     }
 
     /**
