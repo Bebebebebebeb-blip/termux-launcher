@@ -1,5 +1,6 @@
 package com.termux.view;
 
+import android.net.Uri;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -70,6 +71,25 @@ public interface TerminalViewClient {
     }
 
     default boolean onShowContextMenu(TerminalView view) {
+        return false;
+    }
+
+    /**
+     * The user asked to paste into {@code view} — a middle click, the accessibility action. The
+     * view does not read the clipboard itself: what a paste is (text, a picture, a program's paste
+     * event) is the client's to decide, the same as for every other paste.
+     */
+    default void onPasteRequest(TerminalView view) {
+    }
+
+    /**
+     * A keyboard inserted content into {@code view}: a picture from its clipboard strip, a GIF.
+     * {@code mime} is the first {@code image/*} type it offered. Return true when the client takes
+     * it, and call {@code release} once it has read {@code uri}, whatever happened; on false the
+     * view releases it and the keyboard falls back to whatever it does for editors without
+     * pictures.
+     */
+    default boolean onCommitContent(TerminalView view, Uri uri, String mime, Runnable release) {
         return false;
     }
 
