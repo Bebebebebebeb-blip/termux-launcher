@@ -346,6 +346,7 @@ public final class TerminalCommandPaletteController
         resolveAnchor();
         resolveSeed();
         mView.setModalBounds(mModalBounds);
+        mView.setOpenFrameWidth(mHost.getWidth() - 2f * dp(SIDE_INSET));
         mView.resetScroll();
         mProgress.reset(0f);
         mHeight.reset(targetHeight());
