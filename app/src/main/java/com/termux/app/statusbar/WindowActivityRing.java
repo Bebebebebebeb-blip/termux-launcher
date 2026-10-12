@@ -61,7 +61,7 @@ public final class WindowActivityRing {
         CHASER,
         /** One quick lap of the smooth arc, then a long still rest with no ticks at all. */
         HEARTBEAT,
-        /** The whole edge in the ring colour, brightening and dimming, on a 6 Hz tick. */
+        /** The whole chip in the ring colour, brightening and dimming, on a 4 Hz tick. */
         BREATHE;
 
         /** The {@code debug.termux.ring_style} value; anything unknown or empty is smooth. */
@@ -97,12 +97,13 @@ public final class WindowActivityRing {
     public static final float HEARTBEAT_RESTING = -1f;
 
     /**
-     * The breath: one slow in-and-out of the whole edge, stepped at 6 Hz. A change of brightness
-     * hides a coarse tick far better than a change of position does, which is the whole bet; the
-     * dimmest point keeps a quarter of the ring colour, so the chip never reads as having stopped.
+     * The breath: one slow in-and-out of the whole chip, stepped at 4 Hz. A change of brightness
+     * hides a coarse tick far better than a change of position does, which is the whole bet, and
+     * a slow breath moves little per step; the dimmest point keeps a quarter of the ring colour, so
+     * the chip never reads as having stopped.
      */
-    public static final long BREATHE_PERIOD_MS = 1600L;
-    public static final long BREATHE_STEP_MS = 1000L / 6L;
+    public static final long BREATHE_PERIOD_MS = 3200L;
+    public static final long BREATHE_STEP_MS = 250L;
     public static final float BREATHE_FLOOR = 0.25f;
 
     /** How much of the ring colour the edge carries at {@code nowMs}, in [floor, 1]. */

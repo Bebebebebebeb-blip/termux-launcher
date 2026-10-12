@@ -26,7 +26,7 @@ public class WindowActivityRingStyleTest {
     }
 
     @Test
-    public void theBreathTicksAtSixHertzAndNeverGoesDark() {
+    public void theBreathTicksAtFourHertzAndNeverGoesDark() {
         long step = WindowActivityRing.BREATHE_STEP_MS;
         for (long ms = 0; ms < 5000; ms += 7) {
             long delay = WindowActivityRing.nextTickDelayMs(Style.BREATHE, ms);

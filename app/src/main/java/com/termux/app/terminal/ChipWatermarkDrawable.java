@@ -166,6 +166,13 @@ final class ChipWatermarkDrawable extends Drawable {
         return mBusy && mTinted && mProgress == TerminalWindowBar.WindowItem.NO_PERCENTAGE;
     }
 
+    /** TEMP ring-style A/B: whether this chip draws the breath rather than a travelling ring. */
+    private boolean breathing() {
+        return mBusy && !mTinted && mProgress == TerminalWindowBar.WindowItem.NO_PERCENTAGE
+            && RingStyleSwitch.current(SystemClock.uptimeMillis())
+                == WindowActivityRing.Style.BREATHE;
+    }
+
     void setMark(@NonNull Mark mark, int markColor, int groundColor) {
         if (mMark == mark && mMarkColor == markColor && mGroundColor == groundColor) return;
         mMark = mark;
@@ -294,6 +301,13 @@ final class ChipWatermarkDrawable extends Drawable {
         canvas.drawPath(mOutline, mFillPaint);
         if (workingTint()) {
             mFillPaint.setColor(ColorUtils.setAlphaComponent(mRingColor, ChipWatermarkGeometry.BUSY_TINT_ALPHA));
+            canvas.drawPath(mOutline, mFillPaint);
+        } else if (breathing()) {
+            // TEMP ring-style A/B: the breath fills the whole chip, not just its edge — lazy
+            // mode's working tint, brightening and dimming with the outline.
+            mFillPaint.setColor(ColorUtils.setAlphaComponent(mRingColor, Math.round(
+                ChipWatermarkGeometry.BUSY_TINT_ALPHA
+                    * WindowActivityRing.breatheLevel(SystemClock.uptimeMillis()))));
             canvas.drawPath(mOutline, mFillPaint);
         }
 
