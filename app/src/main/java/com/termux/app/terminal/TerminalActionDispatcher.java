@@ -120,10 +120,20 @@ public final class TerminalActionDispatcher {
      */
     public static final String TOOL_WINDOW_CLOSE_BY_ID = "window.close_by_id";
     /**
+     * One pane of the current session by id, with its window ({@code GET /v1/panes/{id}}): how
+     * {@code launcherctl pane current} tells a program where it runs and how big its pane is.
+     * Read-only like {@link #TOOL_PANE_LIST}, so it reaches every pane, owned or not.
+     */
+    public static final String TOOL_PANE_INFO = "pane.info";
+    /**
      * What this launcher's pane API can do beyond opening, listing and driving panes, listed by
      * {@code pane.list} so a caller can tell an older launcher (no list at all) from this one.
+     * {@code wait} and {@code print-id} belong to the local API server ({@code POST
+     * /v1/panes/{id}/wait}, {@code "print":"id"} on an open) and are listed here because this is
+     * the list callers read.
      */
-    static final String[] PANE_API_FEATURES = {"placement", "resize", "geometry", "windows"};
+    static final String[] PANE_API_FEATURES =
+        {"placement", "resize", "geometry", "windows", "info", "wait", "print-id"};
     public static final String TOOL_AGENT_STATUS = "agent.status";
     /**
      * The signals a program sends around the terminal — a shade notification, the progress ring,
@@ -282,6 +292,7 @@ public final class TerminalActionDispatcher {
             case TOOL_PANE_SET_SIZE:
             case TOOL_WINDOW_FOCUS:
             case TOOL_WINDOW_CLOSE_BY_ID:
+            case TOOL_PANE_INFO:
             // The signals decide for themselves what a stopped launcher may do: a notification
             // goes to the shade precisely when nobody is looking, a progress report is state on
             // the shell for the chip to read when the terminal is next seen, and the clipboard
@@ -336,6 +347,7 @@ public final class TerminalActionDispatcher {
             case TOOL_PANE_SET_SIZE:
             case TOOL_WINDOW_FOCUS:
             case TOOL_WINDOW_CLOSE_BY_ID:
+            case TOOL_PANE_INFO:
             case TOOL_AGENT_STATUS:
             case TOOL_WINDOW_NEW:
             case TOOL_WINDOW_CLOSE:
@@ -802,6 +814,25 @@ public final class TerminalActionDispatcher {
                         .put("activePane", active == null ? JSONObject.NULL : active.mHandle)
                         .put("layout", layout == null ? JSONObject.NULL : layout)
                         .put("features", new JSONArray(java.util.Arrays.asList(PANE_API_FEATURES)));
+                }
+                case TOOL_PANE_INFO: {
+                    if (!host.isSplitPanesEnabled()) return splitsDisabled();
+                    TerminalSession target = paneArgument(host, arguments);
+                    if (target == null) return paneNotFound(arguments);
+                    TerminalPaneController controller = host.paneController();
+                    TerminalPaneController.Window window =
+                        controller == null ? null : controller.windowOf(target);
+                    int index = window == null ? -1 : host.currentSessionWindows().indexOf(window);
+                    // Like pane.list, which only shows the current session: a pane of another
+                    // session has no window here to report.
+                    if (index < 0) {
+                        return error(404, "pane_not_found", "No pane with id "
+                            + arguments.optString("id", "") + " in the current session");
+                    }
+                    String layout = controller.layoutPolicyOf(window);
+                    return ok().put("pane", paneRecord(host, target))
+                        .put("window", windowRecord(host, window, index))
+                        .put("layout", layout == null ? JSONObject.NULL : layout);
                 }
                 case TOOL_PANE_SET_SIZE: {
                     if (!host.isSplitPanesEnabled()) return splitsDisabled();
