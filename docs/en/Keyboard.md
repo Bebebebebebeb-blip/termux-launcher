@@ -86,6 +86,8 @@ each layout by name once the cycle holds more than one.
 
 **Settings → Keyboard → Layouts → Keyboard extra keys** adds optional keys (copy, paste, F11 and
 F12, dead keys and more) to the keyboard's own layout. It does not touch the extra-keys row.
+While the clipboard holds a picture, the paste key shows a photo instead, and pasting puts in the
+picture as a file.
 
 ## Docked, floating or split
 

@@ -1,6 +1,8 @@
 package com.termux.app.terminal.inappkeyboard;
 
 import android.app.Activity;
+import android.content.ClipDescription;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.res.Configuration;
@@ -10,6 +12,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Trace;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
@@ -18,6 +21,7 @@ import androidx.annotation.Nullable;
 import com.termux.R;
 import com.termux.app.notice.AppNotice;
 import com.termux.app.place.PlaceLayout;
+import com.termux.app.terminal.TerminalClipboard;
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 import com.termux.shared.termux.settings.preferences.TermuxPreferenceConstants;
 import com.termux.shared.view.KeyboardUtils;
@@ -25,6 +29,7 @@ import com.termux.terminal.TerminalSession;
 import com.termux.view.TerminalView;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -128,6 +133,20 @@ public final class TermuxInAppKeyboard {
     private boolean mDestroyed;
     private boolean mHeightAdjusting;
     private boolean mExternalTextInputActive;
+    /** Between onStop and onResume: the clipboard is not watched, whatever shows the keys. */
+    private boolean mStopped;
+    /** The clipboard watched while the keys are up, so paste can show a picture is waiting. */
+    @Nullable private ClipboardManager mWatchedClipboard;
+    /** Where the focus listener went; the clipboard can only be read while the window has focus. */
+    @Nullable private ViewTreeObserver mWatchedFocusObserver;
+    /** The last answer of {@link #clipboardHoldsPicture}, handed to every keyboard view made. */
+    private boolean mClipboardHoldsPicture;
+    private final ClipboardManager.OnPrimaryClipChangedListener mClipChangedListener =
+        this::readClipboardPicture;
+    private final ViewTreeObserver.OnWindowFocusChangeListener mWindowFocusListener = hasFocus -> {
+        if (hasFocus)
+            readClipboardPicture();
+    };
     /** The place on screen carries its own text fields, so it holds the system IME while down. */
     private boolean mPlaceOwnsSystemIme;
     /** Whether that place keeps the IME even with this keyboard on screen for something else. */
@@ -303,6 +322,7 @@ public final class TermuxInAppKeyboard {
     }
 
     public void onResume() {
+        mStopped = false;
         if (!mEnabled || mDestroyed)
             return;
         if (!mExternalTextInputActive)
@@ -316,6 +336,8 @@ public final class TermuxInAppKeyboard {
 
     /** Cancels gesture and macro state without changing activity-instance visibility. */
     public void onStop() {
+        mStopped = true;
+        unwatchClipboard();
         resetInputPipeline();
         mTapCorrection.flush();
     }
@@ -325,6 +347,7 @@ public final class TermuxInAppKeyboard {
             return;
         mDestroyed = true;
         mLastHideReason = HideReason.DESTROYED;
+        unwatchClipboard();
         resetInputPipeline();
         TerminalView terminalView = mHost == null ? null : mHost.getTerminalView();
         if (terminalView != null && mSystemImeFocusListener != null)
@@ -1352,6 +1375,7 @@ public final class TermuxInAppKeyboard {
             // the keyboard was off screen is applied on the way back on.
             refreshMaterialPaletteIfSignatureMoved();
             setContainerVisible(true);
+            watchClipboard();
             mHost.requestAccessoryGeometrySync();
             recheckLayout();
         } finally {
@@ -1389,6 +1413,7 @@ public final class TermuxInAppKeyboard {
         mKeyboardView.setKeyOpacity(mKeyOpacity < 0 ? -1f : mKeyOpacity / 100f);
         mTapCorrection.setLayoutId(mSelectedLayoutId);
         mKeyboardView.setTapResolver(mTapCorrection);
+        mKeyboardView.setClipboardHoldsPicture(mClipboardHoldsPicture);
         applyKeyboardToView(getSelectedLayoutData());
         applyCustomColorScheme();
         mHost.attachKeyboardView(mKeyboardView);
@@ -1935,9 +1960,83 @@ public final class TermuxInAppKeyboard {
     }
 
     private void setContainerVisible(boolean visible) {
+        if (!visible)
+            unwatchClipboard();
         if (mHost != null) {
             mHost.setKeyboardContainerVisible(visible);
         }
+    }
+
+    /**
+     * Watches the clipboard while the keys are up, so the paste glyph says when a paste will
+     * insert a picture. The clipboard is only readable while the window has focus, and coming
+     * back to the launcher resumes it before focus returns, so focus coming back reads it again.
+     */
+    private void watchClipboard() {
+        if (mWatchedClipboard != null || mStopped || mHost == null)
+            return;
+        View container = requireContainer();
+        ClipboardManager clipboard =
+            (ClipboardManager) container.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard == null)
+            return;
+        clipboard.addPrimaryClipChangedListener(mClipChangedListener);
+        mWatchedClipboard = clipboard;
+        ViewTreeObserver observer = container.getViewTreeObserver();
+        observer.addOnWindowFocusChangeListener(mWindowFocusListener);
+        mWatchedFocusObserver = observer;
+        readClipboardPicture();
+    }
+
+    private void unwatchClipboard() {
+        if (mWatchedClipboard != null) {
+            mWatchedClipboard.removePrimaryClipChangedListener(mClipChangedListener);
+            mWatchedClipboard = null;
+        }
+        if (mWatchedFocusObserver != null) {
+            // An observer taken before the container was attached is merged into the window's on
+            // attach and dies, so the listener is looked for in the container's current one too.
+            if (mWatchedFocusObserver.isAlive())
+                mWatchedFocusObserver.removeOnWindowFocusChangeListener(mWindowFocusListener);
+            View container = mHost == null ? null : mHost.getKeyboardContainer();
+            ViewTreeObserver current = container == null ? null : container.getViewTreeObserver();
+            if (current != null && current != mWatchedFocusObserver && current.isAlive())
+                current.removeOnWindowFocusChangeListener(mWindowFocusListener);
+            mWatchedFocusObserver = null;
+        }
+    }
+
+    private void readClipboardPicture() {
+        ClipboardManager clipboard = mWatchedClipboard;
+        if (clipboard == null)
+            return;
+        ClipDescription description;
+        try {
+            description = clipboard.getPrimaryClipDescription();
+        } catch (RuntimeException e) {
+            // A clipboard service that throws is no reason for the home screen to fall over.
+            description = null;
+        }
+        mClipboardHoldsPicture = clipboardHoldsPicture(description);
+        Keyboard2View view = mKeyboardView;
+        if (view != null)
+            view.setClipboardHoldsPicture(mClipboardHoldsPicture);
+    }
+
+    /**
+     * Whether the clip [description] describes pastes as a picture, from the description alone:
+     * reading the clip itself shows the system's "pasted" notice. Any concrete picture type counts,
+     * as it does for paste, which takes the picture even when a caption rides along as text. Null,
+     * which is what an unfocused launcher is given, holds nothing.
+     */
+    static boolean clipboardHoldsPicture(@Nullable ClipDescription description) {
+        if (description == null)
+            return false;
+        int count = description.getMimeTypeCount();
+        List<String> types = new ArrayList<>(count);
+        for (int i = 0; i < count; i++)
+            types.add(description.getMimeType(i));
+        return TerminalClipboard.pictureType(types) != null;
     }
 
     private View requireContainer() {

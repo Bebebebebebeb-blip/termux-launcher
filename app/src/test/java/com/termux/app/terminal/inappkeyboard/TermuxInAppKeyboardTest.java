@@ -9,9 +9,13 @@ import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.ClipData;
+import android.content.ClipDescription;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.SparseArray;
 import android.view.KeyEvent;
@@ -37,11 +41,13 @@ import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadow.api.Shadow;
 import org.robolectric.util.ReflectionHelpers;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.AbstractExecutorService;
@@ -789,6 +795,84 @@ public class TermuxInAppKeyboardTest {
         mController.hide(TermuxInAppKeyboard.HideReason.USER_EVENT);
         mController.show(TermuxInAppKeyboard.ShowReason.TERMINAL_TAP);
         assertTrue(mController.isVisible());
+    }
+
+    @Test
+    public void theKeysWatchTheClipboardOnlyWhileTheyAreUp() {
+        ClipboardManager clipboard =
+            (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
+        clipboard.setPrimaryClip(pictureClip("image/png"));
+        mPreferences.setInAppKeyboardEnabled(true);
+
+        mController.onCreate(null);
+        Keyboard2View view = (Keyboard2View) mHost.attachedView;
+        assertEquals(1, clipListeners(clipboard).size());
+        assertTrue("what the clipboard holds on show reaches the view", holdsPicture(view));
+
+        clipboard.setPrimaryClip(ClipData.newPlainText("text", "hello"));
+        assertFalse("text on the clipboard puts the paste glyph back", holdsPicture(view));
+
+        mController.hide(TermuxInAppKeyboard.HideReason.USER_EVENT);
+        assertTrue("down, the keys stop listening", clipListeners(clipboard).isEmpty());
+        clipboard.setPrimaryClip(pictureClip("image/png"));
+        assertFalse(holdsPicture(view));
+
+        mController.show(TermuxInAppKeyboard.ShowReason.TERMINAL_TAP);
+        assertEquals(1, clipListeners(clipboard).size());
+        assertTrue("a picture copied while down shows on the way up", holdsPicture(view));
+
+        mController.onStop();
+        assertTrue("a stopped launcher does not listen", clipListeners(clipboard).isEmpty());
+        mController.onStart();
+        mController.onResume();
+        assertEquals(1, clipListeners(clipboard).size());
+
+        mController.onDestroy();
+        assertTrue(clipListeners(clipboard).isEmpty());
+        mController = null;
+    }
+
+    @Test
+    public void aRecreatedKeyboardViewIsToldThePictureIsStillThere() {
+        ClipboardManager clipboard =
+            (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
+        clipboard.setPrimaryClip(pictureClip("image/jpeg"));
+        mPreferences.setInAppKeyboardEnabled(true);
+        mController.onCreate(null);
+
+        mController.onConfigurationChanged(mActivity.getResources().getConfiguration());
+
+        Keyboard2View view = (Keyboard2View) mHost.attachedView;
+        assertTrue(holdsPicture(view));
+        assertEquals(1, clipListeners(clipboard).size());
+    }
+
+    @Test
+    public void onlyAConcretePictureTypeCountsAsAPicture() {
+        assertTrue(TermuxInAppKeyboard.clipboardHoldsPicture(
+            new ClipDescription("p", new String[] {"image/png"})));
+        // Paste takes the picture even with a caption riding along, so the glyph does too.
+        assertTrue(TermuxInAppKeyboard.clipboardHoldsPicture(
+            new ClipDescription("p", new String[] {"image/png", ClipDescription.MIMETYPE_TEXT_PLAIN})));
+        assertFalse(TermuxInAppKeyboard.clipboardHoldsPicture(
+            new ClipDescription("t", new String[] {ClipDescription.MIMETYPE_TEXT_PLAIN})));
+        assertFalse(TermuxInAppKeyboard.clipboardHoldsPicture(
+            new ClipDescription("w", new String[] {"image/*"})));
+        assertFalse("an unfocused launcher is told nothing",
+            TermuxInAppKeyboard.clipboardHoldsPicture(null));
+    }
+
+    private static ClipData pictureClip(String type) {
+        return new ClipData(new ClipDescription("picture", new String[] {type}),
+            new ClipData.Item(Uri.parse("content://example/picture")));
+    }
+
+    private static Collection<?> clipListeners(ClipboardManager clipboard) {
+        return ReflectionHelpers.getField(Shadow.extract(clipboard), "listeners");
+    }
+
+    private static boolean holdsPicture(Keyboard2View view) {
+        return ReflectionHelpers.getField(view, "_clipboardHoldsPicture");
     }
 
     private TermuxInAppKeyboard newController() throws Exception {
