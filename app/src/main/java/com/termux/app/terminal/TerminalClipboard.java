@@ -266,7 +266,7 @@ public final class TerminalClipboard {
 
     /** The first concrete {@code image/*} type in {@code types}, lower-cased, or null. */
     @Nullable
-    static String pictureType(@NonNull List<String> types) {
+    public static String pictureType(@NonNull List<String> types) {
         for (String type : types) {
             if (type == null) continue;
             String normal = type.trim().toLowerCase(Locale.ROOT);
