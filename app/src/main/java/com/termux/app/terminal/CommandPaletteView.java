@@ -230,6 +230,11 @@ public final class CommandPaletteView extends View {
     private static final float SIZE_CAP_GLYPH = 11f;
     private static final float SIZE_CAP_LABEL = 10.5f;
     /**
+     * Smallest the search hint shrinks to before it ellipsizes: the category rules' size, the
+     * smallest type this view already sets.
+     */
+    private static final float SIZE_PLACEHOLDER_MIN = SIZE_CATEGORY;
+    /**
      * Half a blink. The platform's own text cursor is on for this long and off for this long, and
      * the palette's has to read as the same thing: a line that is taking what you type.
      */
@@ -290,6 +295,12 @@ public final class CommandPaletteView extends View {
     private String mCrumb = "";
     private String mQuery = "";
     private String mQueryPlaceholder = "";
+    /** Width of the frame once fully open; what the hint is fitted to. 0 until the host says. */
+    private float mOpenFrameWidth;
+    /** The hint's fitted type size, and the hint and open width it was fitted for. */
+    private float mPlaceholderSize;
+    @Nullable private String mPlaceholderFitText;
+    private float mPlaceholderFitWidth = -1f;
     /** Caret index into the active buffer (query or argument value); values past the end clamp. */
     private int mQueryCursor = Integer.MAX_VALUE;
     /** Whether the caret is in its on half. Always true while it is not blinking at all. */
@@ -419,6 +430,16 @@ public final class CommandPaletteView extends View {
         mQuery = query;
         mQueryPlaceholder = placeholder;
         restartCaret();
+        invalidate();
+    }
+
+    /**
+     * The frame's width once the sprout has settled. The search hint is fitted to this rather than
+     * to the animated frame, so it keeps one size while the palette grows.
+     */
+    public void setOpenFrameWidth(float widthPx) {
+        if (widthPx == mOpenFrameWidth) return;
+        mOpenFrameWidth = widthPx;
         invalidate();
     }
 
@@ -646,15 +667,24 @@ public final class CommandPaletteView extends View {
             queryEnd -= crumbWidth + dp(8f);
         }
 
-        mMono.setTextSize(sp(SIZE_FILTER));
         boolean showPlaceholder = mQuery.isEmpty();
-        mMono.setColor(withBodyAlpha(showPlaceholder ? mMeta : mOnSurface, alpha));
-        String queryText = showPlaceholder ? mQueryPlaceholder : mQuery;
         // An empty line still takes input: the caret sits where the first character will land
         // and the placeholder reads after it, so the blink says "type here" before anything is.
         float textStart = showPlaceholder ? queryStart + dp(CARET_W) + dp(5f) : queryStart;
-        canvas.drawText(ellipsizeStart(mMono, queryText, queryEnd - textStart),
-            textStart, promptBaseline, mMono);
+        if (showPlaceholder) {
+            // The hint reads from its start, so it shortens at its end; typed text keeps its end.
+            mMono.setTextSize(placeholderTextSize(textStart - mFrame.left,
+                metaWidth > 0f ? metaWidth + dp(8f) : 0f));
+            mMono.setColor(withBodyAlpha(mMeta, alpha));
+            canvas.drawText(ellipsize(mMono, mQueryPlaceholder, queryEnd - textStart),
+                textStart, promptBaseline, mMono);
+            mMono.setTextSize(sp(SIZE_FILTER));
+        } else {
+            mMono.setTextSize(sp(SIZE_FILTER));
+            mMono.setColor(withBodyAlpha(mOnSurface, alpha));
+            canvas.drawText(ellipsizeStart(mMono, mQuery, queryEnd - textStart),
+                textStart, promptBaseline, mMono);
+        }
         drawCaret(canvas, showPlaceholder ? queryStart
             : queryStart + Math.min(measureToCursor(mMono, mQuery), queryEnd - queryStart),
             promptBaseline, alpha);
@@ -663,6 +693,31 @@ public final class CommandPaletteView extends View {
         drawList(canvas, filterBottom, listBottom, alpha);
         if (mArgumentMode) drawArgumentRow(canvas, listBottom, alpha);
         canvas.restoreToCount(save);
+    }
+
+    /**
+     * The search hint's type size: the query's own when the hint fits the open field, otherwise
+     * shrunk to fit, down to {@link #SIZE_PLACEHOLDER_MIN}; past that the draw ellipsizes it.
+     * Fitted once per hint and open width, against the meta beside it at the time (the idle one,
+     * since a show starts idle), so the hint does not change size when the meta later reads a
+     * longer result count; the ellipsis takes up that slack instead.
+     *
+     * @param lead     frame edge to where the hint starts
+     * @param trailing room the meta text takes at the right, gap included
+     */
+    private float placeholderTextSize(float lead, float trailing) {
+        float frameWidth = mOpenFrameWidth > 0f ? mOpenFrameWidth : mFrame.width();
+        if (frameWidth == mPlaceholderFitWidth && mQueryPlaceholder.equals(mPlaceholderFitText))
+            return mPlaceholderSize;
+        float available = frameWidth - lead - dp(ROW_PAD_RIGHT) - trailing;
+        float full = sp(SIZE_FILTER);
+        mMono.setTextSize(full);
+        float natural = mMono.measureText(mQueryPlaceholder);
+        mPlaceholderSize = natural <= available || available <= 0f ? full
+            : Math.max(sp(SIZE_PLACEHOLDER_MIN), full * available / natural);
+        mPlaceholderFitWidth = frameWidth;
+        mPlaceholderFitText = mQueryPlaceholder;
+        return mPlaceholderSize;
     }
 
     private float listTop() {
