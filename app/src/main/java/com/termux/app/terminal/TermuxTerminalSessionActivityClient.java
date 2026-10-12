@@ -500,6 +500,18 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             mClipboard.paste(view.mEmulator);
     }
 
+    /**
+     * A picture the in-app keyboard's paste offers in place of the clipboard (a fresh screenshot),
+     * into the focused pane while the launcher is on screen; saved and pasted like a clipboard one.
+     */
+    public void pasteContentIntoFocused(@NonNull Uri uri, @NonNull String mime) {
+        if (!mHost.isVisible())
+            return;
+        com.termux.view.TerminalView view = mHost.focusedView();
+        if (view != null && view.mEmulator != null)
+            mClipboard.pasteContent(view.mEmulator, uri, mime, () -> {});
+    }
+
     /** Paste the clipboard into {@code emulator}'s pane; for callers that already chose the pane. */
     public void pasteClipboard(@NonNull TerminalEmulator emulator) {
         mClipboard.paste(emulator);
