@@ -10,6 +10,7 @@
 # activity class stays com.termux.app.TermuxActivity on every edition.
 # Overrides: MEM_INTERVAL (seconds between memory readings, default 10),
 # FRAMES_SECONDS (frame capture window, default 30).
+# The start step force-stops the launcher three times, ending its terminal sessions.
 # Never touches shared preferences. Exits non-zero, naming the parse, on a failure.
 set -euo pipefail
 
@@ -142,34 +143,45 @@ run_frames() {
   echo
 }
 
+# ActivityTaskManager logs "Displayed <pkg>/<activity> for user 0: +1s234ms" once the first
+# frame is drawn; prints that time in ms, or nothing within 20 s.
+displayed_ms() {
+  local i line
+  for i in $(seq 1 40); do
+    line="$(sh_ logcat -d -s ActivityTaskManager:I | grep -m1 "Displayed $PKG/" || true)"
+    if [ -n "$line" ]; then
+      sed -n 's/.*: +\([0-9s]*[0-9]*\)ms.*/\1/p' <<<"$line" | awk -F's' 'NF == 2 { print $1 * 1000 + $2; next } { print $1 }'
+      return
+    fi
+    sleep 0.5
+  done
+}
+
 run_start() {
-  local i out total wait kind
-  echo "### Start-up (am start -W, ms)"
+  local i ms kind
+  echo "### Start-up (force-stop to first frame, ms)"
   echo
-  echo "| Run | Kind | TotalTime | WaitTime |"
-  echo "|---|---|---|---|"
+  echo "| Run | Kind | Displayed |"
+  echo "|---|---|---|"
   for i in 1 2 3; do
+    sh_ logcat -c
     sh_ am force-stop "$PKG"
     sleep 1
-    # As the default home app the launcher is relaunched the moment it is stopped.
+    # As the default home app the launcher is relaunched the moment it is stopped, cold; otherwise
+    # start it ourselves.
     if [ -n "$(sh_ pidof "$PKG" || true)" ]; then
-      kind="warm (relaunched as home)"
+      kind="cold (relaunched as home)"
     else
-      kind="cold"
+      kind="cold (am start)"
+      sh_ am start -n "$ACTIVITY" >/dev/null 2>&1
     fi
-    out="$(sh_ am start -W -n "$ACTIVITY")"
-    total="$(sed -n 's/^ *TotalTime: *\([0-9][0-9]*\).*/\1/p' <<<"$out" | head -1)"
-    wait="$(sed -n 's/^ *WaitTime: *\([0-9][0-9]*\).*/\1/p' <<<"$out" | head -1)"
-    # Relaunched as home, the activity is already on top: am start only delivers the intent and
-    # prints no times, which is a result rather than a parse failure.
-    if [ -z "$total" ] && [ "$kind" != cold ] && grep -q 'intent has been delivered' <<<"$out"; then
-      echo "| $i | $kind | - | - |"
-      continue
-    fi
-    [ -n "$total" ] || die "am start parse: TotalTime not found for run $i"
-    [ -n "$wait" ] || die "am start parse: WaitTime not found for run $i"
-    echo "| $i | $kind | $total | $wait |"
+    ms="$(displayed_ms)"
+    [ -n "$ms" ] || die "logcat parse: no 'Displayed $PKG/' line within 20 s of run $i"
+    echo "| $i | $kind | $ms |"
+    sleep 5
   done
+  echo
+  echo "Force-stopping ends every terminal session; ask before running this on someone's daily phone."
   echo
 }
 

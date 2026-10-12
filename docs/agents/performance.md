@@ -50,23 +50,33 @@ measuring on pong; AGENTS.md's rule on touching a real phone applies.
 
 | What | Baseline | Where it was measured | How to measure |
 |---|---|---|---|
-| Idle PSS, live terminal | 185–200 MB (±10 MB between readings) | `project-docs/verification/x11/results.md`, 2026-09-05 | `dumpsys meminfo <pkg>`, TOTAL PSS, three readings |
+| Idle PSS, live terminal | 203–213 MB, mean 207 MB; native heap about 91 MB (185–200 MB on 2026-09-05) | `scripts/perf-baseline.sh memory`, 1.1.0-pre.1, 2026-10-12 | `dumpsys meminfo <pkg>`, TOTAL PSS, three readings |
 | Memory over repeated transitions | keyboard shown and hidden 10 times: native heap +0.7 MB; idle native heap about 108 MB | `c37c48778` | `dumpsys meminfo` before and after the loop |
 | Typing in the terminal | frame p50 15 ms, p90 19 ms | `c37c48778` | `terminal.state` → `performance` |
 | Heavy terminal output | median frame 5 ms, under 3% janky | `ac27b88a9`, `e40f8bc7b` | `terminal.state` → `performance` |
 | Glyph-heavy render, slice 10a | window p95 22 ms; pane render median 2.4 ms; about 336 KB/s allocated, 0 GCs | `project-docs/reference/terminal/kitty-protocol-features.md` | `terminal.state` → `performance` |
+| At rest, launcher in front | 5 frames in 30 s (0.17 fps) | `scripts/perf-baseline.sh frames`, 1.1.0-pre.1, 2026-10-12 | `dumpsys gfxinfo <pkg>` over 30 s, untouched |
 | At rest, lazy mode on | 1.2 fps, about 2% of a core | `ac27b88a9` | `dumpsys gfxinfo <pkg>` over a minute, plus `top` |
 | At rest, lazy mode off | about 21 fps, from the seconds flip (an open item; any change should lower it) | `project-docs/active/perf-home-terminal-idle-handoff-2026-09-27.md` | as above |
+| Scripted gestures (`pong.txt` x 3) | 2.4% janky; p50 16 ms, p90 22 ms, p99 44 ms; about 71 frames/s | `scripts/perf-frametime.sh`, 1.1.0-pre.1, 2026-10-12 | `scripts/perf-frametime.sh` |
 | Sliding between places | median 15–16 ms; worst page-change frame 47 ms | `707920f71`, `c6223ec76` | perfetto, `Wall.*` trace sections |
 | Pre-roll and settle frames | 30–77 ms now. Target: none above 16.7 ms | `project-docs/active/fancier-glass/SPEC.md` | perfetto |
-| Cold start | about 2 s of main thread to first frame (pong trace); `am start -W` 4.0 s on a release build under Waydroid | `project-docs/active/release-build-type-2026-10-06.md` | `am force-stop`, then `am start -W`, three runs |
+| Cold start | 1.33–1.54 s from force-stop to first frame, relaunched as home (about 2 s of main thread in an older trace; `am start -W` 4.0 s on a release build under Waydroid) | `scripts/perf-baseline.sh start`, 1.1.0-pre.1, 2026-10-12; `project-docs/active/release-build-type-2026-10-06.md` | logcat `Displayed` after `am force-stop`, three runs |
 | Release APK, universal | about 100 MB | same | file size |
 | On-device AI runtime | 330 MiB resident at rest; E4B on GPU: first token 1.11 s, decode about 11 tok/s | `TaiResidency.java`, `project-docs/reference/voice-ai/gallery-gpu-loading-comparison.md` | `tai benchmark --compare` |
 
 `DEVICE=<serial> PKG=<package> scripts/perf-baseline.sh [memory|frames|start|all]` takes the
 memory, frame and start-up rows and prints them as Markdown tables. Run it before and after the
-change on the same build type. When the launcher is the default home app, a force-stop relaunches
-it, so start-up runs come out warm and the script labels them that way.
+change on the same build type. Start-up reads the logcat `Displayed` time; when the launcher is the
+default home app, Android relaunches it cold the moment it is stopped, and that relaunch is what is
+timed. Force-stopping ends the terminal sessions, so ask before running `start` on a daily phone.
+
+`DEVICE=<serial> scripts/perf-frametime.sh [scenario]` measures frame times without anyone holding
+the phone: it plays a gesture scenario (`scripts/perf-scenarios/pong.txt` by default: page to Home
+and back, scroll the terminal) through `adb input` and reads `gfxinfo`. The jank figure is the
+missed-deadline count; the percentiles overlap in the pipeline, so compare them between runs, not
+against 11.1 ms. A scenario's coordinates match one layout: re-measure them from a screenshot when
+the layout or device changes, and add a scenario file for any gesture a change touches.
 
 For terminal rendering, read `performance` from the `terminal.state` action. Pass `{"resetPerformance": true}` first so
 that the window, allocation and pane counters all start from zero. The fields are explained in
