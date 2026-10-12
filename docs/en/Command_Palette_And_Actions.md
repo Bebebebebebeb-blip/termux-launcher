@@ -14,6 +14,15 @@ every action id you can use in those places.
 
 - Type to filter. Matching is fuzzy and also looks at action ids and shortcuts, so `split`,
   `pane.split` and `ctrl+alt+enter` all find **New pane**.
+- Actions, apps and contacts share one list, ordered by how well they match: an exact name first,
+  then names that start with what you typed, then a word that does, then anything containing it,
+  then looser matches. Among equally good matches, what you use more often comes first, and with
+  no history apps come before actions and actions before contacts.
+- The palette remembers what you picked for a search. Type the same thing again and that row is
+  first, whatever else matches; if you picked different rows for it, the latest one leads.
+- Start with `>` to search actions only, without apps or contacts: `>split` lists just the pane
+  actions, and `>` alone lists every action by category. **Enter** never sends a `>` search to
+  the shell.
 - With nothing typed, press **↓** to browse by category. Arrow keys move, **Enter** runs, **Esc**
   closes.
 - If nothing matches, **Enter** runs what you typed in the shell.

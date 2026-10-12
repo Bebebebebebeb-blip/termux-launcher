@@ -53,7 +53,8 @@ import java.util.Map;
  * </ul>
  *
  * <p>Installed apps and live sessions are the two row sources that are not tool projections.
- * Apps are rebuilt per query — usage-ranked with no query, fuzzy-ranked with one — and each row
+ * Apps are rebuilt per query — usage-ranked with no query, fuzzy-matched with one and then ranked
+ * in one list with the actions and contacts ({@link CommandPaletteRanking}) — and each row
  * runs {@code app.launch} with its own stable id; sessions run
  * {@code session.activate_by_index} with their own index. Either way a run from here takes the
  * same path as a run from a keybind.
@@ -338,13 +339,16 @@ public final class TerminalCommandPalette {
      * App rows for the current query, built from the provider's warm cache only —
      * the palette must never block the main thread on a PackageManager sweep.
      * Without a query the rows are usage-ranked, so the apps actually used land on
-     * top; with one, the launcher's own fuzzy ranking decides.
+     * top; with one, the launcher's own fuzzy ranking decides which apps make the cut.
      *
      * <p>{@code shortcuts} maps stable id to the chord already bound to that app, so a row can show
      * what will launch it — and, because {@code score()} matches an entry's bindings, so the row is
      * findable by typing its chord. Additionally fills {@code iconsOut} with the artwork for the
      * rows it returns, keyed by {@link CommandPaletteFilter.Entry#iconKey}; only these rows carry
      * icons, so the map stays as short as the Apps section rather than the whole installed set.
+     * With a query, {@code scoresOut} likewise receives each row's match on the palette's score
+     * scale ({@link CommandPaletteAppMatch}), so the caller can rank the apps against the other
+     * rows.
      */
     @NonNull
     static List<CommandPaletteFilter.Entry> buildAppEntries(
@@ -353,7 +357,8 @@ public final class TerminalCommandPalette {
         @NonNull LauncherUsageStatsStore usageStats,
         @NonNull String query,
         @NonNull Map<String, String> shortcuts,
-        @Nullable Map<String, Drawable> iconsOut
+        @Nullable Map<String, Drawable> iconsOut,
+        @Nullable Map<String, Integer> scoresOut
     ) {
         List<LauncherAppEntry> apps = provider.getAllApps();
         if (apps.isEmpty()) return Collections.emptyList();
@@ -379,6 +384,8 @@ public final class TerminalCommandPalette {
                     .LauncherAppDataProvider.artworkFor(context, app);
                 if (artwork != null) iconsOut.put(stableId, artwork);
             }
+            if (scoresOut != null && !trimmed.isEmpty())
+                scoresOut.put(stableId, CommandPaletteAppMatch.score(app, trimmed));
             String stroke = shortcuts.get(stableId);
             entries.add(new CommandPaletteFilter.Entry(
                 LauncherToolRegistry.TOOL_APP_LAUNCH,
