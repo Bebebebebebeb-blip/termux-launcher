@@ -1,5 +1,8 @@
 package com.termux.view;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.net.Uri;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -77,9 +80,16 @@ public interface TerminalViewClient {
     /**
      * The user asked to paste into {@code view} — a middle click, the accessibility action. The
      * view does not read the clipboard itself: what a paste is (text, a picture, a program's paste
-     * event) is the client's to decide, the same as for every other paste.
+     * event) is the client's to decide, the same as for every other paste. A client that does not
+     * decide gets the clipboard's text pasted, as before.
      */
     default void onPasteRequest(TerminalView view) {
+        if (view.mEmulator == null) return;
+        ClipboardManager manager = (ClipboardManager) view.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+        ClipData clip = manager == null ? null : manager.getPrimaryClip();
+        if (clip == null || clip.getItemCount() == 0) return;
+        CharSequence text = clip.getItemAt(0).coerceToText(view.getContext());
+        if (text != null && text.length() > 0) view.mEmulator.paste(text.toString());
     }
 
     /**
