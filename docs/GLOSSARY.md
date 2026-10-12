@@ -581,7 +581,8 @@ _Avoid_: dev build, snapshot
 
 **Pong**:
 The developer's own test phone, a Nothing Phone (2) A065 running Android 16, and the device of
-record for measurements and device checks. It is also the developer's daily driver, often in use
+record for measurements and device checks. Its panel is 120 Hz; the launcher runs at 90 Hz while
+active and 10 Hz at rest. It is also the developer's daily driver, often in use
 while an agent works: ask before installing, force-stopping or sending input to it. Builds for it
 usually come from an integ branch.
 _Avoid_: the device (when a note means a phone the agent owns), the emulator

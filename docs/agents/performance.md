@@ -4,8 +4,12 @@ The floor every change holds. AGENTS.md ("Memory discipline", "It has to feel ri
 file says how much, and how to tell. A **baseline** is a number measured on pong that a change must
 not move the wrong way. A **budget** is a limit the code enforces and a test asserts.
 
-**Pong** is the device of record (Nothing Phone (2) A065, Android 16, 120 Hz panel, so an 8.3 ms
-frame). Older documents say 90 Hz; name the refresh rate behind any frame number you write.
+**Pong** is the device of record (Nothing Phone (2) A065, Android 16). Its panel runs at up to
+120 Hz, but the system appears to hold apps, this launcher included, at 90 Hz while they are
+active and to drop them to 10 Hz at rest. The launcher's working frame budget is therefore
+**11.1 ms**. Some older numbers were taken against a 120 Hz budget (8.3 ms), so check which budget a
+number assumes before you compare against it. Read the live rate from the device when you measure
+(`scripts/perf-baseline.sh` prints it), and name it beside any frame number you write.
 Emulator and Waydroid numbers count for memory and start-up trends only. They do not count for
 frame time or jank, because `gfxinfo` on ANGLE or lavapipe reports every frame as janky. Ask before
 measuring on pong; AGENTS.md's rule on touching a real phone applies.
@@ -36,7 +40,7 @@ measuring on pong; AGENTS.md's rule on touching a real phone applies.
    what these rules exist to stop.
 4. **Heavy work runs off the main thread.** That covers wallpaper decode, blur, file and network I/O
    and package queries. Native model work runs in the `:tai_runtime` process.
-5. **Prefer many thin frames to a few fat ones.** On a 120 Hz panel, capping the clock or throttling
+5. **Prefer many thin frames to a few fat ones.** On pong, capping the clock or throttling
    the live blur made the median frame worse and tripled jank (`e40f8bc7b`). To get a cost down,
    make each frame cheaper; lowering the frame rate is the wrong fix.
 6. **Fail-safe gates.** A gate on drawing carries a backstop (AGENTS.md, "It is the home screen").
