@@ -2185,10 +2185,18 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
      */
     static final class SessionCustom {
         @Nullable private AppearanceSnapshot mKept;
+        /**
+         * What the last move to Custom seeded it with, while nothing was kept. Custom left exactly
+         * as seeded is not this visit's work, so the next move to Custom seeds from the Look on
+         * screen again (Clear → Custom → Mist → Custom reads as Mist, not Clear).
+         */
+        @Nullable private String mSeedSignature;
 
-        /** The slider leaves Custom: the values in {@code live} are this visit's Custom. */
+        /** The slider leaves Custom: the values in {@code live} are this visit's Custom, unless untouched. */
         void leave(@NonNull TermuxAppSharedPreferences live) {
-            mKept = AppearanceSnapshot.capture(live);
+            AppearanceSnapshot now = AppearanceSnapshot.capture(live);
+            mKept = now.signature().equals(mSeedSignature) ? null : now;
+            mSeedSignature = null;
         }
 
         /** The slider returns to Custom: the kept values come back, or nothing is written. */
@@ -2196,10 +2204,13 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             AppearanceSnapshot kept = mKept;
             if (kept != null)
                 kept.restore(into);
+            else
+                mSeedSignature = AppearanceSnapshot.signatureOf(into);
         }
 
         void clear() {
             mKept = null;
+            mSeedSignature = null;
         }
     }
 

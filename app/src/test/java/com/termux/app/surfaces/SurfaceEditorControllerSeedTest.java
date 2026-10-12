@@ -127,6 +127,33 @@ public class SurfaceEditorControllerSeedTest {
         assertTrue(SurfacePresets.matches(preferences, mist));
     }
 
+    @Test
+    public void anUntouchedCustomSeedsFromTheNextLook() {
+        SurfacePresets.apply(preferences, clear);
+        SurfaceEditorController.SessionCustom session = new SurfaceEditorController.SessionCustom();
+        session.enter(preferences);
+
+        session.leave(preferences);
+        SurfacePresets.apply(preferences, mist);
+        session.enter(preferences);
+
+        assertTrue("left as seeded, Custom is not this visit's work", SurfacePresets.matches(preferences, mist));
+    }
+
+    @Test
+    public void aTouchedCustomComesBackOverTheNextLook() {
+        SurfacePresets.apply(preferences, clear);
+        SurfaceEditorController.SessionCustom session = new SurfaceEditorController.SessionCustom();
+        session.enter(preferences);
+        tweak();
+
+        session.leave(preferences);
+        SurfacePresets.apply(preferences, mist);
+        session.enter(preferences);
+
+        assertEquals(TWEAKED_BLUR, preferences.getSurfaceBaseValue(SurfaceProperty.BLUR));
+    }
+
     private void tweak() {
         preferences.setSurfaceBaseValue(SurfaceProperty.BLUR, TWEAKED_BLUR);
         preferences.detachSurfaceValue(SurfaceSlot.DOCK, SurfaceProperty.OPACITY,
