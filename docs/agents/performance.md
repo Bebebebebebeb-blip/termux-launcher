@@ -9,7 +9,8 @@ not move the wrong way. A **budget** is a limit the code enforces and a test ass
 active and to drop them to 10 Hz at rest. The launcher's working frame budget is therefore
 **11.1 ms**. Some older numbers were taken against a 120 Hz budget (8.3 ms), so check which budget a
 number assumes before you compare against it. Read the live rate from the device when you measure
-(`scripts/perf-baseline.sh` prints it), and name it beside any frame number you write.
+(`scripts/perf-baseline.sh` prints the display's active mode), and name it beside any frame
+number you write.
 Emulator and Waydroid numbers count for memory and start-up trends only. They do not count for
 frame time or jank, because `gfxinfo` on ANGLE or lavapipe reports every frame as janky. Ask before
 measuring on pong; AGENTS.md's rule on touching a real phone applies.
@@ -62,7 +63,12 @@ measuring on pong; AGENTS.md's rule on touching a real phone applies.
 | Release APK, universal | about 100 MB | same | file size |
 | On-device AI runtime | 330 MiB resident at rest; E4B on GPU: first token 1.11 s, decode about 11 tok/s | `TaiResidency.java`, `project-docs/reference/voice-ai/gallery-gpu-loading-comparison.md` | `tai benchmark --compare` |
 
-Read `performance` from the `terminal.state` action. Pass `{"resetPerformance": true}` first so
+`DEVICE=<serial> PKG=<package> scripts/perf-baseline.sh [memory|frames|start|all]` takes the
+memory, frame and start-up rows and prints them as Markdown tables. Run it before and after the
+change on the same build type. When the launcher is the default home app, a force-stop relaunches
+it, so start-up runs come out warm and the script labels them that way.
+
+For terminal rendering, read `performance` from the `terminal.state` action. Pass `{"resetPerformance": true}` first so
 that the window, allocation and pane counters all start from zero. The fields are explained in
 `project-docs/reference/terminal/kitty-protocol-features.md`. Trace sections (`Trace.beginSection`)
 already exist for chrome, frost, accessory geometry, terminal append and the wall slide. Add one for
@@ -83,5 +89,5 @@ You are done with a change that touches the rules above when your report covers 
   it still owes a device check. A move bigger than the noise in the wrong direction makes the
   change **red**. Stop and report it. Do not tune it away.
 
-Nothing here is automated yet. There is no benchmark module and no scripted probe; CI checks neither
-APK size nor lint, and StrictMode is off. The checks are the ones you run.
+Nothing runs these checks for you. There is no benchmark module, CI checks neither APK size nor
+lint, and StrictMode is off. The script records numbers; comparing them is your job.
