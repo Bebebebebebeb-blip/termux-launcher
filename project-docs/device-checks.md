@@ -58,3 +58,8 @@ under twenty items; past that, the oldest are re-judged first.
   size, and nothing asks to pick a home app.
 - 2026-10-12 · PR #64 · The chip strip with your real usage on pong: Shizuku, Solid Explorer and
   the keyboard types as named chips, and typing "s" pins Shizuku.
+- 2026-10-12 · commit "feat(agent-skills): pack the launcher and speech skills for tlstore" · With
+  both tarballs from `scripts/pack-agent-skills.sh` unpacked into `~/.agents/skills/` and each
+  linked from `~/.claude/skills/`, Claude Code and Codex each: open a pane beside the shell and
+  wait on it; answer "how do I change the terminal font" from the docs, naming the settings path;
+  with the speech skill, read one answer aloud and stop when told · pong, by hand.

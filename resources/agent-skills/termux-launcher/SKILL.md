@@ -1,6 +1,6 @@
 ---
 name: termux-launcher
-description: Use when running as a coding agent (Claude Code, opencode) inside Termux Launcher (TERM_PROGRAM=termux-launcher) and you want to run or show something in a pane or window and wait on its output, notify the user, report progress, set your working/blocked/idle status, open an app or a browser on the display, or use terminal graphics/text features like kitty images or sized text.
+description: Use when running as a coding agent (Claude Code, Codex, OpenCode, pi or any agent) inside Termux Launcher (TERM_PROGRAM=termux-launcher) and you want to run or show something in a pane or window and wait on its output, notify the user, report progress, set your working/blocked/idle status, open an app or a browser on the display, use terminal graphics/text features like kitty images or sized text, or use terminal-browser to show or drive a web page beside the user. Also use when the user asks for help setting up or configuring Termux Launcher, or asks how something in the launcher works: settings, keyboard, panes, widgets, on-device AI, tlstore, Shizuku, X11, or the Nix or VAJ edition.
 ---
 
 # Termux Launcher
@@ -64,9 +64,27 @@ pane. Output is JSON; a refusal prints its JSON and exits 1, a command-line mist
 | Show an image | `terminal.md` | `sh "<skill dir>/scripts/show.sh" out.png` |
 | Use kitty graphics/text-sizing/links directly | `terminal.md` | — |
 | Open a browser or Linux app on the display | `display.md` | `launcherctl launch firefox` |
+| Show or drive a web page beside the user | *terminal-browser* below | `terminal-browser --help` |
+| Answer how the launcher works or how to set it up | `help.md` | — |
 
-`<skill dir>` is wherever this skill is installed (typically `~/.claude/skills/termux-launcher/`).
+`<skill dir>` is wherever this file lives. It is installed at `~/.agents/skills/termux-launcher/`,
+with `~/.claude/skills/termux-launcher` linked to it.
 Run scripts as `sh "<skill dir>/scripts/x.sh"` — they're POSIX sh, no shebang dependency assumed.
+
+## Helping the user with the launcher
+
+When the user asks how something in the launcher works or how to set it up, read the matching page
+under `<skill dir>/docs/` before you answer; `help.md` says which page answers what. Answer from the
+page, name the setting by its real on-screen path (Settings → … → …), and say so when the docs do
+not cover it. Upstream Termux docs and your memory describe a different app.
+
+## terminal-browser
+
+When the user wants a web page shown beside the shell, or wants you to drive a browser, use
+`terminal-browser` if `command -v terminal-browser` finds it; otherwise offer
+`tlstore install terminal-browser`. It opens its own pane through the launcher's pane API, and
+places it beside you when `launcherctl pane list` lists `placement` under `"features"`. Run
+`terminal-browser --help` for its commands. Never draw a page into your own pane.
 
 ## Panes in one breath
 
