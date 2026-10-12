@@ -118,7 +118,7 @@ for, and pick your downloaded terminal font again so it downloads on this phone.
 
 Downloaded on-device AI models are too large for the settings file, so they have their own rows.
 **Export AI models** shows how many models you have and how much space they take, and copies them
-into a folder you pick (it opens in Downloads). It makes a `Termux Launcher models` folder there,
+into a folder you pick (it opens in Documents). It makes a `Termux Launcher models` folder there,
 with one folder per model: chat models, speech-to-text, voice output, embedding and image models
 alike, each with every file it needs. The copy runs in the background with a notification you can
 cancel from; a model already saved there at the same size is skipped, so running it again finishes

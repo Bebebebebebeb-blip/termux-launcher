@@ -70,9 +70,15 @@ public final class BackupRestorePreferencesFragment extends MaterialPreferenceFr
     /** Long enough to read the one-sentence notice before the launcher restarts. */
     private static final long RESTART_AFTER_NOTICE_MS = 3000;
 
-    /** The shared Downloads folder, where the pickers open; a picker that cannot go there ignores it. */
+    /** The shared Downloads folder, where the settings file pickers open; a picker that cannot go there ignores it. */
     private static final Uri DOWNLOADS = DocumentsContract.buildDocumentUri(
         ModelExportService.EXTERNAL_STORAGE_AUTHORITY, "primary:" + android.os.Environment.DIRECTORY_DOWNLOADS);
+    /**
+     * Where the model folder pickers open. Android 11 and later will not hand out the Downloads
+     * folder itself as a tree ("Can't use this folder"), so a folder pick starts in Documents.
+     */
+    private static final Uri DOCUMENTS = DocumentsContract.buildDocumentUri(
+        ModelExportService.EXTERNAL_STORAGE_AUTHORITY, "primary:" + android.os.Environment.DIRECTORY_DOCUMENTS);
 
     private static final ExecutorService WORKER = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "settings-backup");
@@ -117,7 +123,7 @@ public final class BackupRestorePreferencesFragment extends MaterialPreferenceFr
         click(KEY_IMPORT, () -> mImportLauncher.launch(IMPORT_MIME_TYPES.clone()));
         click(KEY_EXPORT_MODELS, () -> {
             if (ModelExportService.isRunning()) AppNotice.show(getContext(), R.string.settings_backup_models_busy, false);
-            else mExportModelsLauncher.launch(DOWNLOADS);
+            else mExportModelsLauncher.launch(DOCUMENTS);
         });
         click(KEY_IMPORT_MODELS, mModelImport::startFolder);
     }
@@ -227,7 +233,7 @@ public final class BackupRestorePreferencesFragment extends MaterialPreferenceFr
     @Override
     public void pickFolder() {
         try {
-            mImportModelsLauncher.launch(DOWNLOADS);
+            mImportModelsLauncher.launch(DOCUMENTS);
         } catch (RuntimeException e) {
             Logger.logStackTraceWithMessage(LOG_TAG, "Opening the folder picker failed", e);
             AppNotice.show(getContext(), R.string.settings_backup_import_read_failed, false);
