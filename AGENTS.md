@@ -404,6 +404,11 @@ ones to keep if it changes:
   the website's download links (which skip prereleases) never point at one. CI aborts when a
   `-pre` tag's release lacks the flag. The plain tag is created last: its publish fires the Discord
   post that links the other two.
+- **One visible pre-release per edition.** Publishing a drop retires the one before it: its three
+  releases become drafts (invisible to users, APKs and tags kept, so a bug report that names
+  `1.1.0-pre.1` can still be reproduced from the draft), and drafts beyond the newest two drops
+  per edition are deleted, tag kept. The script does this after each edition's release is created;
+  nothing else touches old releases, and stables are never retired.
 - **Same key, same `versionCode`.** A drop is the same R8-shrunk, non-debuggable release build
   type as a stable, signed with `testkey_untrusted.jks`, with `versionCode` 1020. A user therefore
   installs stable over pre-release or the reverse with no uninstall and keeps their data; the
