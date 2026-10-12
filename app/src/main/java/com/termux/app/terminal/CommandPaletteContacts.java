@@ -38,11 +38,27 @@ public final class CommandPaletteContacts {
         public final String lookupKey;
 
         private final List<String> mNumbers = new ArrayList<>();
+        /**
+         * The photo set for the contact in Contacts, as a thumbnail uri, or null. Only the uri:
+         * the cache stays cheap, and the few photos the keycap strip shows are decoded on their
+         * own ({@link CommandPaletteContactPhotos}).
+         */
+        @Nullable private String mPhotoUri;
 
         Contact(@NonNull String name, long contactId, @NonNull String lookupKey) {
             this.name = name;
             this.contactId = contactId;
             this.lookupKey = lookupKey;
+        }
+
+        /** Keeps the first photo uri any of the contact's numbers carries. */
+        void notePhoto(@Nullable String uri) {
+            if (mPhotoUri == null && uri != null && !uri.isEmpty()) mPhotoUri = uri;
+        }
+
+        @Nullable
+        public String photoUri() {
+            return mPhotoUri;
         }
 
         void addNumber(@NonNull String number) {
@@ -125,6 +141,11 @@ public final class CommandPaletteContacts {
     private CommandPaletteContacts() {
     }
 
+    /** Runs {@code work} on the contacts worker, behind any load already queued. */
+    static void runInBackground(@NonNull Runnable work) {
+        LOADER.execute(work);
+    }
+
     /** Loads the warm cache on a worker; {@code callback} runs on the main thread. */
     public static void load(@NonNull Context context, @NonNull Callback callback) {
         LOADER.execute(() -> {
@@ -155,7 +176,8 @@ public final class CommandPaletteContacts {
                     ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
                     ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY,
                     ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                    ContactsContract.CommonDataKinds.Phone.NUMBER},
+                    ContactsContract.CommonDataKinds.Phone.NUMBER,
+                    ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI},
                 null, null,
                 ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
                     + " COLLATE LOCALIZED ASC");
@@ -168,6 +190,8 @@ public final class CommandPaletteContacts {
                 ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME);
             int numberColumn = cursor.getColumnIndex(
                 ContactsContract.CommonDataKinds.Phone.NUMBER);
+            int photoColumn = cursor.getColumnIndex(
+                ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI);
             while (cursor.moveToNext()) {
                 if (idColumn < 0 || lookupColumn < 0 || nameColumn < 0
                     || numberColumn < 0) break;
@@ -182,6 +206,7 @@ public final class CommandPaletteContacts {
                 }
                 String number = cursor.getString(numberColumn);
                 if (number != null) contact.addNumber(number.trim());
+                if (photoColumn >= 0) contact.notePhoto(cursor.getString(photoColumn));
             }
         } finally {
             if (cursor != null) cursor.close();

@@ -224,6 +224,15 @@ public final class CommandPaletteView extends View {
             return new Keycap(KIND_CONTACT, "", label, photo, initialOf(displayName));
         }
 
+        /**
+         * This contact's pill with its photo arrived. Same kind, label and initial, so the strip
+         * measures it exactly as before and nothing moves.
+         */
+        @NonNull
+        public Keycap withPhoto(@NonNull Drawable photo) {
+            return new Keycap(kind, glyph, label, photo, initial);
+        }
+
         /** Whether the mark is the monogram rather than artwork (an app icon or a photo). */
         boolean drawsMonogram() {
             return kind != KIND_ACTION && icon == null;
