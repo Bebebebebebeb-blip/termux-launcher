@@ -98,8 +98,10 @@ Known, left as they are: the live-blur fallbacks of the palette, the sheet, the 
     every Look. The earlier specular, a band at one brightness all round, read as a double rim and
     was dropped; this one is directional.
   - **Dispersion** (`uDisp`): the chromatic split at the rim, seven spectral taps where it is on
-    and the pixel is in the band, one tap everywhere else. 0 in every Look: it is the knob that
-    costs battery, and it is the user's to turn up.
+    and the pixel is in the band, one tap everywhere else. The split grows linearly across the
+    band to 16 dp at the rim at 100% (it followed the bevel profile at 6 dp first, which read as
+    nothing on a phone). 0 in every Look: it is the knob that costs battery, and it is the user's
+    to turn up.
   - The resting look with the shipped Looks changes only by the profile and the normal; Shine and
     Dispersion are off in all of them.
 - **Idle cost stays at zero.** Nothing redraws at rest, and uniforms change only while something moves.

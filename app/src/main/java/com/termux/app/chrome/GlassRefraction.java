@@ -81,8 +81,12 @@ public final class GlassRefraction {
         /** The brightest the bevel's lit side can be; 100% lands here. */
         static final float MAX_SPEC = 0.6f;
 
-        /** The widest the red/blue split gets at the rim, in dp; 100% lands here. */
-        static final float MAX_DISPERSION_DP = 6f;
+        /**
+         * The widest the red/blue split gets at the rim, in dp; 100% lands here. 6 dp read as
+         * nothing on a real phone (the taps sample the blurred wall, so only a wide split leaves
+         * a fringe), hence the width.
+         */
+        static final float MAX_DISPERSION_DP = 16f;
 
         /**
          * How far in the bevel light reaches, as a share of the edge width, and the narrowest and
@@ -320,10 +324,12 @@ public final class GlassRefraction {
         // end), green the middle three (and a seventh of the next one out), blue the three bent
         // most. Each channel's weights sum to 1, as alpha's seven sevenths do, so a flat picture
         // stays exactly as it was. Anywhere else, and on every Look with dispersion off, the one
-        // sample is the whole picture.
+        // sample is the whole picture. The split grows linearly across the band (x, not the bevel
+        // profile e): e is near zero over most of the band and only reaches the full width in the
+        // last pixel under the hairline, which left the fringe invisible at any setting.
         "    half4 col = half4(0.0);\n" +
-        "    if (uDisp > 0.0 && e > 0.0) {\n" +
-        "        float2 split = n * (e * uDisp);\n" +
+        "    if (uDisp > 0.0 && x > 0.0) {\n" +
+        "        float2 split = n * (x * uDisp);\n" +
         "        half4 c = content.eval(framePx(sampleCoord + split));\n" +
         "        col.r += c.r / 3.5; col.a += c.a / 7.0;\n" +
         "        c = content.eval(framePx(sampleCoord + split * (2.0 / 3.0)));\n" +
