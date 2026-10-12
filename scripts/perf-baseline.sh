@@ -53,7 +53,11 @@ header() {
   release="$(sh_ getprop ro.build.version.release)"
   version="$(sh_ dumpsys package "$PKG" | awk -F= '/versionName=/ { print $2; exit }')"
   [ -n "$version" ] || die "versionName not found in 'dumpsys package $PKG' (is $PKG installed?)"
-  refresh="$(sh_ dumpsys display | grep -oiE '(refreshRate|fps)=[0-9.]+' | head -1 | cut -d= -f2 || true)"
+  # SurfaceFlinger's "refresh-rate : 90.00 Hz" is the active mode; dumpsys display lists the
+  # supported modes first, so its first value is only a fallback.
+  refresh="$(sh_ dumpsys SurfaceFlinger | grep -m1 -oiE 'refresh-rate *: *[0-9.]+' | grep -oE '[0-9.]+$' || true)"
+  [ -n "$refresh" ] || refresh="$(sh_ dumpsys display | grep -oiE '(refreshRate|fps)=[0-9.]+' | head -1 | cut -d= -f2 || true)"
+  [ -z "$refresh" ] || refresh="$refresh Hz (display mode; read the app's own rate from the frame times)"
   echo "## Baseline: $PKG"
   echo
   echo "- Date: $(date -u +%Y-%m-%dT%H:%MZ)"
@@ -153,6 +157,12 @@ run_start() {
     out="$(sh_ am start -W -n "$ACTIVITY")"
     total="$(sed -n 's/^ *TotalTime: *\([0-9][0-9]*\).*/\1/p' <<<"$out" | head -1)"
     wait="$(sed -n 's/^ *WaitTime: *\([0-9][0-9]*\).*/\1/p' <<<"$out" | head -1)"
+    # Relaunched as home, the activity is already on top: am start only delivers the intent and
+    # prints no times, which is a result rather than a parse failure.
+    if [ -z "$total" ] && [ "$kind" != cold ] && grep -q 'intent has been delivered' <<<"$out"; then
+      echo "| $i | $kind | - | - |"
+      continue
+    fi
     [ -n "$total" ] || die "am start parse: TotalTime not found for run $i"
     [ -n "$wait" ] || die "am start parse: WaitTime not found for run $i"
     echo "| $i | $kind | $total | $wait |"
