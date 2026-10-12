@@ -22,6 +22,22 @@ public class WindowActivityRingStyleTest {
         assertEquals(Style.SMOOTH, Style.parse("spinner"));
         assertEquals(Style.CHASER, Style.parse("chaser"));
         assertEquals(Style.HEARTBEAT, Style.parse("heartbeat"));
+        assertEquals(Style.BREATHE, Style.parse("breathe"));
+    }
+
+    @Test
+    public void theBreathTicksAtSixHertzAndNeverGoesDark() {
+        long step = WindowActivityRing.BREATHE_STEP_MS;
+        for (long ms = 0; ms < 5000; ms += 7) {
+            long delay = WindowActivityRing.nextTickDelayMs(Style.BREATHE, ms);
+            assertTrue(delay > 0 && delay <= step);
+            assertEquals(0, (ms + delay) % step);
+            float level = WindowActivityRing.breatheLevel(ms);
+            assertTrue(level >= WindowActivityRing.BREATHE_FLOOR - 1e-6f && level <= 1f + 1e-6f);
+        }
+        assertEquals(WindowActivityRing.BREATHE_FLOOR, WindowActivityRing.breatheLevel(0), 1e-6f);
+        assertEquals(1f, WindowActivityRing.breatheLevel(WindowActivityRing.BREATHE_PERIOD_MS / 2),
+            1e-6f);
     }
 
     @Test

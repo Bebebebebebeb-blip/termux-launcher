@@ -60,12 +60,15 @@ public final class WindowActivityRing {
         /** One lit dash stepping round the outline with a fading tail, on an 8 Hz tick. */
         CHASER,
         /** One quick lap of the smooth arc, then a long still rest with no ticks at all. */
-        HEARTBEAT;
+        HEARTBEAT,
+        /** The whole edge in the ring colour, brightening and dimming, on a 6 Hz tick. */
+        BREATHE;
 
         /** The {@code debug.termux.ring_style} value; anything unknown or empty is smooth. */
         public static Style parse(String value) {
             if ("chaser".equals(value)) return CHASER;
             if ("heartbeat".equals(value)) return HEARTBEAT;
+            if ("breathe".equals(value)) return BREATHE;
             return SMOOTH;
         }
     }
@@ -92,6 +95,22 @@ public final class WindowActivityRing {
     public static final long HEARTBEAT_CYCLE_MS = 3000L;
     /** What {@link #heartbeatPassPhase} answers while the ring rests between passes. */
     public static final float HEARTBEAT_RESTING = -1f;
+
+    /**
+     * The breath: one slow in-and-out of the whole edge, stepped at 6 Hz. A change of brightness
+     * hides a coarse tick far better than a change of position does, which is the whole bet; the
+     * dimmest point keeps a quarter of the ring colour, so the chip never reads as having stopped.
+     */
+    public static final long BREATHE_PERIOD_MS = 1600L;
+    public static final long BREATHE_STEP_MS = 1000L / 6L;
+    public static final float BREATHE_FLOOR = 0.25f;
+
+    /** How much of the ring colour the edge carries at {@code nowMs}, in [floor, 1]. */
+    public static float breatheLevel(long nowMs) {
+        double turn = floorMod(nowMs, BREATHE_PERIOD_MS) / (double) BREATHE_PERIOD_MS;
+        float wave = (float) (0.5 - 0.5 * Math.cos(2.0 * Math.PI * turn));
+        return BREATHE_FLOOR + (1f - BREATHE_FLOOR) * wave;
+    }
 
     /** Which chaser dash is lit at {@code nowMs}: dash 0 starts where the smooth arc does. */
     public static int chaserLitDash(long nowMs) {
@@ -141,6 +160,8 @@ public final class WindowActivityRing {
                 }
                 return HEARTBEAT_CYCLE_MS - inCycle;
             }
+            case BREATHE:
+                return BREATHE_STEP_MS - floorMod(nowMs, BREATHE_STEP_MS);
             case SMOOTH:
             default:
                 return SMOOTH_TICK_MS;

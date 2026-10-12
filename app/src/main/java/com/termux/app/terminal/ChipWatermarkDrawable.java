@@ -382,6 +382,12 @@ final class ChipWatermarkDrawable extends Drawable {
                 drawChaser(canvas, length, now);
                 return;
             }
+            if (style == WindowActivityRing.Style.BREATHE) {
+                mStrokePaint.setColor(ColorUtils.setAlphaComponent(mRingColor, Math.round(
+                    Color.alpha(mRingColor) * WindowActivityRing.breatheLevel(now))));
+                canvas.drawPath(mOutline, mStrokePaint);
+                return;
+            }
             float turn;
             if (style == WindowActivityRing.Style.HEARTBEAT) {
                 turn = WindowActivityRing.heartbeatPassPhase(now);
