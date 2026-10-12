@@ -178,6 +178,8 @@ public final class TerminalCommandPaletteController
      * {@link CommandPaletteView#KEYCAP_COUNT}, refreshed whenever the cache lands.
      */
     private final Map<String, CommandPaletteContacts.Contact> mStripContacts = new HashMap<>();
+    /** The contact chips' photos, kept across shows so a reopened palette decodes nothing. */
+    private final CommandPaletteContactPhotos mContactPhotos = new CommandPaletteContactPhotos();
     private List<CommandPaletteView.Row> mRows = new ArrayList<>();
 
     /**
@@ -892,7 +894,12 @@ public final class TerminalCommandPaletteController
             if (cap == null) continue;
             entries.add(cap.entry);
             caps.add(cap.keycap);
-            if (cap.contact != null && mContactsLoaded) mStripContacts.put(key, cap.contact);
+            if (cap.contact == null) continue;
+            if (mContactsLoaded) mStripContacts.put(key, cap.contact);
+            // Shown as a monogram until the photo lands, which onContactPhoto swaps in.
+            if (cap.keycap.drawsMonogram())
+                mContactPhotos.request(mActivity, cap.contact.contactId, cap.contact.photoUri(),
+                    this::onContactPhoto);
         }
         if (onlyIfChanged && keys.equals(mKeycapKeys)) return;
         mKeycapKeys.clear();
@@ -902,6 +909,24 @@ public final class TerminalCommandPaletteController
         mKeycaps.clear();
         mKeycaps.addAll(caps);
         mView.setKeycaps(new ArrayList<>(mKeycaps));
+    }
+
+    /**
+     * A contact's photo has decoded: its chip trades the monogram for it, if the palette is still
+     * up and the contact still on the strip. The mark is the same size either way, so the strip
+     * keeps its layout.
+     */
+    private void onContactPhoto(long contactId, @NonNull Drawable photo) {
+        if (!mOpen || mView == null) return;
+        boolean changed = false;
+        for (int i = 0; i < mKeycapEntries.size(); i++) {
+            CommandPaletteFilter.Entry entry = mKeycapEntries.get(i);
+            if (!isContact(entry) || entry.arguments == null
+                || entry.arguments.optLong("contact_id", -1) != contactId) continue;
+            mKeycaps.set(i, mKeycaps.get(i).withPhoto(photo));
+            changed = true;
+        }
+        if (changed) mView.setKeycaps(new ArrayList<>(mKeycaps));
     }
 
     /** A strip key turned back into the row it runs and the chip that shows it. */
@@ -991,7 +1016,8 @@ public final class TerminalCommandPaletteController
                     new CommandPaletteContacts.Match(contact, number)), mContactShortcuts);
             if (rows.isEmpty()) return null;
             return new StripCap(rows.get(0), CommandPaletteView.Keycap.contact(
-                CommandPaletteStrip.firstName(contact.name), contact.name, null), contact);
+                CommandPaletteStrip.firstName(contact.name), contact.name,
+                mContactPhotos.cached(contact.contactId, contact.photoUri())), contact);
         }
     }
 
