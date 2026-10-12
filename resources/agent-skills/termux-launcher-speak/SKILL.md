@@ -28,10 +28,14 @@ The second line makes the audio without playing it. `Saved …` means speech wor
 Make this the last command of the turn, after the work is done and the answer is written:
 
 ```sh
-tai speak --stop >/dev/null 2>&1; printf '%s\n' "<spoken text>" | tai speak --whole
+tai speak --stop >/dev/null 2>&1
+tai speak --whole <<'SPOKEN'
+<spoken text>
+SPOKEN
 ```
 
-The first half silences anything still playing from an earlier turn.
+The first line silences anything still playing from an earlier turn. The quoted heredoc means
+the shell touches nothing in the text, so quotes, dollar signs and backticks are safe in it.
 
 The spoken text is one to three plain sentences: what you did or found, and what the user should
 do next.
@@ -41,8 +45,6 @@ do next.
   three minutes", "the Keyboard settings page".
 - Never speak tool output, logs or lists. Summarise them: "Four tests failed, all in the parser."
 - Keep it to a few hundred characters; `tai speak` takes 20,000, and you should never come near it.
-- Leave out double quotes, dollar signs and backticks, which the shell would expand inside the
-  quotes.
 
 `tai speak` returns only once the text has been heard, so a long spoken version holds up the turn.
 That is why it stays short.
@@ -58,7 +60,9 @@ That is why it stays short.
 Honour a voice or speed the user names, and keep it for the rest of the mode:
 
 ```sh
-printf '%s\n' "<spoken text>" | tai speak --whole --voice Rosie --speed 1.2
+tai speak --whole --voice Rosie --speed 1.2 <<'SPOKEN'
+<spoken text>
+SPOKEN
 ```
 
 Voices: `Bruno`, `Hugo`, `Jasper` (the default) and `Rosie`. Speed: 0.5 to 2.0. Without either,
