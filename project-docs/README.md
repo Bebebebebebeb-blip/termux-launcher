@@ -44,7 +44,8 @@ Three rules keep this directory from rotting:
 | [`active/keyboard-mis-input-correction.md`](active/keyboard-mis-input-correction.md) | Mis-tap correction on the in-app keyboard. Stage 1 built (`TapCorrectionController`); the rest is a study. |
 | [`active/input-latency-study.md`](active/input-latency-study.md) | Touch-to-intent latency measured on pong, 2026-09-08: twelve tactical fixes and seven architectural directions. Not started. |
 | [`active/perf-home-terminal-idle-handoff-2026-09-27.md`](active/perf-home-terminal-idle-handoff-2026-09-27.md) | Home to Terminal slide cost and idle redraw: symptoms and a code map. Not started. |
-| [`active/device-checks-pending-2026-09-27.md`](active/device-checks-pending-2026-09-27.md) | Device checks owed on pong. |
+| [`device-checks.md`](device-checks.md) | Device checks owed, rolling: Agent and Developer items, deleted once seen; read before every drop and cut. |
+| [`active/device-checks-pending-2026-09-27.md`](active/device-checks-pending-2026-09-27.md) | The 2026-09-27 parked list, to be folded into `device-checks.md` or dropped. |
 | [`active/termux-api-consolidation-research.md`](active/termux-api-consolidation-research.md) | Termux:API against the launcher: what to port, bridge, keep delegating or remove. |
 | [`active/terminal-url-tap-research.md`](active/terminal-url-tap-research.md) | Why tapping a link in the terminal often does nothing. Research, no decision yet. |
 
