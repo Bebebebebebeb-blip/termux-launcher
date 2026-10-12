@@ -3,7 +3,6 @@ package com.termux.app.terminal;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.termux.app.statusbar.WindowActivityRing;
 
 import org.junit.Test;
 
@@ -88,15 +87,6 @@ public class ChipWatermarkGeometryTest {
     }
 
     @Test
-    public void theArcCoversThreeQuartersOfTheOutline() {
-        assertEquals(.75f, ChipWatermarkGeometry.RING_SWEEP_FRACTION, .0001f);
-        assertEquals(.25f, ChipWatermarkGeometry.ringStartFraction(.25f), .0001f);
-        assertEquals(1280L, WindowActivityRing.SPIN_MS);
-        // A phase that has run past the turn starts again rather than running off the path.
-        assertEquals(.5f, ChipWatermarkGeometry.ringStartFraction(3.5f), .0001f);
-    }
-
-    @Test
     public void aReportedPercentageFillsItsShareOfTheOutline() {
         assertEquals(0f, ChipWatermarkGeometry.determinateFraction(0), .0001f);
         assertEquals(.42f, ChipWatermarkGeometry.determinateFraction(42), .0001f);
@@ -107,11 +97,10 @@ public class ChipWatermarkGeometryTest {
     }
 
     @Test
-    public void aTravellingSegmentWrapsAtTheSeamRatherThanStoppingThere() {
+    public void aSegmentWrapsAtTheSeamRatherThanStoppingThere() {
         float length = 200f;
-        float start = ChipWatermarkGeometry.segmentStartPx(length, .5f);
+        float start = 100f;
         float sweep = ChipWatermarkGeometry.segmentSweepPx(length, .75f);
-        assertEquals(100f, start, .0001f);
         assertEquals(150f, sweep, .0001f);
         // Half way round plus three quarters runs 50px past the end and continues from the start.
         assertEquals(50f, ChipWatermarkGeometry.segmentTailPx(length, start, sweep), .0001f);
@@ -120,7 +109,6 @@ public class ChipWatermarkGeometryTest {
         // A full turn never draws twice over itself.
         assertEquals(length,
             ChipWatermarkGeometry.segmentSweepPx(length, 2f), .0001f);
-        assertEquals(0f, ChipWatermarkGeometry.segmentStartPx(0f, .5f), .0001f);
     }
 
     @Test

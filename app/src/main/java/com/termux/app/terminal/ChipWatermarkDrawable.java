@@ -20,7 +20,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.graphics.ColorUtils;
 
-import com.termux.app.statusbar.RingStyleSwitch;
 import com.termux.app.statusbar.WindowActivityRing;
 
 /**
@@ -29,8 +28,8 @@ import com.termux.app.statusbar.WindowActivityRing;
  * two corner dots that carry the marks and the agent reading.
  *
  * <p>The chip's label is the title alone, so everything the label used to spend characters on lives
- * here instead, out of the text's way. Nothing is stored per frame: the arc and the breath read the
- * bar's one clock at draw time, so the bar only has to invalidate the chips that are moving.
+ * here instead, out of the text's way. Nothing is stored per frame: the breath reads the bar's one
+ * clock at draw time, so the bar only has to invalidate the chips that are moving.
  *
  * <p>All geometry comes from {@link ChipWatermarkGeometry}; this class is the paint.
  */
@@ -73,7 +72,7 @@ final class ChipWatermarkDrawable extends Drawable {
 
     private boolean mBusy;
     private int mProgress = TerminalWindowBar.WindowItem.NO_PERCENTAGE;
-    /** Lazy mode: a working chip is a still tint rather than a turning arc. */
+    /** Lazy mode: a working chip is a still tint rather than a breath. */
     private boolean mTinted;
     private int mRingColor;
 
@@ -84,7 +83,7 @@ final class ChipWatermarkDrawable extends Drawable {
 
     private boolean mRtl;
     /**
-     * Invalidated with the outline; the travelling arc needs the outline's length, not its shape.
+     * Invalidated with the outline; the percentage fill needs the outline's length, not its shape.
      * Set together with {@link #mMeasure}'s path, so a measure that has a length is a measure of
      * the current outline and a draw never has to hand it the path again.
      */
@@ -166,11 +165,9 @@ final class ChipWatermarkDrawable extends Drawable {
         return mBusy && mTinted && mProgress == TerminalWindowBar.WindowItem.NO_PERCENTAGE;
     }
 
-    /** TEMP ring-style A/B: whether this chip draws the breath rather than a travelling ring. */
+    /** Whether this chip breathes: working, not tinted, and with no percentage to fill. */
     private boolean breathing() {
-        return mBusy && !mTinted && mProgress == TerminalWindowBar.WindowItem.NO_PERCENTAGE
-            && RingStyleSwitch.current(SystemClock.uptimeMillis())
-                == WindowActivityRing.Style.BREATHE;
+        return mBusy && !mTinted && mProgress == TerminalWindowBar.WindowItem.NO_PERCENTAGE;
     }
 
     void setMark(@NonNull Mark mark, int markColor, int groundColor) {
@@ -303,8 +300,8 @@ final class ChipWatermarkDrawable extends Drawable {
             mFillPaint.setColor(ColorUtils.setAlphaComponent(mRingColor, ChipWatermarkGeometry.BUSY_TINT_ALPHA));
             canvas.drawPath(mOutline, mFillPaint);
         } else if (breathing()) {
-            // TEMP ring-style A/B: the breath fills the whole chip, not just its edge — lazy
-            // mode's working tint, brightening and dimming with the outline.
+            // The breath fills the whole chip, not just its edge: lazy mode's working tint,
+            // brightening and dimming with the outline.
             mFillPaint.setColor(ColorUtils.setAlphaComponent(mRingColor, Math.round(
                 ChipWatermarkGeometry.BUSY_TINT_ALPHA
                     * WindowActivityRing.breatheLevel(SystemClock.uptimeMillis()))));
@@ -367,9 +364,9 @@ final class ChipWatermarkDrawable extends Drawable {
     }
 
     /**
-     * The chip's edge, and — while a shell is working — the ring it becomes: an arc travelling the
-     * outline once a turn when the shell reports no number (in lazy mode, the whole edge in the ring
-     * colour, still, over a tinted fill), a clockwise fill over a faint track when it does.
+     * The chip's edge, and — while a shell is working — the ring it becomes: the whole edge
+     * breathing in the ring colour when the shell reports no number (in lazy mode, the same colour,
+     * still, over a tinted fill), a clockwise fill over a faint track when it does.
      */
     private void drawOutline(@NonNull Canvas canvas) {
         if (mStrokePx <= 0f) return;
@@ -388,33 +385,11 @@ final class ChipWatermarkDrawable extends Drawable {
         }
         float length = pathLengthPx();
         if (length <= 0f) return;
-        if (mProgress == TerminalWindowBar.WindowItem.NO_PERCENTAGE) {
-            long now = SystemClock.uptimeMillis();
-            // TEMP ring-style A/B: the smooth arc is the default; the other two are on trial.
-            WindowActivityRing.Style style = RingStyleSwitch.current(now);
-            if (style == WindowActivityRing.Style.CHASER) {
-                drawChaser(canvas, length, now);
-                return;
-            }
-            if (style == WindowActivityRing.Style.BREATHE) {
-                mStrokePaint.setColor(ColorUtils.setAlphaComponent(mRingColor, Math.round(
-                    Color.alpha(mRingColor) * WindowActivityRing.breatheLevel(now))));
-                canvas.drawPath(mOutline, mStrokePaint);
-                return;
-            }
-            float turn;
-            if (style == WindowActivityRing.Style.HEARTBEAT) {
-                turn = WindowActivityRing.heartbeatPassPhase(now);
-                // Resting between laps: the outline drawn above is the whole ring.
-                if (turn == WindowActivityRing.HEARTBEAT_RESTING) return;
-            } else {
-                turn = WindowActivityRing.phase(now);
-            }
-            float phase = ChipWatermarkGeometry.ringStartFraction(turn);
-            mStrokePaint.setColor(mRingColor);
-            drawSegment(canvas, length, ChipWatermarkGeometry.segmentStartPx(length, phase),
-                ChipWatermarkGeometry.segmentSweepPx(length,
-                    ChipWatermarkGeometry.RING_SWEEP_FRACTION));
+        if (breathing()) {
+            mStrokePaint.setColor(ColorUtils.setAlphaComponent(mRingColor, Math.round(
+                Color.alpha(mRingColor)
+                    * WindowActivityRing.breatheLevel(SystemClock.uptimeMillis()))));
+            canvas.drawPath(mOutline, mStrokePaint);
             return;
         }
         mStrokePaint.setColor(ColorUtils.setAlphaComponent(
@@ -431,26 +406,6 @@ final class ChipWatermarkDrawable extends Drawable {
         // The outline is built to start at the top-leading corner, so the fill simply runs from
         // the path's own beginning, whichever way the row reads.
         drawSegment(canvas, length, 0f, filled);
-    }
-
-    /**
-     * TEMP ring-style A/B. The chaser: the lit dash at the ring's full alpha and the two behind it
-     * fading, every other dash left to the resting outline. Dashes start at the path's own start,
-     * where the smooth arc does, and step the way the arc travels; none of them crosses the seam.
-     */
-    private void drawChaser(@NonNull Canvas canvas, float length, long now) {
-        int lit = WindowActivityRing.chaserLitDash(now);
-        float dashPx = length * WindowActivityRing.chaserDashLengthFraction();
-        int ringAlpha = Color.alpha(mRingColor);
-        for (int behind = 0; behind < WindowActivityRing.CHASER_TRAIL_LENGTH; behind++) {
-            int alpha = Math.round(ringAlpha * WindowActivityRing.chaserTrailAlpha(behind));
-            if (alpha <= 0) continue;
-            float startPx = length * WindowActivityRing.chaserDashStartFraction(lit - behind);
-            mStrokePaint.setColor(ColorUtils.setAlphaComponent(mRingColor, alpha));
-            mArc.rewind();
-            mMeasure.getSegment(startPx, Math.min(length, startPx + dashPx), mArc, true);
-            canvas.drawPath(mArc, mStrokePaint);
-        }
     }
 
     /**

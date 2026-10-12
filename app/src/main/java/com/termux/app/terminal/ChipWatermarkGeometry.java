@@ -1,10 +1,8 @@
 package com.termux.app.terminal;
 
-import com.termux.app.statusbar.WindowActivityRing;
-
 /**
  * Where everything a window chip draws behind and around its title goes: the watermark glyph's
- * strength, the arc that runs along the chip's own outline while a shell works, the corner dots
+ * strength, the ring that runs along the chip's own outline while a shell works, the corner dots
  * that carry the marks and the agent reading, and the width of the × segment as it opens.
  *
  * <p>Free of Android imports, so every number here is unit-testable and {@link
@@ -68,14 +66,10 @@ public final class ChipWatermarkGeometry {
     public static final int RING_TRACK_ALPHA = 56;
     /**
      * How strongly lazy mode tints a working chip's fill with the ring colour. Lazy mode draws a
-     * working window as a still colour instead of a turning arc, so nothing redraws while it works;
+     * working window as a still colour instead of a breath, so nothing redraws while it works;
      * strong enough to read across the strip at a glance, faint enough that the label stays legible.
      */
     public static final int BUSY_TINT_ALPHA = 72;
-
-    /** How much of the outline the indeterminate arc covers: the ring's 270°, as a fraction. */
-    public static final float RING_SWEEP_FRACTION =
-        WindowActivityRing.INDETERMINATE_SWEEP_DEG / 360f;
 
     /** The × the selected chip grows on its trailing side, and how long it takes to open. */
     public static final float CLOSE_SEGMENT_DP = 24f;
@@ -144,21 +138,9 @@ public final class ChipWatermarkGeometry {
         return direction > 0f ? Math.min(centre, limit) : Math.max(centre, limit);
     }
 
-    /** Where the turning arc starts on the outline at {@code phase} of the turn. */
-    public static float ringStartFraction(float phase) {
-        return phase - (float) Math.floor(phase);
-    }
-
     /** How much of the outline a reported percentage has filled. Clamped, like the ring's sweep. */
     public static float determinateFraction(int percent) {
         return Math.max(0, Math.min(100, percent)) / 100f;
-    }
-
-    /** Where a fraction of the way round falls, in pixels along a path {@code lengthPx} long. */
-    public static float segmentStartPx(float lengthPx, float startFraction) {
-        if (lengthPx <= 0f) return 0f;
-        float wrapped = startFraction - (float) Math.floor(startFraction);
-        return lengthPx * wrapped;
     }
 
     /** How long a segment covering {@code sweepFraction} of the outline runs. */
@@ -169,7 +151,7 @@ public final class ChipWatermarkGeometry {
 
     /**
      * The part of a segment that runs off the end of the path and continues from its start, or 0
-     * when it fits. The arc travels, so it spends most of the turn straddling the seam.
+     * when it fits.
      */
     public static float segmentTailPx(float lengthPx, float startPx, float sweepPx) {
         if (lengthPx <= 0f) return 0f;

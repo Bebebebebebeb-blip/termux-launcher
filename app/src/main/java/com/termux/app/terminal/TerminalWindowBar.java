@@ -36,7 +36,6 @@ import androidx.core.widget.ImageViewCompat;
 
 import com.google.android.material.color.MaterialColors;
 import com.termux.R;
-import com.termux.app.statusbar.RingStyleSwitch;
 import com.termux.app.statusbar.WindowActivityRing;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.terminal.TerminalSession;
@@ -382,13 +381,13 @@ public final class TerminalWindowBar extends HorizontalScrollView {
     private boolean mCreateButtonShown = true;
     @Nullable private ValueAnimator mSelectionAnimator;
     /**
-     * The clock the turning arcs redraw on. A timer rather than a {@link ValueAnimator}: an
-     * animator asks the Choreographer for a callback every vsync for as long as any shell is
-     * working, which on a 120 Hz panel kept the whole launcher drawing at 120 fps for one thin
-     * ring. The arc's angle comes from the clock either way, so the tick only decides how many
-     * positions it visits.
+     * The clock the breathing chips redraw on, at 4 Hz. A timer rather than a {@link
+     * ValueAnimator}: an animator asks the Choreographer for a callback every vsync for as long as
+     * any shell is working, which on a 120 Hz panel kept the whole launcher drawing at 120 fps for
+     * one chip. The breath's level comes from the clock either way, so the tick only decides how
+     * many steps it visits.
      */
-    @Nullable private Runnable mSmoothTick;
+    @Nullable private Runnable mBreathTick;
     /**
      * Window visibility as last reported, rather than read from getWindowVisibility(): the framework
      * dispatches this during attach, and reading it keeps the animator honest without depending on
@@ -1071,7 +1070,7 @@ public final class TerminalWindowBar extends HorizontalScrollView {
     }
 
     /**
-     * The turning arc is the only mark that needs frames; a percentage ring and every status dot
+     * The breath is the only mark that needs frames; a percentage ring and every status dot
      * are as static as the label.
      */
     private static boolean needsClock(@NonNull WindowItem item) {
@@ -1079,7 +1078,7 @@ public final class TerminalWindowBar extends HorizontalScrollView {
     }
 
     /**
-     * Lazy mode shows a working window as a colour instead of a turning ring: the chip's fill takes
+     * Lazy mode shows a working window as a colour instead of a breathing one: the chip's fill takes
      * a tint of the ring colour and its whole edge turns that colour, drawn once, so nothing redraws
      * for as long as the window stays busy. A stationary arc was tried once and read as a stuck
      * spinner; a changed chip reads as a state. A reported percentage still draws its still ring.
@@ -1094,49 +1093,46 @@ public final class TerminalWindowBar extends HorizontalScrollView {
 
     /**
      * One clock for the whole bar rather than one per pill: setWindows's removeAllViews() then has
-     * nothing to clean up, and every ring turns in phase. It only invalidates the pills that carry
-     * a turning arc; a percentage ring and a bell are as static as the label. It runs on a timer —
-     * about 30 a second for the smooth arc, less for the styles on trial, see
-     * {@link WindowActivityRing#nextTickDelayMs} — and not at all in lazy mode, where a working chip
-     * is a still tint.
+     * nothing to clean up, and every chip breathes in phase. It only invalidates the pills that
+     * breathe; a percentage ring and a bell are as static as the label. It runs on a timer — four
+     * a second, on the breath's own step boundaries, see {@link
+     * WindowActivityRing#nextBreatheTickDelayMs} — and not at all in lazy mode, where a working chip
+     * is a still tint. The turning arc this replaced redrew 30 times a second and cost close to half
+     * a core on the device.
      *
      * <p>Deliberately not folded into mSelectionAnimator. Both only invalidate, so they compose;
      * sharing one animator would stall the activity indication for the length of every window switch.
      */
     private void updateBusyAnimator() {
-        boolean smooth = hasIndeterminateWindow() && mAttached && mWindowVisible && !mLazyMode;
-        if (!smooth && mSmoothTick != null) {
-            removeCallbacks(mSmoothTick);
-            mSmoothTick = null;
+        boolean breathing = hasIndeterminateWindow() && mAttached && mWindowVisible && !mLazyMode;
+        if (!breathing && mBreathTick != null) {
+            removeCallbacks(mBreathTick);
+            mBreathTick = null;
         }
-        if (smooth && mSmoothTick == null) {
-            mSmoothTick = new Runnable() {
+        if (breathing && mBreathTick == null) {
+            mBreathTick = new Runnable() {
                 @Override public void run() {
-                    if (mSmoothTick != this) return;
-                    invalidateTurningRings();
+                    if (mBreathTick != this) return;
+                    invalidateBreathingRings();
                     postDelayed(this, nextRingTickDelayMs());
                 }
             };
-            postDelayed(mSmoothTick, nextRingTickDelayMs());
+            postDelayed(mBreathTick, nextRingTickDelayMs());
         }
     }
 
-    /**
-     * TEMP ring-style A/B: the wait until the rings next need a redraw, from the style on trial.
-     * The smooth arc's is the fixed {@link WindowActivityRing#SMOOTH_TICK_MS} it always was.
-     */
+    /** The wait until the breathing chips next need a redraw: to the next step boundary. */
     private static long nextRingTickDelayMs() {
-        long now = SystemClock.uptimeMillis();
-        return WindowActivityRing.nextTickDelayMs(RingStyleSwitch.current(now), now);
+        return WindowActivityRing.nextBreatheTickDelayMs(SystemClock.uptimeMillis());
     }
 
     /**
-     * For tests: how many times the turning rings have been asked to redraw since the row was
+     * For tests: how many times the breathing chips have been asked to redraw since the row was
      * built. The one number that says whether the ring is on the vsync clock or on its own.
      */
     @androidx.annotation.VisibleForTesting int mRingRedraws;
 
-    private void invalidateTurningRings() {
+    private void invalidateBreathingRings() {
         mRingRedraws++;
         for (int i = 0; i < mItems.size() && i < mTabs.getChildCount(); i++) {
             if (needsClock(mItems.get(i))) mTabs.getChildAt(i).invalidate();
@@ -1172,9 +1168,9 @@ public final class TerminalWindowBar extends HorizontalScrollView {
     protected void onDetachedFromWindow() {
         mAttached = false;
         cancelScrollAnimation();
-        if (mSmoothTick != null) {
-            removeCallbacks(mSmoothTick);
-            mSmoothTick = null;
+        if (mBreathTick != null) {
+            removeCallbacks(mBreathTick);
+            mBreathTick = null;
         }
         cancelCloseReveal();
         // A × is a four-second offer, not a state: a row that left the window comes back without it.
@@ -1219,10 +1215,10 @@ public final class TerminalWindowBar extends HorizontalScrollView {
         return mTabs.copyCurrentHighlightBounds(output);
     }
 
-    /** For tests: whether a working window's ring is turning right now. */
+    /** For tests: whether a working window's chip is breathing right now. */
     @androidx.annotation.VisibleForTesting
     public boolean isBusyAnimationRunning() {
-        return mSmoothTick != null;
+        return mBreathTick != null;
     }
 
     private TextView createTab(@NonNull WindowItem item, boolean selected) {

@@ -528,12 +528,12 @@ public class TerminalWindowBarTest {
     }
 
     /**
-     * The turning arc used to be driven by a ValueAnimator, so it redrew every working pill once
-     * per vsync — 154 times a turn on a 120 Hz panel, and a Choreographer callback every frame for
-     * as long as any shell was working. It now runs on a clock of its own at about 30 a second.
+     * The working ring used to be driven by a ValueAnimator, so it redrew every working pill once
+     * per vsync, a Choreographer callback every frame for as long as any shell was working. The
+     * breath runs on a clock of its own, four steps a second.
      */
     @Test
-    public void aTurningRingRedrawsOnItsOwnClockRatherThanEveryVsync() {
+    public void aBreathingChipRedrawsOnItsOwnClockRatherThanEveryVsync() {
         TerminalWindowBar bar = attachedBar();
         bar.setWindows(Arrays.asList(
             new TerminalWindowBar.WindowItem("home", "home", true)), 0);
@@ -541,18 +541,19 @@ public class TerminalWindowBarTest {
         int before = bar.mRingRedraws;
 
         org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper())
-            .idleFor(com.termux.app.statusbar.WindowActivityRing.SPIN_MS,
+            .idleFor(4000L,
                 java.util.concurrent.TimeUnit.MILLISECONDS);
 
         int redraws = bar.mRingRedraws - before;
-        assertTrue("one turn cost " + redraws + " redraws", redraws >= 30 && redraws <= 45);
+        // Four seconds at 4 Hz is about sixteen steps; vsync would be hundreds.
+        assertTrue("4 s cost " + redraws + " redraws", redraws >= 14 && redraws <= 18);
 
         // And it stops with the work, rather than ticking on behind an idle row.
         bar.setWindows(Arrays.asList(new TerminalWindowBar.WindowItem("home", "home")), 0);
         assertFalse(bar.isBusyAnimationRunning());
         int settled = bar.mRingRedraws;
         org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper())
-            .idleFor(com.termux.app.statusbar.WindowActivityRing.SPIN_MS,
+            .idleFor(4000L,
                 java.util.concurrent.TimeUnit.MILLISECONDS);
         assertEquals(settled, bar.mRingRedraws);
     }
