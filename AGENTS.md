@@ -57,12 +57,13 @@ measure them, and what your report must show.
 frames.** Read UI complaints as aesthetic first and ask before optimising a frame budget nobody
 complained about.
 
-### 4. Three editions, one development branch
+### 4. Three editions, fed only by merging
 
-Features live on `dev` and reach the three release branches (`main`, `nix-edition`,
-`io-vaj-package`) only by merging. A release branch carries nothing but its identity: applicationId,
+Content reaches the three release branches (`main`, `nix-edition`, `io-vaj-package`) only by
+merging `dev`. A release branch carries nothing but its identity: applicationId,
 `TERMUX_PACKAGE_NAME` (in `app/build.gradle` and `TermuxConstants`), `versionName`, manifest
-placeholders, ABI/split rules, bootstrap handling, CI matrix. Develop on `dev`, always.
+placeholders, ABI/split rules, bootstrap handling, CI matrix. New work starts on `pre`, and fixes
+for the current stable start on `dev`; see "Branches and releases".
 
 Every edition has its own package and so its own prefix, `/data/data/<pkg>/files/usr`. Name the
 package through `context.getPackageName()` or `TermuxConstants`; a literal `com.termux` in code is
@@ -97,7 +98,9 @@ other name (a place, a surface, a gesture, an edition), look it up in
    `app/build.gradle` (the v0.2.31 hotfix): applicationId, manifest placeholders and ABI rules are
    the only thing an edition branch owns, and a merge that takes `dev`'s side of that file silently
    ships the wrong app. Expect conflicts in `app/build.gradle` and `app/src/main/res/values/strings.xml`
-   on every cut; resolve identity and `versionName` to the edition's side. Diff `app/build.gradle`
+   on every cut, and in `.github/workflows/debug_build.yml` whenever `dev` touched its push
+   trigger (each edition names its own branch there); resolve identity, `versionName` and the
+   trigger to the edition's side. Diff `app/build.gradle`
    against the previous edition tag before tagging; the workflow's manifest guard is the backstop,
    not the check.
 
@@ -305,7 +308,15 @@ These were settled deliberately. Raise them if you think they are wrong; do not 
 
 ## Branches and releases
 
-All development happens on `dev`. Editions receive features exclusively by merging `dev`:
+Pick the route before you branch. Content only ever moves `pre` → `dev` → the release branches:
+
+| The work | Branch from and merge into | Reaches users as |
+|---|---|---|
+| A feature, or any change in behaviour | `pre` | the next pre-release drop; then the next stable, once `pre` is promoted into `dev` |
+| A fix for something the current stable has | `dev` | the next patch release (`dev` merged into each release branch); the next drop merges it into `pre` |
+| A fix for something only the channel has | `pre` | the next drop |
+
+Each edition has its own release branch, which receives `dev` by merging:
 
 - `main` — the Termux edition (`com.termux`). Merge `dev`, tag `vX.Y.Z`.
 - `nix-edition` — the Nix edition (`com.termux.launcher.nix`), tag `nix-vX.Y.Z`, published with
@@ -372,60 +383,65 @@ linking all three edition releases, so create the three in one pass and the plai
 
 ### The pre-release channel
 
-A second, rolling channel beside the stable releases: what is heading for the next stable, plus
-experiments that are not on `dev` yet. Like a stable, **a drop ships all three editions**.
+A second, rolling channel beside the stable releases, and **the first stop for new work**: the
+order is `pre` → `dev` → the release branches. Like a stable, a drop ships all three editions.
 `scripts/cut-prerelease.sh` performs a drop end to end; these are the rules it encodes, and the
 ones to keep if it changes:
 
-- **The branches `pre`, `pre-nix` and `pre-vaj` are disposable.** Every drop rebuilds them. The
-  drop's *content* is `dev` plus each experiment branch named on the command line, merged
-  `--no-ff`. `pre` is that content plus a `release: vX.Y.Z-pre.N` commit setting `versionName`;
-  `pre-nix` is `nix-edition` with the content merged in plus `release: nix-vX.Y.Z-pre.N`, and
-  `pre-vaj` the same from `io-vaj-package`. The edition pre branches keep their edition's identity
-  exactly as a release cut does (the script checks `applicationId` after the merge and stops on a
-  conflict for you to resolve to the edition's side). All three are force-pushed. Never branch
-  work from them, commit to them by hand, or merge them anywhere — not even into their edition
-  branch: an edition receives content only by merging `dev` at a stable cut. An experiment lives
-  on its own branch off `dev` until it is accepted; **accepting it means merging that branch into
-  `dev`**, after which it ships in the next stable like everything else. Dropping it means leaving
-  it out of the next drop.
+- **`pre` is the channel's own, persistent branch.** Feature work and pull requests that are
+  bound for the channel target `pre` and merge there; nothing is force-pushed. A drop first brings
+  `pre` level with `dev` (merged `--no-ff`), then merges any extra branch named on the command
+  line, then adds one `release: vX.Y.Z-pre.N` commit setting `versionName`. **Promotion is a
+  merge of `pre` into `dev`** when the developer accepts what the channel has had a round with.
+  Keep `dev`'s `versionName`: `dev` has usually not touched that line since the last drop, so git
+  takes `pre`'s `-pre.N` value without a conflict. Check `app/build.gradle` before committing the
+  merge, and put `dev`'s value back if needed. To leave something out of a promotion, revert it on
+  `pre` before merging. A fix for the current stable lands on `dev` (see the table above), and the
+  next drop merges it into `pre`.
+- **`pre-nix` and `pre-vaj` are disposable build branches**: rebuilt per drop in worktrees from
+  `origin/nix-edition` and `origin/io-vaj-package` with `pre` merged in, keeping their edition's
+  identity exactly as a release cut does (the script checks `applicationId` after the merge and
+  stops on a conflict for you to resolve to the edition's side). They are never pushed; their tags
+  carry the commits. Never merge them anywhere.
 - **Version `X.Y.Z-pre.N`.** `X.Y.Z` is the next minor above the current stable (`1.1.0-pre.1`
   while 1.0.x is current). A stable patch (`1.0.5`) does not change it; the stable `1.1.0` retires
   the series and the next drop is `1.2.0-pre.1`. `N` counts drops from 1 and is never reused. It is
   a semver prerelease, so it sorts above every 1.0.x and below 1.1.0; `validateVersionName`, CI and
-  the nightly regex all accept it. `dev`'s own `versionName` is untouched: nightlies keep naming
-  the stable they follow.
+  the nightly regex all accept it. `dev`'s own `versionName` is untouched. Between drops `pre`
+  carries the last drop's version, so nightlies from `pre` build as `X.Y.Z-pre.N+dev.<sha>`; the
+  script aligns that line with `dev`'s before each merge so it never conflicts.
 - **Tags `vX.Y.Z-pre.N`, `nix-vX.Y.Z-pre.N`, `vaj-vX.Y.Z-pre.N`**, annotated like the stable
-  tags, each on the `release:` commit of its pre branch. Every GitHub release is created
-  `--prerelease --latest=false`, so none becomes "Latest" and the website's download links (which
-  skip prereleases) never point at one. CI aborts when a `-pre` tag's release lacks the flag.
+  tags. Every GitHub release is created `--prerelease --latest=false`, so none becomes "Latest" and
+  the website's download links (which skip prereleases) never point at one. CI aborts when a
+  `-pre` tag's release lacks the flag. The plain tag is created last: its publish fires the Discord
+  post that links the other two.
 - **Same key, same `versionCode`.** A drop is the same R8-shrunk, non-debuggable release build
   type as a stable, signed with `testkey_untrusted.jks`, with `versionCode` 1020. A user therefore
   installs stable over pre-release or the reverse with no uninstall and keeps their data; the
   companion apps pair with both.
-- **Notes are rolling**: `project-docs/prerelease-notes.md` on `dev`, in the release-notes voice,
-  listing everything the channel carries beyond the **latest stable** — a `## Heading for the next
-  release` part (what is on `dev` since the last stable tag), a `## Experimental` part (the
-  experiment branches, one entry each, named so the developer can tell what to drop) and a
-  closing `## Editions` list with only what is exclusive to Nix or VAJ, as in the stable notes.
-  The whole file is every drop's release body, so each drop restates the list. When the stable ships, the
-  lines that shipped move into `release-notes-v<version>.md` and out of this file; the experiments
-  that did not ship stay.
+- **Notes are rolling**: `project-docs/prerelease-notes.md`, kept on `pre` (and so on `dev` after
+  a promotion), in the release-notes voice, listing everything the channel carries beyond the
+  **latest stable** — a `## Heading for the next release` part (what `dev` has since the last
+  stable tag), a `## Experimental` part (what is on `pre` and not yet on `dev`) and a closing
+  `## Editions` list with only what is exclusive to Nix or VAJ, as in the stable notes. The whole
+  file is every drop's release body (its guidance sits in HTML comments, which GitHub does not
+  render), so each drop restates the list. When the stable ships, the lines that shipped move into
+  `release-notes-v<version>.md` and out of this file; what has not shipped stays.
 - **tlstore** compares `min-launcher` numerically, so `min-launcher=1.1.0` is satisfied on
   `1.1.0-pre.N` builds: a store item can name the stable it will ship in and still show in the
   channel. On `1.0.x` it stays hidden.
 - Bug reports from the channel: ask for the version string from About, which ends in `-pre.N`;
-  the fix goes to `dev` (or the experiment branch) as usual.
+  the fix goes to `pre`, or to `dev` when the current stable has the bug too.
 
-The cut, as the script does it: `scripts/cut-prerelease.sh X.Y.Z-pre.N [experiment-branch …]`
-builds the content and the three pre branches in worktrees under `.claude/worktrees/`, sets each
-`versionName`, commits and tags, and prints what it would publish; `--publish` additionally
-force-pushes the branches, pushes the tags, runs `gh release create --prerelease --latest=false
---notes-file project-docs/prerelease-notes.md` for each and dispatches
-`attach_debug_apks_to_release.yml` on each tag. `--only nix` (or `termux`, `vaj`) redoes one
-edition after a conflict was resolved in its worktree. Run it on a clean `dev` whose notes already
-describe the drop, after the full suite is green on the drop's content. The same notes file is the
-body of all three releases.
+The cut, as the script does it: `scripts/cut-prerelease.sh X.Y.Z-pre.N [branch …]` opens `pre`
+in a worktree, merges `dev` and the named branches, sets `versionName`, commits and tags, builds
+the two edition branches the same way, and prints what it would publish; `--publish` additionally
+pushes `pre` and the three tags, runs `gh release create --prerelease --latest=false --notes-file
+project-docs/prerelease-notes.md` for each and dispatches `attach_debug_apks_to_release.yml` on
+each tag. Merges already done are skipped, so after resolving a conflict in a worktree you re-run
+the same command; `--only nix` (or `termux`, `vaj`) redoes one edition. A dry run leaves local
+tags: discard them (the script prints how) before publishing. Run it with the notes already
+describing the drop, after the full suite is green on `pre`.
 
 Release notes are the **only** changelog, and they live in exactly one place at a time:
 
