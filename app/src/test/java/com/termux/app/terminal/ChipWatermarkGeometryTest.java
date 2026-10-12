@@ -1,12 +1,12 @@
 package com.termux.app.terminal;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 
 
 import org.junit.Test;
 
-/** The chip watermark's numbers: strength, corner dots, the travelling arc, the × as it opens. */
+/** The chip watermark's numbers: strength, the tints, the travelling arc, the × as it opens. */
 public class ChipWatermarkGeometryTest {
 
     @Test
@@ -54,38 +54,6 @@ public class ChipWatermarkGeometryTest {
         assertEquals(0xC8000000, ChipWatermarkGeometry.haloColor(0x00000000));
     }
 
-    /**
-     * A rounded chip has room in its corners, and that is where the dot goes; a square one has
-     * none, so the dot is pulled back inside the edge rather than clipped off it.
-     */
-    @Test
-    public void aCornerDotLeavesTheOutlineAlongTheDiagonalButNeverTheChip() {
-        float dotRadius = 2.5f;
-        float gap = 2f;
-        float halo = 1f;
-
-        // Top-trailing on a 20-tall capsule chip: hard against the corner, halo still inside.
-        float cy = ChipWatermarkGeometry.dotCentreOnAxis(0f, 20f, 10f, gap, dotRadius, halo);
-        assertEquals(3.5f, cy, .001f);
-        float cx = ChipWatermarkGeometry.dotCentreOnAxis(60f, 0f, 10f, gap, dotRadius, halo);
-        assertEquals(56.5f, cx, .001f);
-
-        // Bottom-leading on the same chip: the other two edges, the same inset.
-        assertEquals(16.5f,
-            ChipWatermarkGeometry.dotCentreOnAxis(20f, 0f, 10f, gap, dotRadius, halo), .001f);
-        assertEquals(3.5f,
-            ChipWatermarkGeometry.dotCentreOnAxis(0f, 60f, 10f, gap, dotRadius, halo), .001f);
-
-        // A square chip: the diagonal buys nothing, and the clamp is what keeps the dot drawable.
-        assertEquals(3.5f,
-            ChipWatermarkGeometry.dotCentreOnAxis(0f, 20f, 0f, gap, dotRadius, halo), .001f);
-
-        // A radius larger than the chip is the capsule case, not a dot outside it.
-        float shallow = ChipWatermarkGeometry.dotCentreOnAxis(0f, 12f, 40f, gap, dotRadius, halo);
-        assertTrue(shallow >= dotRadius + halo);
-        assertTrue(shallow <= 12f - dotRadius - halo);
-    }
-
     @Test
     public void aReportedPercentageFillsItsShareOfTheOutline() {
         assertEquals(0f, ChipWatermarkGeometry.determinateFraction(0), .0001f);
@@ -111,13 +79,18 @@ public class ChipWatermarkGeometryTest {
             ChipWatermarkGeometry.segmentSweepPx(length, 2f), .0001f);
     }
 
+    /**
+     * The marks tint the whole chip now, so the corner dot's numbers are gone with it: a stray one
+     * left behind would be a size nothing draws at.
+     */
     @Test
-    public void aHollowMarkStaysTheSizeOfAFilledOne() {
-        // Failed and attention share the corner and the colour; only the stroke tells them apart,
-        // so the ring must not be drawn at some other size and read as a different mark.
-        assertTrue(ChipWatermarkGeometry.DOT_RING_WIDTH_DP > 0f);
-        assertTrue("the ring has to fit inside the dot it replaces",
-            ChipWatermarkGeometry.DOT_RING_WIDTH_DP < ChipWatermarkGeometry.DOT_DIAMETER_DP / 2f);
+    public void theCornerDotsGeometryIsGone() {
+        for (java.lang.reflect.Field field : ChipWatermarkGeometry.class.getDeclaredFields()) {
+            assertFalse(field.getName(), field.getName().startsWith("DOT_"));
+        }
+        for (java.lang.reflect.Method method : ChipWatermarkGeometry.class.getDeclaredMethods()) {
+            assertFalse(method.getName(), method.getName().startsWith("dot"));
+        }
     }
 
     @Test

@@ -181,8 +181,12 @@ public class TerminalWindowBarTest {
         assertEquals("work", ((TextView) tabs.getChildAt(1)).getText().toString());
     }
 
+    /**
+     * A window that is working and asking wears the ask: the mark tints the chip instead of the
+     * breath, so it holds still and costs no frames, and the breath comes back once it is seen.
+     */
     @Test
-    public void attentionAndBusyBothShow_onTheCornerAndOnTheOutline() {
+    public void aBellOutranksTheBreathAndHandsItBackOnceSeen() {
         TerminalWindowBar.WindowItem both = new TerminalWindowBar.WindowItem("home", "home")
             .withBusy(true).withAttention(true);
         assertTrue(both.busy);
@@ -194,18 +198,54 @@ public class TerminalWindowBarTest {
         TerminalWindowBar bar = attachedBar();
         bar.setWindows(Arrays.asList(both), 0);
         LinearLayout tabs = (LinearLayout) bar.getChildAt(0);
-        // The label is the title alone either way; the bell has the corner and the ring has the
-        // outline, so a window that is working and asking now says both at once.
+        // The label is the title alone either way; the bell takes the whole chip, still.
         assertEquals("home", ((TextView) tabs.getChildAt(0)).getText().toString());
         assertEquals(ChipWatermarkDrawable.Mark.ATTENTION, bar.chipWatermarkAt(0).mark());
         assertTrue(bar.chipWatermarkAt(0).busy());
-        assertTrue(bar.isBusyAnimationRunning());
+        assertFalse(bar.chipWatermarkAt(0).breathing());
+        assertFalse("a marked chip is static", TerminalWindowBar.needsClock(both));
+        assertFalse(bar.isBusyAnimationRunning());
 
-        // Acknowledged, the corner clears and the ring keeps turning.
+        // Lazy mode's working tint gives way to the mark the same way.
+        bar.setLazyMode(true);
+        assertFalse(bar.chipWatermarkAt(0).workingTint());
+        bar.setLazyMode(false);
+
+        // Acknowledged, the mark clears and the breath comes back.
         bar.setWindows(Arrays.asList(both.withAttention(false)), 0);
         assertEquals(ChipWatermarkDrawable.Mark.NONE, bar.chipWatermarkAt(0).mark());
         assertTrue(bar.chipWatermarkAt(0).busy());
+        assertTrue(bar.chipWatermarkAt(0).breathing());
+        assertTrue(TerminalWindowBar.needsClock(both.withAttention(false)));
         assertTrue(bar.isBusyAnimationRunning());
+    }
+
+    /**
+     * Each mark tints the chip in its own colour: done in the done colour and filled, attention in
+     * the attention colour and filled, and a failure in the attention colour as an edge alone — the
+     * hollow form is all that tells it from a window asking for the user.
+     */
+    @Test
+    public void eachMarkWearsItsColourAndOnlyAFailureGoesUnfilled() {
+        assertFalse(ChipWatermarkDrawable.Mark.NONE.filled());
+        assertTrue(ChipWatermarkDrawable.Mark.ATTENTION.filled());
+        assertTrue(ChipWatermarkDrawable.Mark.DONE.filled());
+        assertFalse(ChipWatermarkDrawable.Mark.FAILED.filled());
+
+        TerminalWindowBar bar = attachedBar();
+        TerminalWindowBar.WindowItem item = new TerminalWindowBar.WindowItem("build", "build");
+        bar.setWindows(Arrays.asList(item.withAttention(true), item.withDone(true),
+            item.withDone(true, true)), 0);
+        ChipWatermarkDrawable attention = bar.chipWatermarkAt(0);
+        ChipWatermarkDrawable done = bar.chipWatermarkAt(1);
+        ChipWatermarkDrawable failed = bar.chipWatermarkAt(2);
+        assertEquals(ChipWatermarkDrawable.Mark.ATTENTION, attention.mark());
+        assertEquals(ChipWatermarkDrawable.Mark.DONE, done.mark());
+        assertEquals(ChipWatermarkDrawable.Mark.FAILED, failed.mark());
+        assertTrue("done is not the attention colour", done.markColor() != attention.markColor());
+        assertEquals(attention.markColor(), failed.markColor());
+        // None of the three asks the bar for frames.
+        assertFalse(bar.isBusyAnimationRunning());
     }
 
     /**

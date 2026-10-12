@@ -2,8 +2,8 @@ package com.termux.app.terminal;
 
 /**
  * Where everything a window chip draws behind and around its title goes: the watermark glyph's
- * strength, the ring that runs along the chip's own outline while a shell works, the corner dots
- * that carry the marks and the agent reading, and the width of the × segment as it opens.
+ * strength, the ring that runs along the chip's own outline while a shell works, the tint a
+ * marked or lazily working chip takes, and the width of the × segment as it opens.
  *
  * <p>Free of Android imports, so every number here is unit-testable and {@link
  * ChipWatermarkDrawable} stays a thin sheet of paint calls. Distances are in pixels and the caller
@@ -33,14 +33,6 @@ public final class ChipWatermarkGeometry {
      * shadow, the label was already promised its tier without it.</p>
      */
     public static final int TITLE_HALO_ALPHA = 200;
-    /** A corner dot — a mark, or the agent reading — across. */
-    public static final float DOT_DIAMETER_DP = 5f;
-    /** How far past the outline a corner dot sits, where the chip's corner leaves room for it. */
-    public static final float DOT_GAP_DP = 2f;
-    /** The ring of ground colour around a corner dot, so it reads against the glyph underneath. */
-    public static final float DOT_HALO_DP = 1f;
-    /** The stroke of a hollow mark — a failure — so it reads as a ring, not a dot. */
-    public static final float DOT_RING_WIDTH_DP = 1.5f;
     /** The chip's outline, which is also the ring a working window draws. */
     public static final float OUTLINE_WIDTH_DP = 1f;
 
@@ -68,6 +60,8 @@ public final class ChipWatermarkGeometry {
      * How strongly lazy mode tints a working chip's fill with the ring colour. Lazy mode draws a
      * working window as a still colour instead of a breath, so nothing redraws while it works;
      * strong enough to read across the strip at a glance, faint enough that the label stays legible.
+     * A filled mark — attention or done — tints the chip in its own colour at the same strength,
+     * for the same two reasons.
      */
     public static final int BUSY_TINT_ALPHA = 72;
 
@@ -76,9 +70,6 @@ public final class ChipWatermarkGeometry {
     public static final long CLOSE_REVEAL_MS = 180L;
     /** The hairline between the title and the × it shares a chip with. */
     public static final float CLOSE_DIVIDER_DP = 1f;
-
-    /** cos 45°: a corner dot leaves the chip along the diagonal, not along one edge. */
-    private static final float DIAGONAL = (float) (1d / Math.sqrt(2d));
 
     private ChipWatermarkGeometry() {}
 
@@ -115,27 +106,6 @@ public final class ChipWatermarkGeometry {
      */
     public static int haloColor(int chipColor) {
         return (TITLE_HALO_ALPHA << 24) | (chipColor & 0x00FFFFFF);
-    }
-
-    /**
-     * Where a corner dot's centre sits on one axis, given the edge it hugs ({@code near}) and the
-     * opposite one.
-     *
-     * <p>The dot leaves the outline along the corner's diagonal, which is the only direction a
-     * rounded chip has room in: the arc is {@code radius} inside the bounding box's corner, so a
-     * dot pushed {@code gapPx} past it is still inside the chip the drawable is allowed to paint.
-     * A square chip has no such room, so the last term clamps the dot — halo included — back inside
-     * the edge rather than letting it be clipped away.
-     */
-    public static float dotCentreOnAxis(float near, float far, float radiusPx, float gapPx,
-                                        float dotRadiusPx, float haloPx) {
-        float direction = near >= far ? 1f : -1f;
-        float half = Math.abs(near - far) / 2f;
-        float radius = Math.max(0f, Math.min(radiusPx, half));
-        float arcCentre = near - direction * radius;
-        float centre = arcCentre + direction * (radius + gapPx + dotRadiusPx) * DIAGONAL;
-        float limit = near - direction * (dotRadiusPx + haloPx);
-        return direction > 0f ? Math.min(centre, limit) : Math.max(centre, limit);
     }
 
     /** How much of the outline a reported percentage has filled. Clamped, like the ring's sweep. */

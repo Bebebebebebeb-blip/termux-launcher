@@ -24,8 +24,8 @@ import com.termux.app.statusbar.WindowActivityRing;
 
 /**
  * One window chip's whole surface: its fill, the process glyph (or the window's own icon)
- * watermarked behind the title, the outline — which becomes the ring while a shell works — and the
- * two corner dots that carry the marks and the agent reading.
+ * watermarked behind the title, and the outline — which becomes the ring while a shell works, and
+ * takes the mark's colour, fill and all, while the window has news.
  *
  * <p>The chip's label is the title alone, so everything the label used to spend characters on lives
  * here instead, out of the text's way. Nothing is stored per frame: the breath reads the bar's one
@@ -36,17 +36,27 @@ import com.termux.app.statusbar.WindowActivityRing;
 final class ChipWatermarkDrawable extends Drawable {
 
     /**
-     * Which mark, if any, the chip's one status dot carries: this window wants the user, has just
-     * finished, or has just failed. One dot on one corner — a chip can no longer contradict itself
-     * by saying two things about the same window in two places.
+     * Which mark, if any, the chip wears: this window wants the user, has just finished, or has
+     * just failed. The whole chip carries it, as a working chip carries its tint, rather than a
+     * dot in one corner.
      */
-    enum Mark { NONE, ATTENTION, DONE, FAILED }
+    enum Mark {
+        NONE, ATTENTION, DONE, FAILED;
+
+        /**
+         * Whether the mark fills the chip as well as edging it. A failure is edge only: it shares
+         * the attention colour, and hollow against filled is what keeps "this went wrong" from
+         * reading as "this wants you", as the dot's ring against its disc did.
+         */
+        boolean filled() {
+            return this == ATTENTION || this == DONE;
+        }
+    }
 
     private final Paint mFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint mStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint mGlyphPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint mIconPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint mDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path mOutline = new Path();
     private final Path mArc = new Path();
     private final PathMeasure mMeasure = new PathMeasure();
@@ -78,8 +88,6 @@ final class ChipWatermarkDrawable extends Drawable {
 
     @NonNull private Mark mMark = Mark.NONE;
     private int mMarkColor;
-    private int mGroundColor;
-
 
     private boolean mRtl;
     /**
@@ -98,7 +106,6 @@ final class ChipWatermarkDrawable extends Drawable {
         // Filled, as the Nerd Font face draws it: the watermark is a printed mark, not an outline.
         mGlyphPaint.setStyle(Paint.Style.FILL);
         mIconPaint.setFilterBitmap(true);
-        mDotPaint.setStyle(Paint.Style.FILL);
     }
 
     /** The chip's own shape and colours; the selected chip's fill is the strip's, drawn beneath. */
@@ -160,21 +167,25 @@ final class ChipWatermarkDrawable extends Drawable {
         invalidateSelf();
     }
 
-    /** Whether this chip draws its working state as a still tint (lazy mode, no percentage). */
+    /**
+     * Whether this chip draws its working state as a still tint (lazy mode, no percentage). A mark
+     * outranks it: the news is what the user has to act on.
+     */
     boolean workingTint() {
-        return mBusy && mTinted && mProgress == TerminalWindowBar.WindowItem.NO_PERCENTAGE;
+        return mBusy && mTinted && mProgress == TerminalWindowBar.WindowItem.NO_PERCENTAGE
+            && mMark == Mark.NONE;
     }
 
-    /** Whether this chip breathes: working, not tinted, and with no percentage to fill. */
-    private boolean breathing() {
-        return mBusy && !mTinted && mProgress == TerminalWindowBar.WindowItem.NO_PERCENTAGE;
+    /** Whether this chip breathes: working, not tinted, unmarked, and with no percentage to fill. */
+    boolean breathing() {
+        return mBusy && !mTinted && mProgress == TerminalWindowBar.WindowItem.NO_PERCENTAGE
+            && mMark == Mark.NONE;
     }
 
-    void setMark(@NonNull Mark mark, int markColor, int groundColor) {
-        if (mMark == mark && mMarkColor == markColor && mGroundColor == groundColor) return;
+    void setMark(@NonNull Mark mark, int markColor) {
+        if (mMark == mark && mMarkColor == markColor) return;
         mMark = mark;
         mMarkColor = markColor;
-        mGroundColor = groundColor;
         invalidateSelf();
     }
 
@@ -208,6 +219,11 @@ final class ChipWatermarkDrawable extends Drawable {
     @NonNull
     Mark mark() {
         return mMark;
+    }
+
+    /** The colour the mark edges the chip in, and tints it with when the mark is filled. */
+    int markColor() {
+        return mMarkColor;
     }
 
     boolean busy() {
@@ -296,7 +312,15 @@ final class ChipWatermarkDrawable extends Drawable {
         // ending at the title's edge on top of it is the two crossing pills the user saw.
         mFillPaint.setColor(restingAlpha(mFillColor));
         canvas.drawPath(mOutline, mFillPaint);
-        if (workingTint()) {
+        if (mMark != Mark.NONE) {
+            // Lazy mode's working tint in the mark's colour: still, so a marked chip costs no
+            // frames, and the same strength, so news and work read with the same weight.
+            if (mMark.filled()) {
+                mFillPaint.setColor(ColorUtils.setAlphaComponent(mMarkColor,
+                    ChipWatermarkGeometry.BUSY_TINT_ALPHA));
+                canvas.drawPath(mOutline, mFillPaint);
+            }
+        } else if (workingTint()) {
             mFillPaint.setColor(ColorUtils.setAlphaComponent(mRingColor, ChipWatermarkGeometry.BUSY_TINT_ALPHA));
             canvas.drawPath(mOutline, mFillPaint);
         } else if (breathing()) {
@@ -310,7 +334,6 @@ final class ChipWatermarkDrawable extends Drawable {
 
         drawWatermark(canvas);
         drawOutline(canvas);
-        drawCornerDots(canvas);
     }
 
     /**
@@ -364,7 +387,8 @@ final class ChipWatermarkDrawable extends Drawable {
     }
 
     /**
-     * The chip's edge, and — while a shell is working — the ring it becomes: the whole edge
+     * The chip's edge, and what it becomes: the whole edge in the mark's colour while the window
+     * has news, which outranks any ring; otherwise, while a shell is working, the whole edge
      * breathing in the ring colour when the shell reports no number (in lazy mode, the same colour,
      * still, over a tinted fill), a clockwise fill over a faint track when it does.
      */
@@ -374,6 +398,11 @@ final class ChipWatermarkDrawable extends Drawable {
         if (Color.alpha(restingStroke) > 0) {
             mStrokePaint.setColor(restingStroke);
             canvas.drawPath(mOutline, mStrokePaint);
+        }
+        if (mMark != Mark.NONE) {
+            mStrokePaint.setColor(mMarkColor);
+            canvas.drawPath(mOutline, mStrokePaint);
+            return;
         }
         if (!mBusy) return;
 
@@ -419,41 +448,6 @@ final class ChipWatermarkDrawable extends Drawable {
         mMeasure.getSegment(startPx, Math.min(length, startPx + sweepPx), mArc, true);
         if (tail > 0f) mMeasure.getSegment(0f, tail, mArc, true);
         canvas.drawPath(mArc, mStrokePaint);
-    }
-
-    /** The chip's one status dot, on the top-trailing corner. */
-    private void drawCornerDots(@NonNull Canvas canvas) {
-        if (mMark == Mark.NONE) return;
-        drawDot(canvas, !mRtl, true, mMarkColor, mMark == Mark.FAILED);
-    }
-
-    /**
-     * A filled dot, or — for a failure — a ring of the same size. Failed and attention are both
-     * the error colour, because both are bad news; the shape is what separates "this went wrong"
-     * from "this wants you", so the two are never the same mark in the same place.
-     */
-    private void drawDot(@NonNull Canvas canvas, boolean right, boolean top, int color,
-                         boolean hollow) {
-        float radius = ChipWatermarkGeometry.DOT_DIAMETER_DP * mDensity / 2f;
-        float gap = ChipWatermarkGeometry.DOT_GAP_DP * mDensity;
-        float halo = ChipWatermarkGeometry.DOT_HALO_DP * mDensity;
-        float cx = ChipWatermarkGeometry.dotCentreOnAxis(right ? mRect.right : mRect.left,
-            right ? mRect.left : mRect.right, mCornerRadiusPx, gap, radius, halo);
-        float cy = ChipWatermarkGeometry.dotCentreOnAxis(top ? mRect.top : mRect.bottom,
-            top ? mRect.bottom : mRect.top, mCornerRadiusPx, gap, radius, halo);
-        mDotPaint.setStyle(Paint.Style.FILL);
-        mDotPaint.setColor(mGroundColor);
-        canvas.drawCircle(cx, cy, radius + halo, mDotPaint);
-        mDotPaint.setColor(color);
-        if (!hollow) {
-            canvas.drawCircle(cx, cy, radius, mDotPaint);
-            return;
-        }
-        float stroke = ChipWatermarkGeometry.DOT_RING_WIDTH_DP * mDensity;
-        mDotPaint.setStyle(Paint.Style.STROKE);
-        mDotPaint.setStrokeWidth(stroke);
-        canvas.drawCircle(cx, cy, radius - stroke / 2f, mDotPaint);
-        mDotPaint.setStyle(Paint.Style.FILL);
     }
 
     @Override public void setAlpha(int alpha) {

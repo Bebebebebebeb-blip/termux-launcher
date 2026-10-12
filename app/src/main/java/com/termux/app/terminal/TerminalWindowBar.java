@@ -119,8 +119,8 @@ public final class TerminalWindowBar extends HorizontalScrollView {
         public final boolean progressError;
         /**
          * What an AI coding agent in this window is doing, rolled up over its panes, or null when
-         * none of them is running one. Drawn as the status dot in front of the label; independent
-         * of every other mark, since an agent can be working in one pane while another rings.
+         * none of them is running one. Not drawn on its own: it drives the ring and the chip's
+         * mark in place of the shell's bell and busy reading, see {@link TerminalWindowBar#markFor}.
          */
         @Nullable public final AgentStatus.State agentState;
         /**
@@ -226,7 +226,7 @@ public final class TerminalWindowBar extends HorizontalScrollView {
                     doneFailed, agentState, icon);
         }
 
-        /** The rolled-up agent reading for this window's panes; null removes the dot. */
+        /** The rolled-up agent reading for this window's panes; null leaves it to the shell. */
         @NonNull
         public WindowItem withAgentState(@Nullable AgentStatus.State agentState) {
             return agentState == this.agentState ? this
@@ -360,7 +360,6 @@ public final class TerminalWindowBar extends HorizontalScrollView {
     private int mGlyphColor;
     private int mUnselectedHaloColor;
     private int mSelectedHaloColor;
-    private int mGroundColor;
     private int mBusyColor;
     private int mAttentionColor;
     private int mDoneColor;
@@ -882,7 +881,7 @@ public final class TerminalWindowBar extends HorizontalScrollView {
 
     /**
      * The pill's text: the window's title, and nothing else. Every indicator the label used to
-     * spend characters on — the process glyph, the ring, the bell, the tick, the agent dot — is
+     * spend characters on — the process glyph, the ring, the bell, the tick, the agent's reading — is
      * drawn by {@link ChipWatermarkDrawable} behind and around the title instead, so nine
      * characters of a directory are nine characters of a directory.
      *
@@ -912,7 +911,7 @@ public final class TerminalWindowBar extends HorizontalScrollView {
     }
 
     /**
-     * The one dot the chip carries, on its top-trailing corner.
+     * The one mark the chip wears, as a tint over the whole of it.
      *
      * <p>A pane running an agent is read from the agent, because the agent is the better witness.
      * The generic layer underneath cannot tell a Codex that has finished its turn from one that is
@@ -958,8 +957,9 @@ public final class TerminalWindowBar extends HorizontalScrollView {
 
     /**
      * Finished in the done colour, everything else in the attention colour. A failure shares that
-     * colour with a window asking for the user and is told apart by being drawn hollow: both are
-     * news you have to act on, and neither should be mistaken for the other.
+     * colour with a window asking for the user and is told apart by edging the chip without
+     * filling it ({@link ChipWatermarkDrawable.Mark#filled}): both are news you have to act on,
+     * and neither should be mistaken for the other.
      */
     private int markColor(@NonNull ChipWatermarkDrawable.Mark mark) {
         return mark == ChipWatermarkDrawable.Mark.DONE ? mDoneColor : mAttentionColor;
@@ -967,9 +967,10 @@ public final class TerminalWindowBar extends HorizontalScrollView {
 
     /**
      * Everything the chip draws that is not its title: the fill and outline, the process glyph (or
-     * the window's own icon) watermarked behind the text, the ring while a shell works, and the two
-     * corner dots. One drawable per pill, reused — the pills themselves are reused across a
-     * refresh, and a new background on every state change would cost a layout pass each time.
+     * the window's own icon) watermarked behind the text, the ring while a shell works, and the
+     * mark's tint, which outranks the ring. One drawable per pill, reused — the pills themselves
+     * are reused across a refresh, and a new background on every state change would cost a layout
+     * pass each time.
      */
     private void applyChipWatermark(@NonNull TextView tab, @NonNull WindowItem item,
                                     float selection) {
@@ -986,7 +987,7 @@ public final class TerminalWindowBar extends HorizontalScrollView {
         chip.setActivity(showsRing(item), item.progress,
             item.progressError ? mAttentionColor : mBusyColor, mLazyMode);
         ChipWatermarkDrawable.Mark mark = markFor(item);
-        chip.setMark(mark, markColor(mark), mGroundColor);
+        chip.setMark(mark, markColor(mark));
     }
 
     /**
@@ -1070,11 +1071,13 @@ public final class TerminalWindowBar extends HorizontalScrollView {
     }
 
     /**
-     * The breath is the only mark that needs frames; a percentage ring and every status dot
-     * are as static as the label.
+     * The breath is the only mark that needs frames; a percentage ring and every mark's tint are
+     * as static as the label. A marked chip draws its tint instead of the breath, so a working
+     * window with news costs no frames either.
      */
-    private static boolean needsClock(@NonNull WindowItem item) {
-        return showsRing(item) && item.progress == WindowItem.NO_PERCENTAGE;
+    static boolean needsClock(@NonNull WindowItem item) {
+        return showsRing(item) && item.progress == WindowItem.NO_PERCENTAGE
+            && markFor(item) == ChipWatermarkDrawable.Mark.NONE;
     }
 
     /**
@@ -1674,11 +1677,6 @@ public final class TerminalWindowBar extends HorizontalScrollView {
             // the glyph running behind them.
             mUnselectedHaloColor = ChipWatermarkGeometry.haloColor(mUnselectedFillColor);
             mSelectedHaloColor = ChipWatermarkGeometry.haloColor(mSelectedFillColor);
-            // The ground a corner dot is haloed against: the panel the row itself stands on, so a
-            // dot over the watermark still reads as a dot.
-            mGroundColor = ColorUtils.setAlphaComponent(MaterialColors.getColor(context,
-                com.termux.shared.R.attr.termuxColorSurfacePanelHigh,
-                ContextCompat.getColor(context, R.color.termux_surface_panel_high)), 255);
         } else {
             // The band was measured, so every colour is derived from what is really under it. The
             // alphas that used to be authored here are gone: 16/255 of termux_secondary over the
@@ -1693,9 +1691,6 @@ public final class TerminalWindowBar extends HorizontalScrollView {
             mGlyphColor = glass.glyph;
             mUnselectedHaloColor = glass.restingHalo;
             mSelectedHaloColor = glass.selectedHalo;
-            // The dot's halo is the chip it sits on, not the panel the row would stand on if it
-            // stood on a panel: over glass that panel colour is not on screen anywhere.
-            mGroundColor = glass.dotGround;
             // The marks ride the outline and each is the only carrier of its own fact, so they
             // take the outline's tier rather than the label's.
             boolean pale = mChromeInk != null
