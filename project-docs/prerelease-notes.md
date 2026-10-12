@@ -23,6 +23,8 @@ These may change or be dropped before they reach a stable release.
 - Search contacts from the command palette: type a name or a number, tap the result to open the contact, or tap its phone chip to dial. The first search offers a row to allow contact access. Thanks to @AbineshDev01 (#52, #53).
 - Settings › About & help has an Ask on Discord row, Documentation opens the website guide, and the help panel's support link goes to Discord (#58).
 - Hold any action or contact in the command palette to give it a keyboard shortcut, the way you already could with apps. Binding a row again moves its shortcut instead of adding a second one.
+- The chips under the command palette's search box show what you use most: actions, apps (with their icon) and contacts (with their photo, or their initial). Each chip is named after what it does, so the keyboard's split, docked and floating no longer all read "set".
+- A search you repeat puts the result you pick most at the top, rather than the one you picked last.
 
 ## Editions
 <!-- Only what is exclusive to the Nix or VAJ build of this drop; say so when nothing is. -->

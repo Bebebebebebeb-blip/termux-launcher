@@ -27,7 +27,11 @@ import static org.junit.Assert.assertTrue;
 public class CommandPaletteMergedRankingTest {
 
     private static final Map<String, Double> NO_USAGE = Collections.emptyMap();
-    private static final Map<String, Long> NO_MEMORY = Collections.emptyMap();
+    private static final Map<String, CommandPaletteQueryMemory.Remembered> NO_MEMORY =
+        Collections.emptyMap();
+    private static final long DAY_MS = 24L * 60L * 60L * 1000L;
+    /** A fixed "now" for query memory, so decay is the same on every run. */
+    private static final long NOW = 400L * DAY_MS;
 
     // ------------------------------------------------------------------ fixtures
 
@@ -215,30 +219,96 @@ public class CommandPaletteMergedRankingTest {
         memory.record("Term ", CommandPaletteActionStats.keyFor(app), 1_000L);
 
         assertEquals(Arrays.asList("Termux", "Term"), titles(CommandPaletteRanking.rank(
-            candidates, NO_USAGE, NO_USAGE, memory.picksFor("term"))));
+            candidates, NO_USAGE, NO_USAGE, memory.picksFor("term", NOW))));
         // Normalized: case, spaces and the actions-only marker do not split the memory.
-        assertEquals(memory.picksFor("term"), memory.picksFor("  >TERM "));
+        assertEquals(memory.picksFor("term", NOW), memory.picksFor("  >TERM ", NOW));
         // Another query has nothing to say.
-        assertTrue(memory.picksFor("ter").isEmpty());
+        assertTrue(memory.picksFor("ter", NOW).isEmpty());
     }
 
+    /**
+     * The phone's own book for "s": Shizuku picked six times, Solid Explorer four, Steam three and
+     * most recently. The habit leads, not the last pick.
+     */
     @Test
-    public void queryMemory_mostRecentPickWins() {
+    public void queryMemory_pinsTheMostPickedRowNotTheLatest() {
+        CommandPaletteFilter.Entry shizuku = appRow("moe.shizuku.privileged.api/.Main", "Shizuku");
+        CommandPaletteFilter.Entry solid = appRow("pl.solidexplorer2/.Main", "Solid Explorer");
+        CommandPaletteFilter.Entry steam = appRow("com.valvesoftware.android.steam/.Main", "Steam");
+        List<CommandPaletteRanking.Candidate> candidates = Arrays.asList(
+            candidate(solid, CommandPaletteRanking.Source.APP, 90),
+            candidate(steam, CommandPaletteRanking.Source.APP, 90),
+            candidate(shizuku, CommandPaletteRanking.Source.APP, 90));
+
+        CommandPaletteQueryMemory memory = new CommandPaletteQueryMemory();
+        for (int i = 0; i < 6; i++)
+            memory.record("s", CommandPaletteActionStats.keyFor(shizuku), NOW - 6 * DAY_MS + i);
+        for (int i = 0; i < 4; i++)
+            memory.record("s", CommandPaletteActionStats.keyFor(solid), NOW - 4 * DAY_MS + i);
+        for (int i = 0; i < 3; i++)
+            memory.record("S", CommandPaletteActionStats.keyFor(steam), NOW - DAY_MS + i);
+
+        List<CommandPaletteFilter.Entry> ranked = CommandPaletteRanking.rank(
+            candidates, NO_USAGE, NO_USAGE, memory.picksFor("s", NOW));
+        assertEquals("Shizuku", ranked.get(0).title);
+        // Only one row is pinned; the others keep the order they would have had anyway.
+        assertEquals(Arrays.asList("Shizuku", "Steam", "Solid Explorer"), titles(ranked));
+    }
+
+    /** Picks decay like usage: a habit left for months yields to what is picked now. */
+    @Test
+    public void queryMemory_oldPicksDecay() {
         CommandPaletteFilter.Entry vertical = action("pane.split_vertical", "Split vertically");
         CommandPaletteFilter.Entry horizontal = action("pane.split_horizontal", "Split horizontally");
         List<CommandPaletteRanking.Candidate> candidates =
             CommandPaletteRanking.actionCandidates(Arrays.asList(vertical, horizontal), "split");
 
         CommandPaletteQueryMemory memory = new CommandPaletteQueryMemory();
-        memory.record("split", "pane.split_horizontal", 1_000L);
-        memory.record("split", "pane.split_horizontal", 2_000L);
-        memory.record("split", "pane.split_vertical", 3_000L);
+        for (int i = 0; i < 5; i++)
+            memory.record("split", "pane.split_horizontal", NOW - 90 * DAY_MS + i);
+        memory.record("split", "pane.split_vertical", NOW - DAY_MS);
         assertEquals("Split vertically", CommandPaletteRanking.rank(
-            candidates, NO_USAGE, NO_USAGE, memory.picksFor("split")).get(0).title);
+            candidates, NO_USAGE, NO_USAGE, memory.picksFor("split", NOW)).get(0).title);
+    }
 
-        memory.record("split", "pane.split_horizontal", 4_000L);
+    @Test
+    public void queryMemory_recencyBreaksATie() {
+        CommandPaletteFilter.Entry vertical = action("pane.split_vertical", "Split vertically");
+        CommandPaletteFilter.Entry horizontal = action("pane.split_horizontal", "Split horizontally");
+        List<CommandPaletteRanking.Candidate> candidates =
+            CommandPaletteRanking.actionCandidates(Arrays.asList(vertical, horizontal), "split");
+
+        // Picked once each, both in the future of NOW, so neither has decayed at all.
+        CommandPaletteQueryMemory memory = new CommandPaletteQueryMemory();
+        memory.record("split", "pane.split_horizontal", NOW + 1_000L);
+        memory.record("split", "pane.split_vertical", NOW + 2_000L);
+        assertEquals("Split vertically", CommandPaletteRanking.rank(
+            candidates, NO_USAGE, NO_USAGE, memory.picksFor("split", NOW)).get(0).title);
+
+        // More picks outweigh any recency: three against two.
+        memory.record("split", "pane.split_horizontal", NOW + 3_000L);
+        memory.record("split", "pane.split_vertical", NOW + 4_000L);
+        memory.record("split", "pane.split_horizontal", NOW + 5_000L);
         assertEquals("Split horizontally", CommandPaletteRanking.rank(
-            candidates, NO_USAGE, NO_USAGE, memory.picksFor("split")).get(0).title);
+            candidates, NO_USAGE, NO_USAGE, memory.picksFor("split", NOW)).get(0).title);
+    }
+
+    /** A disabled row is never the one pinned, however often it was picked. */
+    @Test
+    public void queryMemory_neverPinsADisabledRow() {
+        CommandPaletteFilter.Entry enabled = action("pane.split_vertical", "Split vertically");
+        CommandPaletteFilter.Entry disabled = new CommandPaletteFilter.Entry(
+            "pane.split_horizontal", "Split horizontally", "", "pane",
+            Collections.<String>emptyList(), false, "No pane", false,
+            LauncherToolRegistry.ToolRisk.LOW);
+        List<CommandPaletteRanking.Candidate> candidates =
+            CommandPaletteRanking.actionCandidates(Arrays.asList(disabled, enabled), "split");
+
+        CommandPaletteQueryMemory memory = new CommandPaletteQueryMemory();
+        for (int i = 0; i < 5; i++) memory.record("split", "pane.split_horizontal", NOW + i);
+        memory.record("split", "pane.split_vertical", NOW);
+        assertEquals("Split vertically", CommandPaletteRanking.rank(
+            candidates, NO_USAGE, NO_USAGE, memory.picksFor("split", NOW)).get(0).title);
     }
 
     @Test
@@ -249,7 +319,7 @@ public class CommandPaletteMergedRankingTest {
         CommandPaletteQueryMemory memory = new CommandPaletteQueryMemory();
         memory.record("split", "app.launch {\"query\":\"gone\"}", 1_000L);
         assertEquals(Collections.singletonList("Split"), titles(CommandPaletteRanking.rank(
-            candidates, NO_USAGE, NO_USAGE, memory.picksFor("split"))));
+            candidates, NO_USAGE, NO_USAGE, memory.picksFor("split", NOW))));
     }
 
     @Test
@@ -270,9 +340,9 @@ public class CommandPaletteMergedRankingTest {
         memory.record("fresh", "row", 10_001L);
 
         assertEquals(CommandPaletteQueryMemory.MAX_QUERIES, memory.size());
-        assertFalse(memory.picksFor("q0").isEmpty());
-        assertTrue(memory.picksFor("q1").isEmpty());
-        assertFalse(memory.picksFor("fresh").isEmpty());
+        assertFalse(memory.picksFor("q0", NOW).isEmpty());
+        assertTrue(memory.picksFor("q1", NOW).isEmpty());
+        assertFalse(memory.picksFor("fresh", NOW).isEmpty());
     }
 
     @Test
@@ -283,11 +353,11 @@ public class CommandPaletteMergedRankingTest {
         memory.record("q0", "row", 10_000L);
 
         CommandPaletteQueryMemory read = CommandPaletteQueryMemory.fromJson(memory.toJson());
-        assertEquals(memory.picksFor("q0"), read.picksFor("q0"));
+        assertEquals(memory.picksFor("q0", NOW), read.picksFor("q0", NOW));
         // Recency rebuilt from the stored times: q1 is still the first to go.
         read.record("fresh", "row", 10_001L);
-        assertTrue(read.picksFor("q1").isEmpty());
-        assertFalse(read.picksFor("q0").isEmpty());
+        assertTrue(read.picksFor("q1", NOW).isEmpty());
+        assertFalse(read.picksFor("q0", NOW).isEmpty());
 
         assertEquals(0, CommandPaletteQueryMemory.fromJson("not json").size());
         assertEquals(0, CommandPaletteQueryMemory.fromJson(null).size());

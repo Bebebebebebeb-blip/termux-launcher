@@ -17,7 +17,8 @@ import java.util.Map;
  * <p>Order, strongest first:
  *
  * <ol>
- *   <li>the row last picked for exactly this query ({@link CommandPaletteQueryMemory});
+ *   <li>the row picked most for exactly this query, its picks decayed like usage and recency
+ *       breaking a tie ({@link CommandPaletteQueryMemory});
  *   <li>match quality, whichever source the row came from;
  *   <li>decayed usage, and only between rows of equal match quality, so a favourite can never
  *       jump a better match;
@@ -114,27 +115,30 @@ public final class CommandPaletteRanking {
      *
      * @param appUsage   decayed launches by app stable id
      * @param rowUsage   decayed palette runs by {@link CommandPaletteActionStats#keyFor row key}
-     * @param remembered rows picked before for this exact query, row key to when; the newest one
-     *                   present (and enabled) goes first
+     * @param remembered rows picked before for this exact query, row key to its pick weight; the
+     *                   heaviest one present (and enabled) goes first, the more recent on a tie,
+     *                   and the rest keep their places below
      */
     @NonNull
-    static List<CommandPaletteFilter.Entry> rank(@NonNull List<Candidate> candidates,
-                                                 @NonNull Map<String, Double> appUsage,
-                                                 @NonNull Map<String, Double> rowUsage,
-                                                 @NonNull Map<String, Long> remembered) {
+    static List<CommandPaletteFilter.Entry> rank(
+        @NonNull List<Candidate> candidates,
+        @NonNull Map<String, Double> appUsage,
+        @NonNull Map<String, Double> rowUsage,
+        @NonNull Map<String, CommandPaletteQueryMemory.Remembered> remembered) {
         List<Ranked> ranked = new ArrayList<>(candidates.size());
         Ranked pinned = null;
-        long pinnedAt = Long.MIN_VALUE;
+        CommandPaletteQueryMemory.Remembered pinnedWeight = null;
         for (int i = 0; i < candidates.size(); i++) {
             Candidate candidate = candidates.get(i);
             Ranked item = new Ranked(candidate, usage(candidate, appUsage, rowUsage), i);
             ranked.add(item);
             // A disabled row would only greet the user with its reason, so it is not pinned.
-            Long pickedAt = remembered.isEmpty() || !candidate.entry.enabled ? null
-                : remembered.get(CommandPaletteActionStats.keyFor(candidate.entry));
-            if (pickedAt != null && pickedAt > pinnedAt) {
+            CommandPaletteQueryMemory.Remembered weight =
+                remembered.isEmpty() || !candidate.entry.enabled ? null
+                    : remembered.get(CommandPaletteActionStats.keyFor(candidate.entry));
+            if (weight != null && (pinnedWeight == null || weight.outranks(pinnedWeight))) {
                 pinned = item;
-                pinnedAt = pickedAt;
+                pinnedWeight = weight;
             }
         }
         if (pinned != null) pinned.pinned = true;
