@@ -18,11 +18,16 @@
 #
 # Without --publish nothing leaves this machine: the worktrees stay under .claude/worktrees/ for
 # inspection and the publish commands are printed. With --publish: push pre and the three tags,
-# create the GitHub releases (--prerelease --latest=false) and dispatch the APK build on each tag.
-# The edition branches themselves are never pushed; their tags carry the commits.
+# create the GitHub releases (--prerelease --latest=false), dispatch the APK build on each tag, and
+# retire the drop before: its releases become drafts (kept with their APKs and tags, for a bug
+# report that names the build), and drafts beyond the newest KEEP_RETIRED drops are deleted, tag
+# kept. The public list shows one pre-release per edition. The edition branches themselves are
+# never pushed; their tags carry the commits.
 set -euo pipefail
 
 REPO_SLUG="PickleHik3/termux-launcher"
+# Retired drops kept as drafts per edition; older drafts are deleted (their tags stay).
+KEEP_RETIRED=2
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WT_DIR="$ROOT/.claude/worktrees"
 NOTES="project-docs/prerelease-notes.md"
@@ -65,6 +70,8 @@ src_of()    { case "$1" in nix) echo "${EDITION_REF}nix-edition" ;; vaj) echo "$
 branch_of() { case "$1" in termux) echo pre ;; nix) echo pre-nix ;; vaj) echo pre-vaj ;; esac; }
 tag_of()    { case "$1" in termux) echo "v$VERSION" ;; nix) echo "nix-v$VERSION" ;; vaj) echo "vaj-v$VERSION" ;; esac; }
 appid_of()  { case "$1" in termux) echo com.termux ;; nix) echo com.termux.launcher.nix ;; vaj) echo io.vaj.tl ;; esac; }
+# An edition's pre-release tags: the prefix of tag_of, then X.Y.Z-pre.N and nothing else.
+tag_re_of() { case "$1" in termux) echo '^v[0-9]+\.[0-9]+\.[0-9]+-pre\.[0-9]+$' ;; nix) echo '^nix-v[0-9]+\.[0-9]+\.[0-9]+-pre\.[0-9]+$' ;; vaj) echo '^vaj-v[0-9]+\.[0-9]+\.[0-9]+-pre\.[0-9]+$' ;; esac; }
 if [ -n "$ONLY" ]; then
     case "$ONLY" in termux|nix|vaj) EDITIONS=("$ONLY") ;; *) die "--only takes termux, nix or vaj" ;; esac
 fi
@@ -171,7 +178,8 @@ if [ "$PUBLISH" -ne 1 ]; then
         echo "  gh release create '$t' --repo $REPO_SLUG --prerelease --latest=false --title '$t' --notes-file '$PRE_WT/$NOTES'"
         echo "  gh workflow run attach_debug_apks_to_release.yml --repo $REPO_SLUG --ref '$t' -f release_tag='$t'"
     done
-    echo "or re-run this script with --publish. To discard the drop:"
+    echo "or re-run this script with --publish, which also retires the previous drop (drafts, then"
+    echo "deletes beyond the newest $KEEP_RETIRED drafts per edition). To discard the drop:"
     for e in "${EDITIONS[@]}"; do
         [ "$e" = termux ] && { echo "  git tag -d 'v$VERSION' && git -C '$PRE_WT' reset -q --hard origin/pre   # pre: back to origin"; continue; }
         echo "  git worktree remove --force '$WT_DIR/$(branch_of "$e")' && git branch -D $(branch_of "$e") && git tag -d '$(tag_of "$e")'"
@@ -179,12 +187,30 @@ if [ "$PUBLISH" -ne 1 ]; then
     exit 0
 fi
 
+# The drop before this one, per edition: every other published pre-release becomes a draft, and
+# drafts beyond the newest KEEP_RETIRED are deleted. A release that cannot be found is skipped;
+# the tag is never touched. Read-only listing first, so a failing gh never half-retires.
+retire_previous() { # <edition> <this drop's tag>
+    local re; re="$(tag_re_of "$1")"
+    gh release list --repo "$REPO_SLUG" --limit 200 --json tagName,isDraft,isPrerelease \
+        --jq '.[] | select(.isPrerelease and (.isDraft|not)) | .tagName' \
+        | grep -E "$re" | grep -vx "$2" | while read -r old; do
+            gh release edit "$old" --repo "$REPO_SLUG" --draft >/dev/null && echo "retired $old to a draft"
+        done
+    gh release list --repo "$REPO_SLUG" --limit 200 --json tagName,isDraft,isPrerelease,createdAt \
+        --jq '[.[] | select(.isPrerelease and .isDraft)] | sort_by(.createdAt) | reverse | .[].tagName' \
+        | grep -E "$re" | tail -n +"$((KEEP_RETIRED + 1))" | while read -r old; do
+            gh release delete "$old" --repo "$REPO_SLUG" --yes && echo "deleted draft $old (tag kept)"
+        done
+}
+
 git -C "$PRE_WT" push -q origin pre
 for e in "${EDITIONS[@]}"; do
     wt="$WT_DIR/$(branch_of "$e")"; t="$(tag_of "$e")"
     git -C "$wt" push -q origin "$t"
     gh release create "$t" --repo "$REPO_SLUG" --prerelease --latest=false --title "$t" --notes-file "$PRE_WT/$NOTES"
     gh workflow run attach_debug_apks_to_release.yml --repo "$REPO_SLUG" --ref "$t" -f "release_tag=$t"
+    retire_previous "$e" "$t"
     if [ "$e" != termux ]; then git worktree remove "$wt"; git branch -q -D "$(branch_of "$e")"; fi
 done
 echo "published; watch the APK runs with: gh run list --repo $REPO_SLUG --workflow attach_debug_apks_to_release.yml"
