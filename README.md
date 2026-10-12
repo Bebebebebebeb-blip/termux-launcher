@@ -1,21 +1,21 @@
-# Termux Launcher
-
-A terminal-first Android home launcher, built on Termux.
-
-**[🌐 Website & docs](https://picklehik3.github.io/termux-launcher-site/)** · **[💬 Discord](https://discord.gg/sWSCRh7aVR)** · [Releases](https://github.com/PickleHik3/termux-launcher/releases)
-
-> [!IMPORTANT]
-> **An independent fork, not affiliated with [Termux](https://github.com/termux/termux-app).**
-> Report issues [here](https://github.com/PickleHik3/termux-launcher/issues), not to Termux.
-> The `com.termux` edition **replaces** official Termux on your device; the other editions install side by side.
-
 <p align="center">
   <img src="screenshots/banner.webp" alt="Termux Launcher showing seven authentic Android screens: terminal home, split panes, widgets, voice dictation, Dawn notes, tlstore, and the app drawer" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://picklehik3.github.io/termux-launcher-site/"><b>🌐 Website &amp; docs</b></a> ·
+  <a href="https://discord.gg/sWSCRh7aVR"><b>💬 Discord</b></a> ·
+  <a href="https://github.com/PickleHik3/termux-launcher/releases">Releases</a>
 </p>
 
 > [!NOTE]
 > This project is entirely vibe-coded. I daily-drive it, but if you have Android or
 > app-security experience, a review would be very welcome. Please open an issue or discussion.
+
+> [!IMPORTANT]
+> **An independent fork, not affiliated with [Termux](https://github.com/termux/termux-app).**
+> Report issues [here](https://github.com/PickleHik3/termux-launcher/issues), not to Termux.
+> The `com.termux` edition **replaces** official Termux on your device; the other editions install side by side.
 
 ## About
 
