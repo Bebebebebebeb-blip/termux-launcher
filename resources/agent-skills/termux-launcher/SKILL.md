@@ -21,7 +21,7 @@ set. `$TERMUX_APP__PACKAGE_NAME` names the edition (`com.termux`, `com.termux.la
 
 ## Three rules
 
-1. **You own only what you open.** `launcherctl pane`/`window` `write`, `read` and `close` work
+1. **You own only what you open.** `launcherctl pane`/`window` `write`, `read`, `resize` and `close` work
    only on panes/windows *you* opened — every other pane, including the user's own shells,
    answers 403 `not_owned`. `list` and `focus` work on anything.
 2. **Draw in your own pane, never in the one you're running in.** Anything that puts pixels or
@@ -54,8 +54,8 @@ A CLI on `PATH`, JSON out, exits 1 on an HTTP error:
 
 ```sh
 launcherctl launch <app>
-launcherctl pane open|list|write|read|focus|close ...
-launcherctl window open ...
+launcherctl pane open|list|write|read|focus|resize|close ...
+launcherctl window open|list|focus|close ...
 launcherctl agent working|blocked|idle|clear
 launcherctl notify [--title T] [--id ID] [--urgency low|normal|critical] <body>
 launcherctl progress <0-100|clear|error|indeterminate> [--pane ID]
@@ -63,6 +63,12 @@ launcherctl clipboard copy [<text>] | paste
 launcherctl keyboard show|hide
 launcherctl x11 gpu
 ```
+
+`pane open` splits the pane you're running in (`$TERMUX_LAUNCHER_PANE`) unless `--from ID` names
+another. To put it beside you at a size: `launcherctl pane open --direction right --size 0.4
+--no-focus -- <cmd>` (or `--columns 60` / `--rows 12`), and `launcherctl pane resize <id> --size
+0.3` later. Leave the flags off unless placement matters — a direction or size switches a window
+with an automatic layout to manual splits.
 
 `notify`, `progress` and `clipboard` work from any process — no terminal, no tty, no
 `TERMUX_LAUNCHER_PANE` needed (they fall back to the current pane). They are the same code the
