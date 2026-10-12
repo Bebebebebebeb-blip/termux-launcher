@@ -295,6 +295,8 @@ public final class CommandPaletteView extends View {
     /** A contact monogram's disc: the primary at 24 % over the chip. */
     private static final int MONOGRAM_FILL_ALPHA = 61;
     private static final float SIZE_MONOGRAM = 8.5f;
+    /** The monogram's ceiling, in dp: the disc does not grow with the font scale, so neither may its letter. */
+    private static final float MAX_MONOGRAM = 10f;
     private static final float HAIRLINE = 1f;
     /** Head of the argument row when the caller does not supply one of its own. */
     private static final String DEFAULT_ARGUMENT_PROMPT = "arg ❯";
@@ -560,7 +562,7 @@ public final class CommandPaletteView extends View {
         float line = metrics.descent - metrics.ascent;
         mCapHeight = dp(CAP_PAD_V) * 2f + line;
         mCapBaseline = (mCapHeight - line) / 2f - metrics.ascent;
-        mMonogram.setTextSize(sp(SIZE_MONOGRAM));
+        mMonogram.setTextSize(Math.min(sp(SIZE_MONOGRAM), dp(MAX_MONOGRAM)));
         for (Keycap keycap : mKeycaps) {
             mMono.setTextSize(sp(SIZE_CAP_GLYPH));
             keycap.mGlyphWidth = mMono.measureText(keycap.glyph);
