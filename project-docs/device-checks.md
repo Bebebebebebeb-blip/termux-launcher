@@ -39,6 +39,10 @@ under twenty items; past that, the oldest are re-judged first.
 
 ## Developer
 
+- 2026-10-12 · fix(appearance): Custom starts from the Look on screen · On pong, apply Clear,
+  Done, reopen the editor, tap Custom: the sliders show Clear's numbers and the look does not
+  change. Tweak Blur, tap Mist, tap Custom: the tweak is back. Undo: Clear again · pong, by hand.
+
 - 2026-10-12 · PR #63 · The resting look at Clear and Mist on pong: the outer ~2 dp of every rim
   now mirrors the wallpaper (quarter-circle bevel along the true normal); it should read as a
   thick glass edge, not a double line. If it reads wrong, the profile in `GlassRefraction` is the
