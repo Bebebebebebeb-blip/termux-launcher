@@ -2943,7 +2943,9 @@ public class LauncherCtlApiServer {
      * configs and shell binds, and {@code launcherctl pane …} / {@code window …} so a process in
      * a shell (an agent, a build, a script) can open a pane of its own, show its work in it and
      * drive it, plus the signals and device groups. Everything else was stripped with the
-     * agent/MCP endpoints and stays gone.
+     * agent/MCP endpoints and stays gone. Each group answers {@code launcherctl <group> --help};
+     * pane wait's limits are {@link PaneWait}'s own numbers, so the script and the server can
+     * never disagree on them.
      */
     static String launcherctlCliScript(String binPrefixDir) {
         return
@@ -2955,16 +2957,17 @@ public class LauncherCtlApiServer {
             "\n" +
             "Usage:\n" +
             "  launcherctl launch <app name, package, or activity>\n" +
-            "  launcherctl pane open [--cwd DIR] [--title NAME] [--tag TAG] [--no-focus]\n" +
+            "  launcherctl pane open [--cwd DIR] [--title NAME] [--tag TAG] [--no-focus] [--print-id]\n" +
             "                        [--from ID] [--direction right|left|down|up]\n" +
             "                        [--size 0.1-0.9 | --columns N | --rows N] [--] [CMD ARGS...]\n" +
-            "  launcherctl pane list\n" +
+            "  launcherctl pane current | get <id> | list\n" +
             "  launcherctl pane focus <id>\n" +
             "  launcherctl pane resize <id> --size 0.1-0.9 | --columns N | --rows N\n" +
             "  launcherctl pane write <id> [--enter] <text> | launcherctl pane write <id> [--enter] < file\n" +
             "  launcherctl pane read <id> [--lines N]\n" +
+            "  launcherctl pane wait <id> (--match TEXT | --regex RE) [--timeout MS] [--lines N]\n" +
             "  launcherctl pane close <id>\n" +
-            "  launcherctl window open [--cwd DIR] [--title NAME] [--no-focus] [--] CMD ARGS...\n" +
+            "  launcherctl window open [--cwd DIR] [--title NAME] [--no-focus] [--print-id] [--] CMD ARGS...\n" +
             "  launcherctl window list\n" +
             "  launcherctl window focus <id>\n" +
             "  launcherctl window close <id>\n" +
@@ -2988,51 +2991,264 @@ public class LauncherCtlApiServer {
             "  launcherctl wallpaper get\n" +
             "  launcherctl x11 gpu [--env]\n" +
             "\n" +
+            "Each group explains its commands and flags: launcherctl <group> --help, for launch, pane,\n" +
+            "window, agent, notify, progress, clipboard, notifications, keyboard, vibrate, torch,\n" +
+            "battery, volume, toast, wallpaper and x11.\n" +
+            "\n" +
             "Examples:\n" +
             "  launcherctl launch whatsapp\n" +
-            "  id=$(launcherctl pane open --title preview --no-focus -- kitten icat out.png | sed -n 's/.*\"id\":\"\\([^\"]*\\)\".*/\\1/p')\n" +
+            "  launcherctl pane current                 # this pane: its window, size and place\n" +
+            "  id=$(launcherctl pane open --print-id --title tests --no-focus)\n" +
             "  launcherctl pane write \"$id\" --enter 'make test'\n" +
+            "  launcherctl pane wait \"$id\" --regex 'passed|failed' --timeout 120000\n" +
             "  launcherctl pane read \"$id\" --lines 40\n" +
+            "  launcherctl pane close \"$id\"\n" +
             "  launcherctl pane open --direction right --size 0.4 --no-focus -- htop   # beside this pane\n" +
-            "  launcherctl pane resize \"$id\" --columns 60\n" +
-            "  id=$(launcherctl window open --title tlstore --no-focus -- tlstore | sed -n 's/.*\"id\":\"\\([^\"]*\\)\".*/\\1/p')\n" +
+            "  id=$(launcherctl window open --print-id --title tlstore --no-focus -- tlstore)\n" +
             "  launcherctl notify --title Build '42 tests passed'   # the phone's notification shade\n" +
             "  launcherctl progress 42; launcherctl progress clear  # the ring on this window's chip\n" +
             "  git diff | launcherctl clipboard copy               # onto the Android clipboard\n" +
             "  launcherctl keyboard show --source focus   # a text field took focus\n" +
             "  launcherctl keyboard hide --hold            # keep it down until this asks again\n" +
             "\n" +
-            "A pane or window opened here belongs to the opener: write, read and close only work\n" +
-            "on ones opened through this command; list and focus work on every pane. Output is\n" +
-            "JSON. A window is a whole new full-size window with its own chip, not a pane sharing\n" +
-            "the one on screen; --no-focus leaves the current window up front while the new one\n" +
-            "runs behind it.\n" +
-            "\n" +
-            "pane open splits $TERMUX_LAUNCHER_PANE (the pane this command runs in) unless --from\n" +
-            "names another, and the focused pane when neither applies. --direction (or --split)\n" +
-            "puts the new pane on that side; --size is its share of the split pane, --columns or\n" +
-            "--rows its width or height in cells. pane resize only works on panes opened here.\n" +
-            "window focus works on any window; window close only on one opened here. window list\n" +
-            "prints the same JSON as pane list.\n" +
-            "\n" +
-            "launcherctl agent tells the window chips and the sessions browser what the AI coding\n" +
-            "agent in this pane is doing, so a pane that needs an answer is visible from anywhere;\n" +
-            "it reports for $TERMUX_LAUNCHER_PANE unless --pane says otherwise, and\n" +
-            "`launcherctl agent install-hooks` wires the four Claude Code hooks that send it into\n" +
-            "~/.claude/settings.json, leaving every hook already there alone.\n" +
-            "\n" +
-            "notify, progress and clipboard do exactly what the OSC 99, OSC 9;4 and OSC 52 escapes\n" +
-            "do, for a process that has no terminal to write them into (an agent's tool runner).\n" +
-            "They go to $TERMUX_LAUNCHER_PANE when it is set, to --pane when given, and to the\n" +
-            "current pane otherwise. clipboard paste is only answered while the launcher is on\n" +
-            "screen and Settings > Terminal > Let programs read the clipboard is on.\n" +
-            "notifications reads the history of the apps the user enabled in the launcher's settings\n" +
-            "(none by default): newest first, one line per message as `time · app · title — text`,\n" +
-            "or JSON with --json. --since and --until take 90m, 12h, 7d, 2w or an ISO date; --app\n" +
-            "takes a package or part of the app's name. `active` lists what is in the shade now.\n" +
-            "One-time codes are masked at write time unless that is switched off in settings.\n" +
+            "Output is JSON unless a flag asks for something else. When the launcher refuses a\n" +
+            "command, its JSON answer (with an error code such as not_owned or pane_not_found) is\n" +
+            "printed and the exit status is 1; a mistake in the command line itself exits 2.\n" +
             "For local AI, use: tai --help\n" +
             "EOF\n" +
+            "}\n" +
+            "# group_help GROUP: one group's commands, flags and what they do; false for an unknown group.\n" +
+            "group_help() {\n" +
+            "  case \"$1\" in\n" +
+            "    launch) cat <<'EOF'\n" +
+            "launcherctl launch - open an app\n" +
+            "\n" +
+            "Usage:\n" +
+            "  launcherctl launch <app name, package, or activity>\n" +
+            "\n" +
+            "Opens an Android app, matched by name, package or activity; exact matches rank first.\n" +
+            "A Linux app from the drawer opens on the Linux display.\n" +
+            "EOF\n" +
+            "      ;;\n" +
+            "    pane) cat <<'EOF'\n" +
+            "launcherctl pane - open, inspect, drive, wait on and close panes\n" +
+            "\n" +
+            "Usage:\n" +
+            "  launcherctl pane open [options] [--] [CMD ARGS...]\n" +
+            "  launcherctl pane current\n" +
+            "  launcherctl pane get <id>\n" +
+            "  launcherctl pane list\n" +
+            "  launcherctl pane focus <id>\n" +
+            "  launcherctl pane resize <id> --size 0.1-0.9 | --columns N | --rows N\n" +
+            "  launcherctl pane write <id> [--enter] <text>       (no text: reads stdin)\n" +
+            "  launcherctl pane read <id> [--lines N]\n" +
+            "  launcherctl pane wait <id> (--match TEXT | --regex RE) [--timeout MS] [--lines N]\n" +
+            "  launcherctl pane close <id>\n" +
+            "\n" +
+            "pane open splits a pane and prints the new one. CMD runs there in your login shell,\n" +
+            "which stays when CMD ends.\n" +
+            "  --cwd DIR              start in DIR (default: the directory this command runs in)\n" +
+            "  --title NAME           name the pane\n" +
+            "  --tag TAG              a label kept with the pane, shown by list and get\n" +
+            "  --no-focus             leave the focus where it is\n" +
+            "  --print-id             print only the new pane's id, one line, instead of JSON\n" +
+            "  --from ID              split pane ID (default: $TERMUX_LAUNCHER_PANE, the pane this\n" +
+            "                         runs in, else the focused pane)\n" +
+            "  --direction SIDE       put the new pane right, left, down or up of it (or --split)\n" +
+            "  --size 0.1-0.9         the new pane's share of the pane it splits\n" +
+            "  --columns N, --rows N  its width or height in cells instead\n" +
+            "\n" +
+            "pane current prints the pane this runs in ($TERMUX_LAUNCHER_PANE) the way pane get\n" +
+            "prints any pane of the current session: which window holds it, whether it floats,\n" +
+            "its size in columns and rows, its place in cells, whether it has the focus, and its\n" +
+            "window and that window's layout. pane list prints every window and pane of the\n" +
+            "current session, and features: what this launcher's pane commands can do.\n" +
+            "\n" +
+            "write, read, wait, resize and close only work on panes opened through pane open or\n" +
+            "window open; current, get, list and focus work on every pane. write types the text;\n" +
+            "--enter presses Enter after it. read prints the last N lines (default 60, at most 500).\n" +
+            "\n" +
+            "pane wait returns as soon as one of the pane's last N lines (default 60) contains\n" +
+            "TEXT, or matches the regular expression RE (Java syntax), and output already there\n" +
+            "counts. It prints that line as .text. It gives up after --timeout milliseconds\n" +
+            "(default " + PaneWait.DEFAULT_TIMEOUT_MS + ", at most " + PaneWait.MAX_TIMEOUT_MS + ") with the error timeout, or with\n" +
+            "pane_not_running when the pane's shell ends first; both exit 1. A timeout does not\n" +
+            "mean the command did not run: read the pane before running it again.\n" +
+            "\n" +
+            "JSON paths: .pane.id, .pane.window, .pane.floating, .pane.columns, .pane.rows,\n" +
+            ".pane.geometry (left, top, columns, rows), .pane.focused, .window, .layout; for list\n" +
+            ".windows[].panes[] and .features. With jq installed:\n" +
+            "  launcherctl pane current | jq .pane.geometry\n" +
+            "EOF\n" +
+            "      ;;\n" +
+            "    window) cat <<'EOF'\n" +
+            "launcherctl window - open, list, focus and close windows\n" +
+            "\n" +
+            "Usage:\n" +
+            "  launcherctl window open [--cwd DIR] [--title NAME] [--no-focus] [--print-id] [--] CMD ARGS...\n" +
+            "  launcherctl window list\n" +
+            "  launcherctl window focus <id>\n" +
+            "  launcherctl window close <id>\n" +
+            "\n" +
+            "A window is a whole new full-size window with its own chip, not a pane sharing the\n" +
+            "one on screen. window open runs CMD in one, and needs a command:\n" +
+            "  --cwd DIR      start in DIR (default: the directory this command runs in)\n" +
+            "  --title NAME   name the window's chip\n" +
+            "  --no-focus     leave the current window up front; the new one runs behind it\n" +
+            "  --print-id     print only the new window's pane id, one line, instead of JSON\n" +
+            "The window closes when CMD exits. Its JSON has .pane (the new pane's id, which the\n" +
+            "pane commands take) and .windowId (the id window focus and close take).\n" +
+            "\n" +
+            "window list prints the same JSON as pane list. window focus takes a window id from\n" +
+            "the list, or the id of any pane in it, and works on any window; window close only on\n" +
+            "one opened here.\n" +
+            "EOF\n" +
+            "      ;;\n" +
+            "    agent) cat <<'EOF'\n" +
+            "launcherctl agent - say what the AI coding agent in this pane is doing\n" +
+            "\n" +
+            "Usage:\n" +
+            "  launcherctl agent working|blocked|idle|clear [--agent NAME] [--pane ID]\n" +
+            "  launcherctl agent install-hooks\n" +
+            "\n" +
+            "The state shows on the window chips and in the sessions browser, so a pane that needs\n" +
+            "an answer is visible from anywhere. It is reported for $TERMUX_LAUNCHER_PANE unless\n" +
+            "--pane says otherwise; --agent names the agent; clear hands the pane back to the\n" +
+            "screen's own reading. install-hooks wires the four Claude Code hooks that send it into\n" +
+            "~/.claude/settings.json, leaving every hook already there alone.\n" +
+            "EOF\n" +
+            "      ;;\n" +
+            "    notify) cat <<'EOF'\n" +
+            "launcherctl notify - a notification in the phone's shade\n" +
+            "\n" +
+            "Usage:\n" +
+            "  launcherctl notify [--title T] [--id ID] [--urgency low|normal|critical] [--pane ID] <body>\n" +
+            "  launcherctl notify [options] < file      (no body: reads stdin)\n" +
+            "  launcherctl notify --close ID [--pane ID]\n" +
+            "\n" +
+            "Does what the OSC 99 escape does, for a process with no terminal to write it into.\n" +
+            "A later notify with the same --id replaces it; --close takes it down. It goes to\n" +
+            "$TERMUX_LAUNCHER_PANE when that is set, to --pane when given, else to the current pane.\n" +
+            "EOF\n" +
+            "      ;;\n" +
+            "    progress) cat <<'EOF'\n" +
+            "launcherctl progress - the progress ring on this window's chip\n" +
+            "\n" +
+            "Usage:\n" +
+            "  launcherctl progress <0-100|clear|error [PCT]|indeterminate|paused [PCT]> [--pane ID]\n" +
+            "\n" +
+            "Does what the OSC 9;4 escape does. clear takes the ring away; error and paused keep the\n" +
+            "last percentage unless given one. It goes to $TERMUX_LAUNCHER_PANE when that is set, to\n" +
+            "--pane when given, else to the current pane.\n" +
+            "EOF\n" +
+            "      ;;\n" +
+            "    clipboard) cat <<'EOF'\n" +
+            "launcherctl clipboard - the Android clipboard\n" +
+            "\n" +
+            "Usage:\n" +
+            "  launcherctl clipboard copy [<text>]      (no text: reads stdin)\n" +
+            "  launcherctl clipboard paste\n" +
+            "\n" +
+            "copy does what the OSC 52 escape does. paste is only answered while the launcher is on\n" +
+            "screen and Settings > Terminal > Let programs read the clipboard is on.\n" +
+            "EOF\n" +
+            "      ;;\n" +
+            "    notifications) cat <<'EOF'\n" +
+            "launcherctl notifications - the history of other apps' notifications\n" +
+            "\n" +
+            "Usage:\n" +
+            "  launcherctl notifications [--app PKG|LABEL] [--since 7d|ISO] [--until 1d|ISO] [--query TEXT] [--limit N] [--json]\n" +
+            "  launcherctl notifications apps|active [--json]\n" +
+            "  launcherctl notifications clear [--app PKG|LABEL]\n" +
+            "\n" +
+            "Reads the history of the apps the user enabled in the launcher's settings (none by\n" +
+            "default): newest first, one line per message as `time · app · title — text`, or JSON\n" +
+            "with --json. --since and --until take 90m, 12h, 7d, 2w or an ISO date; --app takes a\n" +
+            "package or part of the app's name. apps lists the recorded apps, active what is in the\n" +
+            "shade now. One-time codes are masked at write time unless that is switched off in\n" +
+            "settings.\n" +
+            "EOF\n" +
+            "      ;;\n" +
+            "    keyboard) cat <<'EOF'\n" +
+            "launcherctl keyboard - show or hide the on-screen keyboard\n" +
+            "\n" +
+            "Usage:\n" +
+            "  launcherctl keyboard show|hide [--source manual|focus] [--hold]\n" +
+            "\n" +
+            "--source focus says a text field took or lost focus, which the launcher may weigh\n" +
+            "against its own rules; manual (the default) is the user asking. hide --hold keeps the\n" +
+            "keyboard down until this same shell shows it again or ends.\n" +
+            "EOF\n" +
+            "      ;;\n" +
+            "    vibrate) cat <<'EOF'\n" +
+            "launcherctl vibrate - vibrate the phone\n" +
+            "\n" +
+            "Usage:\n" +
+            "  launcherctl vibrate [-d MS] [--force]\n" +
+            "\n" +
+            "Vibrates for MS milliseconds, 1000 by default and at most 10 seconds. Silent mode and\n" +
+            "the vibration setting apply unless --force is given.\n" +
+            "EOF\n" +
+            "      ;;\n" +
+            "    torch) cat <<'EOF'\n" +
+            "launcherctl torch - the camera flash\n" +
+            "\n" +
+            "Usage:\n" +
+            "  launcherctl torch on|off\n" +
+            "EOF\n" +
+            "      ;;\n" +
+            "    battery) cat <<'EOF'\n" +
+            "launcherctl battery - the battery state\n" +
+            "\n" +
+            "Usage:\n" +
+            "  launcherctl battery\n" +
+            "\n" +
+            "Prints health, percentage, plugged, status, temperature (°C) and current\n" +
+            "(microamperes) as JSON, as termux-battery-status does.\n" +
+            "EOF\n" +
+            "      ;;\n" +
+            "    volume) cat <<'EOF'\n" +
+            "launcherctl volume - stream volumes\n" +
+            "\n" +
+            "Usage:\n" +
+            "  launcherctl volume [STREAM VALUE]\n" +
+            "\n" +
+            "With no arguments, lists every stream with its volume and maximum. With a stream\n" +
+            "(alarm, music, notification, ring, system or call) and a whole number, sets it.\n" +
+            "EOF\n" +
+            "      ;;\n" +
+            "    toast) cat <<'EOF'\n" +
+            "launcherctl toast - a short message on screen\n" +
+            "\n" +
+            "Usage:\n" +
+            "  launcherctl toast [--short] <text>       (no text: reads stdin)\n" +
+            "\n" +
+            "Long by default; --short for a brief one.\n" +
+            "EOF\n" +
+            "      ;;\n" +
+            "    wallpaper) cat <<'EOF'\n" +
+            "launcherctl wallpaper - the wallpaper\n" +
+            "\n" +
+            "Usage:\n" +
+            "  launcherctl wallpaper set FILE [--home|--lock|--both]\n" +
+            "  launcherctl wallpaper get\n" +
+            "\n" +
+            "set makes a picture the wallpaper on the home screen, the lock screen or both (the\n" +
+            "default); get reports what is set now.\n" +
+            "EOF\n" +
+            "      ;;\n" +
+            "    x11) cat <<'EOF'\n" +
+            "launcherctl x11 - Linux apps on the display\n" +
+            "\n" +
+            "Usage:\n" +
+            "  launcherctl x11 gpu [--env]\n" +
+            "\n" +
+            "gpu says which graphics profile fits this phone and whether its packages are\n" +
+            "installed; --env prints the exports instead, ready to eval.\n" +
+            "EOF\n" +
+            "      ;;\n" +
+            "    *) return 1 ;;\n" +
+            "  esac\n" +
             "}\n" +
             "LAUNCHERCTL_DIR=\"$HOME/.launcherctl\"\n" +
             "TOKEN_FILE=\"$LAUNCHERCTL_DIR/token\"\n" +
@@ -3051,21 +3267,53 @@ public class LauncherCtlApiServer {
             "  sed 's/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g; s/\\t/\\\\t/g; s/\\r/\\\\r/g' | sed ':a;N;$!ba;s/\\n/\\\\n/g' | tr -d '\\n'\n" +
             "  printf '\"'\n" +
             "}\n" +
+            "# Seconds curl gives one call; pane wait raises it past the wait it asks for.\n" +
+            "API_MAX_TIME=15\n" +
+            "# pane wait's default and ceiling in milliseconds, the same numbers the launcher enforces.\n" +
+            "WAIT_DEFAULT_MS=" + PaneWait.DEFAULT_TIMEOUT_MS + "\n" +
+            "WAIT_MAX_MS=" + PaneWait.MAX_TIMEOUT_MS + "\n" +
             "api() {\n" +
             "  # api METHOD PATH [BODY]: prints the JSON body, exits 1 on an HTTP error so the\n" +
             "  # error code in that body (not_owned, pane_not_found, ...) is never swallowed.\n" +
             "  need_server\n" +
             "  if [ \"$#\" -ge 3 ]; then\n" +
-            "    out=$(curl -sS --connect-timeout 2 --max-time 15 -X \"$1\" -w '\\n%{http_code}' \\\n" +
+            "    out=$(curl -sS --connect-timeout 2 --max-time \"$API_MAX_TIME\" -X \"$1\" -w '\\n%{http_code}' \\\n" +
             "      -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" \\\n" +
             "      --data \"$3\" \"$BASE$2\")\n" +
             "  else\n" +
-            "    out=$(curl -sS --connect-timeout 2 --max-time 15 -X \"$1\" -w '\\n%{http_code}' \\\n" +
+            "    out=$(curl -sS --connect-timeout 2 --max-time \"$API_MAX_TIME\" -X \"$1\" -w '\\n%{http_code}' \\\n" +
             "      -H \"Authorization: Bearer $TOKEN\" \"$BASE$2\")\n" +
             "  fi\n" +
             "  code=$(printf '%s\\n' \"$out\" | tail -n 1)\n" +
             "  printf '%s\\n' \"$out\" | sed '$d'\n" +
             "  [ \"$code\" -lt 400 ] 2>/dev/null\n" +
+            "}\n" +
+            "# api_print METHOD PATH BODY: api, printed through a variable so a one-line text answer\n" +
+            "# (--print-id) comes out as exactly that line; exits 1 on an error, like api.\n" +
+            "api_print() {\n" +
+            "  if out=$(api \"$@\"); then\n" +
+            "    printf '%s\\n' \"$out\"\n" +
+            "  else\n" +
+            "    [ -z \"$out\" ] || printf '%s\\n' \"$out\"\n" +
+            "    exit 1\n" +
+            "  fi\n" +
+            "}\n" +
+            "# need_value COUNT FLAG: a usage error unless FLAG, with COUNT arguments left from it on,\n" +
+            "# has a value after it.\n" +
+            "need_value() {\n" +
+            "  [ \"$1\" -ge 2 ] || { echo \"launcherctl: $2 needs a value\" >&2; exit 2; }\n" +
+            "}\n" +
+            "# need_id USAGE ID: a usage error unless ID looks like a pane or window id, so a missing or\n" +
+            "# mangled one can never reach the launcher as some other request.\n" +
+            "need_id() {\n" +
+            "  case \"$2\" in\n" +
+            "    ''|-*|*[!A-Za-z0-9_.-]*) echo \"$1\" >&2; exit 2 ;;\n" +
+            "  esac\n" +
+            "}\n" +
+            "# no_zeros N: N without leading zeros (0 stays 0), so the shell never reads it as octal.\n" +
+            "no_zeros() {\n" +
+            "  n=\"${1#\"${1%%[!0]*}\"}\"\n" +
+            "  printf '%s' \"${n:-0}\"\n" +
             "}\n" +
             "agent_cmd() {\n" +
             "  sub=\"${1:-}\"\n" +
@@ -3097,21 +3345,25 @@ public class LauncherCtlApiServer {
             "}\n" +
             "pane_cmd() {\n" +
             "  sub=\"${1:-}\"\n" +
-            "  [ -n \"$sub\" ] && shift || { print_help >&2; exit 2; }\n" +
+            "  [ -n \"$sub\" ] && shift || { group_help pane >&2; exit 2; }\n" +
+            "  case \"${1:-}\" in -h|--help) group_help pane; exit 0 ;; esac\n" +
             "  case \"$sub\" in\n" +
             "    open)\n" +
-            "      cwd= title= tag= focus=true from= direction= size= columns= rows=\n" +
+            "      # Without --cwd the pane starts where this command runs, as a split in tmux or kitty\n" +
+            "      # does; the launcher's own default is the home directory.\n" +
+            "      cwd=\"${PWD:-}\" title= tag= focus=true from= direction= size= columns= rows= print=\n" +
             "      while [ \"$#\" -gt 0 ]; do\n" +
             "        case \"$1\" in\n" +
-            "          --cwd) cwd=\"$2\"; shift 2 ;;\n" +
-            "          --title) title=\"$2\"; shift 2 ;;\n" +
-            "          --tag) tag=\"$2\"; shift 2 ;;\n" +
+            "          --cwd) need_value \"$#\" \"$1\"; cwd=\"$2\"; shift 2 ;;\n" +
+            "          --title) need_value \"$#\" \"$1\"; title=\"$2\"; shift 2 ;;\n" +
+            "          --tag) need_value \"$#\" \"$1\"; tag=\"$2\"; shift 2 ;;\n" +
             "          --no-focus) focus=false; shift ;;\n" +
-            "          --from) from=\"${2:-}\"; shift 2 ;;\n" +
-            "          --direction|--split) direction=\"${2:-}\"; shift 2 ;;\n" +
-            "          --size) size=\"${2:-}\"; shift 2 ;;\n" +
-            "          --columns) columns=\"${2:-}\"; shift 2 ;;\n" +
-            "          --rows) rows=\"${2:-}\"; shift 2 ;;\n" +
+            "          --print-id) print=id; shift ;;\n" +
+            "          --from) need_value \"$#\" \"$1\"; from=\"$2\"; shift 2 ;;\n" +
+            "          --direction|--split) need_value \"$#\" \"$1\"; direction=\"$2\"; shift 2 ;;\n" +
+            "          --size) need_value \"$#\" \"$1\"; size=\"$2\"; shift 2 ;;\n" +
+            "          --columns) need_value \"$#\" \"$1\"; columns=\"$2\"; shift 2 ;;\n" +
+            "          --rows) need_value \"$#\" \"$1\"; rows=\"$2\"; shift 2 ;;\n" +
             "          --) shift; break ;;\n" +
             "          -*) echo \"launcherctl pane open: unknown option $1\" >&2; exit 2 ;;\n" +
             "          *) break ;;\n" +
@@ -3121,6 +3373,8 @@ public class LauncherCtlApiServer {
             "      [ -n \"$cwd\" ] && body=\"$body,\\\"cwd\\\":$(printf '%s' \"$cwd\" | json_str)\"\n" +
             "      [ -n \"$title\" ] && body=\"$body,\\\"title\\\":$(printf '%s' \"$title\" | json_str)\"\n" +
             "      [ -n \"$tag\" ] && body=\"$body,\\\"tag\\\":$(printf '%s' \"$tag\" | json_str)\"\n" +
+            "      # The launcher answers with the new pane's id alone, as text, instead of the JSON.\n" +
+            "      [ -n \"$print\" ] && body=\"$body,\\\"print\\\":\\\"id\\\"\"\n" +
             "      # Numbers go as strings: the server parses them, so a typo is a clear 400, not bad JSON.\n" +
             "      [ -n \"$direction\" ] && body=\"$body,\\\"direction\\\":$(printf '%s' \"$direction\" | json_str)\"\n" +
             "      [ -n \"$size\" ] && body=\"$body,\\\"size\\\":$(printf '%s' \"$size\" | json_str)\"\n" +
@@ -3134,7 +3388,7 @@ public class LauncherCtlApiServer {
             "        body=\"$body,\\\"command\\\":[$argv]\"\n" +
             "      fi\n" +
             "      if [ -n \"$from\" ]; then\n" +
-            "        api POST /v1/panes \"$body,\\\"from\\\":$(printf '%s' \"$from\" | json_str)}\"\n" +
+            "        api_print POST /v1/panes \"$body,\\\"from\\\":$(printf '%s' \"$from\" | json_str)}\"\n" +
             "        return\n" +
             "      fi\n" +
             "      # Without --from the new pane splits the pane this runs in. When that pane cannot be\n" +
@@ -3150,18 +3404,30 @@ public class LauncherCtlApiServer {
             "          *) printf '%s\\n' \"$out\"; exit 1 ;;\n" +
             "        esac\n" +
             "      fi\n" +
-            "      api POST /v1/panes \"$body}\"\n" +
+            "      api_print POST /v1/panes \"$body}\"\n" +
+            "      ;;\n" +
+            "    current)\n" +
+            "      if [ -z \"${TERMUX_LAUNCHER_PANE:-}\" ]; then\n" +
+            "        echo \"launcherctl pane current: this shell is not in a launcher pane (TERMUX_LAUNCHER_PANE is unset); use pane get <id>\" >&2\n" +
+            "        exit 2\n" +
+            "      fi\n" +
+            "      api GET \"/v1/panes/$TERMUX_LAUNCHER_PANE\"\n" +
+            "      ;;\n" +
+            "    get)\n" +
+            "      need_id \"usage: launcherctl pane get <id>\" \"${1:-}\"\n" +
+            "      api GET \"/v1/panes/$1\"\n" +
             "      ;;\n" +
             "    list|ls)\n" +
             "      api GET /v1/panes\n" +
             "      ;;\n" +
             "    focus|close)\n" +
-            "      [ \"$#\" -ge 1 ] || { echo \"usage: launcherctl pane $sub <id>\" >&2; exit 2; }\n" +
+            "      need_id \"usage: launcherctl pane $sub <id>\" \"${1:-}\"\n" +
             "      api POST \"/v1/panes/$1/$sub\" '{}'\n" +
             "      ;;\n" +
             "    resize)\n" +
             "      usage='usage: launcherctl pane resize <id> --size 0.1-0.9 | --columns N | --rows N'\n" +
             "      [ \"$#\" -ge 3 ] || { echo \"$usage\" >&2; exit 2; }\n" +
+            "      need_id \"$usage\" \"$1\"\n" +
             "      id=\"$1\"; shift\n" +
             "      case \"$1\" in\n" +
             "        --size|--columns|--rows) key=\"${1#--}\" ;;\n" +
@@ -3170,7 +3436,7 @@ public class LauncherCtlApiServer {
             "      api POST \"/v1/panes/$id/resize\" \"{\\\"$key\\\":$(printf '%s' \"$2\" | json_str)}\"\n" +
             "      ;;\n" +
             "    write)\n" +
-            "      [ \"$#\" -ge 1 ] || { echo \"usage: launcherctl pane write <id> [--enter] <text>\" >&2; exit 2; }\n" +
+            "      need_id \"usage: launcherctl pane write <id> [--enter] <text>\" \"${1:-}\"\n" +
             "      id=\"$1\"; shift\n" +
             "      enter=false\n" +
             "      if [ \"${1:-}\" = \"--enter\" ]; then enter=true; shift; fi\n" +
@@ -3178,44 +3444,83 @@ public class LauncherCtlApiServer {
             "      api POST \"/v1/panes/$id/write\" \"{\\\"text\\\":$text,\\\"enter\\\":$enter}\"\n" +
             "      ;;\n" +
             "    read)\n" +
-            "      [ \"$#\" -ge 1 ] || { echo \"usage: launcherctl pane read <id> [--lines N]\" >&2; exit 2; }\n" +
+            "      usage='usage: launcherctl pane read <id> [--lines N]'\n" +
+            "      need_id \"$usage\" \"${1:-}\"\n" +
             "      id=\"$1\"; shift\n" +
             "      lines=60\n" +
-            "      if [ \"${1:-}\" = \"--lines\" ]; then lines=\"$2\"; shift 2; fi\n" +
+            "      if [ \"${1:-}\" = \"--lines\" ]; then need_value \"$#\" \"$1\"; lines=\"$2\"; shift 2; fi\n" +
+            "      case \"$lines\" in ''|*[!0-9]*) echo \"$usage\" >&2; exit 2 ;; esac\n" +
             "      api GET \"/v1/panes/$id/text?lines=$lines\"\n" +
+            "      ;;\n" +
+            "    wait)\n" +
+            "      usage='usage: launcherctl pane wait <id> (--match TEXT | --regex RE) [--timeout MS] [--lines N]'\n" +
+            "      need_id \"$usage\" \"${1:-}\"\n" +
+            "      id=\"$1\"; shift\n" +
+            "      key= pattern= timeout=\"$WAIT_DEFAULT_MS\" lines=\n" +
+            "      while [ \"$#\" -gt 0 ]; do\n" +
+            "        case \"$1\" in\n" +
+            "          --match|--regex)\n" +
+            "            need_value \"$#\" \"$1\"\n" +
+            "            [ -z \"$key\" ] || { echo \"launcherctl pane wait: give --match or --regex, not both\" >&2; exit 2; }\n" +
+            "            key=\"${1#--}\"; pattern=\"$2\"; shift 2 ;;\n" +
+            "          --timeout) need_value \"$#\" \"$1\"; timeout=\"$2\"; shift 2 ;;\n" +
+            "          --lines) need_value \"$#\" \"$1\"; lines=\"$2\"; shift 2 ;;\n" +
+            "          *) echo \"launcherctl pane wait: unknown option $1\" >&2; echo \"$usage\" >&2; exit 2 ;;\n" +
+            "        esac\n" +
+            "      done\n" +
+            "      [ -n \"$key\" ] && [ -n \"$pattern\" ] || { echo \"$usage\" >&2; exit 2; }\n" +
+            "      case \"$timeout\" in\n" +
+            "        ''|*[!0-9]*) echo \"launcherctl pane wait: --timeout is milliseconds, 0 to $WAIT_MAX_MS\" >&2; exit 2 ;;\n" +
+            "      esac\n" +
+            "      timeout=$(no_zeros \"$timeout\")\n" +
+            "      if [ \"${#timeout}\" -gt 9 ] || [ \"$timeout\" -gt \"$WAIT_MAX_MS\" ]; then\n" +
+            "        echo \"launcherctl pane wait: --timeout is milliseconds, 0 to $WAIT_MAX_MS\" >&2\n" +
+            "        exit 2\n" +
+            "      fi\n" +
+            "      body=\"{\\\"$key\\\":$(printf '%s' \"$pattern\" | json_str),\\\"timeout_ms\\\":$timeout\"\n" +
+            "      if [ -n \"$lines\" ]; then\n" +
+            "        case \"$lines\" in ''|*[!0-9]*) echo \"launcherctl pane wait: --lines is a whole number\" >&2; exit 2 ;; esac\n" +
+            "        body=\"$body,\\\"lines\\\":$(printf '%s' \"$lines\" | json_str)\"\n" +
+            "      fi\n" +
+            "      # The answer only comes when the wait is over, so curl has to outlast it.\n" +
+            "      API_MAX_TIME=$((timeout / 1000 + 15))\n" +
+            "      api POST \"/v1/panes/$id/wait\" \"$body}\"\n" +
             "      ;;\n" +
             "    *)\n" +
             "      echo \"launcherctl pane: unknown command: $sub\" >&2\n" +
-            "      print_help >&2\n" +
+            "      group_help pane >&2\n" +
             "      exit 2\n" +
             "      ;;\n" +
             "  esac\n" +
             "}\n" +
             "window_cmd() {\n" +
             "  sub=\"${1:-}\"\n" +
-            "  usage='usage: launcherctl window open [--cwd DIR] [--title NAME] [--no-focus] [--] CMD ARGS... | list | focus <id> | close <id>'\n" +
-            "  [ -n \"$sub\" ] && shift || { echo \"$usage\" >&2; exit 2; }\n" +
+            "  usage='usage: launcherctl window open [--cwd DIR] [--title NAME] [--no-focus] [--print-id] [--] CMD ARGS... | list | focus <id> | close <id>'\n" +
+            "  [ -n \"$sub\" ] && shift || { group_help window >&2; exit 2; }\n" +
+            "  case \"${1:-}\" in -h|--help) group_help window; exit 0 ;; esac\n" +
             "  case \"$sub\" in\n" +
             "    list|ls)\n" +
             "      api GET /v1/panes\n" +
             "      ;;\n" +
             "    focus|close)\n" +
-            "      [ \"$#\" -ge 1 ] || { echo \"usage: launcherctl window $sub <id>\" >&2; exit 2; }\n" +
+            "      need_id \"usage: launcherctl window $sub <id>\" \"${1:-}\"\n" +
             "      api POST \"/v1/windows/$1/$sub\" '{}'\n" +
             "      ;;\n" +
             "    open)\n" +
-            "      title= focus=true cwd=\n" +
+            "      # Without --cwd the window starts where this command runs, as for pane open.\n" +
+            "      title= focus=true cwd=\"${PWD:-}\" print=\n" +
             "      while [ \"$#\" -gt 0 ]; do\n" +
             "        case \"$1\" in\n" +
-            "          --cwd) cwd=\"$2\"; shift 2 ;;\n" +
-            "          --title) title=\"$2\"; shift 2 ;;\n" +
+            "          --cwd) need_value \"$#\" \"$1\"; cwd=\"$2\"; shift 2 ;;\n" +
+            "          --title) need_value \"$#\" \"$1\"; title=\"$2\"; shift 2 ;;\n" +
             "          --no-focus) focus=false; shift ;;\n" +
+            "          --print-id) print=id; shift ;;\n" +
             "          --) shift; break ;;\n" +
             "          -*) echo \"launcherctl window open: unknown option $1\" >&2; exit 2 ;;\n" +
             "          *) break ;;\n" +
             "        esac\n" +
             "      done\n" +
-            "      [ \"$#\" -gt 0 ] || { echo \"$usage\" >&2; exit 2; }\n" +
+            "      [ \"$#\" -gt 0 ] || { echo \"launcherctl window open: a command to run is required\" >&2; echo \"$usage\" >&2; exit 2; }\n" +
             "      argv=\n" +
             "      for a in \"$@\"; do\n" +
             "        argv=\"$argv${argv:+,}$(printf '%s' \"$a\" | json_str)\"\n" +
@@ -3223,11 +3528,12 @@ public class LauncherCtlApiServer {
             "      body=\"{\\\"focus\\\":$focus,\\\"command\\\":[$argv]\"\n" +
             "      [ -n \"$title\" ] && body=\"$body,\\\"title\\\":$(printf '%s' \"$title\" | json_str)\"\n" +
             "      [ -n \"$cwd\" ] && body=\"$body,\\\"cwd\\\":$(printf '%s' \"$cwd\" | json_str)\"\n" +
-            "      api POST /v1/windows \"$body}\"\n" +
+            "      [ -n \"$print\" ] && body=\"$body,\\\"print\\\":\\\"id\\\"\"\n" +
+            "      api_print POST /v1/windows \"$body}\"\n" +
             "      ;;\n" +
             "    *)\n" +
             "      echo \"launcherctl window: unknown command: $sub\" >&2\n" +
-            "      print_help >&2\n" +
+            "      group_help window >&2\n" +
             "      exit 2\n" +
             "      ;;\n" +
             "  esac\n" +
@@ -3413,9 +3719,26 @@ public class LauncherCtlApiServer {
             "  api POST /v1/toast \"{\\\"text\\\":$text,\\\"short\\\":$short}\"\n" +
             "}\n" +
             "cmd=\"${1:-help}\"\n" +
+            "# launcherctl <group> --help prints that group's help. A group that only works with a\n" +
+            "# command prints the same help to stderr and exits 2 when given none, rather than acting.\n" +
+            "case \"${2:-}\" in\n" +
+            "  -h|--help) group_help \"$cmd\" && exit 0 ;;\n" +
+            "esac\n" +
+            "if [ \"$#\" -eq 1 ]; then\n" +
+            "  case \"$cmd\" in\n" +
+            "    launch|pane|window|agent|progress|clipboard|keyboard|torch|wallpaper|x11)\n" +
+            "      group_help \"$cmd\" >&2\n" +
+            "      exit 2\n" +
+            "      ;;\n" +
+            "  esac\n" +
+            "fi\n" +
             "case \"$cmd\" in\n" +
             "  -h|--help|help)\n" +
-            "    print_help\n" +
+            "    if [ \"$#\" -ge 2 ]; then\n" +
+            "      group_help \"$2\" || { echo \"launcherctl: no such group: $2\" >&2; exit 2; }\n" +
+            "    else\n" +
+            "      print_help\n" +
+            "    fi\n" +
             "    ;;\n" +
             "  launch)\n" +
             "    shift || true\n" +
