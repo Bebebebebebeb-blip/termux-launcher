@@ -17,6 +17,19 @@ under twenty items; past that, the oldest are re-judged first.
 - 2026-10-12 · PR #63 · Floating style: the keyboard capsule and the dock card catch the Shine
   light on their top-left and bottom-right corners and not the other two, at Shine 100% · Waydroid,
   managed wallpaper set; Layout tab → Floating, then Look → Custom → Edge.
+- 2026-10-12 · PR #64 · A contact chip with a photo set in Contacts: the initial swaps to the photo
+  with no shift, and a reopened palette shows the photo at once · Waydroid; set the photo in the
+  Contacts app, open the contact twice from the palette.
+- 2026-10-12 · PR #64 · App chips on a light chip (light theme or a light Look): the icon's ring is
+  the dark one, not the white one · Waydroid, night mode off.
+- 2026-10-12 · PR #65 · The widget picker opens without closing the launcher on Android 10 and 11
+  (#62) · an API 29 or 30 emulator, or the reporter on the next drop.
+- 2026-10-12 · PR #67 · A restored model works and reads like a fresh download: `tai speak` with
+  KittenTTS after Import AI models, and its Model centre row shows the same size a fresh download
+  shows (Waydroid read "32.3 MB" after a restore; the catalog says 90 MB) · Waydroid.
+- 2026-10-12 · PR #67 · Export AI models with a model over 1 GB: leave Settings mid-copy, Cancel
+  from the notification removes the half-written file and keeps finished models; Export again
+  skips them · Waydroid.
 
 ## Developer
 
@@ -30,3 +43,8 @@ under twenty items; past that, the oldest are re-judged first.
   a blue test picture it was only measurable, not visible.
 - 2026-09-27 · parked list `active/device-checks-pending-2026-09-27.md` (voice redesign, keyboard
   off, tai speak): fold what still applies into this file, drop the rest.
+- 2026-10-12 · PR #67 · Export settings, then Import settings on pong as the default home: the
+  launcher comes back as home within a few seconds with the same look, layout and terminal font
+  size, and nothing asks to pick a home app.
+- 2026-10-12 · PR #64 · The chip strip with your real usage on pong: Shizuku, Solid Explorer and
+  the keyboard types as named chips, and typing "s" pins Shizuku.
