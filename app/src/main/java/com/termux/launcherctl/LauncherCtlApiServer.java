@@ -55,6 +55,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -93,6 +94,18 @@ public class LauncherCtlApiServer {
         thread.setDaemon(true);
         return thread;
     });
+    /**
+     * {@code POST /v1/panes/{id}/wait}, which may hold its connection for minutes. The request
+     * pool above has two threads until 64 requests are queued, so a wait parked on one of them
+     * would halve the server and two would stall it; a wait is handed to a thread of its own here
+     * instead, at most {@link PaneWait#MAX_CONCURRENT} at once, and one more is refused with 429.
+     */
+    private final ThreadPoolExecutor paneWaitExecutor = new ThreadPoolExecutor(
+        0, PaneWait.MAX_CONCURRENT, 30L, TimeUnit.SECONDS, new SynchronousQueue<>(), runnable -> {
+            Thread thread = new Thread(runnable, "launcherctl-pane-wait");
+            thread.setDaemon(true);
+            return thread;
+        });
     private final SecureRandom random = new SecureRandom();
     private final Map<String, SimpleRateLimiter> rateLimiters = new HashMap<>();
 
@@ -257,6 +270,7 @@ public class LauncherCtlApiServer {
         stopListening();
         clientExecutor.shutdownNow();
         controlExecutor.shutdownNow();
+        paneWaitExecutor.shutdownNow();
     }
 
     /** Closes the socket and ends the accept loop; the executors stay up for a restart. */
@@ -322,10 +336,12 @@ public class LauncherCtlApiServer {
 
     private void handleClient(Socket socket, Context context) {
         String route = null;
-        try (Socket client = socket;
-             BufferedInputStream input = new BufferedInputStream(client.getInputStream());
-             OutputStream output = client.getOutputStream()) {
-            client.setSoTimeout(CLIENT_SOCKET_TIMEOUT_MS);
+        // A pane wait answers from its own thread, which then owns (and closes) the socket.
+        boolean handedOff = false;
+        try {
+            BufferedInputStream input = new BufferedInputStream(socket.getInputStream());
+            OutputStream output = socket.getOutputStream();
+            socket.setSoTimeout(CLIENT_SOCKET_TIMEOUT_MS);
 
             HttpRequest request;
             try {
@@ -390,6 +406,11 @@ public class LauncherCtlApiServer {
                 return;
             }
 
+            if (isPaneWaitRoute(request.method, request.path)) {
+                handedOff = startPaneWait(context, socket, output, request, origin);
+                return;
+            }
+
             HttpResponse response = routeRequest(context, request);
             writeResponse(output, response, origin);
 
@@ -401,6 +422,35 @@ public class LauncherCtlApiServer {
                 TaiEventLog.log(context, TaiEventLog.API_ERROR,
                     route + ": " + e.getClass().getSimpleName() + " " + e.getMessage());
             }
+        } finally {
+            if (!handedOff) closeQuietly(socket);
+        }
+    }
+
+    /**
+     * Hands {@code POST /v1/panes/{id}/wait} to {@link #paneWaitExecutor}, whose thread answers it
+     * and closes the socket; true when it took the request. When every wait thread is busy the
+     * caller is told so with 429 right here, and false leaves the socket to this thread.
+     */
+    private boolean startPaneWait(Context context, Socket socket, OutputStream output,
+                                  HttpRequest request, String origin) throws IOException, JSONException {
+        try {
+            paneWaitExecutor.execute(() -> {
+                try {
+                    writeResponse(output, jsonResponse(runPaneWait(context, request)), origin);
+                } catch (Exception e) {
+                    Logger.logErrorExtended(LOG_TAG, "Pane wait failed: " + e.getMessage());
+                } finally {
+                    closeQuietly(socket);
+                }
+            });
+            return true;
+        } catch (RejectedExecutionException busy) {
+            JSONObject error = jsonError("too_many_waits", PaneWait.MAX_CONCURRENT
+                + " waits are already running; retry when one of them has answered");
+            error.put("_statusCode", 429);
+            writeResponse(output, jsonResponse(error), origin);
+            return false;
         }
     }
 
@@ -556,22 +606,14 @@ public class LauncherCtlApiServer {
             } else if ("POST".equals(request.method) && "/v1/agents/hooks".equals(request.path)) {
                 return jsonResponse(installAgentHooks());
             } else if (request.path.startsWith("/v1/panes")) {
-                if (!TermuxAppSharedPreferences.build(context).isAgentPanesEnabled()) {
-                    JSONObject error = jsonError("panes_api_disabled",
-                        "Pane access for scripts is switched off in Settings > Terminal & Status > Sessions and panes");
-                    error.put("_statusCode", 403);
-                    return jsonResponse(error);
-                }
-                return jsonResponse(runPaneRequest(request));
+                JSONObject refusal = panesApiRefusal(context);
+                if (refusal != null) return jsonResponse(refusal);
+                return openedResponse(request, runPaneRequest(request));
             } else if (("POST".equals(request.method) && "/v1/windows".equals(request.path))
                     || request.path.startsWith("/v1/windows/")) {
-                if (!TermuxAppSharedPreferences.build(context).isAgentPanesEnabled()) {
-                    JSONObject error = jsonError("panes_api_disabled",
-                        "Pane access for scripts is switched off in Settings > Terminal & Status > Sessions and panes");
-                    error.put("_statusCode", 403);
-                    return jsonResponse(error);
-                }
-                if ("/v1/windows".equals(request.path)) return jsonResponse(runWindowOpenRequest(request));
+                JSONObject refusal = panesApiRefusal(context);
+                if (refusal != null) return jsonResponse(refusal);
+                if ("/v1/windows".equals(request.path)) return openedResponse(request, runWindowOpenRequest(request));
                 return jsonResponse(runWindowRequest(request));
             } else if (request.path.startsWith("/v1/keyboard/")) {
                 return jsonResponse(runKeyboardRequest(request));
@@ -1099,10 +1141,12 @@ public class LauncherCtlApiServer {
      */
     /**
      * The pane routes, for agents and scripts that want a pane of their own to show their work in:
-     * {@code GET /v1/panes}, {@code POST /v1/panes}, {@code POST /v1/panes/{id}/focus|close|write|resize}
-     * and {@code GET /v1/panes/{id}/text}. Each is one terminal action run on the UI thread, and
-     * the dispatcher enforces that write, text, resize and close only reach panes opened through
-     * this API — the token buys a pane, never the user's shells.
+     * {@code GET /v1/panes}, {@code POST /v1/panes}, {@code GET /v1/panes/{id}},
+     * {@code POST /v1/panes/{id}/focus|close|write|resize} and {@code GET /v1/panes/{id}/text}.
+     * Each is one terminal action run on the UI thread, and the dispatcher enforces that write,
+     * text, resize and close only reach panes opened through this API — the token buys a pane,
+     * never the user's shells. {@code POST /v1/panes/{id}/wait} is the exception that does not
+     * come through here; see {@link #startPaneWait}.
      *
      * <p>{@code isAttached()} only fails once the Activity is gone (finishing or destroyed) — every
      * pane tool is in {@link com.termux.app.terminal.TerminalActionDispatcher}'s background-safe
@@ -1145,6 +1189,88 @@ public class LauncherCtlApiServer {
             return error;
         }
         return dispatcher.execute(toolName, arguments);
+    }
+
+    /** The 403 every pane and window route answers while the setting is off; null while it is on. */
+    @Nullable
+    private JSONObject panesApiRefusal(Context context) throws JSONException {
+        if (TermuxAppSharedPreferences.build(context).isAgentPanesEnabled()) return null;
+        JSONObject error = jsonError("panes_api_disabled",
+            "Pane access for scripts is switched off in Settings > Terminal & Status > Sessions and panes");
+        error.put("_statusCode", 403);
+        return error;
+    }
+
+    /**
+     * A pane or window route's answer. An open whose body asked {@code "print":"id"} and worked is
+     * answered with the new pane's id alone, as one line of text, so {@code launcherctl … --print-id}
+     * and a plain {@code curl} get it without parsing JSON; anything else, refusals included, is the
+     * usual JSON.
+     */
+    private HttpResponse openedResponse(HttpRequest request, JSONObject result) {
+        boolean open = "POST".equals(request.method)
+            && ("/v1/panes".equals(request.path) || "/v1/windows".equals(request.path));
+        if (open && result.optBoolean("ok", false) && "id".equals(printField(request.body))) {
+            String id = openedPaneId(result);
+            if (id != null) {
+                return new HttpResponse(result.optInt("_statusCode", 200), "text/plain; charset=utf-8",
+                    (id + "\n").getBytes(StandardCharsets.UTF_8), null);
+            }
+        }
+        return jsonResponse(result);
+    }
+
+    /** The body's {@code print} field, or null when there is none or the body is not JSON. */
+    @Nullable
+    static String printField(@Nullable String body) {
+        if (body == null || body.trim().isEmpty()) return null;
+        try {
+            Object print = new JSONObject(body).opt("print");
+            return print instanceof String ? (String) print : null;
+        } catch (JSONException e) {
+            return null;
+        }
+    }
+
+    /** The new pane's id in a pane or window open's answer: {@code pane.id}, or the window's {@code pane}. */
+    @Nullable
+    static String openedPaneId(@NonNull JSONObject result) {
+        JSONObject pane = result.optJSONObject("pane");
+        String id = pane != null ? pane.optString("id", "") : result.optString("pane", "");
+        return id.isEmpty() ? null : id;
+    }
+
+    /**
+     * {@code POST /v1/panes/{id}/wait} on a {@link #paneWaitExecutor} thread: the same gate and
+     * the same {@code activity_not_running} answer as the other pane routes, then {@link PaneWait},
+     * reading the pane through the dispatcher one poll at a time.
+     */
+    private JSONObject runPaneWait(Context context, HttpRequest request) throws JSONException {
+        JSONObject refusal = panesApiRefusal(context);
+        if (refusal != null) return refusal;
+        JSONObject body;
+        try {
+            body = request.body == null || request.body.trim().isEmpty()
+                ? new JSONObject() : new JSONObject(request.body);
+        } catch (JSONException e) {
+            JSONObject error = jsonError("bad_request", "Request body must be a JSON object");
+            error.put("_statusCode", 400);
+            return error;
+        }
+        JSONObject[] invalid = new JSONObject[1];
+        PaneWait wait = PaneWait.parse(paneIdFrom(request.path), body, invalid);
+        if (wait == null) return invalid[0];
+        com.termux.app.terminal.TerminalActionDispatcher dispatcher =
+            com.termux.app.terminal.TerminalActionDispatcher.getInstance();
+        if (!dispatcher.isAttached()) {
+            JSONObject error = jsonError("activity_not_running",
+                "The launcher is not running right now, so panes cannot be driven");
+            error.put("_statusCode", 409);
+            return error;
+        }
+        return wait.run(arguments -> dispatcher.execute(
+            com.termux.app.terminal.TerminalActionDispatcher.TOOL_PANE_READ, arguments),
+            PaneWait.SYSTEM_CLOCK);
     }
 
     /**
@@ -1361,6 +1487,10 @@ public class LauncherCtlApiServer {
             return null;
         }
         String[] parts = path.split("/");
+        // "", "v1", "panes", "<id>": the pane itself, read-only like the list.
+        if (parts.length == 4 && "panes".equals(parts[2]) && !parts[3].isEmpty()) {
+            return "GET".equals(method) ? com.termux.app.terminal.TerminalActionDispatcher.TOOL_PANE_INFO : null;
+        }
         // "", "v1", "panes", "<id>", "<action>"
         if (parts.length != 5 || parts[3].isEmpty()) return null;
         switch (parts[4]) {
@@ -1395,18 +1525,32 @@ public class LauncherCtlApiServer {
         }
     }
 
+    /**
+     * {@code POST /v1/panes/{id}/wait}, which {@link #handleClient} hands to a wait thread of its
+     * own instead of routing it; no dispatcher tool stands behind it, so it is not in
+     * {@link #paneToolFor}.
+     */
+    static boolean isPaneWaitRoute(@NonNull String method, @NonNull String path) {
+        if (!"POST".equals(method) || !path.startsWith("/v1/panes/")) return false;
+        String[] parts = path.split("/");
+        return parts.length == 5 && !parts[3].isEmpty() && "wait".equals(parts[4]);
+    }
+
+    /** The id in {@code /v1/panes/{id}[/action]} or {@code /v1/windows/{id}/action}, or null. */
     @Nullable
     static String paneIdFrom(@NonNull String path) {
         String[] parts = path.split("/");
+        if (parts.length == 4 && "panes".equals(parts[2]) && !parts[3].isEmpty()) return parts[3];
         return parts.length == 5 && !parts[3].isEmpty() ? parts[3] : null;
     }
 
     /** Rate-limit key for a request; pane and window routes share one bucket per action across ids. */
     @NonNull
     static String rateLimitKey(@NonNull String method, @NonNull String path) {
-        String id = path.startsWith("/v1/panes/") || path.startsWith("/v1/windows/")
-            ? paneIdFrom(path) : null;
-        if (id != null) path = path.replace("/" + id + "/", "/*/");
+        String prefix = path.startsWith("/v1/panes/") ? "/v1/panes/"
+            : path.startsWith("/v1/windows/") ? "/v1/windows/" : null;
+        String id = prefix == null ? null : paneIdFrom(path);
+        if (id != null) path = prefix + "*" + path.substring(prefix.length() + id.length());
         return method + ":" + path;
     }
 
@@ -1910,6 +2054,10 @@ public class LauncherCtlApiServer {
         rateLimiters.put("POST:/v1/windows/*/close", new SimpleRateLimiter(60, 60_000));
         rateLimiters.put("POST:/v1/panes/*/write", new SimpleRateLimiter(240, 60_000));
         rateLimiters.put("GET:/v1/panes/*/text", new SimpleRateLimiter(240, 60_000));
+        rateLimiters.put("GET:/v1/panes/*", new SimpleRateLimiter(240, 60_000));
+        // Each wait is one request however long it holds; the threads behind them are capped
+        // separately (PaneWait.MAX_CONCURRENT).
+        rateLimiters.put("POST:/v1/panes/*/wait", new SimpleRateLimiter(240, 60_000));
         // Agent hooks fire on every prompt, tool approval and turn end, so the ceiling is high; the
         // hooks installer is a one-off and stays low.
         rateLimiters.put("POST:/v1/panes/*/agent", new SimpleRateLimiter(600, 60_000));
@@ -2779,13 +2927,27 @@ public class LauncherCtlApiServer {
         }
 
         String taiScript = taiCliScript(TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH);
+        String launcherctlScript = launcherctlCliScript(TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH);
 
-        // launcherctl is the shell companion: `launcherctl launch` for tmux configs and shell binds,
-        // and `launcherctl pane …` so a process in a shell — an agent, a build, a script — can open
-        // a pane of its own to show its work in and drive it. Everything else was stripped with the
-        // agent/MCP endpoints and stays gone.
-        String launcherctlScript =
-            "#!" + TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH + "/sh\n" +
+        try {
+            writeExecutableTextFile(TAI_BIN_PATH, taiScript);
+            writeExecutableTextFile(LAUNCHERCTL_BIN_PATH, launcherctlScript);
+            deleteLegacyHelperScripts();
+        } catch (Exception e) {
+            Logger.logErrorExtended(LOG_TAG, "Failed to install TAI cli: " + e.getMessage());
+        }
+    }
+
+    /**
+     * The {@code launcherctl} script: the shell companion. {@code launcherctl launch} for tmux
+     * configs and shell binds, and {@code launcherctl pane …} / {@code window …} so a process in
+     * a shell (an agent, a build, a script) can open a pane of its own, show its work in it and
+     * drive it, plus the signals and device groups. Everything else was stripped with the
+     * agent/MCP endpoints and stays gone.
+     */
+    static String launcherctlCliScript(String binPrefixDir) {
+        return
+            "#!" + binPrefixDir + "/sh\n" +
             "set -eu\n" +
             "print_help() {\n" +
             "  cat <<'EOF'\n" +
@@ -3352,14 +3514,6 @@ public class LauncherCtlApiServer {
             "    exit 2\n" +
             "    ;;\n" +
             "esac\n";
-
-        try {
-            writeExecutableTextFile(TAI_BIN_PATH, taiScript);
-            writeExecutableTextFile(LAUNCHERCTL_BIN_PATH, launcherctlScript);
-            deleteLegacyHelperScripts();
-        } catch (Exception e) {
-            Logger.logErrorExtended(LOG_TAG, "Failed to install TAI cli: " + e.getMessage());
-        }
     }
 
     /**

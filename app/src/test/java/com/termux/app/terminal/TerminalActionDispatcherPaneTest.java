@@ -225,7 +225,8 @@ public class TerminalActionDispatcherPaneTest {
         host.visible = false;
         host.alive = false;
         for (String tool : new String[]{"pane.open", "pane.list", "pane.focus", "pane.write",
-                "pane.read", "pane.close", "pane.set_size", "window.focus", "window.close_by_id"}) {
+                "pane.read", "pane.close", "pane.set_size", "window.focus", "window.close_by_id",
+                "pane.info"}) {
             JSONObject result = dispatcher.execute(tool, new JSONObject().put("id", "whatever"));
             assertEquals(tool, 409, result.getInt("_statusCode"));
             assertEquals(tool, "activity_not_running", result.getString("error"));
@@ -347,8 +348,8 @@ public class TerminalActionDispatcherPaneTest {
         List<String> features = new ArrayList<>();
         JSONArray array = result.getJSONArray("features");
         for (int i = 0; i < array.length(); i++) features.add(array.getString(i));
-        assertTrue(features.toString(), features.containsAll(
-            java.util.Arrays.asList("placement", "resize", "geometry", "windows")));
+        assertTrue(features.toString(), features.containsAll(java.util.Arrays.asList(
+            "placement", "resize", "geometry", "windows", "info", "wait", "print-id")));
 
         JSONArray windows = result.getJSONArray("windows");
         assertEquals(2, windows.length());
@@ -430,6 +431,43 @@ public class TerminalActionDispatcherPaneTest {
             .put("id", String.valueOf(agentsWindow.id)));
         assertTrue(closed.toString(), closed.getBoolean("closed"));
         assertFalse(AgentPaneRegistry.getInstance().isOwned(agents.mHandle));
+    }
+
+    /**
+     * pane.info (GET /v1/panes/{id}, launcherctl pane current) reaches every pane of the current
+     * session, the user's own included, since it only reads; it works with the host stopped.
+     */
+    @Test
+    public void info_reportsAnyPaneOfTheCurrentSessionWithItsWindow() throws JSONException {
+        TerminalSession usersShell = host.controller.getActiveSession();
+        host.visible = false;
+        JSONObject result = dispatcher.execute("pane.info", new JSONObject().put("id", usersShell.mHandle));
+        assertTrue(result.toString(), result.getBoolean("ok"));
+        JSONObject pane = result.getJSONObject("pane");
+        assertEquals(usersShell.mHandle, pane.getString("id"));
+        assertEquals(host.window.id, pane.getLong("window"));
+        assertFalse(pane.getBoolean("floating"));
+        assertTrue(pane.getBoolean("focused"));
+        assertTrue(pane.has("geometry"));
+        assertTrue(pane.isNull("agent"));
+        JSONObject window = result.getJSONObject("window");
+        assertEquals(host.window.id, window.getLong("id"));
+        assertEquals(0, window.getInt("index"));
+        assertTrue(window.getBoolean("current"));
+        assertFalse(window.getBoolean("owned"));
+        assertTrue(result.isNull("layout"));
+
+        // A pane in a window behind the one on screen is still reported, with that window.
+        TerminalSession behind = PaneHost.shell();
+        TerminalPaneController.Window other = host.addWindow(behind);
+        JSONObject back = dispatcher.execute("pane.info", new JSONObject().put("id", behind.mHandle));
+        assertTrue(back.toString(), back.getBoolean("ok"));
+        assertEquals(other.id, back.getJSONObject("window").getLong("id"));
+        assertFalse(back.getJSONObject("window").getBoolean("current"));
+        assertFalse(back.getJSONObject("pane").getBoolean("focused"));
+
+        assertEquals(404, dispatcher.execute("pane.info", new JSONObject().put("id", "nope")).getInt("_statusCode"));
+        assertEquals(400, dispatcher.execute("pane.info", new JSONObject()).getInt("_statusCode"));
     }
 
     /** One side's share of a split: the first child's, or the second's. */
