@@ -161,14 +161,89 @@ public final class CommandPaletteView extends View {
         }
     }
 
-    /** One keycap of the frequent-action strip. */
+    /**
+     * One keycap of the strip. Three kinds, one family: an action is a rounded key with a glyph
+     * (something you do), an app a pill led by its icon (something you open), a contact the same
+     * pill led by a monogram (someone). Every kind shares the height, fill, ramp, hairline and
+     * label type.
+     */
     public static final class Keycap {
+        static final int KIND_ACTION = 0;
+        static final int KIND_APP = 1;
+        static final int KIND_CONTACT = 2;
+
+        final int kind;
         final String glyph;
         final String label;
+        /**
+         * An app's icon or a contact's circular photo, resolved when the strip is built. Null
+         * draws the monogram instead.
+         */
+        @Nullable final Drawable icon;
+        /** The monogram's letter, for a contact or an app without artwork. */
+        final String initial;
 
+        // Measured by the view in setKeycaps, so a draw only reads them.
+        float mGlyphWidth;
+        float mLabelWidth;
+        /** Offset from the mark's centre to the initial's draw origin, centred on its ink. */
+        float mInitialDx;
+        float mInitialDy;
+        /** The label as last drawn, ellipsized to {@link #mFitWidth}; refitted only when that moves. */
+        @Nullable String mFitted;
+        float mFitWidth = -1f;
+
+        /** An action's key: a glyph, then the label. */
         public Keycap(@NonNull String glyph, @NonNull String label) {
+            this(KIND_ACTION, glyph, label, null, "");
+        }
+
+        private Keycap(int kind, @NonNull String glyph, @NonNull String label,
+                       @Nullable Drawable icon, @NonNull String initial) {
+            this.kind = kind;
             this.glyph = glyph;
             this.label = label;
+            this.icon = icon;
+            this.initial = initial;
+        }
+
+        /** An app's pill, led by its icon. */
+        @NonNull
+        public static Keycap app(@NonNull String label, @Nullable Drawable icon) {
+            return new Keycap(KIND_APP, "", label, icon, initialOf(label));
+        }
+
+        /**
+         * A contact's pill, led by {@code photo} (already circular) when the contact has one, and
+         * otherwise by the initial of {@code displayName}. The mark is the same size either way,
+         * so a photo landing late swaps in without moving anything.
+         */
+        @NonNull
+        public static Keycap contact(@NonNull String label, @NonNull String displayName,
+                                     @Nullable Drawable photo) {
+            return new Keycap(KIND_CONTACT, "", label, photo, initialOf(displayName));
+        }
+
+        /** Whether the mark is the monogram rather than artwork (an app icon or a photo). */
+        boolean drawsMonogram() {
+            return kind != KIND_ACTION && icon == null;
+        }
+
+        boolean hasMark() {
+            return kind != KIND_ACTION;
+        }
+
+        /** The first letter or digit of {@code name}, upper case; {@code #} when it has none. */
+        @NonNull
+        static String initialOf(@NonNull String name) {
+            for (int i = 0; i < name.length(); ) {
+                int point = name.codePointAt(i);
+                if (Character.isLetterOrDigit(point))
+                    return new String(Character.toChars(point)).toUpperCase(
+                        java.util.Locale.getDefault());
+                i += Character.charCount(point);
+            }
+            return "#";
         }
     }
 
@@ -193,10 +268,24 @@ public final class CommandPaletteView extends View {
     private static final float BOTTOM_FADE_H = 28f;
     private static final float STRIP_GAP = 8f;
     private static final float STRIP_LEFT_EXTRA = 2f;
-    private static final float CAP_GAP = 5f;
-    private static final float CAP_PAD_H = 8f;
+    static final float CAP_GAP = 5f;
+    static final float CAP_PAD_H = 8f;
     private static final float CAP_PAD_V = 6f;
     private static final float CAP_RADIUS = 6f;
+    /** An action key: from its glyph to the label. */
+    static final float CAP_LEAD_GAP = 4f;
+    /**
+     * An app or contact pill's leading mark (icon or monogram). Its left inset equals its vertical
+     * one, so the mark's round sits concentric in the pill's end.
+     */
+    static final float MARK_SIZE = 14f;
+    /** A pill: from its mark to the label. */
+    static final float MARK_GAP = 5f;
+    /** The hairline round on an app icon's bounds, at 10 % white or black against the chip. */
+    private static final int MARK_OUTLINE_ALPHA = 26;
+    /** A contact monogram's disc: the primary at 24 % over the chip. */
+    private static final int MONOGRAM_FILL_ALPHA = 61;
+    private static final float SIZE_MONOGRAM = 8.5f;
     private static final float HAIRLINE = 1f;
     /** Head of the argument row when the caller does not supply one of its own. */
     private static final String DEFAULT_ARGUMENT_PROMPT = "arg ❯";
@@ -246,6 +335,11 @@ public final class CommandPaletteView extends View {
     private final Paint mFill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint mStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final TextPaint mMono = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+    /** A contact's initial: the mono face, bold, in the primary. */
+    private final TextPaint mMonogram = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+    /** The 1 px round on an app icon's bounds. */
+    private final Paint mMarkOutline = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final android.graphics.Rect mInkBounds = new android.graphics.Rect();
     private final RectF mRect = new RectF();
     private final RectF mFrame = new RectF();
     private final Path mShadowClip = new Path();
@@ -264,7 +358,18 @@ public final class CommandPaletteView extends View {
      * into.
      */
     private final RectF mModalBounds = new RectF();
+    /** The caps' rects for the current draw; only the first {@link #mCapCount} are live. */
     private final List<RectF> mCapRects = new ArrayList<>();
+    private int mCapCount;
+    /**
+     * Per cap, for the current draw: the left inset (padding, or the mark's inset), the gap after
+     * the glyph or mark, and the room the label gets. Grown, never shrunk, so a draw allocates
+     * nothing.
+     */
+    private float[] mCapLeft = new float[KEYCAP_COUNT];
+    private float[] mCapLeadGap = new float[KEYCAP_COUNT];
+    private float[] mCapLabelRoom = new float[KEYCAP_COUNT];
+    private float[] mCapSorted = new float[KEYCAP_COUNT];
     /**
      * The call chips of the visible rows, by row index. Rebuilt with every
      * draw of the list, like the keycap rects, so a chip can only be tapped
@@ -281,6 +386,11 @@ public final class CommandPaletteView extends View {
     private int mMeta;
     private int mChipFill;
     private int mCapLabel;
+    /** White on a dark chip, black on a light one, at {@link #MARK_OUTLINE_ALPHA}. */
+    private int mMarkOutlineColor;
+    /** The strip's cap height, and its glyph and label baseline below the cap's top. */
+    private float mCapHeight;
+    private float mCapBaseline;
 
     private float mRadius;
     private float mBodyAlpha;
@@ -334,8 +444,11 @@ public final class CommandPaletteView extends View {
         mDensity = context.getResources().getDisplayMetrics().density;
         mTouchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
         mMono.setTypeface(Typeface.MONOSPACE);
+        mMonogram.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.BOLD));
         mStroke.setStyle(Paint.Style.STROKE);
         mStroke.setStrokeWidth(HAIRLINE * mDensity);
+        mMarkOutline.setStyle(Paint.Style.STROKE);
+        mMarkOutline.setStrokeWidth(1f);
         setClickable(true);
         refreshPalette();
     }
@@ -374,6 +487,11 @@ public final class CommandPaletteView extends View {
         mChipFill = ColorUtils.setAlphaComponent(surfaceContainerHigh, 160);
         int capOverGlass = ColorUtils.compositeColors(mChipFill, overGlass);
         mCapLabel = InAppKeyboardPaletteFactory.ensureContrast(onSurface, capOverGlass);
+        mMarkOutlineColor = ColorUtils.setAlphaComponent(
+            ColorUtils.calculateLuminance(capOverGlass) < 0.5 ? Color.WHITE : Color.BLACK,
+            MARK_OUTLINE_ALPHA);
+        // A configuration change can move the font scale under the measured caps.
+        measureKeycaps();
         invalidate();
     }
 
@@ -416,8 +534,38 @@ public final class CommandPaletteView extends View {
     }
 
     public void setKeycaps(@NonNull List<Keycap> keycaps) {
+        if (keycaps == mKeycaps) return;
         mKeycaps = keycaps;
+        measureKeycaps();
         invalidate();
+    }
+
+    /**
+     * Measures what the strip draws once, when the caps or the type scale change: the cap height
+     * and baseline, every glyph and label width, and where each initial's ink is centred.
+     */
+    private void measureKeycaps() {
+        mMono.setLetterSpacing(0f);
+        mMono.setTextSize(sp(SIZE_CAP_GLYPH));
+        Paint.FontMetrics metrics = mMono.getFontMetrics();
+        float line = metrics.descent - metrics.ascent;
+        mCapHeight = dp(CAP_PAD_V) * 2f + line;
+        mCapBaseline = (mCapHeight - line) / 2f - metrics.ascent;
+        mMonogram.setTextSize(sp(SIZE_MONOGRAM));
+        for (Keycap keycap : mKeycaps) {
+            mMono.setTextSize(sp(SIZE_CAP_GLYPH));
+            keycap.mGlyphWidth = mMono.measureText(keycap.glyph);
+            mMono.setTextSize(sp(SIZE_CAP_LABEL));
+            keycap.mLabelWidth = mMono.measureText(keycap.label);
+            keycap.mFitted = null;
+            keycap.mFitWidth = -1f;
+            if (keycap.initial.isEmpty()) continue;
+            // Centred on the letter's ink rather than the font's ascent, so a capital sits in
+            // the middle of its disc instead of riding high.
+            mMonogram.getTextBounds(keycap.initial, 0, keycap.initial.length(), mInkBounds);
+            keycap.mInitialDx = mInkBounds.left + mInkBounds.width() / 2f;
+            keycap.mInitialDy = mInkBounds.top + mInkBounds.height() / 2f;
+        }
     }
 
     public void setHeader(@NonNull String metaText, @NonNull String crumb) {
@@ -950,14 +1098,16 @@ public final class CommandPaletteView extends View {
 
     private void drawStrip(@NonNull Canvas canvas) {
         layoutKeycaps();
-        if (mCapRects.isEmpty()) return;
+        if (mCapCount == 0) return;
         int alpha = Math.round(255f * mStripAlpha);
         int save = canvas.save();
         canvas.translate(0f, mStripOffset);
-        for (int i = 0; i < mCapRects.size(); i++) {
+        for (int i = 0; i < mCapCount; i++) {
             RectF cap = mCapRects.get(i);
             Keycap keycap = mKeycaps.get(i);
-            float radius = dp(CAP_RADIUS);
+            // An action is a key; an app or a contact is a pill whose end is concentric with its
+            // mark.
+            float radius = keycap.hasMark() ? cap.height() / 2f : dp(CAP_RADIUS);
             mFill.setShader(null);
             mFill.setColor(withBodyAlpha(mChipFill, alpha));
             canvas.drawRoundRect(cap, radius, radius, mFill);
@@ -971,51 +1121,167 @@ public final class CommandPaletteView extends View {
             mRect.set(cap.left + inset, cap.top + inset, cap.right - inset, cap.bottom - inset);
             canvas.drawRoundRect(mRect, radius, radius, mStroke);
 
-            mMono.setTextSize(sp(SIZE_CAP_GLYPH));
-            mMono.setLetterSpacing(0f);
-            float baseline = baseline(cap.top, cap.height(), mMono);
-            mMono.setColor(withBodyAlpha(mPrimary, alpha));
-            canvas.drawText(keycap.glyph, cap.left + dp(CAP_PAD_H), baseline, mMono);
-            float labelStart = cap.left + dp(CAP_PAD_H) + mMono.measureText(keycap.glyph) + dp(4f);
+            float baseline = cap.top + mCapBaseline;
+            float leadLeft = cap.left + mCapLeft[i];
+            float labelStart;
+            if (keycap.hasMark()) {
+                drawCapMark(canvas, keycap, leadLeft, cap.centerY(), alpha);
+                labelStart = leadLeft + dp(MARK_SIZE) + mCapLeadGap[i];
+            } else {
+                mMono.setTextSize(sp(SIZE_CAP_GLYPH));
+                mMono.setLetterSpacing(0f);
+                mMono.setColor(withBodyAlpha(mPrimary, alpha));
+                canvas.drawText(keycap.glyph, leadLeft, baseline, mMono);
+                labelStart = leadLeft + keycap.mGlyphWidth + mCapLeadGap[i];
+            }
             mMono.setTextSize(sp(SIZE_CAP_LABEL));
+            mMono.setLetterSpacing(0f);
             mMono.setColor(withBodyAlpha(mCapLabel, alpha));
-            // Clipped to the cap it belongs to: layoutKeycaps may have scaled the caps down to fit
-            // the row, and the text does not scale with them, so an unclipped label ran past its own
-            // border and into the next cap.
-            canvas.drawText(ellipsize(mMono, keycap.label,
-                cap.right - dp(CAP_PAD_H) - labelStart), labelStart, baseline, mMono);
+            // Ellipsized to the room layoutKeycaps gave this cap, so a long app name shortens
+            // inside its own border instead of running into the next cap.
+            canvas.drawText(fittedLabel(keycap, mCapLabelRoom[i]), labelStart, baseline, mMono);
         }
         canvas.restoreToCount(save);
     }
 
     /**
-     * Lays the caps out in a row centered under the palette's bottom border, scaling their
-     * padding down if the six of them would otherwise pass the palette's own width.
+     * A pill's leading mark: the app's icon or the contact's photo, untinted, inside a 1 px round
+     * that keeps a white or black image from melting into the chip; or, for a contact without a
+     * photo (or an app without artwork), a primary disc holding the initial.
+     */
+    private void drawCapMark(@NonNull Canvas canvas, @NonNull Keycap keycap, float left,
+                             float centerY, int alpha) {
+        float size = dp(MARK_SIZE);
+        float centerX = left + size / 2f;
+        Drawable icon = keycap.icon;
+        if (icon != null) {
+            float top = centerY - size / 2f;
+            icon.setBounds(Math.round(left), Math.round(top),
+                Math.round(left + size), Math.round(top + size));
+            // Alpha set and put back, as drawRowIcon does: the instance is the launcher's own,
+            // shared with the app grid.
+            int previous = icon.getAlpha();
+            icon.setAlpha(alpha);
+            icon.draw(canvas);
+            icon.setAlpha(previous);
+            mMarkOutline.setColor(withBodyAlpha(mMarkOutlineColor, alpha));
+            canvas.drawCircle(centerX, centerY, size / 2f - 0.5f, mMarkOutline);
+            return;
+        }
+        mFill.setShader(null);
+        mFill.setColor(withBodyAlpha(ColorUtils.setAlphaComponent(mPrimary, MONOGRAM_FILL_ALPHA),
+            alpha));
+        canvas.drawCircle(centerX, centerY, size / 2f, mFill);
+        // Its size was set with the measuring, in measureKeycaps.
+        mMonogram.setColor(withBodyAlpha(mPrimary, alpha));
+        canvas.drawText(keycap.initial, centerX - keycap.mInitialDx,
+            centerY - keycap.mInitialDy, mMonogram);
+    }
+
+    /** The cap's label ellipsized to {@code room}, kept until the room changes. */
+    @NonNull
+    private String fittedLabel(@NonNull Keycap keycap, float room) {
+        if (keycap.mFitted != null && keycap.mFitWidth == room) return keycap.mFitted;
+        // Half a pixel of slack: the room for a label that fits is its own measured width, and
+        // float noise must not cost it its last letter.
+        keycap.mFitted = keycap.mLabelWidth <= room + 0.5f ? keycap.label
+            : ellipsize(mMono, keycap.label, room);
+        keycap.mFitWidth = room;
+        return keycap.mFitted;
+    }
+
+    /**
+     * Lays the caps out in a row centered under the palette's bottom border. When their labels
+     * do not all fit, the room is shared fairly: short labels keep their whole width and the long
+     * ones split what is left, so one long app name ellipsizes rather than squeezing every cap.
+     * Only when the caps' own furniture overflows does the row scale down, and then only its
+     * padding, insets and gaps: a glyph or mark keeps its size.
      */
     private void layoutKeycaps() {
-        mCapRects.clear();
-        if (mKeycaps.isEmpty() || mFrame.isEmpty()) return;
-        mMono.setTextSize(sp(SIZE_CAP_LABEL));
-        float capHeight = dp(CAP_PAD_V) * 2f + lineHeight(SIZE_CAP_GLYPH);
-        float top = mFrame.bottom + dp(STRIP_GAP);
-        float available = mFrame.width() - dp(STRIP_LEFT_EXTRA);
-        float[] widths = new float[mKeycaps.size()];
-        float total = dp(CAP_GAP) * (mKeycaps.size() - 1);
-        for (int i = 0; i < mKeycaps.size(); i++) {
-            Keycap keycap = mKeycaps.get(i);
-            mMono.setTextSize(sp(SIZE_CAP_GLYPH));
-            float glyph = mMono.measureText(keycap.glyph);
-            mMono.setTextSize(sp(SIZE_CAP_LABEL));
-            widths[i] = dp(CAP_PAD_H) * 2f + glyph + dp(4f) + mMono.measureText(keycap.label);
-            total += widths[i];
+        int count = mFrame.isEmpty() ? 0 : mKeycaps.size();
+        mCapCount = count;
+        if (count == 0) return;
+        if (mCapLeft.length < count) {
+            mCapLeft = new float[count];
+            mCapLeadGap = new float[count];
+            mCapLabelRoom = new float[count];
+            mCapSorted = new float[count];
         }
-        float scale = total > available ? available / total : 1f;
-        float x = mFrame.left + (mFrame.width() - total * scale) / 2f;
-        for (int i = 0; i < widths.length; i++) {
-            float width = widths[i] * scale;
-            mCapRects.add(new RectF(x, top, x + width, top + capHeight));
+        while (mCapRects.size() < count) mCapRects.add(new RectF());
+        float available = mFrame.width() - dp(STRIP_LEFT_EXTRA);
+        float markInset = (mCapHeight - dp(MARK_SIZE)) / 2f;
+        float gaps = dp(CAP_GAP) * (count - 1);
+        // Scalable furniture (insets, gaps, padding) and fixed leads (glyph or mark), in total.
+        float furniture = gaps;
+        float leads = 0f;
+        float labels = 0f;
+        for (int i = 0; i < count; i++) {
+            Keycap keycap = mKeycaps.get(i);
+            mCapLeft[i] = keycap.hasMark() ? markInset : dp(CAP_PAD_H);
+            mCapLeadGap[i] = keycap.hasMark() ? dp(MARK_GAP) : dp(CAP_LEAD_GAP);
+            furniture += mCapLeft[i] + mCapLeadGap[i] + dp(CAP_PAD_H);
+            leads += keycap.hasMark() ? dp(MARK_SIZE) : keycap.mGlyphWidth;
+            mCapSorted[i] = keycap.mLabelWidth;
+            labels += keycap.mLabelWidth;
+        }
+        float labelBudget = available - furniture - leads;
+        float level = Float.MAX_VALUE;
+        float scale = 1f;
+        if (labels > labelBudget) {
+            if (labelBudget > 0f) {
+                level = fairShare(mCapSorted, count, labelBudget);
+            } else {
+                level = 0f;
+                scale = Math.max(0f, (available - leads) / furniture);
+            }
+        }
+        float total = gaps * scale;
+        for (int i = 0; i < count; i++) {
+            Keycap keycap = mKeycaps.get(i);
+            mCapLeft[i] *= scale;
+            mCapLeadGap[i] *= scale;
+            mCapLabelRoom[i] = Math.min(keycap.mLabelWidth, level);
+            total += mCapLeft[i] + (keycap.hasMark() ? dp(MARK_SIZE) : keycap.mGlyphWidth)
+                + mCapLeadGap[i] + mCapLabelRoom[i] + dp(CAP_PAD_H) * scale;
+        }
+        float top = mFrame.bottom + dp(STRIP_GAP);
+        float x = mFrame.left + (mFrame.width() - total) / 2f;
+        for (int i = 0; i < count; i++) {
+            Keycap keycap = mKeycaps.get(i);
+            float width = mCapLeft[i] + (keycap.hasMark() ? dp(MARK_SIZE) : keycap.mGlyphWidth)
+                + mCapLeadGap[i] + mCapLabelRoom[i] + dp(CAP_PAD_H) * scale;
+            mCapRects.get(i).set(x, top, x + width, top + mCapHeight);
             x += width + dp(CAP_GAP) * scale;
         }
+    }
+
+    /**
+     * The widest a label may be so that {@code count} labels fill exactly {@code budget}: labels
+     * narrower than their share keep their width, and what they leave is split among the rest.
+     * Sorts the first {@code count} of {@code widths} in place.
+     */
+    static float fairShare(@NonNull float[] widths, int count, float budget) {
+        java.util.Arrays.sort(widths, 0, count);
+        float remaining = budget;
+        for (int i = 0; i < count; i++) {
+            float share = remaining / (count - i);
+            if (widths[i] > share) return share;
+            remaining -= widths[i];
+        }
+        return Float.MAX_VALUE;
+    }
+
+    /** For tests: cap {@code index} as laid out against the current frame, or null. */
+    @Nullable
+    RectF keycapRect(int index) {
+        layoutKeycaps();
+        return index < mCapCount ? new RectF(mCapRects.get(index)) : null;
+    }
+
+    /** For tests: the room the label of cap {@code index} was given. */
+    float keycapLabelRoom(int index) {
+        layoutKeycaps();
+        return index < mCapCount ? mCapLabelRoom[index] : 0f;
     }
 
     private void drawHairline(@NonNull Canvas canvas, float y, @ColorInt int color, int alpha) {
@@ -1104,9 +1370,11 @@ public final class CommandPaletteView extends View {
     /** Whether the palette owns this point, or it belongs to whatever is underneath. */
     private boolean isModalAt(float x, float y) {
         if (mFrame.contains(x, y)) return true;
-        for (RectF cap : mCapRects)
+        for (int i = 0; i < mCapCount; i++) {
+            RectF cap = mCapRects.get(i);
             if (x >= cap.left && x <= cap.right
                 && y >= cap.top + mStripOffset && y <= cap.bottom + mStripOffset) return true;
+        }
         // No bounds set yet: behave as a full-screen scrim rather than leaking every tap.
         return mModalBounds.isEmpty() || mModalBounds.contains(x, y);
     }
@@ -1124,7 +1392,7 @@ public final class CommandPaletteView extends View {
             mCallbacks.onRowActionTapped(chipRow);
             return;
         }
-        for (int i = 0; i < mCapRects.size(); i++) {
+        for (int i = 0; i < mCapCount; i++) {
             RectF cap = mCapRects.get(i);
             if (x >= cap.left && x <= cap.right
                 && y >= cap.top + mStripOffset && y <= cap.bottom + mStripOffset) {
