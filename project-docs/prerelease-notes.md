@@ -3,7 +3,7 @@ Rolling notes for the pre-release channel (vX.Y.Z-pre.N, nix-vX.Y.Z-pre.N, vaj-v
 everything the channel carries beyond the latest stable release, one file for all three editions.
 This whole file is the body of every drop (HTML comments do not render on GitHub), so it restates
 the full list each time; when a stable ships, the lines that shipped move into that release's notes
-and leave this file. AGENTS.md, "The pre-release channel", has the rules; the voice is the
+and leave this file. docs/agents/releasing.md, "The pre-release channel", has the rules; the voice is the
 release-notes voice (one line per item, what you can now do, no mechanism).
 -->
 # Pre-release channel

@@ -590,7 +590,8 @@ _Avoid_: the device (when a note means a phone the agent owns), the emulator
 **Pre-release**:
 The rolling channel that gets new work first. The order is `pre`, then `dev`, then the release
 branches. A **drop** is one pre-release, versioned `X.Y.Z-pre.N` and shipped in all three editions.
-`X.Y.Z` is the next minor version above the current stable. The rules are in AGENTS.md.
+`X.Y.Z` is the next minor version above the current stable. The rules are in
+`docs/agents/releasing.md`.
 _Avoid_: beta, nightly (a nightly is any build of `dev`), release candidate
 
 **Release**:

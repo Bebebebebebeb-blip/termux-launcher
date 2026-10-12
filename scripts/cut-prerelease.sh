@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cut a pre-release channel drop on every edition (AGENTS.md, "The pre-release channel").
+# Cut a pre-release channel drop on every edition (docs/agents/releasing.md, "The pre-release channel").
 #
 #   scripts/cut-prerelease.sh [--publish] [--base <ref>] [--only termux|nix|vaj] X.Y.Z-pre.N [branch ...]
 #
