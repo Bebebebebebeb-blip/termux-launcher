@@ -3115,6 +3115,31 @@
     <string name="settings_backup_import_confirm_message">This replaces your launcher settings with the ones saved by version %1$s and restarts the launcher, closing open terminal sessions; widgets and app permissions need setting up again.</string>
     <string name="settings_backup_import_confirm_action">Restore</string>
     <string name="settings_backup_import_partial">Some settings couldn\'t be restored.</string>
+    <!-- Settings › Backup & restore: on-device AI models -->
+    <string name="settings_backup_export_models_title">Export AI models</string>
+    <string name="settings_backup_export_models_summary">Save downloaded models so you don\'t download them again</string>
+    <string name="settings_backup_export_models_none">No downloaded models to save yet</string>
+    <string name="settings_backup_import_models_title">Import AI models</string>
+    <string name="settings_backup_import_models_summary">Add models from a saved folder</string>
+    <string name="settings_backup_models_busy">Your models are already being saved.</string>
+    <string name="settings_backup_models_saving">Saving AI models</string>
+    <string name="settings_backup_models_preparing">Getting ready…</string>
+    <!-- Notification progress: the model being saved, then how much of the whole export is done. -->
+    <string name="settings_backup_models_progress">%1$s · %2$s of %3$s</string>
+    <string name="settings_backup_models_result_title">AI models</string>
+    <plurals name="settings_backup_models_saved">
+        <item quantity="one">%1$d model saved to %2$s</item>
+        <item quantity="other">%1$d models saved to %2$s</item>
+    </plurals>
+    <plurals name="settings_backup_models_stopped">
+        <item quantity="one">Stopped. %1$d model saved.</item>
+        <item quantity="other">Stopped. %1$d models saved.</item>
+    </plurals>
+    <plurals name="settings_backup_models_failed">
+        <item quantity="one">Couldn\'t finish saving. %1$d model saved.</item>
+        <item quantity="other">Couldn\'t finish saving. %1$d models saved.</item>
+    </plurals>
+    <string name="settings_backup_models_no_space">Not enough space. Free up %1$s and try again.</string>
     <!-- Size line for the saved AI models: "3 models · 6.2 GB". -->
     <plurals name="settings_backup_models_count">
         <item quantity="one">%1$d model</item>

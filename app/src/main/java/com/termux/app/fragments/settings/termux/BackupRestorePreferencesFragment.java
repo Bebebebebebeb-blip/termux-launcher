@@ -3,11 +3,13 @@ package com.termux.app.fragments.settings.termux;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.UriPermission;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.DocumentsContract;
+import android.text.TextUtils;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -19,12 +21,14 @@ import androidx.preference.Preference;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.termux.R;
+import com.termux.ai.TaiModelExport;
 import com.termux.app.fragments.settings.MaterialPreferenceFragment;
 import com.termux.app.fragments.settings.SettingsLayoutUtils;
 import com.termux.app.notice.AppNotice;
 import com.termux.app.settings.backup.SettingsBackupFormat;
 import com.termux.app.settings.backup.SettingsBackupFormat.InvalidBackupException;
 import com.termux.app.settings.backup.SettingsBackupIo;
+import com.termux.app.settings.backup.ModelExportService;
 import com.termux.app.settings.backup.SettingsRestart;
 import com.termux.shared.logger.Logger;
 
@@ -32,7 +36,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.text.DateFormat;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -41,14 +47,21 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Backup & restore: saves the launcher's settings and config files to one file, and restores them
  * from one ({@link SettingsBackupFormat}). Reading, writing and restoring all run on one worker
  * thread; a restore asks first, then restarts the launcher so nothing runs half-restored.
+ *
+ * <p>The AI model rows sit beside them: Export AI models copies the downloaded models into a
+ * picked folder ({@link ModelExportService}), and Import AI models is the Model centre's own
+ * folder import ({@link TaiImportFlow}), hosted here, which takes those folders back.
  */
 @Keep
-public final class BackupRestorePreferencesFragment extends MaterialPreferenceFragment {
+public final class BackupRestorePreferencesFragment extends MaterialPreferenceFragment
+    implements TaiImportFlow.Host {
 
     private static final String LOG_TAG = "BackupRestore";
 
     private static final String KEY_EXPORT = "settings_backup_export";
     private static final String KEY_IMPORT = "settings_backup_import";
+    private static final String KEY_EXPORT_MODELS = "settings_backup_export_models";
+    private static final String KEY_IMPORT_MODELS = "settings_backup_import_models";
 
     private static final String MIME_ZIP = "application/zip";
     /** Some pickers report a zip by its generic or legacy type; the reader checks the contents. */
@@ -59,7 +72,7 @@ public final class BackupRestorePreferencesFragment extends MaterialPreferenceFr
 
     /** The shared Downloads folder, where the pickers open; a picker that cannot go there ignores it. */
     private static final Uri DOWNLOADS = DocumentsContract.buildDocumentUri(
-        "com.android.externalstorage.documents", "primary:" + android.os.Environment.DIRECTORY_DOWNLOADS);
+        ModelExportService.EXTERNAL_STORAGE_AUTHORITY, "primary:" + android.os.Environment.DIRECTORY_DOWNLOADS);
 
     private static final ExecutorService WORKER = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "settings-backup");
@@ -68,15 +81,27 @@ public final class BackupRestorePreferencesFragment extends MaterialPreferenceFr
     });
     /** One export or import at a time, across screen rotations. */
     private static final AtomicBoolean BUSY = new AtomicBoolean(false);
+    /** Model imports copy gigabytes, so they get their own thread rather than holding up the one above. */
+    private static final ExecutorService MODEL_IMPORT = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "model-import");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
+    private final TaiImportFlow mModelImport = new TaiImportFlow(this);
     private ActivityResultLauncher<String> mExportLauncher;
     private ActivityResultLauncher<String[]> mImportLauncher;
+    private ActivityResultLauncher<Uri> mExportModelsLauncher;
+    private ActivityResultLauncher<Uri> mImportModelsLauncher;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mExportLauncher = registerForActivityResult(new CreateZipDocument(), this::onExportTarget);
         mImportLauncher = registerForActivityResult(new OpenZipDocument(), this::onImportSource);
+        mExportModelsLauncher = registerForActivityResult(new ActivityResultContracts.OpenDocumentTree(), this::onModelsTarget);
+        mImportModelsLauncher = registerForActivityResult(new ActivityResultContracts.OpenDocumentTree(), mModelImport::onFolderSelected);
     }
 
     @Override
@@ -90,12 +115,145 @@ public final class BackupRestorePreferencesFragment extends MaterialPreferenceFr
                 today.getYear(), today.getMonthValue(), today.getDayOfMonth()));
         });
         click(KEY_IMPORT, () -> mImportLauncher.launch(IMPORT_MIME_TYPES.clone()));
+        click(KEY_EXPORT_MODELS, () -> {
+            if (ModelExportService.isRunning()) AppNotice.show(getContext(), R.string.settings_backup_models_busy, false);
+            else mExportModelsLauncher.launch(DOWNLOADS);
+        });
+        click(KEY_IMPORT_MODELS, mModelImport::startFolder);
     }
 
     @Override
     public void onResume() {
         super.onResume();
         if (getActivity() != null) getActivity().setTitle(R.string.settings_destination_backup_restore);
+        refreshModelsRow();
+    }
+
+    // ------------------------------------------------------------------ AI models
+
+    /** The Export AI models row: how many models and how large, or why there is nothing to export. */
+    private void refreshModelsRow() {
+        Context context = getContext();
+        if (context == null) return;
+        Context app = context.getApplicationContext();
+        WORKER.execute(() -> {
+            List<TaiModelExport.Model> models;
+            try {
+                models = ModelExportService.exportable(app);
+            } catch (RuntimeException e) {
+                Logger.logStackTraceWithMessage(LOG_TAG, "Listing the models failed", e);
+                models = Collections.emptyList();
+            }
+            long bytes = 0L;
+            for (TaiModelExport.Model model : models) bytes += model.bytes;
+            int count = models.size();
+            long total = bytes;
+            onMain(() -> showModels(count, total));
+        });
+    }
+
+    private void showModels(int count, long bytes) {
+        Preference row = findPreference(KEY_EXPORT_MODELS);
+        if (row == null || !isAdded()) return;
+        boolean any = count > 0;
+        CharSequence summary = any
+            ? getString(R.string.settings_backup_export_models_summary) + "\n"
+                + TaiModelExport.sizeSummary(getResources(), count, bytes)
+            : getString(R.string.settings_backup_export_models_none);
+        if (!TextUtils.equals(row.getSummary(), summary)) row.setSummary(summary);
+        if (row.isEnabled() != any) row.setEnabled(any);
+    }
+
+    private void onModelsTarget(@Nullable Uri tree) {
+        Context context = getContext();
+        if (tree == null || context == null) return;
+        if (ModelExportService.isRunning()) {
+            AppNotice.show(context, R.string.settings_backup_models_busy, false);
+            return;
+        }
+        Context app = context.getApplicationContext();
+        try {
+            ModelExportService.start(app, tree, holdFolder(app, tree));
+        } catch (RuntimeException e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Starting the model export failed", e);
+            AppNotice.show(app, getResources().getQuantityString(R.plurals.settings_backup_models_failed, 0, 0), true);
+        }
+    }
+
+    /**
+     * Keeps write access to the picked folder after Settings closes, which a picker's grant alone
+     * does not. True when this took the grant, so the export releases it when done; a folder the
+     * app already held for something else stays held.
+     */
+    private static boolean holdFolder(@NonNull Context app, @NonNull Uri tree) {
+        int flags = Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+        try {
+            for (UriPermission held : app.getContentResolver().getPersistedUriPermissions()) {
+                if (tree.equals(held.getUri())) return false;
+            }
+            app.getContentResolver().takePersistableUriPermission(tree, flags);
+            return true;
+        } catch (RuntimeException e) {
+            // A provider that does not offer a lasting grant: the copy runs on the picker's.
+            return false;
+        }
+    }
+
+    // ---- TaiImportFlow.Host: the Model centre's folder import, started from Import AI models ----
+
+    @Nullable
+    @Override
+    public Context context() {
+        return isAdded() ? getContext() : null;
+    }
+
+    @NonNull
+    @Override
+    public ExecutorService executor() {
+        return MODEL_IMPORT;
+    }
+
+    @NonNull
+    @Override
+    public Handler handler() {
+        return MAIN;
+    }
+
+    @Override
+    public void pickFile() {
+        // This screen only starts the folder import; the single-file import lives in the Model centre.
+    }
+
+    @Override
+    public void pickFolder() {
+        try {
+            mImportModelsLauncher.launch(DOWNLOADS);
+        } catch (RuntimeException e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Opening the folder picker failed", e);
+            AppNotice.show(getContext(), R.string.settings_backup_import_read_failed, false);
+        }
+    }
+
+    @Override
+    public void openUrl(@NonNull String url) {
+        Context context = getContext();
+        if (context == null) return;
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (RuntimeException e) {
+            AppNotice.show(context, url, true);
+        }
+    }
+
+    @Override
+    public void setDefaultModel(@NonNull String modelId) {
+        Context context = getContext();
+        if (context != null) TaiModelCentreFragment.saveDefaultAssistant(context, modelId);
+    }
+
+    @Override
+    public void modelsChanged() {
+        refreshModelsRow();
     }
 
     private void click(@NonNull String key, @NonNull Runnable action) {

@@ -134,5 +134,6 @@ public final class SettingsLayoutUtils {
         "app_launcher_category_refresh", "gui_apps_copy",
         "tai_welcome_card", "tai_huggingface_token", "tai_endpoint_copy", "tai_share_diagnostics",
         "tai_runtime_stop", "tai_runtime_unload", "tai_runtime_logs",
-        "settings_backup_export", "settings_backup_import"));
+        "settings_backup_export", "settings_backup_import",
+        "settings_backup_export_models", "settings_backup_import_models"));
 }
