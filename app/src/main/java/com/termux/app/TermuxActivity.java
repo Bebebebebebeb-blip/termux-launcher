@@ -558,6 +558,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     /** Trailing CPU/RAM/weather widgets, their data controllers, and the shared detail card host. */
     @Nullable private com.termux.app.statusbar.SystemStatsController mStatsController;
     @Nullable private com.termux.app.statusbar.AiIndicatorController mAiIndicatorController;
+    /**
+     * The CPU reading needs privileged access, so it shows or hides as access comes and goes.
+     * Registered from onStart to onStop, the same span the stats sampler runs: a stopped activity
+     * re-reads availability on its next onStart anyway.
+     */
+    private final com.termux.privileged.PrivilegedAvailabilitySignal.Listener
+        mPrivilegedAvailabilityListener = available -> updateStatusWidgets();
     @Nullable private com.termux.app.statusbar.SystemStatsCardView mStatsCardView;
     /**
      * Presentation smoothing for the two bar readings only. One controller feeds both surfaces, and
@@ -2081,6 +2088,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // updateStatusWidgets(), reached solely from refreshTerminalWindowBar()'s tail — which
         // neither onStart nor onResume calls. Without this the CPU and memory readings never
         // resumed after leaving the app and coming back.
+        PrivilegedBackendManager.getInstance().addAvailabilityListener(mPrivilegedAvailabilityListener);
         updateStatusWidgets();
         // onStop let go of the display's surface; nothing else re-attaches it when the wall
         // already rests on the Display place, and a display whose surface is not attached takes
@@ -8464,6 +8472,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mKeybindHintPresenter.hideNow(false);
         if (mStatsController != null) mStatsController.stop();
         if (mAiIndicatorController != null) mAiIndicatorController.stop();
+        PrivilegedBackendManager.getInstance().removeAvailabilityListener(mPrivilegedAvailabilityListener);
         // Sampling stops here, so the smoothed history stops meaning anything. Dropped now rather
         // than aged out on resume: the first reading the user sees again has to be the true one.
         mBarCpuSmoother.reset();
@@ -22317,7 +22326,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             findViewById(R.id.terminal_status_dot_cpu_ram);
         com.termux.app.statusbar.MaterialDotSeparatorView ramWeatherDot =
             findViewById(R.id.terminal_status_dot_ram_weather);
-        boolean cpuOn = mPreferences != null && mPreferences.isStatusWidgetCpuEnabled();
+        // The CPU reading needs privileged access; without it the widget hides rather than show a
+        // dash, and comes back through mPrivilegedAvailabilityListener. The backend itself is
+        // brought up (and retried) by refreshPrivilegedBackendIfNeeded() on every resume.
+        boolean cpuOn = com.termux.app.statusbar.StatusStatsClusterPolicy.cpuShown(
+            mPreferences != null && mPreferences.isStatusWidgetCpuEnabled(),
+            PrivilegedBackendManager.getInstance().isPrivilegedAvailableForUi());
         boolean ramOn = mPreferences != null && mPreferences.isStatusWidgetRamEnabled();
         boolean weatherOn = mPreferences != null && mPreferences.isStatusWidgetWeatherEnabled();
         View widgetSlot = findViewById(R.id.terminal_top_widget_area);
