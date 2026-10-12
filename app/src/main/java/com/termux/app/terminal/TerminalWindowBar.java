@@ -1644,12 +1644,14 @@ public final class TerminalWindowBar extends HorizontalScrollView {
         int secondary = MaterialColors.getColor(context,
             com.termux.shared.R.attr.termuxColorSecondary,
             ContextCompat.getColor(context, R.color.termux_secondary));
-        // Secondary for the ring ("something is happening"), tertiary for done, error for the
+        // Primary for the ring ("something is happening"), tertiary for done, error for the
         // bell and a failed progress report: error is the one Material role that is warm in every
         // generated palette, and a window waiting on the user has to be findable without reading
         // any label. Done and busy are different roles, so a finished chip never reads as one
-        // that is still going.
-        mBusyColor = secondary;
+        // that is still going. Primary rather than secondary because secondary is the palette's
+        // low-chroma role, and once the glass tones it pale it was barely apart from the outline;
+        // the toning keeps hue and chroma, so primary stays a colour.
+        mBusyColor = primary;
         mAttentionColor = MaterialColors.getColor(context,
             com.termux.shared.R.attr.termuxColorError,
             ContextCompat.getColor(context, R.color.termux_error));
