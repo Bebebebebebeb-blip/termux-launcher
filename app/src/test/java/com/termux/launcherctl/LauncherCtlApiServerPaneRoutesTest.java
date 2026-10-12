@@ -29,6 +29,39 @@ public class LauncherCtlApiServerPaneRoutesTest {
         assertNull(LauncherCtlApiServer.paneToolFor("POST", "/v1/panes/abc-1"));
         assertEquals("abc-1", LauncherCtlApiServer.paneIdFrom("/v1/panes/abc-1/text"));
         assertNull(LauncherCtlApiServer.paneIdFrom("/v1/panes"));
+        assertEquals("pane.set_size", LauncherCtlApiServer.paneToolFor("POST", "/v1/panes/abc-1/resize"));
+        assertNull(LauncherCtlApiServer.paneToolFor("GET", "/v1/panes/abc-1/resize"));
+    }
+
+    @Test
+    public void windowRoutes_mapToTheirActions() {
+        assertEquals("window.focus", LauncherCtlApiServer.windowToolFor("POST", "/v1/windows/3/focus"));
+        assertEquals("window.close_by_id", LauncherCtlApiServer.windowToolFor("POST", "/v1/windows/3/close"));
+        assertNull(LauncherCtlApiServer.windowToolFor("GET", "/v1/windows/3/focus"));
+        assertNull(LauncherCtlApiServer.windowToolFor("POST", "/v1/windows/3/kill"));
+        assertNull(LauncherCtlApiServer.windowToolFor("POST", "/v1/windows//focus"));
+        assertNull(LauncherCtlApiServer.windowToolFor("POST", "/v1/windows"));
+        assertNull(LauncherCtlApiServer.windowToolFor("POST", "/v1/panes/3/focus"));
+        assertEquals("3", LauncherCtlApiServer.paneIdFrom("/v1/windows/3/close"));
+    }
+
+    /** Resize buckets like focus, window focus/close like pane focus/close; one bucket per action. */
+    @Test
+    public void resizeAndWindowRoutes_haveTheirOwnRateLimiters() throws Exception {
+        LauncherCtlApiServer server = LauncherCtlApiServer.getInstance();
+        Method init = LauncherCtlApiServer.class.getDeclaredMethod("initializeRateLimiters");
+        init.setAccessible(true);
+        init.invoke(server);
+        Field field = LauncherCtlApiServer.class.getDeclaredField("rateLimiters");
+        field.setAccessible(true);
+        Map<?, ?> limiters = (Map<?, ?>) field.get(server);
+        assertEquals("POST:/v1/panes/*/resize", LauncherCtlApiServer.rateLimitKey("POST", "/v1/panes/abc/resize"));
+        assertEquals("POST:/v1/windows/*/focus", LauncherCtlApiServer.rateLimitKey("POST", "/v1/windows/7/focus"));
+        assertEquals("POST:/v1/windows/*/close", LauncherCtlApiServer.rateLimitKey("POST", "/v1/windows/7/close"));
+        for (String key : new String[]{"POST:/v1/panes/*/resize", "POST:/v1/windows/*/focus",
+                "POST:/v1/windows/*/close"}) {
+            assertTrue(key, limiters.containsKey(key));
+        }
     }
 
     @Test
