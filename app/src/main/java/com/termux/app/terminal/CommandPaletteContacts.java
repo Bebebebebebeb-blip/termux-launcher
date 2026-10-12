@@ -65,10 +65,20 @@ public final class CommandPaletteContacts {
     public static final class Match {
         public final Contact contact;
         public final String number;
+        /**
+         * How well the query matched, on the palette's own score scale, so the row can be ranked
+         * against action and app rows.
+         */
+        public final int score;
 
         Match(@NonNull Contact contact, @NonNull String number) {
+            this(contact, number, SCORE_NONE);
+        }
+
+        Match(@NonNull Contact contact, @NonNull String number, int score) {
             this.contact = contact;
             this.number = number;
+            this.score = score;
         }
     }
 
@@ -80,14 +90,20 @@ public final class CommandPaletteContacts {
     /** How many contact rows the palette shows at once. */
     private static final int MATCH_LIMIT = 8;
 
-    /** Tiers, matching the palette's own ranking: what the name says first. */
-    private static final int SCORE_EXACT_NAME = 100;
-    private static final int SCORE_NAME_PREFIX = 90;
-    private static final int SCORE_NAME_WORD_PREFIX = 80;
-    private static final int SCORE_NAME_SUBSTRING = 70;
-    /** A number match ranks below every name match: the name is what the user reads. */
-    private static final int SCORE_NUMBER = 60;
-    private static final int SCORE_NONE = 0;
+    /**
+     * Tiers, on the palette's own scale ({@link CommandPaletteFilter}): what the name says first,
+     * exactly as an action's title.
+     */
+    private static final int SCORE_EXACT_NAME = CommandPaletteFilter.SCORE_EXACT_TITLE;
+    private static final int SCORE_NAME_PREFIX = CommandPaletteFilter.SCORE_TITLE_PREFIX;
+    private static final int SCORE_NAME_WORD_PREFIX = CommandPaletteFilter.SCORE_WORD_PREFIX;
+    private static final int SCORE_NAME_SUBSTRING = CommandPaletteFilter.SCORE_TITLE_SUBSTRING;
+    /**
+     * A number match ranks below every name match, the name being what the user reads; level with
+     * an action's id match, the other way in by something the row does not say.
+     */
+    private static final int SCORE_NUMBER = CommandPaletteFilter.SCORE_ID_SUBSTRING;
+    private static final int SCORE_NONE = CommandPaletteFilter.SCORE_NONE;
 
     /** Fewest digits a query needs before it searches numbers: two digits land in nearly every number. */
     private static final int MIN_QUERY_DIGITS = 3;
@@ -227,7 +243,7 @@ public final class CommandPaletteContacts {
             Contact contact = contacts.get(scored.get(i)[0]);
             String matched = numberMatching(contact, digits);
             matches.add(new Match(contact,
-                matched != null ? matched : contact.firstNumber()));
+                matched != null ? matched : contact.firstNumber(), scored.get(i)[1]));
         }
         return matches;
     }
