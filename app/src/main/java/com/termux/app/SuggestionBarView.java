@@ -2384,9 +2384,24 @@ public final class SuggestionBarView extends GridLayout
             .setDuration(120)
             .setInterpolator(new DecelerateInterpolator())
             .setListener(new AnimatorListenerAdapter() {
+                private boolean cancelled;
+
+                @Override
+                public void onAnimationCancel(Animator animation) {
+                    cancelled = true;
+                }
+
                 @Override
                 public void onAnimationEnd(Animator animation) {
                     setListenerSafe(null);
+                    // A cancel is a new touch, scrub or render reaching the row mid-fade, and it
+                    // ends the fade synchronously: clearing here would pull the letter out from
+                    // under a preview that is rendering it. The preview stays and times out anew.
+                    if (cancelled) {
+                        setAlpha(1f);
+                        if (activeAzLetter != null) scheduleAzResetTimeout();
+                        return;
+                    }
                     activeAzLetter = null;
                     activeAzSelection = 0;
                     activeAzPageIndex = 0;
