@@ -36,6 +36,10 @@ under twenty items; past that, the oldest are re-judged first.
   the screenshot under `$PREFIX/tmp/clipboard`; paste again gives the clipboard text and the glyph
   is back to paste; take another screenshot and paste with a modifier: the clipboard text, while
   the photo still shows · pong with the go-ahead.
+- 2026-10-13 · commit "feat(dock): let the largest pinned icon reach about 56dp" · Appearance →
+  Icon size at its top reads about 56 dp on Docked and 55 dp on Floating, the dock grows with it
+  and lifts over the keyboard without clipping; the shipped size and the old tops (47 / 45 dp) draw
+  as before · Waydroid, both Styles, keyboard up and down.
 
 ## Developer
 
