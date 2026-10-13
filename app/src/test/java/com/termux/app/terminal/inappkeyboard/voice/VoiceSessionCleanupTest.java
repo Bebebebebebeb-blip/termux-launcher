@@ -17,6 +17,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.AbstractExecutorService;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -224,5 +230,114 @@ public class VoiceSessionCleanupTest {
         cleanup.run(raw, (cleanedRaw, result) -> got.add(result));
         assertEquals(Arrays.asList("warm", "polish:" + SENTENCES, "polish:" + raw), polisher.calls);
         assertEquals("Cleaned.", got.get(0).text);
+    }
+
+    /**
+     * A model that takes its time to load: every call the cleanup thread makes waits for {@link #loaded},
+     * as {@code LocalTaiVoiceTextPolisher} waits on the runtime while E4B loads, and notes the thread it ran on.
+     */
+    private static final class LoadingPolisher implements VoiceTextPolisher {
+        final CountDownLatch loaded = new CountDownLatch(1);
+        final List<Thread> callers = new CopyOnWriteArrayList<>();
+        final boolean warmBlocks;
+
+        LoadingPolisher(boolean warmBlocks) {
+            this.warmBlocks = warmBlocks;
+        }
+
+        private void waitForLoad() {
+            callers.add(Thread.currentThread());
+            try {
+                loaded.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        @Override
+        public void warm() {
+            if (warmBlocks) waitForLoad();
+            else callers.add(Thread.currentThread());
+        }
+
+        @Override
+        public boolean cleansWhileListening() {
+            callers.add(Thread.currentThread());
+            return true;
+        }
+
+        @NonNull
+        @Override
+        public Result polish(@NonNull String text, long timeoutMs) {
+            waitForLoad();
+            return Result.polished("Cleaned.");
+        }
+    }
+
+    /** Runs what the cleanup posts to the main thread, on the test thread, until {@code done} holds. */
+    private static void drainMain(@NonNull BlockingQueue<Runnable> main, @NonNull boolean[] done) throws InterruptedException {
+        while (!done[0]) {
+            Runnable next = main.poll(5, TimeUnit.SECONDS);
+            if (next == null) throw new AssertionError("the cleanup thread never answered");
+            next.run();
+        }
+    }
+
+    /**
+     * The home screen never waits on a model load: while the warm-up holds the cleanup thread, every
+     * call the activity makes on the main thread returns, and the model is never called from it.
+     */
+    @Test(timeout = 10_000L)
+    public void aModelStillLoadingNeverHoldsTheMainThread() throws InterruptedException {
+        LoadingPolisher polisher = new LoadingPolisher(true);
+        ExecutorService worker = Executors.newSingleThreadExecutor();
+        BlockingQueue<Runnable> main = new LinkedBlockingQueue<>();
+        try {
+            VoiceSessionCleanup cleanup = new VoiceSessionCleanup(polisher, VoicePolishRules.LEVEL_LIGHT, worker, main::add);
+            boolean[] warmed = {false};
+            cleanup.warm(() -> warmed[0] = true);
+            assertTrue(cleanup.isWarming());
+            cleanup.onPhrase(SENTENCES, false, false);
+            cleanup.onPhrase(SENTENCES + " " + SENTENCES, true, false);
+            boolean[] cleaned = {false};
+            cleanup.run(SENTENCES + " " + SENTENCES, (raw, result) -> cleaned[0] = true);
+            assertTrue(cleanup.isWarming());
+            assertFalse(warmed[0]);
+            assertFalse(cleaned[0]);
+
+            polisher.loaded.countDown();
+            drainMain(main, cleaned);
+            assertTrue(warmed[0]);
+            assertFalse(polisher.callers.contains(Thread.currentThread()));
+        } finally {
+            worker.shutdownNow();
+        }
+    }
+
+    /** Once warmed, an early pass that waits on the runtime holds the cleanup thread only. */
+    @Test(timeout = 10_000L)
+    public void anEarlyPassWaitingOnTheRuntimeNeverHoldsTheMainThread() throws InterruptedException {
+        LoadingPolisher polisher = new LoadingPolisher(false);
+        ExecutorService worker = Executors.newSingleThreadExecutor();
+        BlockingQueue<Runnable> main = new LinkedBlockingQueue<>();
+        try {
+            VoiceSessionCleanup cleanup = new VoiceSessionCleanup(polisher, VoicePolishRules.LEVEL_LIGHT, worker, main::add);
+            boolean[] warmed = {false};
+            cleanup.warm(() -> warmed[0] = true);
+            drainMain(main, warmed);
+
+            cleanup.onPhrase(SENTENCES, false, false);
+            String raw = SENTENCES + " " + SENTENCES;
+            cleanup.onPhrase(raw, false, false);
+            boolean[] cleaned = {false};
+            cleanup.run(raw, (cleanedRaw, result) -> cleaned[0] = true);
+            assertFalse(cleaned[0]);
+
+            polisher.loaded.countDown();
+            drainMain(main, cleaned);
+            assertFalse(polisher.callers.contains(Thread.currentThread()));
+        } finally {
+            worker.shutdownNow();
+        }
     }
 }

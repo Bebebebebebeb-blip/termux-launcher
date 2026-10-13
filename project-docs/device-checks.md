@@ -78,6 +78,11 @@ under twenty items; past that, the oldest are re-judged first.
   no `fallback:context_echo`. Then: edit the text mid-dictation (no cleanup lands), Pause and resume
   (only the new speech is cleaned), and a CPU-only cleanup model (no `cleanup early` lines) · pong
   with the go-ahead.
+- 2026-10-13 · commit "test(voice): keep a loading cleanup model off the main thread" · Start a
+  dictation while E4B loads on the GPU (11–19 s): the card and the launcher stay responsive. If
+  they freeze, take the launcher's Java stacks mid-freeze (`debuggerd -j <pid>`) and read
+  `/proc/pressure/memory`: a `main` thread parked in `nativePollOnce` means the stall is GPU or
+  memory contention from the load, not a wait on the runtime · pong with the go-ahead.
 
 ## Developer
 
