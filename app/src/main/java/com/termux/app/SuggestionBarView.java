@@ -8493,9 +8493,10 @@ public final class SuggestionBarView extends GridLayout
         if (vertical)
             return railIconSizePx();
         // Lying down the slots share the row's width, so the icon is held to one slot's share of
-        // it: a large size with many apps would otherwise cover its neighbours.
+        // it, less a little air: a large size with many apps would otherwise cover its neighbours.
         return com.termux.app.dock.DockLayoutPolicy.slotFitIconPx(rowIconSizePx(),
-            getWidth() - getPaddingLeft() - getPaddingRight(), Math.max(1, maxButtonCount));
+            getWidth() - getPaddingLeft() - getPaddingRight(), Math.max(1, maxButtonCount),
+            screenDensity());
     }
 
     /** The row's icon before it is held to its slot: the height the row gives it. */
