@@ -34,6 +34,7 @@ These may change or be dropped before they reach a stable release.
 - Pinned app icons go bigger: the Icon size slider now reaches about 56 dp on both dock styles, icon packs draw as big as stock icons, and a full row of apps keeps its icons from touching.
 - Swipe down on the apps row to open the app drawer while an A–Z letter's apps are showing, not only from your pinned apps.
 - Dictation cleanup now writes what you meant from the whole passage, fixing misheard words and broken sentences rather than only dropping fillers; Polished keeps its paragraphs and lists.
+- Cleaned-up dictation is ready a moment after you stop: on phones that run cleanup on the graphics chip (or with a remote model), it tidies your words at natural pauses while you talk.
 - Tap the text on the dictation card to fix a word with the keyboard before you insert or copy it.
 - Look › Custom starts from the Look on screen, so you can tune Clear or Mist without losing it; a quick look at another Look and back keeps your changes, and Undo puts back what you opened with.
 

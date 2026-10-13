@@ -113,6 +113,9 @@ The settings are in the **Dictation cleanup** group of **Settings â†’ Keyboard â
 
 **Automatic** uses Gemma 4 E2B, then E4B, then raw text. On a phone with 6 GB of RAM or less it
 means **Raw text**. The model loads while you speak, so the pass at the end does not wait for it.
+When cleanup runs on the phone's graphics chip or a remote model, it also tidies your words at
+natural pauses while you talk, so your cleaned text is ready a moment after you stop. The card
+shows what you said until then.
 Both levels use the cleanup model. That is the [remote model](On_Device_AI.md#remote-model) when
 you pick it, when **Automatic** meets a remote model set to **Prefer remote**, or when a remote
 model set to **Only when no local model fits** steps in for a local model with no room. A Polished
