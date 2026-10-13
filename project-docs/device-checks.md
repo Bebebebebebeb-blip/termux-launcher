@@ -36,6 +36,18 @@ under twenty items; past that, the oldest are re-judged first.
   the screenshot under `$PREFIX/tmp/clipboard`; paste again gives the clipboard text and the glyph
   is back to paste; take another screenshot and paste with a modifier: the clipboard text, while
   the photo still shows · pong with the go-ahead.
+- 2026-10-13 · commit "feat(voice): edit the dictation card's text in place" · Tap the waiting
+  text: a blinking caret where tapped, the keyboard up under the card and the card above it
+  (docked and floating); type, backspace, arrows; ✓ inserts the edit into the shell, never into
+  the card; Undo shows the text before the edit, Redo the edit. Tap while listening pauses; tap
+  while "Cleaning up…" keeps the text as heard and the cleanup never lands. A finger scroll of 7
+  lines and a sideways swipe do not open the editor. On the Display place ✓ types into the
+  display afterwards. With the in-app keyboard off the phone's keyboard comes up and types; at
+  font scale 1.3 the caret sits on the line · Waydroid.
+- 2026-10-13 · commit "fix(voice): keep a Polished cleanup's line breaks to the card and the
+  insert" · A Polished list or two paragraphs show on their own lines on the card; ✓ in a shell
+  with bracketed paste keeps them, in a bare shell they arrive on one line and nothing runs ·
+  Waydroid, Polished cleanup on.
 
 ## Developer
 

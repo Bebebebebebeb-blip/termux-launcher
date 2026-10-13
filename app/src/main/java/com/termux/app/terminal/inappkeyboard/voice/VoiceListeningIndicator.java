@@ -17,6 +17,7 @@ import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -70,8 +71,14 @@ import com.termux.app.terminal.inappkeyboard.FloatingKeyboardGeometry;
  * heard marked; Pause, the voice and Stop), the strip says "Reading", "Paused" or "Done", and the
  * × and the swipe stop the reading. The host gives reading an indicator of its own, so a
  * dictation card that is up is left exactly as it is.
+ *
+ * <p>A tap on the dictation's text is the host's ({@link Callbacks#onTextTapped}), which may open
+ * it for editing ({@link VoiceCardEdit}); this class is that editor's {@link VoiceCardEdit.Card}.
+ * While the text is being edited the strip says "Editing", and the room leaves out a keyboard
+ * floating over it ({@link #setTypingKeyboardBounds}), so the card and the keys never cover each
+ * other.
  */
-public final class VoiceListeningIndicator {
+public final class VoiceListeningIndicator implements VoiceCardEdit.Card {
 
     /** Main thread. */
     public interface Callbacks {
@@ -95,6 +102,15 @@ public final class VoiceListeningIndicator {
 
         /** A finger has come down anywhere on the pill or its panel: the user is still there. */
         void onTouched();
+
+        /** A tap on the text, at this UTF-16 offset in the text it shows; -1 for its end. */
+        void onTextTapped(int shownOffset);
+    }
+
+    /** Where the in-app keyboard is on screen, for the card to stay clear of it while its text is edited. */
+    public interface KeyboardBounds {
+        /** Writes the keyboard's screen rectangle to {@code out}; false while it is down. */
+        boolean onScreen(@NonNull Rect out);
     }
 
     /** The reading card's controls ({@link #showReading}); main thread. */
@@ -167,6 +183,12 @@ public final class VoiceListeningIndicator {
     /** What the header's state says now, and for the cleaned text, for redo to put back. */
     @StringRes private int statusRes = R.string.voice_input_listening;
     @StringRes private int cleanedStatus = R.string.voice_input_cleaned_up;
+    /** What undo switches is the user's edit rather than a cleanup: the strip names it so. */
+    private boolean pairIsEdit;
+    /** The text is open in the editor ({@link VoiceCardEdit}). */
+    private boolean editing;
+    @Nullable private KeyboardBounds keyboardBounds;
+    private final Rect keyboard = new Rect();
     private int accent;
     private int onSurfaceVariant;
     private int onSurface;
@@ -189,6 +211,9 @@ public final class VoiceListeningIndicator {
     /** Keeps the card in place once the level ticks have stopped and the text waits: the keyboard, the bars. */
     private final View.OnLayoutChangeListener anchorMoved =
         (v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> v.post(this::reposition);
+
+    /** While editing: a keyboard shown, moved or floated is a layout pass, and the card keeps clear of it. */
+    private final ViewTreeObserver.OnGlobalLayoutListener keyboardMoved = this::reposition;
 
     /** The card grew or shrank (the panel came, a line more): its place in the room follows. */
     private final View.OnLayoutChangeListener cardResized =
@@ -251,6 +276,11 @@ public final class VoiceListeningIndicator {
                 public void onResume() {
                     callbacks.onResume();
                 }
+
+                @Override
+                public void onTextTapped(int shownOffset) {
+                    callbacks.onTextTapped(shownOffset);
+                }
             });
         transcript.setDimRaw(dimRaw);
         if (!base.isEmpty()) transcript.resetTo(base);
@@ -261,10 +291,16 @@ public final class VoiceListeningIndicator {
         cleaningUp = false;
         warming = false;
         cleanedStatus = R.string.voice_input_cleaned_up;
+        pairIsEdit = false;
         statusRes = R.string.voice_input_listening;
         setToggle(true, true);
         refreshHeader();
         fitPanel();
+    }
+
+    /** Where the in-app keyboard is, for the card to keep clear of it while its text is edited. */
+    public void setTypingKeyboardBounds(@Nullable KeyboardBounds bounds) {
+        keyboardBounds = bounds;
     }
 
     /**
@@ -469,6 +505,8 @@ public final class VoiceListeningIndicator {
     private void resume(boolean dimRaw, @NonNull String base) {
         pending = 0;
         cleaningUp = false;
+        pairIsEdit = false;
+        setEditing(false);
         setToggle(true, true);
         VoiceTranscriptPanel view = panel;
         if (view != null) {
@@ -482,6 +520,7 @@ public final class VoiceListeningIndicator {
 
     public void hide() {
         anchor.removeOnLayoutChangeListener(anchorMoved);
+        setEditing(false);
         SwipeCard view = card;
         if (panel != null) panel.release();
         if (readingPanel != null) readingPanel.release();
@@ -568,6 +607,14 @@ public final class VoiceListeningIndicator {
         if (label == null || note == null || busy == null) return;
         if (readingPanel != null) {
             refreshReadingHeader(label, note, busy);
+            return;
+        }
+        if (editing) {
+            label.setText(R.string.voice_input_editing);
+            label.setTextColor(accent);
+            if (busy.getVisibility() != View.GONE) busy.setVisibility(View.GONE);
+            note.setText("");
+            if (note.getVisibility() != View.GONE) note.setVisibility(View.GONE);
             return;
         }
         boolean listening = statusRes == R.string.voice_input_listening;
@@ -663,6 +710,7 @@ public final class VoiceListeningIndicator {
         onMicrophoneClosed(true);
         updateGhost();
         cleanedStatus = status;
+        pairIsEdit = false;
         VoiceTranscriptPanel view = panel;
         if (view != null) view.showCleaned(cleaned);
         setStatus(status);
@@ -681,11 +729,85 @@ public final class VoiceListeningIndicator {
         if (view != null) view.showFinalRaw();
     }
 
-    /** Undo ({@code true}) or redo: the panel shows the text as it went into the cleanup, or cleaned again. */
+    /**
+     * Undo ({@code true}) or redo: the panel shows the text as it went into the cleanup or as it
+     * was before the edit, or cleaned or edited again.
+     */
     public void setUndone(boolean undone) {
         VoiceTranscriptPanel view = panel;
         if (view != null) view.setUndone(undone);
-        setStatus(undone ? R.string.voice_input_as_heard : cleanedStatus);
+        @StringRes int before = pairIsEdit ? R.string.voice_input_before_edit : R.string.voice_input_as_heard;
+        setStatus(undone ? before : cleanedStatus);
+    }
+
+    // ------------------------------------------------------------------ editing (VoiceCardEdit.Card)
+
+    @Override
+    public boolean isOnText(float rawX, float rawY) {
+        VoiceTranscriptPanel view = panel;
+        return view != null && view.isOnText(rawX, rawY);
+    }
+
+    @Override
+    public void showDraft(@NonNull VoiceEditModel model) {
+        VoiceTranscriptPanel view = panel;
+        if (view == null) return;
+        setEditing(true);
+        view.showDraft(model.text(), model.caretUtf16());
+    }
+
+    @Override
+    public void endEdit(@Nullable String editedFrom, @NonNull String shown) {
+        VoiceTranscriptPanel view = panel;
+        setEditing(false);
+        if (view == null) return;
+        if (editedFrom != null) {
+            pairIsEdit = true;
+            cleanedStatus = R.string.voice_input_edited;
+        }
+        view.endEdit(editedFrom, shown);
+    }
+
+    @Override
+    public void abandonEdit() {
+        VoiceTranscriptPanel view = panel;
+        if (view != null) view.abandonEdit();
+        setEditing(false);
+    }
+
+    @Override
+    public void showEdited(@NonNull String editedFrom, @NonNull String edited) {
+        VoiceTranscriptPanel view = panel;
+        if (view == null) return;
+        pairIsEdit = true;
+        cleanedStatus = R.string.voice_input_edited;
+        view.showEditPair(editedFrom, edited);
+    }
+
+    @Override
+    public int offsetOnAdjacentLine(int caretUtf16, int direction) {
+        VoiceTranscriptPanel view = panel;
+        return view == null ? -1 : view.offsetOnAdjacentLine(caretUtf16, direction);
+    }
+
+    /**
+     * Into or out of editing: the strip says so, and while editing every layout pass places the
+     * card again, so a keyboard coming up or floating over the room is kept clear of.
+     */
+    private void setEditing(boolean on) {
+        if (editing == on) return;
+        editing = on;
+        SwipeCard view = card;
+        if (view != null) {
+            ViewTreeObserver observer = view.getViewTreeObserver();
+            if (on) {
+                observer.addOnGlobalLayoutListener(keyboardMoved);
+            } else if (observer.isAlive()) {
+                observer.removeOnGlobalLayoutListener(keyboardMoved);
+            }
+        }
+        refreshHeader();
+        reposition();
     }
 
     /** Insert or Copy has used the text: the controls go (resume too) and the header says what happened. */
@@ -784,8 +906,27 @@ public final class VoiceListeningIndicator {
             int height = content.getHeight() > 0 ? content.getHeight() : activity.getResources().getDisplayMetrics().heightPixels;
             room.set(gap, statusBar + gap, width - gap, height - bottomBars - gap);
         }
+        if (editing) avoidKeyboard(content, gap);
         if (room.right < room.left) room.right = room.left;
         if (room.bottom < room.top) room.bottom = room.top;
+    }
+
+    /**
+     * While editing, a keyboard over the room (a floating one; a docked one is below the place
+     * viewport already) is kept out of it, a gap clear, as {@link VoiceCardRoom} decides.
+     */
+    private void avoidKeyboard(@NonNull ViewGroup content, int gap) {
+        KeyboardBounds bounds = keyboardBounds;
+        if (bounds == null || !bounds.onScreen(keyboard) || keyboard.isEmpty()) return;
+        int[] frame = new int[2];
+        content.getLocationOnScreen(frame);
+        int left = keyboard.left - frame[0];
+        int right = keyboard.right - frame[0];
+        if (right <= room.left || left >= room.right) return;
+        int[] slab = VoiceCardRoom.avoid(room.top, room.bottom, keyboard.top - frame[1] - gap,
+            keyboard.bottom - frame[1] + gap);
+        room.top = slab[0];
+        room.bottom = slab[1];
     }
 
     /** This orientation's remembered place, or the top right corner. */
