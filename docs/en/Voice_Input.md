@@ -55,6 +55,11 @@ from the start, in three parts.
 room). A soft bar stands in for a phrase while it transcribes. Text as heard, while a cleanup is
 still to come or after undo, is *italic* and dimmer; cleaned text is upright.
 
+**Tap the text to fix a word** before you use it. A cursor appears where you tapped and the
+keyboard types into the card; press Enter or tap outside the text when you are done. Tapping while
+the card listens pauses it, and an edit made before the cleanup lands keeps your text as it is.
+**Undo** takes you back to the text before your edit.
+
 **The control bar** is there from the start:
 
 - **Pause**, carrying your voice's waveform, closes the microphone. Phrases still transcribing

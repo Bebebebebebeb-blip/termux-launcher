@@ -30,6 +30,10 @@ These may change or be dropped before they reach a stable release.
 - Scripts and agents in a pane can place, size, inspect, wait on and close panes and windows through launcherctl: `pane open --from --direction --size`, `pane resize`, `pane wait`, `window list|focus|close`, and `launcherctl <group> --help` (#66).
 - Pictures travel through the terminal clipboard: programs that speak kitty's clipboard protocol (OSC 5522) can read a picture from Android's clipboard and copy one to it, pasting a picture into a shell or an agent pastes it as a file path under `$PREFIX/tmp/clipboard`, and pictures inserted from the keyboard land the same way (#61).
 - A screenshot you just took can be pasted from the keyboard's paste key, which shows a photo while it or a copied picture is waiting; plain paste (paste with a modifier) keeps the clipboard. Screenshots need the storage permission (Settings › Permissions & services › Files and media, or `termux-setup-storage`).
+- Pinned app icons go bigger: the Icon size slider now reaches about 56 dp on both dock styles, icon packs draw as big as stock icons, and a full row of apps keeps its icons from touching.
+- Swipe down on the apps row to open the app drawer while an A–Z letter's apps are showing, not only from your pinned apps.
+- Dictation cleanup now writes what you meant from the whole passage, fixing misheard words and broken sentences rather than only dropping fillers; Polished keeps its paragraphs and lists.
+- Tap the text on the dictation card to fix a word with the keyboard before you insert or copy it.
 - Look › Custom starts from the Look on screen, so you can tune Clear or Mist without losing it; a quick look at another Look and back keeps your changes, and Undo puts back what you opened with.
 
 ## Editions
