@@ -68,27 +68,35 @@ public class DockIconSizeScaleTest {
 
     /**
      * Ten apps on a 360dp phone are 36dp slots. However large the size, an icon is never wider
-     * than its slot, so it never covers the next one; where it fits it is the size's own icon.
+     * than its slot less the lone row's air, so neighbours never touch; where it fits with that
+     * air it is the size's own icon.
      */
     @Test
-    public void anIconIsNeverWiderThanItsSlot() {
+    public void anIconLeavesAirToItsNeighbours() {
         for (float density : DENSITIES) {
             int rowPx = Math.round(360f * density);
+            int airPx = DockLayoutPolicy.loneRowAirPx(density);
             for (boolean capsule : STYLES) {
                 int top = icon(capsule, DockLayoutPolicy.maxUsefulScale(capsule), density);
                 for (int slots = 1; slots <= 10; slots++) {
-                    int fitted = DockLayoutPolicy.slotFitIconPx(top, rowPx, slots);
+                    int fitted = DockLayoutPolicy.slotFitIconPx(top, rowPx, slots, density);
+                    int slotPx = rowPx / slots;
                     assertTrue("density " + density + " slots " + slots,
-                        fitted * slots <= rowPx);
-                    assertEquals(Math.min(top, rowPx / slots), fitted);
+                        slotPx - fitted >= airPx);
+                    assertEquals(Math.min(top, slotPx - airPx), fitted);
                 }
             }
         }
-        // Where it fits, nothing moves: the shipped size with seven apps.
+        // Ten at the top on a 440dpi phone: 36dp slots hold a 32dp icon with 4dp between.
+        assertEquals(Math.round(360f * 2.75f) / 10 - DockLayoutPolicy.loneRowAirPx(2.75f),
+            DockLayoutPolicy.slotFitIconPx(icon(false, 2.56f, 2.75f),
+                Math.round(360f * 2.75f), 10, 2.75f));
+        // Where it fits, nothing moves: the shipped size with seven and with eight apps.
         int shipped = icon(false, 2.18f, 2.75f);
-        assertEquals(shipped, DockLayoutPolicy.slotFitIconPx(shipped, 990, 7));
+        assertEquals(shipped, DockLayoutPolicy.slotFitIconPx(shipped, 990, 7, 2.75f));
+        assertEquals(shipped, DockLayoutPolicy.slotFitIconPx(shipped, 990, 8, 2.75f));
         // A row with no width yet is held to nothing.
-        assertEquals(shipped, DockLayoutPolicy.slotFitIconPx(shipped, 0, 10));
+        assertEquals(shipped, DockLayoutPolicy.slotFitIconPx(shipped, 0, 10, 2.75f));
     }
 
     /**
