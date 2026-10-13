@@ -20,6 +20,7 @@ Latest stable: v1.0.4.
 <!-- What is on pre and not yet on dev, one line each; name the pull request or branch it came from. -->
 These may change or be dropped before they reach a stable release.
 
+- A fresh install comes with the current tlstore (0.17): terminal-browser is in the store, and Claude Code and opencode start on Android 12 (tlstore#1).
 - Search contacts from the command palette: type a name or a number, tap the result to open the contact, or tap its phone chip to dial. The first search offers a row to allow contact access. Thanks to @AbineshDev01 (#52, #53).
 - Settings › About & help has an Ask on Discord row, Documentation opens the website guide, and the help panel's support link goes to Discord (#58).
 - Hold any action or contact in the command palette to give it a keyboard shortcut, the way you already could with apps. Binding a row again moves its shortcut instead of adding a second one.
