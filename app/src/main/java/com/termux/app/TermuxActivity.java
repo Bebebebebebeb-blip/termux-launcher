@@ -16513,8 +16513,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     /**
-     * The cleanup has landed, the whole text at once. Anything but a real change keeps the text as heard; a change shows
-     * with its words marked. Either way the text now waits for the panel's buttons. A pass that
+     * The cleanup has landed, the whole text at once. Anything but a real change keeps the text
+     * as heard; a change shows with its words marked. Either way the text now waits for the panel's buttons. A pass that
      * is no longer the dictation's own — a resume or a discard replaced it, or the text moved on
      * from what it cleaned — is dropped, so an older version never comes back over the panel.
      */
