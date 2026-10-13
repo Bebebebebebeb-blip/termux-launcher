@@ -5673,14 +5673,21 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * <p>Written from the insets rather than from the root's measured padding, because this runs on
      * the content view's own insets listener — one dispatch ahead of the root's — and because these
      * are the very numbers the two strips are sized by, so the sheet meets them exactly.
+     *
+     * <p>The camera cutout counts as a bar here. With the status bar hidden the bars report no top
+     * inset, but the root still keeps clear of the cutout, and a drawer bled by the bars alone left
+     * its dim a square-cornered band starting under the cutout, with the wallpaper bright above it
+     * (#69).
      */
     private void applyAppDrawerEdgeBleed(@NonNull WindowInsetsCompat insetsCompat) {
         View host = findViewById(R.id.app_drawer_host);
         if (host == null) return;
         ViewGroup.LayoutParams layoutParams = host.getLayoutParams();
         if (!(layoutParams instanceof ViewGroup.MarginLayoutParams)) return;
-        int barTop = insetsCompat.getInsets(Type.systemBars()).top;
-        int barBottom = insetsCompat.getInsets(Type.systemBars()).bottom;
+        androidx.core.graphics.Insets edges =
+            insetsCompat.getInsets(Type.systemBars() | Type.displayCutout());
+        int barTop = edges.top;
+        int barBottom = edges.bottom;
         ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) layoutParams;
         if (margins.topMargin == -barTop && margins.bottomMargin == -barBottom) return;
         margins.topMargin = -barTop;
