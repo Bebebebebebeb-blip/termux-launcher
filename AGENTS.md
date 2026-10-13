@@ -340,7 +340,7 @@ run. Do not ask which editions to release; releasing one is the thing that needs
 `+hotfixN`, no `-a`. The edition is a separate fact: it is derived from the package name and shown
 as an `Edition` line in the About screen and every report, and it is part of the tag and the APK
 name. `versionCode` stays **1020** for upstream parity — never change it. The current release is
-**1.0.4**.
+**1.0.5**.
 
 - **Tags** carry the edition as a prefix: `vX.Y.Z` (Termux edition, `main`), `nix-vX.Y.Z`
   (`nix-edition`), `vaj-vX.Y.Z` (`io-vaj-package`). CI (`attach_debug_apks_to_release.yml`) strips
@@ -415,8 +415,7 @@ ones to keep if it changes:
   companion apps pair with both.
 - **Notes are rolling**: `project-docs/prerelease-notes.md`, kept on `pre` (and so on `dev` after
   a promotion), in the release-notes voice, listing everything the channel carries beyond the
-  **latest stable** — a `## Heading for the next release` part (what `dev` has since the last
-  stable tag), a `## Experimental` part (what is on `pre` and not yet on `dev`) and a closing
+  **latest stable** — an `## Experimental` part (what is on `pre` and not yet in a stable) and a closing
   `## Editions` list with only what is exclusive to Nix or VAJ, as in the stable notes. The whole
   file is every drop's release body (its guidance sits in HTML comments, which GitHub does not
   render), so each drop restates the list. When the stable ships, the lines that shipped move into
