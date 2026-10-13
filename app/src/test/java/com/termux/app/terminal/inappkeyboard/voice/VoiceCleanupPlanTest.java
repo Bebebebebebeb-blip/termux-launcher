@@ -267,14 +267,15 @@ public class VoiceCleanupPlanTest {
     // ------------------------------------------------------------------ joining
 
     @Test
-    public void polishedJoinsOnANewLineOnlyAroundALists() {
-        assertEquals("One. Two.", VoiceCleanupPlan.join(Arrays.asList("One.", "Two."), true));
+    public void polishedStartsEachPartOnANewLineAndLightJoinsWithASpace() {
+        assertEquals("One.\nTwo.", VoiceCleanupPlan.join(Arrays.asList("One.", "Two."), true));
         assertEquals("I need three things:\n1. Log.\n2. Bump.",
             VoiceCleanupPlan.join(Arrays.asList("I need three things:", "1. Log.\n2. Bump."), true));
         assertEquals("1. Log.\n2. Bump.\nAnd reply.",
             VoiceCleanupPlan.join(Arrays.asList("1. Log.\n2. Bump.", "And reply."), true));
-        assertEquals("Para one.\n\nPara two. Next.",
-            VoiceCleanupPlan.join(Arrays.asList("Para one.\n\nPara two.", "Next."), true));
+        // A part's own paragraphs stay as they are.
+        assertEquals("Para one.\n\nPara two.\nNext.",
+            VoiceCleanupPlan.join(Arrays.asList(" Para one.\n\nPara two. ", "", "Next."), true));
         assertEquals("1. Log. 2. Bump.", VoiceCleanupPlan.join(Arrays.asList("1. Log.", "2. Bump."), false));
     }
 }

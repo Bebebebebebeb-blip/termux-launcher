@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
  * everything in one context-free pass when nothing was cleaned early (the request is today's single
  * pass, byte for byte), the tail alone, or, for a tail under {@link VoicePolishRules#MIN_WORDS}, the
  * last part and the tail again together so no raw fragment dangles. {@link #result} joins the
- * parts in order.
+ * parts in order ({@link #join}).
  *
  * <p><b>Carried text.</b> A new dictation that carries on from text in the panel either starts
  * after it, when that text is already final (a cleanup or the user's edit; it is never cleaned
@@ -83,10 +83,7 @@ public final class VoiceCleanupPlan {
         "tai_runtime_timeout", "remote_timeout", "insufficient_memory", "model_not_loaded", "model_not_found",
         "tai_runtime_unavailable", "runtime_client_unavailable"));
     /** A numbered or bulleted list item's marker ("1.", "2)", "-", "•"), with the space before it. */
-    private static final String LIST_MARKER_FORM = "\\s*(?:\\d{1,3}[.)]|[-*•])";
-    private static final Pattern LIST_MARKER = Pattern.compile(LIST_MARKER_FORM);
-    /** A line that opens with a list item. */
-    private static final Pattern LIST_ITEM = Pattern.compile("^" + LIST_MARKER_FORM + "\\s+\\S");
+    private static final Pattern LIST_MARKER = Pattern.compile("\\s*(?:\\d{1,3}[.)]|[-*•])");
     private static final Pattern WORD = Pattern.compile("\\S+");
     /** Where a sentence ends: a full stop, question or exclamation mark (and closing quotes) before a space or the end. */
     private static final Pattern SENTENCE_END = Pattern.compile("[.?!…][\"'”’)]*(?=\\s|$)");
@@ -160,7 +157,7 @@ public final class VoiceCleanupPlan {
     private boolean earlyEnded;
     @Nullable private Pass inFlight;
 
-    /** @param level the cleanup level; Polished keeps a part's line breaks and joins lists on new lines. */
+    /** @param level the cleanup level; Polished keeps a part's line breaks and starts each part on a new line. */
     public VoiceCleanupPlan(@Nullable String level) {
         this.polished = VoicePolishRules.LEVEL_POLISHED.equals(VoicePolishRules.normalizeLevel(level));
     }
@@ -320,23 +317,18 @@ public final class VoiceCleanupPlan {
     }
 
     /**
-     * {@code texts} as one: Light joins with a space; Polished keeps each part's own line breaks and
-     * starts a new line between two parts only where a list starts or ends there.
+     * {@code texts} as one: Light joins with a space; Polished keeps each part's own line breaks
+     * (its paragraphs and list items) and starts each part on a new line, so a part of about four
+     * sentences is at least a paragraph of its own, about as often as the single pass breaks one.
      */
     @NonNull
     static String join(@NonNull List<String> texts, boolean polished) {
         StringBuilder out = new StringBuilder();
-        String previous = null;
         for (String text : texts) {
             String part = text.trim();
             if (part.isEmpty()) continue;
-            if (previous != null) {
-                boolean list = polished && (LIST_ITEM.matcher(firstLine(part)).find()
-                    || LIST_ITEM.matcher(lastLine(previous)).find());
-                out.append(list ? "\n" : " ");
-            }
+            if (out.length() > 0) out.append(polished ? "\n" : " ");
             out.append(part);
-            previous = part;
         }
         return out.toString();
     }
@@ -391,16 +383,5 @@ public final class VoiceCleanupPlan {
     private static boolean endsEarlyPasses(@NonNull String outcome) {
         if (!outcome.startsWith(VoiceTextPolisher.Result.OUTCOME_FALLBACK_PREFIX)) return false;
         return ENDS_EARLY_PASSES.contains(outcome.substring(VoiceTextPolisher.Result.OUTCOME_FALLBACK_PREFIX.length()));
-    }
-
-    @NonNull
-    private static String firstLine(@NonNull String text) {
-        int newline = text.indexOf('\n');
-        return newline < 0 ? text : text.substring(0, newline);
-    }
-
-    @NonNull
-    private static String lastLine(@NonNull String text) {
-        return text.substring(text.lastIndexOf('\n') + 1);
     }
 }
