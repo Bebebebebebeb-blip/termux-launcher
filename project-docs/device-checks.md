@@ -40,6 +40,10 @@ under twenty items; past that, the oldest are re-judged first.
   Icon size at its top reads about 56 dp on Docked and 55 dp on Floating, the dock grows with it
   and lifts over the keyboard without clipping; the shipped size and the old tops (47 / 45 dp) draw
   as before · Waydroid, both Styles, keyboard up and down.
+- 2026-10-13 · commit "fix(dock): never draw a pinned icon wider than its slot" · Ten apps per
+  page at the top Icon size on a 360dp-wide screen: the icons shrink to fit their slots and never
+  touch or overlap, on the pinned row, the A–Z preview and a page swipe; seven apps keep the
+  slider's size · Waydroid, `wm size` for 360dp, both Styles.
 
 ## Developer
 

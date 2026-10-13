@@ -501,6 +501,20 @@ public final class DockLayoutPolicy {
     }
 
     /**
+     * One pinned icon lying down, held to the slot it stands in. The row shares its width evenly
+     * between its slots, so an icon wider than its share would cover the icons beside it: ten
+     * apps on a 360dp phone are 36dp slots, under the 40dp the shipped size draws. The icon is
+     * never wider than its slot, and the size control's figure is unchanged wherever it fits.
+     * A row that has no width yet is not held to anything.
+     */
+    public static int slotFitIconPx(int iconPx, int rowWidthPx, int slotCount) {
+        if (iconPx <= 0 || rowWidthPx <= 0)
+            return iconPx;
+        int slotPx = rowWidthPx / Math.max(1, slotCount);
+        return Math.max(1, Math.min(iconPx, slotPx));
+    }
+
+    /**
      * The shortest box a pinned-apps row lying down is ever handed: its smallest icon,
      * {@link #MIN_DOCK_ICON_DP}. The row's box is its icon (or, alone, the baseline the icon is a
      * share of), so a row that asks for more than this before it renders refuses sizes the dock
