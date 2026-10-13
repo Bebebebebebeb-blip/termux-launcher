@@ -136,8 +136,17 @@ worktree_on() { # <dir> <branch> [<start>]
 }
 
 # --- pre: the persistent channel branch, brought level with base plus the named branches ---------
-PRE_WT="$WT_DIR/pre"
-worktree_on "$PRE_WT" pre
+# The worktree that already has pre out (often the main checkout) is used as it is: git keeps a
+# branch in one worktree, and switching a shared checkout away moves other sessions' commits. Its
+# untracked files are its own business; only tracked changes would leak into the drop.
+PRE_WT="$(git worktree list --porcelain | awk '/^worktree /{w=substr($0,10)} $0=="branch refs/heads/pre"{print w}')"
+if [ -n "$PRE_WT" ]; then
+    [ -z "$(git -C "$PRE_WT" status --porcelain --untracked-files=no)" ] \
+        || die "$PRE_WT has pre out with uncommitted changes; commit or stash them there and re-run"
+else
+    PRE_WT="$WT_DIR/pre"
+    worktree_on "$PRE_WT" pre
+fi
 if [ -n "$EDITION_REF" ] && ! git -C "$PRE_WT" merge -q --ff-only origin/pre 2>/dev/null; then
     die "local pre and origin/pre have diverged; reconcile them first"
 fi
