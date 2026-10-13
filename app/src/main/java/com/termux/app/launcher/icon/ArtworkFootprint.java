@@ -1,18 +1,33 @@
 package com.termux.app.launcher.icon;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 /**
- * Where an icon's visible artwork sits inside its square, and where to draw the whole of it so
- * that part fills a given footprint. Pure arithmetic over ARGB pixels, so it is tested without a
- * device; {@link DrawablePixels#fillFootprint} rasterises and applies the answer.
+ * How much of its square an icon's visible artwork spans, and the one scale a whole icon pack is
+ * drawn at so its icons read as big as stock icons. Pure arithmetic over ARGB pixels, so it is
+ * tested without a device; {@link DrawablePixels} rasterises and applies the answer.
  *
- * <p>Icon-pack PNGs usually carry a transparent margin of their own, and the dock draws every
+ * <p>Icon-pack PNGs usually carry a transparent margin of their own, and every surface draws every
  * source into the same box: a pack icon came out smaller than the stock adaptive icon beside it,
- * whose mask reaches the edges of its box. Measuring the visible part once, when the artwork is
- * resolved, lets the pack icon be drawn as big as the stock one at every size.
+ * whose mask reaches the edges of its box. The margin is measured over a sample of the pack and
+ * the pack is scaled as one, about the centre of the box, so the glyphs inside it keep the sizes
+ * and the placement its designer gave them relative to one another.
  */
 public final class ArtworkFootprint {
+
+    /**
+     * The raster artwork is measured at: one pixel is about 1% of the icon's side, finer than any
+     * margin a pack leaves.
+     */
+    public static final int MEASURE_PX = 96;
+
+    /**
+     * The most a pack is ever enlarged. A pack whose typical icon spans under 62% of its box is a
+     * deliberately small style or a measure gone wrong; past this, one odd pack would blow its
+     * icons up over their neighbours.
+     */
+    public static final float MAX_PACK_SCALE = 1.6f;
 
     /**
      * A pixel counts as artwork from this share of the icon's strongest alpha up, which leaves a
@@ -60,31 +75,54 @@ public final class ArtworkFootprint {
      * How much of its square the visible box spans along its longer side: 1 for artwork that
      * reaches both edges, less for artwork inside a margin.
      */
-    public static float extent(int[] bounds, int width, int height) {
+    public static float extent(@NonNull int[] bounds, int width, int height) {
         return Math.max((bounds[2] - bounds[0]) / (float) width,
             (bounds[3] - bounds[1]) / (float) height);
     }
 
     /**
-     * Where the whole artwork is drawn, as {@code {left, top, right, bottom}} fractions of the
-     * box, so that its visible box is centred and its longer side spans {@code targetExtent}.
-     * The visible part stays inside the box by construction; the margin around it may fall
-     * outside, which is transparent. Null when the move would be under one measured pixel, so
-     * artwork already at the footprint is left exactly as it is.
+     * Which of {@code size} entries to measure, at most {@code max} of them, spread evenly across
+     * the list rather than its head, which an appfilter often groups by app family.
      */
-    @Nullable
-    public static float[] placement(int[] bounds, int width, int height, float targetExtent) {
-        float extent = extent(bounds, width, height);
-        if (extent <= 0f || targetExtent <= 0f) return null;
-        float scale = targetExtent / extent;
-        float centerX = (bounds[0] + bounds[2]) / (2f * width);
-        float centerY = (bounds[1] + bounds[3]) / (2f * height);
-        float left = 0.5f - centerX * scale;
-        float top = 0.5f - centerY * scale;
-        float onePixel = 1f / Math.max(width, height);
-        if (Math.abs(scale - 1f) < onePixel && Math.abs(left) < onePixel
-            && Math.abs(top) < onePixel)
-            return null;
-        return new float[] {left, top, left + scale, top + scale};
+    @NonNull
+    public static int[] sampleIndices(int size, int max) {
+        int count = Math.max(0, Math.min(size, max));
+        int[] indices = new int[count];
+        for (int i = 0; i < count; i++) {
+            indices[i] = (int) ((long) i * size / count);
+        }
+        return indices;
+    }
+
+    /** The median of the first {@code count} values; 0 when there are none. */
+    public static float median(@NonNull float[] values, int count) {
+        int n = Math.max(0, Math.min(count, values.length));
+        if (n == 0) return 0f;
+        float[] sorted = java.util.Arrays.copyOf(values, n);
+        java.util.Arrays.sort(sorted);
+        return n % 2 == 1 ? sorted[n / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2f;
+    }
+
+    /**
+     * The one scale a pack is drawn at: what takes its typical icon's extent to the stock icon's,
+     * never below 1 (a pack is never made smaller than it ships) and never past
+     * {@link #MAX_PACK_SCALE}. Under one measured pixel of growth it is exactly 1, so a pack with
+     * almost no margin is left untouched. 1 when either extent is unknown.
+     */
+    public static float packScale(float stockExtent, float packExtent) {
+        if (stockExtent <= 0f || packExtent <= 0f) return 1f;
+        float scale = Math.min(MAX_PACK_SCALE, stockExtent / packExtent);
+        return scale - 1f < 1f / MEASURE_PX ? 1f : scale;
+    }
+
+    /**
+     * Where the whole artwork is drawn at {@code scale} about the centre of its box, as
+     * {@code {left, top, right, bottom}} fractions of the box. The margin around the artwork is
+     * what falls outside; the artwork keeps its own place relative to the centre.
+     */
+    @NonNull
+    public static float[] placementAboutCentre(float scale) {
+        float half = scale / 2f;
+        return new float[] {0.5f - half, 0.5f - half, 0.5f + half, 0.5f + half};
     }
 }

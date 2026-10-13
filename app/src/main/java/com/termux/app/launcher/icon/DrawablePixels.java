@@ -21,7 +21,7 @@ import androidx.annotation.Nullable;
  * Pixel accounting for held drawables: how big the bitmaps inside one really are, what they cost,
  * and rasterising one down when it is larger than anything will ever draw it. Shared by every
  * bounded store that keeps artwork, so they all measure the same way. Also where pack artwork is
- * redrawn to the footprint a stock icon fills ({@link #fillFootprint}), under the same rules.
+ * measured and redrawn larger ({@link #scaleAboutCentre}), under the same rules.
  */
 public final class DrawablePixels {
 
@@ -70,13 +70,6 @@ public final class DrawablePixels {
         }
     }
 
-    /**
-     * The raster artwork is measured at: one pixel is about 1% of the icon's side, finer than any
-     * margin a pack leaves, for 72 KB of scratch (the bitmap and its pixels) per icon resolved,
-     * given back as soon as it is measured.
-     */
-    private static final int FOOTPRINT_MEASURE_PX = 96;
-
     /** {@link #stockIconExtent}, measured once per process; 0 until then. */
     private static volatile float sStockIconExtent;
 
@@ -89,59 +82,65 @@ public final class DrawablePixels {
     public static float stockIconExtent() {
         float cached = sStockIconExtent;
         if (cached > 0f) return cached;
-        float measured = 1f;
-        try {
-            AdaptiveIconDrawable stock = new AdaptiveIconDrawable(
-                new ColorDrawable(Color.BLACK), new ColorDrawable(Color.BLACK));
-            int[] bounds = measureVisibleBounds(stock);
-            if (bounds != null) {
-                measured = ArtworkFootprint.extent(bounds, FOOTPRINT_MEASURE_PX,
-                    FOOTPRINT_MEASURE_PX);
-            }
-        } catch (RuntimeException | OutOfMemoryError ignored) {
-            // The whole box: pack artwork then fills it, which is what the stock masks do.
-        }
+        float measured = visibleExtent(new AdaptiveIconDrawable(
+            new ColorDrawable(Color.BLACK), new ColorDrawable(Color.BLACK)));
+        // Unmeasurable: the whole box, which is what the stock masks fill.
+        if (measured <= 0f) measured = 1f;
         sStockIconExtent = measured;
         return measured;
     }
 
     /**
-     * {@code source} drawn so its visible artwork spans {@code targetExtent} of its box, centred
-     * ({@link ArtworkFootprint#placement}). Measured once, here, so whatever draws the result —
-     * every surface showing the icon — pays nothing for it.
+     * How much of its box {@code drawable}'s visible artwork spans along its longer side
+     * ({@link ArtworkFootprint#extent}), drawn square at {@link ArtworkFootprint#MEASURE_PX}; 0
+     * when nothing in it is visible or it cannot be drawn. 72 KB of scratch (the bitmap and its
+     * pixels), given back before it returns.
+     */
+    public static float visibleExtent(@NonNull Drawable drawable) {
+        try {
+            int[] bounds = measureVisibleBounds(drawable);
+            return bounds == null ? 0f : ArtworkFootprint.extent(bounds,
+                ArtworkFootprint.MEASURE_PX, ArtworkFootprint.MEASURE_PX);
+        } catch (RuntimeException | OutOfMemoryError e) {
+            return 0f;
+        }
+    }
+
+    /**
+     * {@code source} drawn {@code scale} times larger about the centre of its box
+     * ({@link ArtworkFootprint#placementAboutCentre}): the transparent margin falls outside and the
+     * artwork keeps its place relative to the centre. Done once, when the icon is resolved, so
+     * whatever draws the result pays nothing for it.
      *
      * <p>Artwork made of pixels is redrawn into a bitmap no larger than the pixels it already
      * holds and never above {@link LauncherIconStore#MAX_RETAINED_PX}, the size the store would
      * keep it at anyway, so it costs no more than it did. A vector stays a vector: it is wrapped
      * in an inset that reaches past its box, which holds no pixels at all.
      *
-     * @return {@code source} itself when it is already at the footprint or cannot be measured.
+     * @return {@code source} itself at a scale of 1 or less, or when it cannot be redrawn.
      */
     @NonNull
-    public static Drawable fillFootprint(@NonNull Resources resources, @NonNull Drawable source,
-                                         float targetExtent) {
+    public static Drawable scaleAboutCentre(@NonNull Resources resources,
+                                            @NonNull Drawable source, float scale) {
+        if (scale <= 1f) return source;
+        float[] place = ArtworkFootprint.placementAboutCentre(scale);
         try {
-            int[] bounds = measureVisibleBounds(source);
-            if (bounds == null) return source;
-            float[] place = ArtworkFootprint.placement(bounds, FOOTPRINT_MEASURE_PX,
-                FOOTPRINT_MEASURE_PX, targetExtent);
-            if (place == null) return source;
             int largestBitmap = largestBitmapExtent(source, 0);
             if (largestBitmap <= 0) {
                 return new InsetDrawable(source, place[0], place[1], 1f - place[2],
                     1f - place[3]);
             }
             int edge = Math.min(largestBitmap, LauncherIconStore.MAX_RETAINED_PX);
-            Bitmap filled = Bitmap.createBitmap(edge, edge, Bitmap.Config.ARGB_8888);
+            Bitmap scaled = Bitmap.createBitmap(edge, edge, Bitmap.Config.ARGB_8888);
             Rect previousBounds = new Rect(source.getBounds());
             try {
                 source.setBounds(Math.round(place[0] * edge), Math.round(place[1] * edge),
                     Math.round(place[2] * edge), Math.round(place[3] * edge));
-                source.draw(new Canvas(filled));
+                source.draw(new Canvas(scaled));
             } finally {
                 source.setBounds(previousBounds);
             }
-            return new BitmapDrawable(resources, filled);
+            return new BitmapDrawable(resources, scaled);
         } catch (RuntimeException | OutOfMemoryError e) {
             // Drawn at its own margin is a smaller icon; failing to produce one is no icon.
             return source;
@@ -151,7 +150,7 @@ public final class DrawablePixels {
     /** The visible box of {@code drawable} drawn square at the measuring size, or null. */
     @Nullable
     private static int[] measureVisibleBounds(@NonNull Drawable drawable) {
-        int size = FOOTPRINT_MEASURE_PX;
+        int size = ArtworkFootprint.MEASURE_PX;
         Bitmap scratch = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         Rect previousBounds = new Rect(drawable.getBounds());
         try {
