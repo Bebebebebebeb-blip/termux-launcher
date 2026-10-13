@@ -12,6 +12,7 @@ behind the variants are in
 | `cases.jsonl` | 60 cases. Each has `id`, `tags`, `raw` (as speech-to-text heard it), `ref` (a hand-written faithful cleanup), and optional `must` (case-insensitive regexes the output must contain), `must_not` (regexes it must not contain) and `note`. |
 | `cleanup_eval.py` | The runner and scorer. Standard library only; runs in Termux and on a host. |
 | `run_on_phone.sh` | Runs `cleanup_eval.py run` under a memory watchdog. |
+| `pipeline.jsonl` | What the app's pipeline (variant `E`) decides for every case at both levels before any model call: the language, the text with fillers stripped, and the gate's groups. Written by `expect`; `VoiceCleanupEvalParityTest` checks the Java against it. |
 
 The tags are `anchor`, `filler`, `stutter`, `selfcorrect`, `cross-sentence`, `restart`,
 `mishear`, `tech`, `garble`, `runon`, `unpunctuated`, `list`, `short`, `nearcommand`, `question`,
@@ -32,10 +33,15 @@ Polished list and a Light line score the same.
 | `B-sent` | The sentences are numbered, and the model returns only the numbered sentences it changes. |
 | `C` | Sentence gating. Only sentences with a surface sign of trouble go to the model, as a Light rewrite with one sentence either side as read-only context. See `sentence_flags` for the signs. |
 | `D` | `A-polished` with Google's recommended sampling: temperature 1.0, top_p 0.95, top_k 64. |
+| `E-light`, `E-polished` | The app's pipeline since the second 2026-10-13 round, per case as one part: the language read from the text (`VoiceTextLanguage`), fillers stripped (`VoiceFillers`), the gate (`VoiceCleanupGate`), and one call per flagged group with the sentence before it as `<earlier>` and the language named unless it is English (`VoiceGatedCleanup`, `VoicePolishRules`). Unclear language: fillers only, no call. Experiment suffixes: `-later` adds the sentence after as `<later>`, `-en` names English too, `-keep2` and `-nokeep` swap the KEEP clause. |
+| `A-light-…`, `A-polished-…` | The full rewrite with prompt changes: `-keep` (the KEEP clause), `-keep2` (its alternative), `-lang` (the language line, English included), `-noen` (no line for English); `-new` is `-keep-lang`. |
 
 Every variant's output passes the app's `accept` guard, ported. When the guard refuses an answer,
-the raw text is scored, as the app would type it. `check-java` confirms that the ported prompt and
-guard constants still match the Java.
+the raw text is scored, as the app would type it. `check-java` confirms that the ported prompt,
+guard, language and filler constants still match the Java (`VoicePolishRules.java` and the
+`VoiceTextLanguage`, `VoiceFillers` and `VoiceCleanupGate` files beside it). After changing the
+pipeline on either side, run `expect` and commit `pipeline.jsonl`; `VoiceCleanupEvalParityTest`
+then fails until the two agree.
 
 ## Running on the phone
 
@@ -62,7 +68,9 @@ The phone's login shell is fish, so keep remote commands simple and score on the
 
 ```sh
 python3 cleanup_eval.py show --variant B-sent --case anchor
+python3 cleanup_eval.py show --variant E-polished --case anchor   # language, stripped text, groups
 python3 cleanup_eval.py check-java ../../../app/src/main/java/com/termux/app/terminal/inappkeyboard/voice/VoicePolishRules.java
+python3 cleanup_eval.py expect                                    # rewrites pipeline.jsonl
 ```
 
 ## Scoring

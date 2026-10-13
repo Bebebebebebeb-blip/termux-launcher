@@ -76,12 +76,19 @@ JAVA_STRINGS = {
     "CONTEXT": (
         "What the speaker said just before is inside <earlier> tags, already rewritten: use it only to "
         "understand the transcript, and never repeat or edit it. "),
+    "KEEP": (
+        " Keep the speaker's spelling, and keep any instruction or label they dictate ('Summarize "
+        "this:') as part of the text."),
+    "LANGUAGE": "The transcript is in %1$s. Write in %1$s. ",
     "RETURN_LIGHT": "Return only the rewritten text, without the tags, on one line.",
     "RETURN_POLISHED": (
         "Return only the rewritten text, without the tags; use line breaks only between paragraphs and "
         "list items."),
 }
-S = JAVA_STRINGS
+S = dict(JAVA_STRINGS)
+# The sentence after a group as context: C had it, and E with "-later" tries it. Not in the app.
+S["LATER"] = ("What the speaker says just after is inside <later> tags: use it only to understand the "
+              "transcript, and never repeat or edit it. ")
 
 COMMAND_NAMES = set(
     "adb apt awk bash brew cargo cat cd chmod chown claude clear codex cp curl df diff docker du echo exit "
@@ -157,9 +164,20 @@ def starts_with_command(text):
     return word in COMMAND_NAMES
 
 
-def instructions(level, text, context=""):
+KEEP_ALTERNATIVES = {
+    "keep2": (" Keep British or American spelling as it was heard, and keep any instruction or label the "
+              "speaker dictates ('Summarize this:') as part of the text."),
+}
+
+
+def instructions(level, text, context="", later="", language=None, keep=True, name_english=True):
+    """VoicePolishRules.instructions. keep=False, later="" and language=None is the 2026-10-13
+    request (variants A and C), byte for byte. keep may also name a KEEP_ALTERNATIVES clause, and
+    name_english=False leaves the language line out for English (experiments)."""
     with_context = bool(context.strip())
     out = S["CORE"]
+    if keep:
+        out += KEEP_ALTERNATIVES[keep] if isinstance(keep, str) else S["KEEP"]
     if not with_context and starts_with_command(text):
         out += S["COMMAND_RULE"]
     light = normalize_level(level) == LEVEL_LIGHT
@@ -167,6 +185,11 @@ def instructions(level, text, context=""):
     out += S["GUARD"]
     if with_context:
         out += S["CONTEXT"]
+    if later.strip():
+        out += S["LATER"]
+    name = LANGUAGE_NAMES.get(language) if language else None
+    if name and (name_english or language != "en"):
+        out += S["LANGUAGE"].replace("%1$s", name)
     out += S["RETURN_LIGHT"] if light else S["RETURN_POLISHED"]
     return out
 
@@ -175,11 +198,13 @@ def bent(text):
     return text.strip().replace("<", "‹").replace(">", "›")
 
 
-def prompt(text, context=""):
+def prompt(text, context="", later=""):
     transcript = "<transcript>\n" + bent(text) + "\n</transcript>"
-    if not context.strip():
-        return transcript
-    return "<earlier>\n" + bent(context) + "\n</earlier>\n" + transcript
+    if context.strip():
+        transcript = "<earlier>\n" + bent(context) + "\n</earlier>\n" + transcript
+    if later.strip():
+        transcript += "\n<later>\n" + bent(later) + "\n</later>"
+    return transcript
 
 
 def words(text):
@@ -541,8 +566,6 @@ def apply_edits(raw, edits):
 # model (as a full rewrite, Light, with the neighbouring sentences as read-only context).
 # ------------------------------------------------------------------------------------------------
 
-LATER_RULE = ("What the speaker says just after is inside <later> tags: use it only to understand the "
-              "transcript, and never repeat or edit it. ")
 VOCAL_FILLER = re.compile(r"(?i)(?<![\w'])(u+h+m*|u+m+|e+r+m+|er|h+m+|a+h+|e+h+|[aä]+h+m*|euh|mm+|mhm)(?![\w'])")
 DISCOURSE = re.compile(r"(?i)\b(you know|i mean|basically|kind of like|sort of like)\b|(^|,\s*)like\b|\blike,")
 CORRECTION_CUE = re.compile(
@@ -619,10 +642,11 @@ def gate_groups(text):
 
 
 def gated_instructions(text, earlier, later):
-    out = instructions(LEVEL_LIGHT, text, earlier)
+    """C's request: the 2026-10-13 Light prompt with the <later> rule before the return line."""
+    out = instructions(LEVEL_LIGHT, text, earlier, keep=False)
     if later.strip():
         tail = S["RETURN_LIGHT"]
-        out = out[:-len(tail)] + LATER_RULE + tail
+        out = out[:-len(tail)] + S["LATER"] + tail
     return out
 
 
@@ -665,10 +689,371 @@ def without_leading_echo(earlier, raw, text):
 
 
 def gated_prompt(text, earlier, later):
-    p = prompt(text, earlier)
-    if later.strip():
-        p += "\n<later>\n" + bent(later) + "\n</later>"
-    return p
+    return prompt(text, earlier, later)
+
+
+# ------------------------------------------------------------------------------------------------
+# Variant E: the app's pipeline since the second 2026-10-13 round, per part: the language
+# (VoiceTextLanguage), the filler strip (VoiceFillers), the gate (VoiceCleanupGate) and the calls
+# for the flagged groups (VoiceGatedCleanup, LocalTaiVoiceTextPolisher). `expect` writes what the
+# first three give for every case to pipeline.jsonl, and VoiceCleanupEvalParityTest holds the Java
+# to it, so this copy cannot drift silently either.
+# ------------------------------------------------------------------------------------------------
+
+LANGUAGE_NAMES = {
+    "en": "English", "es": "Spanish", "de": "German", "fr": "French", "it": "Italian", "pt": "Portuguese",
+    "nl": "Dutch", "pl": "Polish", "ru": "Russian", "uk": "Ukrainian", "ar": "Arabic", "hi": "Hindi",
+    "zh": "Chinese", "ja": "Japanese", "ko": "Korean"}
+
+# Frequent words, each list kept clear of the commonest words of the others where it can be
+# ("to", "i" and "my" are English, not Polish; "is" and "we" English, not Dutch).
+STOPWORD_TEXT = {
+    "en": ("the and of to is are was were that this it i you we they he she with for have has had not but what "
+           "can my your just be been would should could there about from if or do don does did at by all "
+           "ll ve when how who which them then than some out up get got go going know think need make now after "
+           "before because very only here where why still back let us our its"),
+    "es": ("el la los las de del que y en un una es por para con no se lo al mi su pero como más muy está "
+           "estoy tengo hay este esta eso porque también puedo ya cuando qué sí yo voy va fue tiene poco ahora "
+           "aquí todavía nosotros dónde entonces"),
+    "de": ("der die das und ist nicht ich du sie wir ihr es ein eine einen zu mit auf für den dem des von auch "
+           "aber wie noch nur schon heute etwas dass sich bin habe hat kann mal jetzt wenn oder sehr gegen halb"),
+    "fr": ("le les des du et est je tu il elle nous vous ils pas ne sur pour dans avec ce cette mais trop très "
+           "au aux ça oui qui que une un la de en se sont suis ai d l j qu c n"),
+    "it": ("il lo la gli i di che e è non un una per con del della sono ho ha ma come anche molto questo "
+           "questa perché se mi ti ci si al alla nel nella più già"),
+    "pt": ("o os as uma de do da dos das em no na que e é não para com por mas como mais muito eu você ele "
+           "ela isso este esta está estou tenho também se ao à vou vai foi tem ter pouco agora aqui ainda já só "
+           "nós meu minha onde então"),
+    "nl": ("de het een en van dat die niet op te met voor zijn ik je maar ook als er aan nog wel naar om dan "
+           "kan hebben heb moet wat bij uit nu zo deze dit"),
+    "pl": ("w z na nie się że jest do co jak ale tak ja ty ona wy oni ten ta po od za czy już tylko mnie mi "
+           "jestem być bardzo dla przez tu tam też jeszcze"),
+    "ru": ("и в не на я что с он как это по но к у из за так же от все мы вы они был есть только ещё уже "
+           "если или бы мне меня его её очень когда сейчас надо нужно"),
+    "uk": ("і в у на не що це як та з до за від він вона ми ви вони але або так мені мене його її дуже коли "
+           "зараз треба потрібно є був тільки ще вже якщо"),
+    "hi": "है हैं के की का में और से को नहीं यह मैं कि पर भी था थे हम आप तो ही",
+}
+STOPWORDS = {lang: set(ws.split()) for lang, ws in STOPWORD_TEXT.items()}
+# Letters only one of a script's languages writes: a word that has one counts as a hit.
+MARKER_LETTERS = {"es": "ñ¿¡", "de": "ßäöü", "pt": "ãõ", "pl": "łąęśźżćń", "ru": "ыэъё", "uk": "іїєґ"}
+SCRIPT_LANGUAGES = {"latin": ["en", "es", "de", "fr", "it", "pt", "nl", "pl"], "cyrillic": ["ru", "uk"],
+                    "devanagari": ["hi"]}
+# Persian and Urdu letters: Arabic script, but not Arabic.
+NOT_ARABIC = "پچژگکیےٹڈڑں"
+SCRIPT_SHARE = 0.8
+MIN_LANGUAGE_HITS = 2
+LANGUAGE_MARGIN = 2
+
+
+def script_of(ch):
+    o = ord(ch)
+    if o < 0x250 or 0x1E00 <= o <= 0x1EFF:
+        return "latin"
+    if 0x400 <= o <= 0x4FF:
+        return "cyrillic"
+    if 0x600 <= o <= 0x6FF or 0x750 <= o <= 0x77F or 0x8A0 <= o <= 0x8FF or 0xFB50 <= o <= 0xFDFF \
+            or 0xFE70 <= o <= 0xFEFF:
+        return "arabic"
+    if 0x900 <= o <= 0x97F:
+        return "devanagari"
+    if 0xAC00 <= o <= 0xD7AF or 0x1100 <= o <= 0x11FF or 0x3130 <= o <= 0x318F:
+        return "hangul"
+    if 0x3040 <= o <= 0x30FF or 0x31F0 <= o <= 0x31FF:
+        return "kana"
+    if 0x4E00 <= o <= 0x9FFF or 0x3400 <= o <= 0x4DBF:
+        return "han"
+    return "other"
+
+
+def letter_words(text):
+    """Lower-case runs of letters and marks (Devanagari vowel signs are marks)."""
+    out, cur = [], []
+    for ch in text.lower():
+        if unicodedata.category(ch)[0] in "LM":
+            cur.append(ch)
+        elif cur:
+            out.append("".join(cur))
+            cur = []
+    if cur:
+        out.append("".join(cur))
+    return out
+
+
+def guess_language(text):
+    """VoiceTextLanguage.guess: an ISO 639-1 code, or None when unclear or mixed."""
+    counts = {}
+    for ch in text:
+        if ch.isalpha():
+            s = script_of(ch)
+            counts[s] = counts.get(s, 0) + 1
+    total = sum(counts.values())
+    if total == 0:
+        return None
+    cjk = counts.get("hangul", 0) + counts.get("kana", 0) + counts.get("han", 0)
+    groups = [("latin", counts.get("latin", 0)), ("cyrillic", counts.get("cyrillic", 0)),
+              ("arabic", counts.get("arabic", 0)), ("devanagari", counts.get("devanagari", 0)), ("cjk", cjk)]
+    script, n = max(groups, key=lambda g: g[1])
+    if n < SCRIPT_SHARE * total:
+        return None
+    if script == "cjk":
+        if counts.get("hangul", 0) > counts.get("kana", 0):
+            return "ko"
+        return "ja" if counts.get("kana", 0) > 0 else "zh"
+    if script == "arabic":
+        return None if any(ch in NOT_ARABIC for ch in text) else "ar"
+    langs = SCRIPT_LANGUAGES[script]
+    scores = [0] * len(langs)
+    for w in letter_words(text):
+        for i, lang in enumerate(langs):
+            if w in STOPWORDS[lang]:
+                scores[i] += 1
+            markers = MARKER_LETTERS.get(lang, "")
+            if markers and any(ch in markers for ch in w):
+                scores[i] += 1
+    best = 0
+    for i in range(1, len(langs)):
+        if scores[i] > scores[best]:
+            best = i
+    second = max([s for i, s in enumerate(scores) if i != best], default=0)
+    if scores[best] >= MIN_LANGUAGE_HITS and scores[best] >= LANGUAGE_MARGIN * second:
+        return langs[best]
+    return None
+
+
+def normalize_language(code):
+    """VoiceTextLanguage.normalize: "en-US" -> "en"; None for none."""
+    if not code:
+        return None
+    c = re.split(r"[-_]", code.strip().lower(), 1)[0]
+    return c if re.fullmatch(r"[a-z]{2,3}", c) else None
+
+
+# Spellings that are a filler in every language here; the bare short forms only where they are not a word.
+FILLER_EVERYWHERE = r"u+h+m*|u+m{2,}|u{2,}m+|e+r+m+|h+m+|[äö]+h+m*|e+u+h+|e+h+m+|e+h{2,}|e{2,}h+|э+м*"
+FILLER_UM_LANGUAGES = "en es fr it nl pl"     # a word in German and Portuguese
+FILLER_ER_LANGUAGES = "en"                    # "he" in German, "there" in Dutch
+FILLER_EH_LANGUAGES = "en es fr it pt nl pl"  # "anyway" in German
+FILLER_WHERE = [("um", set(FILLER_UM_LANGUAGES.split())), ("er", set(FILLER_ER_LANGUAGES.split())),
+                ("eh", set(FILLER_EH_LANGUAGES.split()))]
+PAUSE_AFTER = re.compile(r"(?:[ \t]*(?:[,;…]|\.{2,}|[–—]|-(?=\s)))*[ \t]*")
+SENTENCE_BEFORE = re.compile(r"[.?!…][\"'”’)]*$")
+LAST_WORD = re.compile(r"[\w'’]+$")
+# Words a comma never follows mid-clause: after them the comma was the filler's pause.
+BINDING_WORDS = (
+    "a an the my your his her its our their this that to of in on at for with by from into about and or but "
+    "because if than is are was were be am will would can could should have has had do does did i we they he "
+    "she you it not")
+BINDING = set(BINDING_WORDS.split())
+
+
+def filler_pattern(language):
+    alts = [FILLER_EVERYWHERE] + [w for w, langs in FILLER_WHERE if language in langs]
+    return re.compile(r"(?<![\w'’-])(?:" + "|".join(alts) + r")(?![\w'’-])", re.I)
+
+
+def strip_fillers(text, language):
+    """VoiceFillers.strip: vocalised fillers out, the punctuation and capitals around them right."""
+    pat = filler_pattern(language)
+    pos = 0
+    while True:
+        m = pat.search(text, pos)
+        if not m:
+            return text
+        token = m.group()
+        if len(token) >= 2 and token == token.upper():
+            pos = m.end()  # "ER": an acronym, not a hesitation
+            continue
+        s = m.start()
+        while s > 0 and text[s - 1] in " \t":
+            s -= 1
+        e = PAUSE_AFTER.match(text, m.end()).end()
+        left, gap, right = text[:s], text[s:m.start()], text[e:]
+        if not left or left.endswith("\n") or SENTENCE_BEFORE.search(left):
+            # It opened a sentence: the next word opens it now.
+            right = right.lstrip(".?!…,;: \t")
+            if token[:1].isupper():
+                right = right[:1].upper() + right[1:]
+            if not left or not right:
+                gap = ""
+            text = left + gap + right
+            pos = len(left) + len(gap)
+        elif not right or right[0] in ".?!":
+            # It closed one: "Okay, um." is "Okay."
+            left = left.rstrip(",;")
+            text = left + right
+            pos = len(left)
+        else:
+            if left.endswith(","):
+                w = LAST_WORD.search(left[:-1])
+                if w and w.group().lower() in BINDING:
+                    left = left[:-1]
+            text = left + " " + right
+            pos = len(left) + 1
+
+
+# C's discourse fillers, plus two discourse words in a row ("okay so"): with "uh" stripped first, the
+# hesitation that marked a restart ("Can you, hmm, okay so the widget…") is gone, and this is what is left.
+GATE_DISCOURSE = re.compile(r"(?i)\b(you know|i mean|basically|kind of like|sort of like)\b|(^|,\s*)like\b|\blike,"
+                            r"|\b(okay|ok|alright|all right),? so\b")
+CLAUSE = r"(?i)(?:^|[.,;:!?]\s+|\band\s+)(?:the\s+)?"
+LIST_FIRST = re.compile(CLAUSE + r"(?:first(?:ly)?\b|one[,:])")
+LIST_SECOND = re.compile(CLAUSE + r"(?:second(?:ly)?\b|two[,:])")
+LIST_ITEM = re.compile(CLAUSE + r"(?:(?:first|second|third|fourth|fifth)(?:ly)?\b|(?:finally|lastly)\b"
+                       r"|(?:one|two|three|four|five)[,:])")
+ENUMERATION = re.compile(r"(?i)\bthe following\b")
+REPEAT_MAX_WORDS = 3
+
+
+def repeated_phrase(sentence):
+    """A run of one to three words said twice in a row ("the the", "I don't, I don't")."""
+    toks = [re.sub(r"[^\w']", "", t).lower() for t in sentence.split()]
+    for n in range(1, REPEAT_MAX_WORDS + 1):
+        for i in range(len(toks) - 2 * n + 1):
+            a, b = toks[i:i + n], toks[i + n:i + 2 * n]
+            if all(a) and a == b:
+                return True
+    return False
+
+
+def spoken_list(text):
+    return bool(LIST_FIRST.search(text) and LIST_SECOND.search(text)) or bool(ENUMERATION.search(text))
+
+
+def gate_flags(sentence, in_list):
+    """VoiceCleanupGate's signs of trouble for one sentence, fillers already stripped."""
+    flags = []
+    if GATE_DISCOURSE.search(sentence):
+        flags.append("discourse")
+    if repeated_phrase(sentence):
+        flags.append("repeat")
+    if CORRECTION_CUE.search(sentence):
+        flags.append("correction")
+    if SPOKEN_SYMBOL.search(sentence):
+        flags.append("symbol")
+    if word_count(sentence) > RUNON_WORDS:
+        flags.append("runon")
+    if stray_capital(sentence):
+        flags.append("stray_capital")
+    if sentence[:1].islower():
+        flags.append("lowercase_start")
+    if in_list and (LIST_ITEM.search(sentence) or ENUMERATION.search(sentence)):
+        flags.append("list")
+    return flags
+
+
+def gate(text, level):
+    """VoiceCleanupGate.groups: [(text, send, flags)] in order. Polished sends a part that holds a
+    spoken list whole, so the list is laid out in one answer."""
+    sents = split_sentences(text)
+    in_list = spoken_list(text)
+    flags = [gate_flags(s, in_list) for s in sents]
+    if in_list and normalize_level(level) == LEVEL_POLISHED:
+        flags = [f or ["list_part"] for f in flags]
+    send = [bool(f) for f in flags]
+    for i, f in enumerate(flags):
+        if "correction" in f and i > 0:
+            send[i - 1] = True
+        if send[i] and word_count(sents[i]) < MIN_WORDS and i + 1 < len(sents):
+            send[i + 1] = True
+    groups = []
+    for i, s in enumerate(sents):
+        if groups and groups[-1][1] == send[i]:
+            groups[-1][0].append(s)
+            groups[-1][2].extend(flags[i])
+        else:
+            groups.append([[s], send[i], list(flags[i])])
+    return [(" ".join(g[0]), g[1], g[2]) for g in groups]
+
+
+LIST_LINE_MARKER = re.compile(r"^\s*(?:\d{1,3}[.)]|[-*•])\s+")
+CONTEXT_MAX_WORDS = 80
+
+
+def last_sentence(text):
+    """VoiceCleanupGate.lastSentence: the last sentence of text's last line, without a list marker,
+    cut to its last CONTEXT_MAX_WORDS words."""
+    line = text.strip().split("\n")[-1]
+    line = LIST_LINE_MARKER.sub("", line).strip()
+    sents = split_sentences(line)
+    last = sents[-1] if sents else ""
+    starts = [m.start() for m in re.finditer(r"\S+", last)]
+    return last if len(starts) <= CONTEXT_MAX_WORDS else last[starts[-CONTEXT_MAX_WORDS]:].strip()
+
+
+def first_sentence(text):
+    sents = split_sentences(text)
+    return sents[0] if sents else ""
+
+
+def join_segments(texts, level):
+    """VoiceGatedCleanup.join: one space between segments; Polished starts a new line next to one
+    that has line breaks (a laid-out list)."""
+    out = ""
+    for t in texts:
+        t = t.strip()
+        if not t:
+            continue
+        if out:
+            out += "\n" if normalize_level(level) == LEVEL_POLISHED and ("\n" in out or "\n" in t) else " "
+        out += t
+    return out
+
+
+def pipeline(raw, level, context="", hint=None):
+    """(language, stripped text, groups) for one part: what the app decides before any call."""
+    language = normalize_language(hint) or guess_language((context + " " + raw).strip())
+    stripped = strip_fillers(raw, language)
+    groups = gate(stripped, level) if language else []
+    return language, stripped, groups
+
+
+def trim_answer(out, seg, earlier, later):
+    """LocalTaiVoiceTextPolisher's trims, in its order: the one <earlier> sentence repeated
+    (VoicePolishRules.withoutRepeatedEarlier), then withoutEcho. With the experimental <later>
+    context, its block and its sentence repeated at the end go first (C's trims; not in the app)."""
+    cand = out
+    if later.strip() and cand is not None:
+        cand = without_later_echo(later, LATER_BLOCK.sub(" ", cand), seg)
+    cand = without_leading_echo(earlier, seg, cand)
+    return without_echo(earlier, seg, cand)
+
+
+def run_gated(ep, raw, level, later_on=True, context="", keep=True, name_english=True):
+    language, stripped, groups = pipeline(raw, level, context)
+    done, parts = [], []
+    calls, ttft, total, comp, prompt_toks, errors, rejects = 0, None, 0.0, 0, 0, [], []
+    for gi, (seg, flagged, flags) in enumerate(groups):
+        if not flagged:
+            done.append(seg)
+            parts.append({"text": seg, "sent": False})
+            continue
+        earlier = last_sentence(join_segments([context] + done, level)) if (context or done) else ""
+        later = first_sentence(groups[gi + 1][0]) if later_on and gi + 1 < len(groups) else ""
+        req = body(instructions(level, seg, earlier, later, language, keep, name_english), prompt(seg, earlier, later),
+                   max_tokens(seg, level), SAMPLING_GREEDY)
+        out, t1, tt, usage, err = ep.chat(req)
+        calls += 1
+        if ttft is None and t1 is not None:
+            ttft = total + t1
+        total += tt
+        if usage:
+            comp += usage.get("completion_tokens", 0)
+            prompt_toks += usage.get("prompt_tokens", 0)
+        if err:
+            errors.append(err)
+        final, why = accept(seg, trim_answer(out, seg, earlier, later), level)
+        if why:
+            rejects.append(why)
+        done.append(final if final is not None else seg)
+        parts.append({"text": seg, "sent": True, "flags": flags, "output": out, "kept": final is not None})
+    final_text = join_segments(done, level) if groups else stripped
+    return {"final": final_text, "language": language, "stripped": stripped, "parts": parts, "calls": calls,
+            "ttft_ms": ttft, "total_ms": total,
+            "usage": {"completion_tokens": comp, "prompt_tokens": prompt_toks} if calls else None,
+            "rejected": ",".join(rejects) or None, "error": "; ".join(errors) or None,
+            "sentences": len(split_sentences(stripped)),
+            "sentences_sent": sum(len(split_sentences(p["text"])) for p in parts if p["sent"])}
 
 
 # ------------------------------------------------------------------------------------------------
@@ -763,11 +1148,33 @@ def run_case(ep, variant, case):
     if variant in ("A-light", "A-polished", "D"):
         level = LEVEL_LIGHT if variant == "A-light" else LEVEL_POLISHED
         sampling = SAMPLING_GOOGLE if variant == "D" else SAMPLING_GREEDY
-        req = body(instructions(level, raw), prompt(raw), max_tokens(raw, level), sampling)
+        req = body(instructions(level, raw, keep=False), prompt(raw), max_tokens(raw, level), sampling)
         out, ttft, total, usage, err = ep.chat(req)
         final, why = accept(raw, out, level)
         rec.update(model_output=out, final=final if final is not None else raw, rejected=why,
                    ttft_ms=ttft, total_ms=total, usage=usage, error=err, calls=1)
+    elif variant.startswith(("A-light-", "A-polished-")):
+        # The full rewrite with prompt changes named by the suffixes: "keep" (the KEEP clause),
+        # "keep2" (its alternative), "lang" (the language line), "noen" (no line for English);
+        # "new" is "keep-lang".
+        level = LEVEL_LIGHT if variant.startswith("A-light-") else LEVEL_POLISHED
+        opts = set(variant.split("-", 2)[2].replace("new", "keep-lang").split("-"))
+        keep = "keep2" if "keep2" in opts else "keep" in opts
+        language = guess_language(raw) if "lang" in opts else None
+        req = body(instructions(level, raw, language=language, keep=keep, name_english="noen" not in opts),
+                   prompt(raw), max_tokens(raw, level), SAMPLING_GREEDY)
+        out, ttft, total, usage, err = ep.chat(req)
+        final, why = accept(raw, out, level)
+        rec.update(model_output=out, final=final if final is not None else raw, rejected=why, language=language,
+                   ttft_ms=ttft, total_ms=total, usage=usage, error=err, calls=1)
+    elif variant.startswith("E-"):
+        # The app's pipeline: strip, gate, language line, prompt. Experiment suffixes: "later" sends
+        # the sentence after a group as <later>, "en" names English too, "keep2" and "nokeep" swap
+        # the KEEP clause.
+        level = LEVEL_POLISHED if variant.startswith("E-polished") else LEVEL_LIGHT
+        opts = set(variant.split("-")[2:])
+        keep = "keep2" if "keep2" in opts else "nokeep" not in opts
+        rec.update(run_gated(ep, raw, level, later_on="later" in opts, keep=keep, name_english="en" in opts))
     elif variant in ("B", "B-json"):
         system = EDITS_JSON_PROMPT if variant == "B-json" else EDITS_PROMPT
         req = body(system, prompt(raw), edit_budget(raw), SAMPLING_GREEDY)
@@ -843,7 +1250,8 @@ def cmd_run(args):
     os.makedirs(args.out, exist_ok=True)
     variants = args.variants.split(",")
     if args.warmup:
-        ep.chat(body(instructions(LEVEL_LIGHT, "warm up"), prompt("this is a warm up sentence"), 32, SAMPLING_GREEDY))
+        ep.chat(body(instructions(LEVEL_LIGHT, "warm up", keep=False), prompt("this is a warm up sentence"), 32,
+                     SAMPLING_GREEDY))
     for run in range(1, args.runs + 1):
         # Alternate the variant order between runs so drift (heat, memory) does not favour one.
         order = variants if run % 2 else list(reversed(variants))
@@ -869,35 +1277,87 @@ def cmd_show(args):
     raw = case["raw"]
     if args.variant in ("A-light", "A-polished", "D"):
         level = LEVEL_LIGHT if args.variant == "A-light" else LEVEL_POLISHED
-        print(instructions(level, raw), "\n---\n" + prompt(raw))
+        print(instructions(level, raw, keep=False), "\n---\n" + prompt(raw))
     elif args.variant == "B-sent":
         print(SENTENCE_EDITS_PROMPT, "\n---\n" + prompt(numbered(raw)[0]))
     elif args.variant.startswith("B"):
         print(EDITS_JSON_PROMPT if args.variant == "B-json" else EDITS_PROMPT, "\n---\n" + prompt(raw))
+    elif args.variant.startswith("E-"):
+        level = LEVEL_POLISHED if args.variant.startswith("E-polished") else LEVEL_LIGHT
+        language, stripped, groups = pipeline(raw, level)
+        print("language:", language)
+        print("stripped:", stripped)
+        for text, flagged, flags in groups:
+            print("SEND" if flagged else "keep", flags, "|", text)
     else:
         for text, flagged, flags in gate_groups(raw):
             print("SEND" if flagged else "keep", flags, "|", text)
 
 
+def cmd_expect(args):
+    """What the app's pipeline decides for every case at both levels, before any call: the language,
+    the stripped text and the groups. VoiceCleanupEvalParityTest reads it."""
+    with open(args.out, "w", encoding="utf-8") as f:
+        for case in load_cases(args.cases):
+            for level in (LEVEL_LIGHT, LEVEL_POLISHED):
+                language, stripped, groups = pipeline(case["raw"], level)
+                f.write(json.dumps({"id": case["id"], "level": level, "language": language, "stripped": stripped,
+                                    "groups": [{"text": t, "send": s, "flags": fl} for t, s, fl in groups]},
+                                   ensure_ascii=False) + "\n")
+    return 0
+
+
+def java_string(src, name):
+    """The value of `static final String name = "…" + "…";` in src, or None."""
+    m = re.search(r"static final String " + name + r'\s*=((?:\s*\+?\s*"(?:[^"\\]|\\.)*")+)\s*;', src)
+    if not m:
+        return None
+    return "".join(re.findall(r'"((?:[^"\\]|\\.)*)"', m.group(1))).replace("\\'", "'").replace('\\"', '"')
+
+
 def cmd_check_java(args):
-    src = open(args.java, encoding="utf-8").read()
+    """The ported prompt, guard, language and filler constants against the Java: VoicePolishRules.java
+    as given, and VoiceTextLanguage, VoiceFillers and VoiceCleanupGate beside it."""
+    folder = os.path.dirname(os.path.abspath(args.java))
+    sources = {}
+
+    def src(file):
+        if file not in sources:
+            with open(os.path.join(folder, file), encoding="utf-8") as f:
+                sources[file] = f.read()
+        return sources[file]
+
+    strings = [("VoicePolishRules.java", name, value) for name, value in JAVA_STRINGS.items()]
+    strings += [("VoiceTextLanguage.java", "STOPWORDS_" + lang.upper(), text) for lang, text in STOPWORD_TEXT.items()]
+    strings += [("VoiceTextLanguage.java", "NOT_ARABIC", NOT_ARABIC),
+                ("VoiceFillers.java", "EVERYWHERE", FILLER_EVERYWHERE),
+                ("VoiceFillers.java", "UM_LANGUAGES", FILLER_UM_LANGUAGES),
+                ("VoiceFillers.java", "ER_LANGUAGES", FILLER_ER_LANGUAGES),
+                ("VoiceFillers.java", "EH_LANGUAGES", FILLER_EH_LANGUAGES),
+                ("VoiceFillers.java", "BINDING_WORDS", BINDING_WORDS)]
     bad = 0
-    for name, value in JAVA_STRINGS.items():
-        m = re.search(r"static final String " + name + r'\s*=((?:\s*\+?\s*"(?:[^"\\]|\\.)*")+)\s*;', src)
-        if not m:
-            print("missing in Java:", name)
+    for file, name, value in strings:
+        java = java_string(src(file), name)
+        if java is None:
+            print("missing in %s: %s" % (file, name))
             bad += 1
-            continue
-        java = "".join(re.findall(r'"((?:[^"\\]|\\.)*)"', m.group(1))).replace("\\'", "'").replace('\\"', '"')
-        if java != value:
-            print("DIFFERS:", name)
+        elif java != value:
+            print("DIFFERS: %s %s" % (file, name))
             bad += 1
-    for name in ("MIN_KEPT_SHARE", "MAX_NEW_SHARE", "MIN_WORDS", "MAX_TOKENS_CAP", "MAX_TOKENS_FLOOR"):
-        m = re.search(r"static final \w+ " + name + r"\s*=\s*([\d.]+)", src)
-        if m and float(m.group(1)) != float(globals()[name]):
-            print("DIFFERS:", name, m.group(1))
+    numbers = [("VoicePolishRules.java", n, globals()[n])
+               for n in ("MIN_KEPT_SHARE", "MAX_NEW_SHARE", "MIN_WORDS", "MAX_TOKENS_CAP", "MAX_TOKENS_FLOOR")]
+    numbers += [("VoiceTextLanguage.java", "SCRIPT_SHARE", SCRIPT_SHARE),
+                ("VoiceTextLanguage.java", "MIN_HITS", MIN_LANGUAGE_HITS),
+                ("VoiceTextLanguage.java", "MARGIN", LANGUAGE_MARGIN),
+                ("VoiceCleanupGate.java", "RUNON_WORDS", RUNON_WORDS),
+                ("VoiceCleanupGate.java", "REPEAT_MAX_WORDS", REPEAT_MAX_WORDS),
+                ("VoiceCleanupGate.java", "CONTEXT_MAX_WORDS", CONTEXT_MAX_WORDS)]
+    for file, name, value in numbers:
+        m = re.search(r"static final \w+ " + name + r"\s*=\s*([\d.]+)", src(file))
+        if not m or float(m.group(1)) != float(value):
+            print("DIFFERS: %s %s %s" % (file, name, m.group(1) if m else "missing"))
             bad += 1
-    print("prompt and guard constants match" if not bad else "%d difference(s)" % bad)
+    print("prompt, guard, language and filler constants match" if not bad else "%d difference(s)" % bad)
     return 1 if bad else 0
 
 
@@ -1102,8 +1562,11 @@ def main():
     sh.add_argument("--case", required=True)
     cj = sub.add_parser("check-java")
     cj.add_argument("java")
+    ex = sub.add_parser("expect")
+    ex.add_argument("--out", default=os.path.join(HERE, "pipeline.jsonl"))
     args = p.parse_args()
-    return {"run": cmd_run, "score": cmd_score, "show": cmd_show, "check-java": cmd_check_java}[args.cmd](args)
+    return {"run": cmd_run, "score": cmd_score, "show": cmd_show, "check-java": cmd_check_java,
+            "expect": cmd_expect}[args.cmd](args)
 
 
 if __name__ == "__main__":
