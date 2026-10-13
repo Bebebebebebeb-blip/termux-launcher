@@ -127,7 +127,9 @@ ones to keep if it changes:
   companion apps pair with both.
 - **Notes are rolling**: `project-docs/prerelease-notes.md`, kept on `pre` (and so on `dev` after
   a promotion), in the release-notes voice, listing everything the channel carries beyond the
-  **latest stable** — a `## Heading for the next release` part (what `dev` has since the last
+  **latest stable** — a `## New in this drop` part first (only what this drop adds over the
+  one before it, checked against `git log v<previous drop>..pre` and replaced whole at every
+  drop), a `## Heading for the next release` part (what `dev` has since the last
   stable tag), a `## Experimental` part (what is on `pre` and not yet on `dev`) and a closing
   `## Editions` list with only what is exclusive to Nix or VAJ, as in the stable notes. The whole
   file is every drop's release body (its guidance sits in HTML comments, which GitHub does not
