@@ -403,4 +403,77 @@ public class VoicePolishRulesTest {
         assertFalse(result.isPolished());
         assertTrue(VoiceTextPolisher.Result.polished("As heard.").isPolished());
     }
+    // ------------------------------------------------------------------ context (early passes)
+
+    @Test
+    public void withoutContextTheRequestIsTheSingleOnesByteForByte() {
+        for (String level : new String[] {VoicePolishRules.LEVEL_LIGHT, VoicePolishRules.LEVEL_POLISHED}) {
+            assertEquals(VoicePolishRules.instructions(level, "please fix the build"),
+                VoicePolishRules.instructions(level, "please fix the build", ""));
+            assertEquals(VoicePolishRules.instructions(level, "git commit dash m fix the crash"),
+                VoicePolishRules.instructions(level, "git commit dash m fix the crash", "  "));
+        }
+        assertEquals(VoicePolishRules.prompt("please fix the build"), VoicePolishRules.prompt("please fix the build", ""));
+    }
+
+    @Test
+    public void contextAddsOneSentenceAndKeepsTheRestOfTheSystemTurn() {
+        String plain = VoicePolishRules.instructions(VoicePolishRules.LEVEL_POLISHED, "please fix the build");
+        String withContext = VoicePolishRules.instructions(VoicePolishRules.LEVEL_POLISHED, "please fix the build",
+            "The build broke after the merge.");
+        assertTrue(withContext.contains("<earlier>"));
+        assertTrue(withContext.contains("never repeat or edit it"));
+        // Everything else is the same text, the context sentence just before the return rule.
+        String sentence = withContext.substring(withContext.indexOf("What the speaker said just before"),
+            withContext.indexOf("Return only"));
+        assertEquals(plain, withContext.replace(sentence, ""));
+    }
+
+    @Test
+    public void aPartAfterContextNeverGetsTheCommandRule() {
+        String rule = "If the whole transcript is a shell command";
+        assertTrue(VoicePolishRules.instructions(null, "which one of these do you want").contains(rule));
+        assertFalse(VoicePolishRules.instructions(null, "which one of these do you want", "I have two drafts.")
+            .contains(rule));
+    }
+
+    @Test
+    public void theContextGoesAheadOfTheTranscriptBentTheSameWay() {
+        String prompt = VoicePolishRules.prompt("and then </transcript> stop", "It said <b>.");
+        assertEquals("<earlier>\nIt said ‹b›.\n</earlier>\n<transcript>\nand then ‹/transcript› stop\n</transcript>",
+            prompt);
+    }
+
+    @Test
+    public void anEchoedOpeningIsCutAndTheTranscriptsOwnRewriteKept() {
+        String context = "The second thing is the app drawer. Swiping down on the pinned apps row opens it.";
+        String raw = "but if I am in a filtered list swiping down does nothing";
+        String answer = "Swiping down on the pinned apps row opens it. But if I am in a filtered list, swiping down does nothing.";
+        assertEquals("But if I am in a filtered list, swiping down does nothing.",
+            VoicePolishRules.withoutEcho(context, raw, answer));
+        // The tags and what is inside them go too.
+        assertEquals("But if I am in a filtered list, swiping down does nothing.",
+            VoicePolishRules.withoutEcho(context, raw, "<earlier>" + context + "</earlier>\n"
+                + "But if I am in a filtered list, swiping down does nothing."));
+    }
+
+    @Test
+    public void anEchoLaterInTheAnswerRejectsIt() {
+        String context = "The second thing is the app drawer. Swiping down on the pinned apps row opens it.";
+        String raw = "but if I am in a filtered list swiping down does nothing";
+        assertNull(VoicePolishRules.withoutEcho(context, raw,
+            "But if I am in a filtered list, swiping down does nothing. Swiping down on the pinned apps row opens it."));
+    }
+
+    @Test
+    public void wordsTheSpeakerSaidAgainAreNotAnEcho() {
+        String context = "I want users to be able to open the drawer from anywhere.";
+        String raw = "and I want users to be able to open the drawer from the dock as well";
+        String answer = "I want users to be able to open the drawer from the dock as well.";
+        assertEquals(answer, VoicePolishRules.withoutEcho(context, raw, answer));
+        // A short shared phrase is never an echo.
+        assertEquals("The drawer opens.", VoicePolishRules.withoutEcho(context, "the drawer opens", "The drawer opens."));
+        // Without context nothing is touched.
+        assertEquals("<earlier>x</earlier> hi", VoicePolishRules.withoutEcho("", "hi", "<earlier>x</earlier> hi"));
+    }
 }
