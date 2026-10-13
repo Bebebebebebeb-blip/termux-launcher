@@ -25,8 +25,9 @@ import java.util.regex.Pattern;
  * <p>Cleanup runs over the session's text in parts ({@link VoiceCleanupPlan}): early passes at
  * phrase pauses while the user speaks, and the rest once the pill stops listening. A part after
  * the first is sent with the text before it, already cleaned, as {@code <earlier>} context it
- * must not repeat ({@link #withoutEcho}). Gating is deliberate rather than clever: a session of fewer than {@link #MIN_WORDS} words is a
- * shell command or nothing worth a model round trip, so it stays as heard. The transcript is
+ * must not repeat ({@link #withoutEcho}). Gating is deliberate rather than clever: a session of
+ * fewer than {@link #MIN_WORDS} words is a shell command or nothing worth a model round trip, so it
+ * stays as heard. The transcript is
  * wrapped in tags and the prompt says it is quoted speech, not instructions, which is as much as a
  * small model can be told against a dictated "ignore the previous instructions"; what gets past
  * that is caught by {@link #accept}'s refusal and answer guard.
@@ -89,6 +90,11 @@ public final class VoicePolishRules {
      * phrase the speaker said twice.
      */
     static final int ECHO_MIN_WORDS = 8;
+    /**
+     * How many of the transcript's first words mark where the part's own text starts in an answer
+     * that opened by repeating the context reworded ({@link #withoutEcho}).
+     */
+    static final int ECHO_ANCHOR_WORDS = 3;
 
     private static final Pattern WHITESPACE = Pattern.compile("\\s+");
     private static final Pattern TRAILING_LINE_SPACE = Pattern.compile("[ \\t\\f\\u00a0]+(?=\n)|[ \\t\\f\\u00a0]+$");
@@ -321,7 +327,10 @@ public final class VoicePolishRules {
      * {@code candidate}, the answer to a request with {@code context}, without any of the earlier
      * text it repeats: an {@code <earlier>} block or tag is dropped, and an opening run of at least
      * {@link #ECHO_MIN_WORDS} words that is the earlier text's, and not also the transcript's, is cut
-     * off. {@code null} when such a run is left anywhere else, so the answer is not used and the part
+     * off. When such a run still comes before the transcript's first {@link #ECHO_ANCHOR_WORDS} words
+     * (the context repeated reworded), everything before those words goes: on the host's E2B echoes
+     * came at parts that start mid-sentence, the model finishing the earlier sentence first.
+     * {@code null} when such a run is left anywhere else, so the answer is not used and the part
      * stays as heard. Without context, {@code candidate} as it is.
      */
     @Nullable
@@ -339,11 +348,26 @@ public final class VoicePolishRules {
             ends.clear();
             said = normalisedTokens(text, ends);
         }
-        for (int i = 0; i < said.size(); i++) {
-            int run = longestRunFrom(said, i, earlier);
-            if (run >= ECHO_MIN_WORDS && !containsRun(heard, said.subList(i, i + run))) return null;
+        int own = heard.size() < ECHO_ANCHOR_WORDS ? -1
+            : Collections.indexOfSubList(said, heard.subList(0, ECHO_ANCHOR_WORDS));
+        if (own > 0 && echoAt(said, earlier, heard, 0, own) >= 0) {
+            text = text.substring(ends.get(own - 1)).trim();
+            said = normalisedTokens(text, null);
         }
-        return text;
+        return echoAt(said, earlier, heard, 0, said.size()) >= 0 ? null : text;
+    }
+
+    /**
+     * Where in {@code said[from, to)} a run of at least {@link #ECHO_MIN_WORDS} words of
+     * {@code earlier} starts that {@code heard} does not have, or {@code -1}.
+     */
+    private static int echoAt(@NonNull List<String> said, @NonNull List<String> earlier, @NonNull List<String> heard,
+                              int from, int to) {
+        for (int i = from; i < to; i++) {
+            int run = longestRunFrom(said, i, earlier);
+            if (run >= ECHO_MIN_WORDS && !containsRun(heard, said.subList(i, i + run))) return i;
+        }
+        return -1;
     }
 
     /**

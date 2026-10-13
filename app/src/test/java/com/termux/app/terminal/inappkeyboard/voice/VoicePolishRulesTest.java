@@ -458,6 +458,17 @@ public class VoicePolishRulesTest {
     }
 
     @Test
+    public void aRewordedEchoIsCutWhereTheTranscriptsOwnWordsStart() {
+        // E2B on the host, a part that starts mid-sentence: it finished the earlier sentence first.
+        String context = "I think Monday is safer because nobody wants to fix a";
+        String raw = "broken release over the weekend right and third the new phone arrived";
+        String answer = "I think that Monday is safer, because nobody wants to fix a broken release over the weekend. "
+            + "And third, the new phone arrived.";
+        assertEquals("broken release over the weekend. And third, the new phone arrived.",
+            VoicePolishRules.withoutEcho(context, raw, answer));
+    }
+
+    @Test
     public void anEchoLaterInTheAnswerRejectsIt() {
         String context = "The second thing is the app drawer. Swiping down on the pinned apps row opens it.";
         String raw = "but if I am in a filtered list swiping down does nothing";
