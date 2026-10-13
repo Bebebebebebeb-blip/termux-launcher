@@ -28,7 +28,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * counters are not readable by the app, so PSS cannot measure a GPU load; MemAvailable measures
  * what matters, how close the phone came to the floor. It is noisy (±0.9 GB across identical E4B
  * GPU loads on pong, because the kernel reclaims cache while the load runs), which is why
- * {@link TaiRuntimeHistory} keeps a ring of samples and plans on the largest at the nearest window.
+ * {@link TaiRuntimeHistory} keeps a ring of samples and plans on the typical one at the nearest
+ * window.
  *
  * <p>Loads are serialized by the runtimes, so one meter runs at a time, apart from the tail of a
  * previous one still waiting for its first token. {@link #activeCount} tells the pressure watch

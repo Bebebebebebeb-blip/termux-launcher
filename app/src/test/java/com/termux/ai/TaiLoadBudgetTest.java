@@ -265,10 +265,10 @@ public class TaiLoadBudgetTest {
         assertEquals(4096, plan.contextWindow);
     }
 
-    // --- Estimates: measured worst case over seed, and what a seed counts as new pressure ---
+    // --- Estimates: the typical measured drop over seed, and what a seed counts as new pressure ---
 
     @Test
-    public void aMeasuredWorstCaseReplacesTheSeedEstimateWithTenPercentHeadroom() {
+    public void aMeasuredDropReplacesTheSeedEstimateWithTenPercentHeadroom() {
         long worst = 3_200_000_000L;
         TaiLoadBudget.History history = (accelerator, context) -> "gpu".equals(accelerator) && context == 4096 ? worst : 0L;
         TaiLoadBudget.Plan plan = TaiLoadBudget.plan(request(E4B, PONG_TOTAL, 9_000_000_000L, GPU_THEN_CPU,
@@ -399,7 +399,7 @@ public class TaiLoadBudgetTest {
         assertEquals(3_520_000_000L + PEAK, plan.neededFreeBytes());
     }
 
-    // --- Cleanup on pong, 2026-10-13: what a refusal reports ---
+    // --- Cleanup on pong, 2026-10-13: what a refusal reports, and the typical estimate ---
 
     private static TaiLoadBudget.History gpuMeasured(long bytes) {
         return (accelerator, context) -> "gpu".equals(accelerator) ? bytes : 0L;
@@ -441,6 +441,25 @@ public class TaiLoadBudgetTest {
         assertEquals("cpu", plan.accelerator);
         assertEquals(1_100_000_000L, plan.estimatedBytes);
         assertEquals(TaiLoadBudget.SOURCE_MEASURED, plan.estimateSource);
+    }
+
+    /**
+     * The target: E4B on the GPU at the 2048 cleanup window goes ahead at about 3.8 GB free on pong
+     * when the history plans on the typical load (2588 MB of 2119, 2588 and 3188), and is still
+     * refused where even that leaves less than the floor.
+     */
+    @Test
+    public void theTypicalE4bCleanupLoadIsAdmittedAtThreePointEightGigabytesFree() {
+        TaiLoadBudget.History typical = gpuMeasured(2588L * MIB);
+        TaiLoadBudget.Plan plan = cleanupOnPong(3804L * MIB, typical);
+        assertTrue(plan.fits);
+        assertEquals("gpu", plan.accelerator);
+        assertEquals(2048, plan.contextWindow);
+        assertEquals(3614L, plan.neededFreeBytes() / MIB);
+        assertTrue(plan.evicted.isEmpty());
+        assertFalse(cleanupOnPong(3600L * MIB, typical).fits);
+        // The worst of the three would still have refused it there.
+        assertFalse(cleanupOnPong(3804L * MIB, gpuMeasured(3188L * MIB)).fits);
     }
 
     // --- Eviction ---

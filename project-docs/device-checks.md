@@ -78,6 +78,11 @@ under twenty items; past that, the oldest are re-judged first.
   no `fallback:context_echo`. Then: edit the text mid-dictation (no cleanup lands), Pause and resume
   (only the new speech is cleaned), and a CPU-only cleanup model (no `cleanup early` lines) · pong
   with the go-ahead.
+- 2026-10-13 · commit "feat(tai): plan a load on the typical measured drop, not the largest" · E4B
+  dictation cleanup on the GPU at 2048 is admitted with about 3.8–4 GB free (`tai logs`: a
+  `load_ok … gpu ctx=2048`, no `load refused`), both with this version's own samples and right
+  after an install that cleared them (the prior); any refusal reads `needs X MB + 768 MB floor = Y
+  MB free, Z MB available` with the GPU's figure, not the CPU seed · pong with the go-ahead.
 
 ## Developer
 

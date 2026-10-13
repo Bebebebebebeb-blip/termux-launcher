@@ -3049,8 +3049,8 @@ public final class TaiManager {
         TaiDeviceCapabilities device = TaiDeviceCapabilities.detect(appContext);
         List<TaiResidency.Entry> residents = router.residency().snapshot();
         long available = TaiResidency.creditedAvailable(availableMemory(device), residents, TaiResidency.Kind.TTS, spec.backend);
-        long worst = TaiRuntimeHistory.measuredLoadBytes(appContext, spec, device, TaiModelSpec.BACKEND_LITERT_LM, "cpu", 0);
-        TaiLoadBudget.Estimate estimate = worst > 0L ? TaiLoadBudget.Estimate.measured(worst)
+        long typical = TaiRuntimeHistory.measuredLoadBytes(appContext, spec, device, TaiModelSpec.BACKEND_LITERT_LM, "cpu", 0);
+        TaiLoadBudget.Estimate estimate = typical > 0L ? TaiLoadBudget.Estimate.measured(typical)
             : TaiLoadBudget.Estimate.ratio(TaiResidency.ttsEstimateBytes(spec), 0L);
         List<TaiResidency.Entry> candidates = new ArrayList<>();
         for (TaiResidency.Entry entry : TaiResidency.evictionCandidates(residents, TaiResidency.Kind.TTS, spec.backend,
@@ -3483,8 +3483,8 @@ public final class TaiManager {
         List<TaiResidency.Entry> residents = residency().snapshot();
         long available = TaiResidency.creditedAvailable(availableMemory(device), residents,
             TaiResidency.Kind.EMBEDDING, spec.backend);
-        long worst = TaiRuntimeHistory.measuredLoadBytes(appContext, spec, device, spec.backend, "cpu", 0);
-        TaiLoadBudget.Estimate estimate = worst > 0L ? TaiLoadBudget.Estimate.measured(worst)
+        long typical = TaiRuntimeHistory.measuredLoadBytes(appContext, spec, device, spec.backend, "cpu", 0);
+        TaiLoadBudget.Estimate estimate = typical > 0L ? TaiLoadBudget.Estimate.measured(typical)
             : TaiLoadBudget.Estimate.ratio(TaiResidency.embeddingEstimateBytes(spec), 0L);
         TaiLoadBudget.Plan plan = TaiLoadBudget.planFixed(estimate, "cpu", device.physicalMemoryBytes, available,
             TaiResidency.evictionCandidates(residents, TaiResidency.Kind.EMBEDDING, spec.backend,
@@ -3848,8 +3848,8 @@ public final class TaiManager {
         List<TaiResidency.Entry> residents = residency().snapshot();
         long available = TaiResidency.creditedAvailable(availableMemory(device), residents,
             TaiResidency.Kind.STT, spec.backend);
-        long worst = TaiRuntimeHistory.measuredLoadBytes(appContext, spec, device, TaiModelSpec.BACKEND_LITERT_LM, "cpu", 0);
-        TaiLoadBudget.Estimate estimate = worst > 0L ? TaiLoadBudget.Estimate.measured(worst)
+        long typical = TaiRuntimeHistory.measuredLoadBytes(appContext, spec, device, TaiModelSpec.BACKEND_LITERT_LM, "cpu", 0);
+        TaiLoadBudget.Estimate estimate = typical > 0L ? TaiLoadBudget.Estimate.measured(typical)
             : TaiLoadBudget.Estimate.ratio(TaiResidency.sttEstimateBytes(spec), 0L);
         TaiLoadBudget.Plan plan = TaiLoadBudget.planFixed(estimate, "cpu", device.physicalMemoryBytes, available,
             TaiResidency.evictionCandidates(residents, TaiResidency.Kind.STT, spec.backend,

@@ -25,11 +25,15 @@ import java.util.List;
  * turns a freeze into a working model, so the budget spends it.
  *
  * <p><b>The estimate.</b> When {@link TaiRuntimeHistory} holds measured drops for this model
- * file, accelerator and modality, the estimate is the largest drop recorded at the smallest
- * measured window at or above the wanted one, plus 10% ({@code "measured"}); with samples only
- * below it, a fit or the seed slope carries them up. Otherwise it is a seed from the model file
- * ({@code "ratio"}): a fixed part plus a per-token part (the KV cache), per accelerator, split
- * into what the kernel can reclaim and what it cannot. Fitted on pong, erring high:
+ * file, accelerator and modality, the estimate is the typical recent drop (the median of the
+ * ring) at the smallest measured window at or above the wanted one, plus 10% ({@code "measured"});
+ * with samples only below it, a fit or the seed slope carries them up. It used to be the largest
+ * drop, which on pong sat at the worst of a 2.1–3.2 GB spread for E4B on the GPU at 2048 and
+ * refused it with 3.8–4.1 GB free. A load that runs past a typical estimate is the runtime's
+ * watch's to stop ({@link TaiPressureWatch}), not refused up front. Otherwise the estimate
+ * is a seed from the model file ({@code "ratio"}): a fixed part plus a per-token part (the KV
+ * cache), per accelerator, split into what the kernel can reclaim and what it cannot. With no
+ * measurement to go on it errs high; fitted on pong:
  * <ul>
  *   <li>LiteRT GPU holds about three quarters of the file resident (weights uploaded to GPU
  *       buffers, which are ordinary RAM on a phone), none of it reclaimable. Measured: 2.4–4.2 GB
@@ -103,7 +107,7 @@ public final class TaiLoadBudget {
     public static final long MOMENTARY_DEADLINE_MS = 3L * 60L * 1000L;
     /** A LiteRT file larger than this is not taken to the CPU as a fallback accelerator. */
     public static final long LITERT_CPU_FALLBACK_MAX_FILE_BYTES = 3L * GIB;
-    /** Added to the largest measured drop before it is used as the estimate. */
+    /** Added to the typical measured drop before it is used as the estimate. */
     public static final int MEASURED_HEADROOM_PERCENT = 10;
     /** File bytes per context token of KV cache. */
     static final long FILE_BYTES_PER_TOKEN_DIVISOR = 19_000L;
@@ -198,10 +202,10 @@ public final class TaiLoadBudget {
             this.source = source;
         }
 
-        /** A recorded worst case plus its headroom. */
+        /** A typical recorded drop plus its headroom. */
         @NonNull
-        public static Estimate measured(long worstMeasuredBytes) {
-            return new Estimate(worstMeasuredBytes + worstMeasuredBytes * MEASURED_HEADROOM_PERCENT / 100L, 0L, SOURCE_MEASURED);
+        public static Estimate measured(long typicalMeasuredBytes) {
+            return new Estimate(typicalMeasuredBytes + typicalMeasuredBytes * MEASURED_HEADROOM_PERCENT / 100L, 0L, SOURCE_MEASURED);
         }
 
         @NonNull
@@ -214,7 +218,7 @@ public final class TaiLoadBudget {
         }
     }
 
-    /** The estimate for a load: the measured worst case when history has one for this accelerator and window, else the seed. */
+    /** The estimate for a load: the typical measured drop when history has one for this accelerator and window, else the seed. */
     @NonNull
     public static Estimate estimate(@NonNull String backend, @NonNull String accelerator, long fileBytes,
                                     boolean encoders, int contextTokens, @NonNull History history) {
