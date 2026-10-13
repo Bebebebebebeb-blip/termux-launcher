@@ -21,10 +21,13 @@ import java.util.regex.Pattern;
  * answers quickly beside speech-to-text, {@link VoiceTextPolisher#cleansWhileListening}, and no
  * early pass has timed out or run out of memory), no pass is in flight, no phrase is still
  * transcribing, the user has not edited the text, the text so far is not a dictated command, and
- * the new text has {@link #EARLY_PASS_SENTENCES} sentence ends or {@link #EARLY_PASS_MIN_WORDS}
- * words, whichever comes first. The part ends at the last sentence end in the new text, so a
- * sentence still being spoken waits for the next part (with no sentence end, the part is all the new
- * text), and {@link VoicePolishRules#skipReason} must let it through. Each part goes with the
+ * the new text up to its last sentence end has {@link #EARLY_PASS_SENTENCES} sentence ends or
+ * {@link #EARLY_PASS_MIN_WORDS} words, whichever comes first. A part ends only at a sentence end, so
+ * the sentence still being spoken waits for the next part: a part that starts mid-sentence made E2B
+ * finish the earlier sentence first and repeat words across the boundary. The one exception is a
+ * recogniser that writes no full stops: {@link #UNPUNCTUATED_WORDS} new words with none, cut where
+ * the last phrase landed (a pause, the most natural break there is; {@link Pass#unpunctuated}).
+ * {@link VoicePolishRules#skipReason} must let the part through. Each part goes with the
  * cleaned text before it, its last {@link #CONTEXT_SENTENCES} sentences up to
  * {@link #CONTEXT_MAX_WORDS} words, as read-only context.
  *
@@ -54,6 +57,12 @@ public final class VoiceCleanupPlan {
      * user stops.
      */
     public static final int EARLY_PASS_MIN_WORDS = 30;
+    /**
+     * New words with no sentence end at all after which an early pass cuts where the last phrase
+     * landed. Parakeet and Whisper both punctuate, so this is a recogniser that does not, never a
+     * long sentence.
+     */
+    public static final int UNPUNCTUATED_WORDS = 100;
     /**
      * Cleaned sentences sent ahead of a part as context. One to three: more earlier text raised the
      * error rate of LLM correction in arXiv 2505.16212, and the part needs only the thread it continues.
@@ -93,11 +102,14 @@ public final class VoiceCleanupPlan {
         @NonNull public final String context;
         /** Cleaned while the user still speaks. */
         public final boolean early;
+        /** An early part cut at a phrase rather than a sentence end: the recogniser writes no full stops. */
+        public final boolean unpunctuated;
         /** A short tail joined onto the last part, whose cleaned text this replaces. */
         final boolean replacesLast;
 
         Pass(int start, @NonNull String through, @NonNull String raw, @NonNull String context, boolean early,
-             boolean replacesLast) {
+             boolean replacesLast, boolean unpunctuated) {
+            this.unpunctuated = unpunctuated;
             this.start = start;
             this.through = through;
             this.raw = raw;
@@ -199,15 +211,21 @@ public final class VoiceCleanupPlan {
             sentenceEnds++;
             lastEnd = end.end();
         }
-        if (sentenceEnds < EARLY_PASS_SENTENCES && VoicePolishRules.wordCount(fresh) < EARLY_PASS_MIN_WORDS) return null;
-        if (VoiceCommandFormatter.isCommand(raw)) return null;
-        // Up to the last sentence end, so the sentence being spoken is cleaned whole in the next part.
-        String through = raw;
-        if (lastEnd > 0 && VoicePolishRules.skipReason(fresh.substring(0, lastEnd)) == null) {
+        String through;
+        boolean unpunctuated = false;
+        if (lastEnd > 0 && (sentenceEnds >= EARLY_PASS_SENTENCES
+                || VoicePolishRules.wordCount(fresh.substring(0, lastEnd)) >= EARLY_PASS_MIN_WORDS)) {
+            // Up to the last sentence end: the sentence being spoken is cleaned whole in the next part.
             through = raw.substring(0, covered.length() + lastEnd);
+        } else if (VoicePolishRules.wordCount(fresh.substring(Math.max(0, lastEnd))) >= UNPUNCTUATED_WORDS) {
+            through = raw;
+            unpunctuated = true;
+        } else {
+            return null;
         }
+        if (VoiceCommandFormatter.isCommand(raw)) return null;
         if (VoicePolishRules.skipReason(through.substring(covered.length())) != null) return null;
-        inFlight = passFor(covered.length(), through, true, false);
+        inFlight = passFor(covered.length(), through, true, false, unpunctuated);
         return inFlight;
     }
 
@@ -247,13 +265,13 @@ public final class VoiceCleanupPlan {
         String tail = raw.substring(covered.length());
         if (tail.trim().isEmpty()) return Step.DONE;
         if (parts.isEmpty()) {
-            inFlight = new Pass(0, raw, raw.trim(), "", false, false);
+            inFlight = new Pass(0, raw, raw.trim(), "", false, false, false);
         } else {
             Part last = parts.get(parts.size() - 1);
             boolean merge = VoicePolishRules.wordCount(tail) < VoicePolishRules.MIN_WORDS && last.outcome != null;
             inFlight = merge
-                ? passFor(last.start, raw, false, true)
-                : passFor(covered.length(), raw, false, false);
+                ? passFor(last.start, raw, false, true, false)
+                : passFor(covered.length(), raw, false, false, false);
         }
         return new Step(inFlight, false);
     }
@@ -353,7 +371,7 @@ public final class VoiceCleanupPlan {
     }
 
     @NonNull
-    private Pass passFor(int start, @NonNull String raw, boolean early, boolean replacesLast) {
+    private Pass passFor(int start, @NonNull String raw, boolean early, boolean replacesLast, boolean unpunctuated) {
         String text = raw.substring(start).trim();
         int before = replacesLast ? parts.size() - 1 : parts.size();
         String context = "";
@@ -362,7 +380,7 @@ public final class VoiceCleanupPlan {
             for (Part part : parts.subList(0, before)) texts.add(part.text);
             context = lastWords(lastSentences(join(texts, polished), CONTEXT_SENTENCES), CONTEXT_MAX_WORDS);
         }
-        return new Pass(start, raw, text, context, early, replacesLast);
+        return new Pass(start, raw, text, context, early, replacesLast, unpunctuated);
     }
 
     private void reset() {

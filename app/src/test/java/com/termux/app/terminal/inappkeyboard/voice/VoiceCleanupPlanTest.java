@@ -50,12 +50,35 @@ public class VoiceCleanupPlanTest {
     }
 
     @Test
-    public void thirtyWordsStartOneWhenTheRecogniserWritesNoFullStops() {
+    public void thirtyWordsUpToASentenceEndStartOneBeforeFourSentences() {
         VoiceCleanupPlan plan = plan(POLISHED);
-        assertNull(plan.nextEarlyPass(words(VoiceCleanupPlan.EARLY_PASS_MIN_WORDS - 1), false, false));
-        VoiceCleanupPlan.Pass pass = plan.nextEarlyPass(words(VoiceCleanupPlan.EARLY_PASS_MIN_WORDS), false, false);
+        String sentence = words(VoiceCleanupPlan.EARLY_PASS_MIN_WORDS - 1) + " end.";
+        // Thirty words, but the sentence is still being spoken: it waits.
+        assertNull(plan.nextEarlyPass(words(VoiceCleanupPlan.EARLY_PASS_MIN_WORDS + 5), false, false));
+        // Twenty words up to the sentence end and fifteen after: not yet.
+        assertNull(plan.nextEarlyPass(words(19) + " end. " + words(15), false, false));
+        VoiceCleanupPlan.Pass pass = plan.nextEarlyPass(sentence + " and then we", false, false);
         assertNotNull(pass);
-        assertEquals(words(VoiceCleanupPlan.EARLY_PASS_MIN_WORDS), pass.raw);
+        assertEquals(sentence, pass.raw);
+        assertFalse(pass.unpunctuated);
+    }
+
+    @Test
+    public void aRecogniserThatWritesNoFullStopsIsCutAtThePhraseAfterAHundredWords() {
+        VoiceCleanupPlan plan = plan(POLISHED);
+        assertNull(plan.nextEarlyPass(words(VoiceCleanupPlan.UNPUNCTUATED_WORDS - 1), false, false));
+        String raw = words(VoiceCleanupPlan.UNPUNCTUATED_WORDS);
+        VoiceCleanupPlan.Pass pass = plan.nextEarlyPass(raw, false, false);
+        assertNotNull(pass);
+        assertEquals(raw, pass.raw);
+        assertTrue(pass.unpunctuated);
+        // So is a short sentence followed by a hundred words with no full stop.
+        VoiceCleanupPlan other = plan(POLISHED);
+        String mixed = "It broke. " + words(VoiceCleanupPlan.UNPUNCTUATED_WORDS);
+        VoiceCleanupPlan.Pass cut = other.nextEarlyPass(mixed, false, false);
+        assertNotNull(cut);
+        assertEquals(mixed, cut.raw);
+        assertTrue(cut.unpunctuated);
     }
 
     @Test
@@ -86,7 +109,7 @@ public class VoiceCleanupPlanTest {
     @Test
     public void aDictatedCommandNeverGetsAnEarlyPass() {
         VoiceCleanupPlan plan = plan(POLISHED);
-        assertNull(plan.nextEarlyPass("git commit dash m " + words(VoiceCleanupPlan.EARLY_PASS_MIN_WORDS), false, false));
+        assertNull(plan.nextEarlyPass("git commit dash m " + words(VoiceCleanupPlan.UNPUNCTUATED_WORDS), false, false));
     }
 
     // ------------------------------------------------------------------ context

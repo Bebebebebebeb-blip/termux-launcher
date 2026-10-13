@@ -43,6 +43,8 @@ public final class VoiceSessionCleanup {
     @Nullable private String finishingRaw;
     @Nullable private Callback finishing;
     private long finishStartNs;
+    /** Main-thread state: the session has said once that it cuts parts at phrases. */
+    private boolean loggedUnpunctuated;
 
     /** @param level the "Cleanup level" setting, for how the parts join */
     public VoiceSessionCleanup(@NonNull VoiceTextPolisher polisher, @Nullable String level) {
@@ -116,7 +118,12 @@ public final class VoiceSessionCleanup {
     public void onPhrase(@NonNull String raw, boolean transcriptionPending, boolean byHand) {
         if (cancelled || finishing != null) return;
         VoiceCleanupPlan.Pass pass = plan.nextEarlyPass(raw, transcriptionPending, byHand);
-        if (pass != null) submit(pass);
+        if (pass == null) return;
+        if (pass.unpunctuated && !loggedUnpunctuated) {
+            loggedUnpunctuated = true;
+            Logger.logInfo(LOG_TAG, "cleanup early: no sentence ends from the recogniser; parts cut at phrases");
+        }
+        submit(pass);
     }
 
     /**
