@@ -107,6 +107,13 @@ under twenty items; past that, the oldest are re-judged first.
   A fresh dictation of an English clip: no language on the strip, `language=en/detected`. Note each
   phrase's `detectMs` against its `decodeMs`/`decodeSteps`, and the probability a one-word command
   scores (the 0.8 bar) · Waydroid, fake PipeWire mic.
+- 2026-10-13 · commit "feat(voice): send only the sentences that need it to the cleanup model" ·
+  A real English dictation with "uh"/"um" in clean sentences and one stutter or "no wait": no
+  filler is left, the clean sentences come back word for word, and logcat `VoiceSessionCleanup`
+  shows `lang=en sent=N/M` with N below M (0 for a part with nothing to fix, `fallback:unchanged`
+  for a clean dictation). Then a Spanish (or German) dictation with "eh"/"äh": the fillers go,
+  the text stays in that language (`lang=es`), never English · pong with the go-ahead, Light and
+  Polished.
 
 ## Developer
 

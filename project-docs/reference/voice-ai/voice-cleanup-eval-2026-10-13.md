@@ -297,3 +297,136 @@ Rerun this eval after each change; on this runtime one run per variant is enough
   these numbers transfer.
 - Where the "~7 s for 250 words" figure came from: the configuration or build that decodes about
   twice as fast as what was measured here.
+
+## Second round: the gated pipeline in the app (2026-10-13, afternoon)
+
+The recommendation above is now app code: each cleanup part has its vocalised fillers stripped
+without the model (`VoiceFillers`), its language read from the text unless the speech model
+gives one (`VoiceTextLanguage`), and only the sentences with a surface sign of trouble sent, with
+the sentence before them as `<earlier>` (`VoiceCleanupGate`, `VoiceGatedCleanup`). The prompt
+gains two clauses: keep the speaker's spelling and any dictated instruction or label, and, for a
+language other than English, "The transcript is in Spanish. Write in Spanish." Variant **E** in
+`cleanup_eval.py` mirrors this pipeline, and `VoiceCleanupEvalParityTest` checks that the Java
+decides the same language, stripped text and groups for every case at both levels.
+
+### Setup (measured)
+
+- **Device and model.** Pong over `ssh termux`, between 14:04 and 14:40 (+03), on whatever build
+  was installed; E2B on the GPU from a manual `tai load --gpu`, streamed, temperature 0. One run
+  per variant. A, C and the 2026-10-13 morning rows gave identical outputs, so quality is
+  comparable across the day; times are comparable only within a run.
+- **Two runs.** Run 1 (14:04–14:15): A-light, A-polished, C, E-light-later-en, E-polished-later-en,
+  E-light-en, A-light-new. Run 2 (14:17–14:27): A-light-keep, A-light-keep2, A-light-lang, E-light,
+  E-light-keep2, E-polished. Within run 1, A-light-new (run last) averaged 2.27 s against
+  A-light's 1.85 s (run first) on about the same output tokens; one run cannot tell the longer
+  system turn from the phone warming up, so compare times within a run only.
+- **Watchdog.** Never fired; the lowest MemAvailable was 3.5 GB. The model was unloaded and the
+  phone folder deleted afterwards.
+- **The suffixes.** `-later` adds the sentence after a group as `<later>` (C's context), `-en`
+  names English in the prompt too, `-keep2` swaps the KEEP clause for "Keep British or American
+  spelling as it was heard…", and the A suffixes put the clauses on the full rewrite (`-new` is
+  KEEP plus the language line, English included). **E-light** and **E-polished** are what the
+  app ships: no `<later>`, no line for English, the first KEEP clause.
+
+### Results (measured)
+
+Raw-text WER is 0.196. E's mean time counts its 35 cases without a call as 0 s.
+
+| Variant | Run | WER | Improved / same / worse | Filler removal | Content F1 | Clean unchanged | Guard kept raw | Must miss / must-not hit | Total mean | Total p90 | Long-case mean | Output tokens (sum) | Calls |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| A-light | 1 | 0.132 | 27 / 26 / 7 | 79% | 0.950 | 9/12 | 3 | 9 / 1 | 1.85 s | 2.74 s | 6.29 s | 1850 | 60 |
+| A-polished | 1 | 0.144 | 26 / 26 / 8 | 75% | 0.940 | 9/12 | 3 | 10 / 1 | 2.08 s | 3.03 s | 6.57 s | 1859 | 60 |
+| C | 1 | 0.120 | 20 / 40 / 0 | 79% | 0.939 | 12/12 | 3 | 17 / 1 | 1.09 s | 2.11 s | 4.89 s | 1041 | 33 |
+| E-light-later-en | 1 | 0.102 | 24 / 36 / 0 | 100% | 0.939 | 12/12 | 0 | 18 / 1 | 1.04 s | 2.36 s | 5.37 s | 987 | 29 |
+| E-light-en | 1 | 0.100 | 25 / 35 / 0 | 100% | 0.940 | 12/12 | 0 | 18 / 1 | 1.15 s | 2.46 s | 5.60 s | 921 | 29 |
+| E-polished-later-en | 1 | 0.105 | 25 / 34 / 1 | 100% | 0.939 | 12/12 | 0 | 18 / 1 | 1.16 s | 2.51 s | 6.02 s | 1063 | 27 |
+| A-light-new | 1 | 0.103 | 32 / 23 / 5 | 96% | 0.949 | 10/12 | 0 | 9 / 1 | 2.27 s | 3.57 s | 7.57 s | 1826 | 60 |
+| A-light-keep | 2 | 0.115 | 28 / 25 / 7 | 75% | 0.954 | 9/12 | 3 | 8 / 1 | 2.28 s | 3.56 s | 7.77 s | 1845 | 60 |
+| A-light-keep2 | 2 | 0.116 | 28 / 27 / 5 | 79% | 0.949 | 11/12 | 3 | 9 / 1 | 2.27 s | 3.49 s | 7.60 s | 1838 | 60 |
+| A-light-lang | 2 | 0.130 | 30 / 22 / 8 | 86% | 0.947 | 9/12 | 0 | 10 / 1 | 2.25 s | 3.28 s | 7.68 s | 1850 | 60 |
+| **E-light** (app) | 2 | **0.090** | 24 / 36 / **0** | **100%** | 0.947 | **12/12** | **0** | 17 / 1 | **1.15 s** | 2.55 s | **5.63 s** | 920 | 29 |
+| E-light-keep2 | 2 | 0.106 | 25 / 35 / 0 | 100% | 0.940 | 12/12 | 0 | 18 / 1 | 1.14 s | 2.52 s | 5.52 s | 927 | 29 |
+| **E-polished** (app) | 2 | 0.109 | 25 / 34 / 1 | **100%** | 0.943 | **12/12** | **0** | 17 / 1 | 1.25 s | 3.12 s | 5.94 s | 1019 | 27 |
+
+Against today's full rewrite, the app's pipeline at Light has a third less WER (0.090 against
+0.132), makes no case worse (7 before), removes every vocalised filler (79% before), leaves all 12
+clean texts alone (9 before) and has no guard refusals (3 before). It is about half the time on
+average (1.15 s against 2.28 s on the same run's full rewrites) and a quarter less on the long
+cases (5.6 s against 7.7 s). E-polished's one worse case is "We're" written as "We are" in
+`selfcorrect-cross`, which counts as two word errors.
+
+What the gate sent: 50 of 112 sentences at Light and 58 at Polished (C: 51), and 35 of 60 cases
+made no call (C: 30). After the strip, a sentence whose only trouble was a filler is not sent:
+`filler-basic`, `question-dock`, `list-shopping` and the three non-English cases came back cleaned
+with no call.
+
+**The three non-English cases.** In E all three are cleaned by the strip alone and stay in their
+language: "Mañana no puedo ir a la reunión, porque tengo que llevar a mi hija al médico.", "Ich
+komme heute, etwas später, so gegen halb sieben.", "Je pense que le bouton est trop petit sur la
+page d'accueil." (WER 0 each; the full rewrite and C left them raw after the guard refused an
+English answer). No sentence of them was flagged, so E did not exercise the language line on
+these cases. On the full rewrite it did: with the line, the Spanish and French answers matched
+their references and the German one kept "Ähm" but stayed German, and the guard refused nothing.
+
+### What each change did (measured)
+
+- **`<later>` context does not help.** E-light-en and E-light-later-en differ only in it: WER
+  0.100 against 0.102 and 921 against 987 output tokens, as the model writes the later sentence
+  out. The app sends only `<earlier>`, one sentence.
+- **Naming English hurts English.** On the full rewrite, A-light-lang made 8 cases worse against
+  A-light's 7: it left "eighty, no, wait, eight zero eight zero" unresolved in
+  `selfcorrect-port` (A-light: "8080") and kept "Um, so," in `filler-heavy`. A-light-new, with the
+  line and KEEP, once wrote the Hindi "क्योंकि" for "because" in `filler-basic`. The app names only
+  languages other than English.
+- **The KEEP clause helps, and the first wording is better gated.** On the full rewrite it cut
+  WER from 0.132 to 0.115 and kept "Summarize this:", but still wrote "behavior". The alternative
+  wording kept 11 of 12 clean texts on the full rewrite, but in E, where clean texts are not sent,
+  it scored 0.106 against 0.090.
+- **Gating keeps its blind spot.** 17 must-have terms are missed, the same mishearings as C's
+  ("app draw", "Jason", "grade all", "cotlin", "rejects", "she's a cool", "note book"), because
+  nothing around them looks wrong.
+- **A sent sentence can still be rewritten too freely.** E-light wrote "Can you make sure the
+  widget doesn't refresh after midnight?" for the restart "Can you okay so the widget doesn't
+  refresh after midnight." (the guard let "make sure" through), and in `long-weekend` it moved
+  "the cooler and the drinks" to Sarah's sentence while resolving "Actually no, Tom is bringing
+  the food".
+- **At Light, list sentences cost a call for little.** `list-counted` and `list-one-two` were
+  sent for their items and came back word for word; `list-enumerate` got its colon and commas.
+  At Polished the whole part is sent and the items come back one per line.
+
+### The anchor's time, back to back (measured)
+
+Run 3, 14:37–14:40, warm model, one request at a time, the phone's load average 3.7–5.5 (it was
+not idle):
+
+| Variant | Totals | TTFT | Output tokens | Calls |
+|---|---|---|---|---|
+| A-light | 16.0 / 16.0 / 17.7 s | 1.0–1.2 s | 324 | 1 |
+| A-polished | 15.8 / 15.5 / 17.7 s | 1.1 s | 322 | 1 |
+| E-light | 15.5 / 14.4 / 16.5 s | 0.9–1.0 s | 261 | 3 |
+| E-polished | 14.8 / 15.4 / 16.7 s | 1.1–1.2 s | 301 | 1 |
+
+- **Decode is steady at about 20–22 tokens/s.** Every anchor total is TTFT plus its output tokens
+  at that rate. At that rate a pass that rewrites all 271 words cannot finish in 7 s: it needs
+  about 320 output tokens, about 15 s.
+- **The anchor gains little from the gate.** Most of it is flagged (run-ons, stray capitals, a
+  spoken list), so E-light still sends 3 groups and writes 261 tokens; Polished sends it whole.
+  In the app, the early passes split a dictation this long into parts while the user speaks, so
+  only the last part is waited for.
+- **A queue doubles the time.** A first attempt at run 3 started two runners by mistake, so two
+  requests shared TAI's serial chat lane: TTFT rose to 13–19 s and the anchor took 29.7–35.5 s,
+  while the decode rate stayed at about 20 tokens/s. A cleanup that waits behind another
+  generation (a chat answer, another client) takes twice as long, which fits readings of 15 s and
+  more. Those runs were discarded.
+- **Inference.** The "~7 s" figure is most likely the wait after the user stops in the app, where
+  the early passes have already cleaned all but the last part, not a whole-anchor pass. That is
+  not measured here.
+
+### Still owed
+
+- A real dictation with fillers and one non-English dictation on pong, through the app (listed
+  in `project-docs/device-checks.md`).
+- A non-English case with a flagged sentence, so the language line is measured through E.
+- E built from the app's real pause-time parts, and the wait after the user stops measured in
+  the app's own log (`cleanup session: cleanupMs=`).
+- Recogniser word confidence as a gate sign, for the mishearings.

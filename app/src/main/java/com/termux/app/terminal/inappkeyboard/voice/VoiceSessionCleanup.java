@@ -18,7 +18,9 @@ import java.util.concurrent.RejectedExecutionException;
  * as the microphone opens, every phrase collects in the panel as heard meanwhile, and the text goes
  * through the {@link VoiceTextPolisher} in the parts {@link VoiceCleanupPlan} hands out: early
  * passes at phrase pauses while the user speaks ({@link #onPhrase}), and once the session has ended
- * the rest ({@link #run}), before ✓ or Copy uses it. The panel shows only the text as heard until
+ * the rest ({@link #run}), before ✓ or Copy uses it. Each part goes through the gate
+ * ({@link VoiceGatedCleanup}): fillers out, and only its sentences with a sign of trouble sent to the
+ * model, in the dictation's language. The panel shows only the text as heard until
  * the whole cleaned text is delivered.
  * The warm-up is queued ahead of the passes on the same thread, so a pass waits for the load
  * instead of racing it. Callbacks come back on the main thread and never after {@link #cancel}.
@@ -33,9 +35,12 @@ public final class VoiceSessionCleanup {
     }
 
     private final VoiceTextPolisher polisher;
+    @NonNull private final String level;
     private final ExecutorService worker;
     private final Executor main;
     private volatile boolean cancelled;
+    /** The speech model's language for the dictation; {@code null} reads it from the text. */
+    @Nullable private volatile String languageHint;
     /** Main-thread state. */
     private boolean warming;
     private final VoiceCleanupPlan plan;
@@ -56,6 +61,7 @@ public final class VoiceSessionCleanup {
     VoiceSessionCleanup(@NonNull VoiceTextPolisher polisher, @Nullable String level, @NonNull ExecutorService worker,
                         @NonNull Executor main) {
         this.polisher = polisher;
+        this.level = VoicePolishRules.normalizeLevel(level);
         this.plan = new VoiceCleanupPlan(level);
         this.worker = worker;
         this.main = main;
@@ -98,6 +104,15 @@ public final class VoiceSessionCleanup {
         } catch (RejectedExecutionException e) {
             warming = false;
         }
+    }
+
+    /**
+     * The language the speech model heard, as an ISO 639 code ("es", "en-US"), or {@code null} to read
+     * it from the text ({@link VoiceTextLanguage#guess}). Passes that start after this use it to name
+     * the language in the prompt and to pick the fillers they strip. Any thread.
+     */
+    public void setLanguageHint(@Nullable String iso639) {
+        languageHint = VoiceTextLanguage.normalize(iso639);
     }
 
     /** Whether {@link #warm} is still loading the model. Main thread. */
@@ -190,13 +205,19 @@ public final class VoiceSessionCleanup {
                 if (cancelled) return;
                 long start = System.nanoTime();
                 VoiceTextPolisher.Result result;
+                String gated = "";
                 try {
-                    result = polisher.polish(pass.raw, pass.context, VoicePolishRules.timeoutMs(pass.raw));
+                    VoiceGatedCleanup.Outcome outcome =
+                        VoiceGatedCleanup.clean(polisher, pass.raw, pass.context, level, languageHint);
+                    result = outcome.result(pass.raw, pass.early);
+                    gated = " lang=" + (outcome.language == null ? "unclear" : outcome.language)
+                        + " sent=" + outcome.calls + "/" + outcome.groups;
                 } catch (RuntimeException e) {
                     result = VoiceTextPolisher.Result.fallback(pass.raw, "exception");
                 }
                 log(pass.early ? "early" : "final", (System.nanoTime() - start) / 1_000_000L,
-                    VoicePolishRules.wordCount(pass.context), pass.raw.length(), result.text.length(), result.outcome);
+                    VoicePolishRules.wordCount(pass.context), pass.raw.length(), result.text.length(),
+                    result.outcome + gated);
                 VoiceTextPolisher.Result done = result;
                 main.execute(() -> {
                     if (cancelled) return;
