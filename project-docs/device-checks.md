@@ -89,6 +89,11 @@ under twenty items; past that, the oldest are re-judged first.
   launcher keeps answering throughout, and dictation keeps the text as heard; the same while a
   long chat answer generates (cancelled and unloaded, the runtime stays) · pong with the go-ahead,
   `adb logcat -s TaiMemory`.
+- 2026-10-13 · commit "fix(tai): book a memory stop as a stop, not a crash" · After the guard ends
+  an E4B GPU load mid-dictation: the card keeps the phrases already heard and says "Voice input
+  stopped: the speech model closed", the pill settles; within 2 min the next dictation's cleanup
+  logs `load held back on gpu` and keeps the text, `tai load gemma-4-e4b` goes ahead at its window;
+  after 2 min cleanup loads E4B on the GPU at 2048 again (no half window) · pong with the go-ahead.
 
 ## Developer
 

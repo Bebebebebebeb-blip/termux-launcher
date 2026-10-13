@@ -394,6 +394,107 @@ public final class TaiRuntimeHistory {
         });
     }
 
+    // ---- Memory stops ----------------------------------------------------------------------------
+    //
+    // The runtime's watch ends a native load that takes the phone under the critical floor
+    // (TaiPressureWatch). That is not a crash: the crash marker is cleared, so the next load is not
+    // held to half the window, and what the watch saw instead goes here: the drop so far, a lower
+    // bound on the load's cost, as a sample when it says more than the plan already does, and a
+    // record that holds automatic loads of that model on that accelerator back for a while, so a
+    // stop cannot loop straight into the same reload.
+
+    private static final String PRESSURE_PREFIX = "pressure|";
+
+    /**
+     * Keeps what the watch learned when it ended a native load of {@code model} on
+     * {@code accelerator} at {@code window} tokens for memory: {@code dropBytes}, the MemAvailable
+     * drop up to the stop, joins the ring when {@link #guardSampleAdds} says it tells the plan
+     * something; and a stop record, read back by {@link #pressureStop}, is stamped now.
+     */
+    public static void recordPressureStop(
+        @NonNull Context context,
+        @NonNull TaiModelSpec model,
+        @NonNull TaiDeviceCapabilities device,
+        @NonNull String backend,
+        @NonNull String accelerator,
+        int window,
+        long dropBytes,
+        long availBytes
+    ) {
+        final long version = appVersionCode(context);
+        final String key = loadKey(model, TaiResidency.fileBytes(model), device, version, backend, accelerator);
+        withLock(context, history -> {
+            try {
+                long now = System.currentTimeMillis();
+                pruneMeasured(history, now, version);
+                JSONObject entry = history.optJSONObject(key);
+                List<Sample> samples = entrySamples(entry);
+                if (guardSampleAdds(samples, window, dropBytes, now)) {
+                    if (entry == null) entry = new JSONObject();
+                    entry.put("modelId", model.id);
+                    entry.put("device", deviceKey(device));
+                    entry.put("backend", backend);
+                    entry.put("accelerator", normalizeAccelerator(accelerator));
+                    entry.put("modality", modalityOf(model.id));
+                    appendSample(entry, new Sample(window, dropBytes, 0, guardSamplePhase(samples, now), now), now, version);
+                    history.put(key, entry);
+                }
+                JSONObject stop = new JSONObject();
+                stop.put("modelId", model.id);
+                stop.put("device", deviceKey(device));
+                stop.put("backend", backend);
+                stop.put("accelerator", normalizeAccelerator(accelerator));
+                stop.put("contextWindow", window);
+                stop.put("dropBytes", Math.max(0L, dropBytes));
+                stop.put("availBytes", Math.max(0L, availBytes));
+                stop.put("stoppedAtMs", now);
+                stop.put("updatedAtMs", now);
+                history.put(pressureKey(model.id, device), stop);
+                return true;
+            } catch (JSONException ignored) {
+                return false;
+            }
+        });
+    }
+
+    /** The last memory stop of {@code model} on this device ({@link #recordPressureStop}), or {@code null}. */
+    @Nullable
+    public static JSONObject pressureStop(@NonNull Context context, @NonNull TaiModelSpec model,
+                                          @NonNull TaiDeviceCapabilities device) {
+        return history(context).optJSONObject(pressureKey(model.id, device));
+    }
+
+    @NonNull
+    private static String pressureKey(@NonNull String modelId, @NonNull TaiDeviceCapabilities device) {
+        return PRESSURE_PREFIX + TaiModelVariants.baseModelId(modelId) + "|" + deviceKey(device);
+    }
+
+    /**
+     * Whether a stopped load's drop belongs in the ring: it is a lower bound, so only when it is
+     * above what the ring already plans for that window ({@link #lookup}), or the ring has nothing.
+     * A load squeezed out by another app may have taken little; that says nothing about its cost
+     * and must not pull the plan down.
+     */
+    static boolean guardSampleAdds(@NonNull List<Sample> samples, int window, long dropBytes, long nowMs) {
+        if (dropBytes <= 0L) return false;
+        long planned = lookup(samples, window, 0L, nowMs);
+        return planned <= 0L || dropBytes > planned;
+    }
+
+    /**
+     * The phase a stopped load's drop is booked as: the one {@link #lookup} plans on for the key, so
+     * the sample counts. A lower bound on the load is one on its first prefill too, which only adds.
+     */
+    @NonNull
+    static String guardSamplePhase(@NonNull List<Sample> samples, long nowMs) {
+        for (Sample sample : samples) {
+            if (nowMs - sample.timestampMs <= SAMPLE_TTL_MS && PHASE_FIRST_PREFILL.equals(sample.phase)) {
+                return PHASE_FIRST_PREFILL;
+            }
+        }
+        return PHASE_LOAD;
+    }
+
     /**
      * The measured drop to plan a load of {@code contextWindow} tokens on, or {@code 0} when nothing
      * usable was measured; see {@link #lookup}. No seed slope is known here, so a window above every

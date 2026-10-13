@@ -88,7 +88,9 @@ import java.util.List;
  * Gallery default GPU to 4096; an explicit window above that is honoured, subject to the budget.
  * An automatic LiteRT CPU load is capped at the floor too, because its runtime buffers are
  * allocated at the first prefill. A load whose process was killed last time is not repeated as it
- * was: that accelerator is held to half the window it died at.
+ * was: that accelerator is held to half the window it died at. A load the runtime's watch stopped
+ * for memory is not a crash: its accelerator is skipped for a short cooldown on automatic loads
+ * ({@link Request#withHeldBack}), and its window is left alone.
  *
  * <p>Pure on purpose: no Android, so the numbers above are pinned by {@code TaiLoadBudgetTest}.
  */
@@ -375,6 +377,12 @@ public final class TaiLoadBudget {
         final long kvBytesPerToken;
         /** The device has no GPU path, so the other accelerator needs no measurement to be tried. */
         final boolean gpuless;
+        /**
+         * An accelerator this load may not use: a memory stop of this model on it is recent
+         * ({@link TaiPressureWatch#heldBackAfterStop}). Skipped like one a load died on, but not
+         * counted as one: the next accelerator still needs its own measured reason.
+         */
+        @Nullable final String heldBackAccelerator;
 
         /**
          * @param accelerators       in the order to try them; one entry when the caller chose
@@ -414,14 +422,15 @@ public final class TaiLoadBudget {
                        @NonNull History history, @NonNull List<TaiResidency.Entry> evictable, boolean momentary) {
             this(backend, fileBytes, encoders, physicalBytes, availableBytes, accelerators, capContext,
                 crashedAccelerator, crashedContext, explicitContext, history, evictable, momentary,
-                Conditions.RELAXED, 0L, false);
+                Conditions.RELAXED, 0L, false, null);
         }
 
         private Request(@NonNull String backend, long fileBytes, boolean encoders, long physicalBytes,
                         long availableBytes, @NonNull List<String> accelerators, int capContext,
                         @Nullable String crashedAccelerator, int crashedContext, boolean explicitContext,
                         @NonNull History history, @NonNull List<TaiResidency.Entry> evictable,
-                        boolean momentary, @NonNull Conditions conditions, long kvBytesPerToken, boolean gpuless) {
+                        boolean momentary, @NonNull Conditions conditions, long kvBytesPerToken, boolean gpuless,
+                        @Nullable String heldBackAccelerator) {
             this.momentary = momentary;
             this.backend = backend;
             this.fileBytes = fileBytes;
@@ -438,6 +447,7 @@ public final class TaiLoadBudget {
             this.conditions = conditions;
             this.kvBytesPerToken = kvBytesPerToken;
             this.gpuless = gpuless;
+            this.heldBackAccelerator = heldBackAccelerator;
         }
 
         /** This request with the memory limits the caller read ({@link TaiMemInfo#conditions}), which set the floors. */
@@ -445,7 +455,7 @@ public final class TaiLoadBudget {
         public Request withConditions(@NonNull Conditions newConditions) {
             return new Request(backend, fileBytes, encoders, physicalBytes, availableBytes, accelerators, capContext,
                 crashedAccelerator, crashedContext, explicitContext, history, evictable, momentary,
-                newConditions, kvBytesPerToken, gpuless);
+                newConditions, kvBytesPerToken, gpuless, heldBackAccelerator);
         }
 
         /** This request with an MNN model's architecture KV bytes per token ({@code 0}: unknown). */
@@ -453,7 +463,7 @@ public final class TaiLoadBudget {
         public Request withKvBytesPerToken(long newKvBytesPerToken) {
             return new Request(backend, fileBytes, encoders, physicalBytes, availableBytes, accelerators, capContext,
                 crashedAccelerator, crashedContext, explicitContext, history, evictable, momentary,
-                conditions, newKvBytesPerToken, gpuless);
+                conditions, newKvBytesPerToken, gpuless, heldBackAccelerator);
         }
 
         /** This request with whether the device lacks a GPU path, which lets the other accelerator be tried unmeasured. */
@@ -461,7 +471,15 @@ public final class TaiLoadBudget {
         public Request withGpuless(boolean newGpuless) {
             return new Request(backend, fileBytes, encoders, physicalBytes, availableBytes, accelerators, capContext,
                 crashedAccelerator, crashedContext, explicitContext, history, evictable, momentary,
-                conditions, kvBytesPerToken, newGpuless);
+                conditions, kvBytesPerToken, newGpuless, heldBackAccelerator);
+        }
+
+        /** This request with {@code accelerator} held back after a memory stop; {@code null} holds nothing back. */
+        @NonNull
+        public Request withHeldBack(@Nullable String accelerator) {
+            return new Request(backend, fileBytes, encoders, physicalBytes, availableBytes, accelerators, capContext,
+                crashedAccelerator, crashedContext, explicitContext, history, evictable, momentary,
+                conditions, kvBytesPerToken, gpuless, accelerator);
         }
     }
 
@@ -561,6 +579,7 @@ public final class TaiLoadBudget {
         Estimate refusedEstimate = null;
         for (int i = 0; i < r.accelerators.size(); i++) {
             String accelerator = r.accelerators.get(i);
+            if (accelerator.equals(r.heldBackAccelerator)) continue;
             if (i > 0 && !otherAcceleratorAllowed(r, accelerator, floor, refusedNeed, previousCrashed)) continue;
             previousCrashed = false;
             int limit = i == 0 ? cap : floor;

@@ -1039,7 +1039,9 @@ public final class LiteRtTaiRuntime implements TaiRuntime {
         lastLoadMeter = null;
         // A native init: nothing can cancel it, so the runtime's watch ends the process instead
         // when memory runs out under it (TaiPressureWatch).
-        TaiLoadMeter meter = TaiLoadMeter.startNativeInit(appContext);
+        TaiLoadMeter meter = TaiLoadMeter.startNativeInit(appContext, new TaiLoadMeter.NativeInit(modelSpec,
+            deviceCapabilities, TaiModelSpec.BACKEND_LITERT_LM, accelerator,
+            options.contextWindow != null ? options.contextWindow : TaiLoadBudget.FLOOR_CONTEXT));
         boolean initialized = false;
         try {
             Engine created = createAndInitializeEngine(modelSpec, modelPath, options, profile, deviceCapabilities, backend);

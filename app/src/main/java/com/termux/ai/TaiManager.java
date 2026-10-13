@@ -782,7 +782,9 @@ public final class TaiManager {
             }
             return preflight.blockingError(preflightStatusCode(preflight));
         }
-        LoadDecision decision = decideLoad(spec, options, preflight);
+        // tai load and the Model Centre's Load name no feature: the user asking, which a memory stop's
+        // cooldown does not hold back. A feature's load (dictation cleanup's warm-up) is automatic.
+        LoadDecision decision = decideLoad(spec, options, preflight, TaiCallerRequests.featureOf(request) == null);
         if (decision.refusal != null) {
             return !fresh && localRuntime().isModelLoaded(spec.id) ? residentAsIs(spec) : decision.refusal;
         }
@@ -845,7 +847,7 @@ public final class TaiManager {
         TaiRuntimeOptions warmOptions = optionsForPreflight(spec, options, preflight);
         LoadDecision decision = null;
         if (!localRuntime().isModelLoaded(spec.id)) {
-            decision = decideLoad(spec, options, preflight);
+            decision = decideLoad(spec, options, preflight, false);
             if (decision.refusal != null) return decision.refusal;
             warmOptions = decision.options;
         }
@@ -1334,7 +1336,7 @@ public final class TaiManager {
                 }
                 return preflight.blockingError(preflightStatusCode(preflight));
             }
-            LoadDecision decision = decideLoad(spec, options, preflight);
+            LoadDecision decision = decideLoad(spec, options, preflight, true);
             if (decision.refusal != null) return decision.refusal;
             // The GPU self-test runs here as on every other load: a bench GPU load is a GPU load.
             JSONObject result = loadWithCanary(spec, decision.options);
@@ -3217,7 +3219,7 @@ public final class TaiManager {
         if (preflight.blocked) {
             return resident ? null : preflight.blockingError(preflightStatusCode(preflight));
         }
-        LoadDecision decision = decideLoad(spec, options, preflight);
+        LoadDecision decision = decideLoad(spec, options, preflight, false);
         if (decision.refusal != null) return resident ? null : decision.refusal;
         JSONObject load = loadWithCanary(spec, decision.options);
         load.put("preflight", preflight.toJson());
@@ -3358,12 +3360,16 @@ public final class TaiManager {
      * Settles accelerator and context window for a load that passed preflight, from the memory free
      * right now (see {@link TaiLoadBudget}). Every load path goes through here: explicit loads,
      * keep-warm and the automatic load behind a chat request.
+     *
+     * @param explicit the user asked for this load ({@code tai load}, a benchmark): a recent memory
+     *                 stop of the model does not hold it back ({@link TaiPressureWatch#heldBackAfterStop})
      */
     @NonNull
     private LoadDecision decideLoad(
         @NonNull TaiModelSpec spec,
         @NonNull TaiRuntimeOptions options,
-        @NonNull TaiLoadPreflight.Result preflight
+        @NonNull TaiLoadPreflight.Result preflight,
+        boolean explicit
     ) throws JSONException {
         TaiDeviceCapabilities device = preflight.device;
         List<String> accelerators;
@@ -3385,6 +3391,12 @@ public final class TaiManager {
             crashedAccelerator = TaiLoadPreflight.normalizeAccelerator(marker.optString("accelerator", null));
             crashedContext = marker.optInt("contextWindow", 0);
         }
+        // A load the runtime's watch stopped for memory left no crash marker; for a little while an
+        // automatic load does not go straight back to the accelerator it was stopped on.
+        JSONObject stop = TaiRuntimeHistory.pressureStop(appContext, spec, device);
+        long stoppedAtMs = stop == null ? 0L : stop.optLong("stoppedAtMs", 0L);
+        String heldBack = TaiPressureWatch.heldBackAfterStop(stoppedAtMs, System.currentTimeMillis(), explicit)
+            ? TaiLoadPreflight.normalizeAccelerator(stop.optString("accelerator", null)) : null;
         // The resident chat model is closed before this one initializes, so its bytes are this
         // load's to spend; every other resident stays and is already missing from availMem — the
         // idle ones among them are what the plan may evict when it does not fit as is.
@@ -3400,12 +3412,17 @@ public final class TaiManager {
             options.momentary == Boolean.TRUE)
             .withConditions(gateConditions())
             .withKvBytesPerToken(kvBytesPerToken(spec))
-            .withGpuless(!device.supportsAccelerator("gpu")));
+            .withGpuless(!device.supportsAccelerator("gpu"))
+            .withHeldBack(heldBack));
         if (!plan.fits) {
             // The figures are the rung the ladder refused (accelerator, window, estimate), the floor
             // it kept and the free memory it compared against, the resident chat model credited.
+            String reason = heldBack == null ? "load refused: " + plan.needText()
+                : "load held back on " + heldBack + ": stopped for memory "
+                    + Math.max(0L, System.currentTimeMillis() - stoppedAtMs) / 1000L + " s ago, automatic loads wait "
+                    + TaiPressureWatch.PRESSURE_COOLDOWN_MS / 1000L + " s";
             TaiEventLog.log(appContext, TaiEventLog.OOM_GUARD, spec.id, spec.backend, plan.accelerator,
-                plan.contextWindow, 0L, plan.neededFreeBytes(), "load refused: " + plan.needText());
+                plan.contextWindow, 0L, plan.neededFreeBytes(), reason);
             return new LoadDecision(null, insufficientMemory(spec.displayName, plan), plan, Collections.<String>emptyList());
         }
         if (plan.overcommitted) {

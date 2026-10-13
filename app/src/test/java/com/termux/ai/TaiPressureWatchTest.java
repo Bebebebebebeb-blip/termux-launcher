@@ -112,6 +112,20 @@ public class TaiPressureWatchTest {
         assertEquals(TaiPressureWatch.Stop.UNLOAD, TaiPressureWatch.stopFor(false));
     }
 
+    /**
+     * After a memory stop, an automatic load of that model on that accelerator waits two minutes, so
+     * the next phrase does not reload into the same pressure; the user asking again never waits.
+     */
+    @Test
+    public void aMemoryStopHoldsAutomaticLoadsBackForTwoMinutes() {
+        long stoppedAt = NOW - 60_000L;
+        assertEquals(120_000L, TaiPressureWatch.PRESSURE_COOLDOWN_MS);
+        assertTrue(TaiPressureWatch.heldBackAfterStop(stoppedAt, NOW, false));
+        assertFalse("tai load is the user asking", TaiPressureWatch.heldBackAfterStop(stoppedAt, NOW, true));
+        assertFalse(TaiPressureWatch.heldBackAfterStop(NOW - TaiPressureWatch.PRESSURE_COOLDOWN_MS, NOW, false));
+        assertFalse("no stop on record", TaiPressureWatch.heldBackAfterStop(0L, NOW, false));
+    }
+
     /** 250 ms while a model loads, waits for its first token or generates; 2 s otherwise. */
     @Test
     public void theWatchPollsFasterWhileALoadOrFirstPrefillRuns() {

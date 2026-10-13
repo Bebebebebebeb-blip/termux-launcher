@@ -6,6 +6,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
@@ -654,7 +655,7 @@ public final class TaiRuntimeService extends Service {
             if (!holding) return;
             String why = lowMemory ? "Android reports low memory, " + availMem / MIB + " MB free"
                 : availMem / MIB + " MB free, under the " + critical / MIB + " MB line";
-            queuePressureAction(() -> releaseAll(why, "pressure tier 3 (" + source + "): " + reading));
+            queuePressureAction(() -> releaseAll(why, "pressure tier 3 (" + source + "): " + reading, availMem));
             return;
         }
         TaiResidency.Entry victim = TaiPressureWatch.nextVictim(residents, tier, System.currentTimeMillis());
@@ -817,23 +818,28 @@ public final class TaiRuntimeService extends Service {
      * on the typical load and the lower tiers give up idle residents first; this is for a load or a
      * generation that ran past the plan, or the phone filling up around a busy model. A generation
      * is cancelled and its model unloaded. A chat model's native init cannot be cancelled, so the
-     * process exits ({@link TaiPressureWatch#stopFor}): the line is written first, synchronously,
-     * and the crash marker the load wrote stays, so the next load of that model is held to half the
-     * window. The client sees the runtime die, and its caller falls back.
+     * process exits ({@link TaiPressureWatch#stopFor}) once the stop is booked
+     * ({@link #bookMemoryStop}) and the line written, both synchronously. The client sees the
+     * runtime die, and its caller falls back.
      *
-     * @param why    what crossed the line, for the event log
-     * @param detail the tier and the reading, for logcat
+     * @param why       what crossed the line, for the event log
+     * @param detail    the tier and the reading, for logcat
+     * @param availMem  MemAvailable at the reading, for the stop record
      */
-    private void releaseAll(@NonNull String why, @NonNull String detail) throws JSONException {
+    private void releaseAll(@NonNull String why, @NonNull String detail, long availMem) throws JSONException {
         TaiManager manager = TaiManager.getRuntimeProcessInstance(this);
+        TaiLoadMeter init = TaiLoadMeter.currentNativeInit();
         boolean exit = TaiPressureWatch.stopFor(TaiLoadMeter.nativeInitRunning()) == TaiPressureWatch.Stop.EXIT_PROCESS;
-        String model = exit ? loadingModelId() : manager.getRuntimeState().loadedModelId;
+        TaiLoadMeter.NativeInit loading = init == null ? null : init.nativeInit();
+        String model = exit ? (loading == null ? null : loading.spec.id) : manager.getRuntimeState().loadedModelId;
         String reason = (model == null ? "released every model" : "stopped the model")
             + " to keep the phone responsive: " + why
             + (exit ? "; a load cannot be cancelled, so the runtime exited" : "");
         Log.i(LOG_TAG, detail + ": " + (model == null ? "" : model + " ") + reason);
         if (exit) {
-            TaiEventLog.logNow(this, TaiEventLog.OOM_GUARD, model, null, null, 0, 0L, 0L, reason);
+            bookMemoryStop(this, init, availMem);
+            TaiEventLog.logNow(this, TaiEventLog.OOM_GUARD, model, loading == null ? null : loading.backend,
+                loading == null ? null : loading.accelerator, loading == null ? 0 : loading.window, 0L, 0L, reason);
             Process.killProcess(Process.myPid());
             return;
         }
@@ -842,16 +848,20 @@ public final class TaiRuntimeService extends Service {
         manager.unloadModel();
     }
 
-    /** The model whose load is in progress, from the crash marker it wrote; {@code null} when there is none. */
-    @Nullable
-    private String loadingModelId() {
-        try {
-            JSONObject marker = TaiRuntimeCrashMarker.read(this);
-            String id = marker == null ? "" : marker.optString("modelId", "");
-            return id.isEmpty() ? null : id;
-        } catch (JSONException e) {
-            return null;
+    /**
+     * Books a native load the watch is about to end for memory, so it is not mistaken for a crash:
+     * the drop so far goes to {@link TaiRuntimeHistory#recordPressureStop} with the stop record that
+     * holds automatic loads back ({@link TaiPressureWatch#heldBackAfterStop}), and the crash marker
+     * the load wrote is cleared, so the next load keeps its window. Only the watch's own exit comes
+     * here; a process killed by anything else leaves the marker and its half-window rule.
+     */
+    static void bookMemoryStop(@NonNull Context context, @Nullable TaiLoadMeter meter, long availBytes) {
+        TaiLoadMeter.NativeInit loading = meter == null ? null : meter.nativeInit();
+        if (loading != null) {
+            TaiRuntimeHistory.recordPressureStop(context, loading.spec, loading.device, loading.backend,
+                loading.accelerator, loading.window, meter.dropSoFar(), availBytes);
         }
+        TaiRuntimeCrashMarker.clear(context);
     }
 
     /** Nothing but the baseline is resident: stamp when, and arm the idle exit. */

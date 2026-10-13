@@ -33,8 +33,11 @@ import java.util.concurrent.TimeUnit;
  * left to push the phone into thrashing. How RELEASE_ALL stops the work is {@link #stopFor}'s: a
  * generation is cancelled and its model unloaded, while a chat model's native init, which nothing
  * can cancel, ends with the runtime process. That frees every byte at once; the client reports the
- * runtime gone, the caller falls back (dictation cleanup keeps the text as heard), and the crash
- * marker holds the next load of that model to half the window, as for any load killed mid-way.
+ * runtime gone and the caller falls back (dictation cleanup keeps the text as heard). A stop is not
+ * a crash: the crash marker is cleared, so the next load keeps its window, and
+ * {@link TaiRuntimeHistory#recordPressureStop} keeps the drop so far as a sample and holds automatic
+ * loads of that model on that accelerator back for {@link #PRESSURE_COOLDOWN_MS}
+ * ({@link #heldBackAfterStop}). A process killed by anything else keeps the marker's half-window rule.
  *
  * There is no {@code onTrimMemory} mapping: the running trim levels are "not notified of this level
  * since API level 34", and {@code TRIM_MEMORY_COMPLETE} goes to cached processes, never to this
@@ -81,6 +84,12 @@ final class TaiPressureWatch {
     static final long POLL_BUSY_MS = 250L;
     /** How often it looks otherwise; slow enough to be invisible in battery stats. */
     static final long POLL_IDLE_MS = 2_000L;
+    /**
+     * How long after a memory stop an automatic load of the same model on the same accelerator is
+     * held back: long enough that the next dictation phrase or chat request does not reload straight
+     * into the pressure it was stopped for, short enough that the next session tries again.
+     */
+    static final long PRESSURE_COOLDOWN_MS = TimeUnit.MINUTES.toMillis(2);
 
     private TaiPressureWatch() {
     }
@@ -110,6 +119,15 @@ final class TaiPressureWatch {
         if (peakFloorBytes > 0L && availBytes < peakFloorBytes) return Tier.CHAT;
         if (holdFloorBytes > 0L && availBytes < holdFloorBytes) return Tier.AUXILIARY;
         return Tier.NONE;
+    }
+
+    /**
+     * Whether a load is held back by a memory stop at {@code stoppedAtMs} ({@code <= 0}: none): an
+     * automatic one within {@link #PRESSURE_COOLDOWN_MS}; never an explicit one ({@code tai load},
+     * a benchmark), which is the user asking again.
+     */
+    static boolean heldBackAfterStop(long stoppedAtMs, long nowMs, boolean explicit) {
+        return !explicit && stoppedAtMs > 0L && nowMs - stoppedAtMs < PRESSURE_COOLDOWN_MS;
     }
 
     /**

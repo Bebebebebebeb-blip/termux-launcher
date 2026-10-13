@@ -462,6 +462,37 @@ public class TaiLoadBudgetTest {
         assertFalse(cleanupOnPong(3804L * MIB, gpuMeasured(3188L * MIB)).fits);
     }
 
+    // --- A memory stop: the accelerator held back, the window left alone ---
+
+    /**
+     * Within the cooldown an automatic load skips the accelerator it was stopped on; it is not a
+     * crash record, so nothing halves the window, and the next accelerator still needs a measured
+     * reason (E4B has no CPU step at all).
+     */
+    @Test
+    public void aHeldBackAcceleratorIsSkippedWithoutHalvingTheWindow() {
+        TaiLoadBudget.History typical = gpuMeasured(2588L * MIB);
+        TaiLoadBudget.Request cleanup = request(E4B, PONG_TOTAL, 4500L * MIB, GPU_THEN_CPU, 2048, false, typical, NOTHING);
+        TaiLoadBudget.Plan held = TaiLoadBudget.plan(cleanup.withHeldBack("gpu"));
+        assertFalse(held.fits);
+        assertEquals("gpu", held.accelerator);
+        assertEquals(2048, held.contextWindow);
+
+        TaiLoadBudget.Plan free = TaiLoadBudget.plan(cleanup.withHeldBack(null));
+        assertTrue(free.fits);
+        assertEquals(2048, free.contextWindow);
+
+        // A crash at the same window halves it, under the floor: the rule a stop no longer triggers.
+        assertFalse(TaiLoadBudget.plan(new TaiLoadBudget.Request(TaiModelSpec.BACKEND_LITERT_LM, E4B, false,
+            PONG_TOTAL, 4500L * MIB, GPU_THEN_CPU, 2048, "gpu", 2048, false, typical, NOTHING)).fits);
+
+        // A smaller file with a measured CPU cost takes the CPU while its GPU is held back.
+        TaiLoadBudget.Plan e2b = TaiLoadBudget.plan(request(E2B, PONG_TOTAL, 4500L * MIB, GPU_THEN_CPU, 4096, false,
+            cpuMeasured(800_000_000L), NOTHING).withHeldBack("gpu"));
+        assertTrue(e2b.fits);
+        assertEquals("cpu", e2b.accelerator);
+    }
+
     // --- Eviction ---
 
     /** Short of memory, the plan closes idle residents in the order given before it shrinks the window. */

@@ -47,9 +47,31 @@ final class TaiLoadMeter {
     private static final AtomicInteger ACTIVE = new AtomicInteger();
     /** Meters started by {@link #startNativeInit} whose load phase has not ended. */
     private static final AtomicInteger NATIVE_INITS = new AtomicInteger();
+    /** The latest meter started by {@link #startNativeInit} while its load phase runs; loads are serialized. */
+    @Nullable private static volatile TaiLoadMeter currentNativeInit;
 
     /** Set while this meter counts in {@link #NATIVE_INITS}; cleared once, by {@link #endLoad} or {@link #stop}. */
     private final AtomicBoolean inNativeInit = new AtomicBoolean();
+    /** What this meter's native init loads; {@code null} for every other meter. */
+    @Nullable private volatile NativeInit nativeInit;
+
+    /** What a chat model's native init is loading: what a memory stop records against ({@link TaiRuntimeHistory#recordPressureStop}). */
+    static final class NativeInit {
+        @NonNull final TaiModelSpec spec;
+        @NonNull final TaiDeviceCapabilities device;
+        @NonNull final String backend;
+        @NonNull final String accelerator;
+        final int window;
+
+        NativeInit(@NonNull TaiModelSpec spec, @NonNull TaiDeviceCapabilities device, @NonNull String backend,
+                   @NonNull String accelerator, int window) {
+            this.spec = spec;
+            this.device = device;
+            this.backend = backend;
+            this.accelerator = accelerator;
+            this.window = window;
+        }
+    }
 
     @Nullable private final ActivityManager activityManager;
     private final long beforeBytes;
@@ -76,15 +98,38 @@ final class TaiLoadMeter {
 
     /**
      * {@link #start} for a chat model's native init (LiteRT-LM {@code initialize()}, MNN
-     * {@code load}): counted by {@link #nativeInitRunning} until {@link #endLoad} or {@link #stop},
-     * whether or not free memory can be read.
+     * {@code load}) of {@code init}: counted by {@link #nativeInitRunning} and named by
+     * {@link #currentNativeInit} until {@link #endLoad} or {@link #stop}, whether or not free
+     * memory can be read.
      */
     @NonNull
-    static TaiLoadMeter startNativeInit(@Nullable Context context) {
+    static TaiLoadMeter startNativeInit(@Nullable Context context, @NonNull NativeInit init) {
         TaiLoadMeter meter = start(context);
+        meter.nativeInit = init;
         meter.inNativeInit.set(true);
         NATIVE_INITS.incrementAndGet();
+        currentNativeInit = meter;
         return meter;
+    }
+
+    /** The meter of the native init in progress, or {@code null}: what the watch records when it ends one. */
+    @Nullable
+    static TaiLoadMeter currentNativeInit() {
+        TaiLoadMeter meter = currentNativeInit;
+        return meter != null && meter.inNativeInit.get() ? meter : null;
+    }
+
+    /** What this meter's native init loads; {@code null} for a meter not started by {@link #startNativeInit}. */
+    @Nullable
+    NativeInit nativeInit() {
+        return nativeInit;
+    }
+
+    /** The drop so far, a fresh sample included, without stopping: {@code -1} when free memory cannot be read. */
+    long dropSoFar() {
+        if (beforeBytes <= 0L) return -1L;
+        observe(sample());
+        return dropBytes(beforeBytes, minBytes);
     }
 
     /** Whether a chat model's native init is running: a load the runtime cannot cancel, only end with its process. */
@@ -93,7 +138,9 @@ final class TaiLoadMeter {
     }
 
     private void leaveNativeInit() {
-        if (inNativeInit.compareAndSet(true, false)) NATIVE_INITS.decrementAndGet();
+        if (!inNativeInit.compareAndSet(true, false)) return;
+        NATIVE_INITS.decrementAndGet();
+        if (currentNativeInit == this) currentNativeInit = null;
     }
 
     /** Whether any meter is sampling now: a load, or the wait for a first token, is in progress. */
