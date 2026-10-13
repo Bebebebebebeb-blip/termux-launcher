@@ -207,40 +207,53 @@ public class AppearanceLooksTest {
 
     /**
      * Icon size is the pinned icon in dp, stored as the dock height scale that draws it. Its ends
-     * are the smallest and largest icon the dock gives under each Style, so no stretch of the
-     * slider is dead, and every value comes back as itself.
+     * are the smallest and largest icon the dock gives under each Style, for a row standing alone
+     * and for one sharing its container, so no stretch of the slider is dead, and every value
+     * comes back as itself (a lone row's within a dp).
      */
     @Test
     public void iconSizeIsTheIconTheDockDrawsUnderEachStyle() {
         for (boolean floating : new boolean[] {false, true}) {
-            for (float density : new float[] {2f, 2.625f, 2.75f, 3f, 3.5f}) {
-                String at = (floating ? "Floating" : "Docked") + " at " + density;
-                int[] range = AppearanceLooks.iconSizeRangeDp(floating, density);
-                assertTrue(at, range[0] < range[1]);
-                assertTrue(at, range[0] >= Control.ICON_SIZE.min
-                    && range[1] <= Control.ICON_SIZE.max);
-                // The ends are the stretch's ends, and anything stored past them reads as them.
-                assertEquals(at, range[0], AppearanceLooks.iconSizeValueFor(floating,
-                    DockLayoutPolicy.minUsefulScale(), density));
-                assertEquals(at, range[1], AppearanceLooks.iconSizeValueFor(floating,
-                    DockLayoutPolicy.maxUsefulScale(floating), density));
-                assertEquals(at, range[0], AppearanceLooks.iconSizeValueFor(floating,
-                    TERMUX_APP.MIN_APP_LAUNCHER_BAR_HEIGHT, density));
-                assertEquals(at, range[1], AppearanceLooks.iconSizeValueFor(floating,
-                    TERMUX_APP.MAX_APP_LAUNCHER_BAR_HEIGHT, density));
-                for (int dp = range[0]; dp <= range[1]; dp++) {
-                    float scale = AppearanceLooks.dockScaleForIconSize(floating, dp, density);
-                    assertTrue(at + " " + dp + " dp writes inside the stretch",
-                        scale >= DockLayoutPolicy.minUsefulScale()
-                            && scale <= DockLayoutPolicy.maxUsefulScale(floating));
-                    assertEquals(at + " " + dp + " dp", dp,
-                        AppearanceLooks.iconSizeValueFor(floating, scale, density));
+            for (boolean alone : new boolean[] {false, true}) {
+                for (float density : new float[] {2f, 2.625f, 2.75f, 3f, 3.5f}) {
+                    assertIconSizeRoundTrips(floating, alone, density);
                 }
-                // Out of range values are held to the ends.
-                assertEquals(at, range[0], AppearanceLooks.iconSizeValueFor(floating,
-                    AppearanceLooks.dockScaleForIconSize(floating, 1, density), density));
             }
         }
+    }
+
+    private static void assertIconSizeRoundTrips(boolean floating, boolean alone, float density) {
+        String at = (floating ? "Floating" : "Docked") + (alone ? " alone" : " shared")
+            + " at " + density;
+        int[] range = AppearanceLooks.iconSizeRangeDp(floating, alone, density);
+        assertTrue(at, range[0] < range[1]);
+        assertTrue(at, range[0] >= Control.ICON_SIZE.min && range[1] <= Control.ICON_SIZE.max);
+        // The ends are the stretch's ends, and anything stored past them reads as them.
+        assertEquals(at, range[0], AppearanceLooks.iconSizeValueFor(floating, alone,
+            DockLayoutPolicy.minUsefulScale(), density));
+        assertEquals(at, range[1], AppearanceLooks.iconSizeValueFor(floating, alone,
+            DockLayoutPolicy.maxUsefulScale(floating), density));
+        assertEquals(at, range[0], AppearanceLooks.iconSizeValueFor(floating, alone,
+            TERMUX_APP.MIN_APP_LAUNCHER_BAR_HEIGHT, density));
+        assertEquals(at, range[1], AppearanceLooks.iconSizeValueFor(floating, alone,
+            TERMUX_APP.MAX_APP_LAUNCHER_BAR_HEIGHT, density));
+        for (int dp = range[0]; dp <= range[1]; dp++) {
+            float scale = AppearanceLooks.dockScaleForIconSize(floating, alone, dp, density);
+            assertTrue(at + " " + dp + " dp writes inside the stretch",
+                scale >= DockLayoutPolicy.minUsefulScale()
+                    && scale <= DockLayoutPolicy.maxUsefulScale(floating));
+            int back = AppearanceLooks.iconSizeValueFor(floating, alone, scale, density);
+            // A lone icon is the whole baseline, a figure divided out of a rounded icon, so it
+            // can step more than a pixel at once and skip a dp at a low density (Docked at 2.0
+            // has no 63dp icon); the slider then lands on the neighbour. A shared icon does not.
+            if (alone)
+                assertTrue(at + " " + dp + " dp came back as " + back, Math.abs(back - dp) <= 1);
+            else
+                assertEquals(at + " " + dp + " dp", dp, back);
+        }
+        // Out of range values are held to the ends.
+        assertEquals(at, range[0], AppearanceLooks.iconSizeValueFor(floating, alone,
+            AppearanceLooks.dockScaleForIconSize(floating, alone, 1, density), density));
     }
 
     /** The shipped default stays the shipped default: its icon writes 2.18 back, both Styles. */
@@ -248,8 +261,11 @@ public class AppearanceLooksTest {
     public void theDefaultsIconWritesTheDefault() {
         float preset = TERMUX_APP.DEFAULT_APP_LAUNCHER_BAR_HEIGHT;
         for (boolean floating : new boolean[] {false, true}) {
-            int dp = AppearanceLooks.iconSizeValueFor(floating, preset, 2.75f);
-            assertEquals(preset, AppearanceLooks.dockScaleForIconSize(floating, dp, 2.75f), 0f);
+            for (boolean alone : new boolean[] {false, true}) {
+                int dp = AppearanceLooks.iconSizeValueFor(floating, alone, preset, 2.75f);
+                assertEquals(preset,
+                    AppearanceLooks.dockScaleForIconSize(floating, alone, dp, 2.75f), 0f);
+            }
         }
     }
 

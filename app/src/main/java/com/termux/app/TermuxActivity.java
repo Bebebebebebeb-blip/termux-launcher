@@ -11426,6 +11426,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return TermuxActivity.this.isRoundedDockStyle();
         }
 
+        @Override public boolean isAppsRowAlone() {
+            return TermuxActivity.this.isAppsRowAlone(currentPlaceLayout());
+        }
+
         @Override public void setTopStatusBarExpandedForEditor(boolean expanded, boolean animate) {
             TermuxActivity.this.setTopStatusBarExpandedForEditor(expanded, animate);
         }

@@ -17,8 +17,9 @@ public class DockIconSizeScaleTest {
     private static final float[] DENSITIES = {1f, 2f, 2.625f, 2.75f, 3f, 3.5f};
     private static final boolean[] STYLES = {false, true};
 
+    /** The icon of a row sharing its container; DockLoneRowIconTest has the lone row's. */
     private static int icon(boolean capsule, float scale, float density) {
-        return DockLayoutPolicy.iconPxForScale(capsule, scale, density);
+        return DockLayoutPolicy.iconPxForScale(capsule, false, scale, density);
     }
 
     @Test
@@ -209,7 +210,7 @@ public class DockIconSizeScaleTest {
                 int lo = icon(capsule, min, density);
                 int hi = icon(capsule, max, density);
                 for (int px = lo - 3; px <= hi + 3; px++) {
-                    float scale = DockLayoutPolicy.scaleForIconPx(capsule, px, density);
+                    float scale = DockLayoutPolicy.scaleForIconPx(capsule, false, px, density);
                     assertTrue("inside the stretch", scale >= min && scale <= max);
                     int back = icon(capsule, scale, density);
                     int target = Math.max(lo, Math.min(hi, px));
@@ -217,10 +218,10 @@ public class DockIconSizeScaleTest {
                         + " came back as " + back, Math.abs(back - target) <= 1);
                 }
                 // The ends map to the ends.
-                assertEquals(lo, icon(capsule, DockLayoutPolicy.scaleForIconPx(capsule, lo,
-                    density), density));
-                assertEquals(hi, icon(capsule, DockLayoutPolicy.scaleForIconPx(capsule, hi,
-                    density), density));
+                assertEquals(lo, icon(capsule, DockLayoutPolicy.scaleForIconPx(capsule, false,
+                    lo, density), density));
+                assertEquals(hi, icon(capsule, DockLayoutPolicy.scaleForIconPx(capsule, false,
+                    hi, density), density));
             }
         }
     }
@@ -232,7 +233,7 @@ public class DockIconSizeScaleTest {
             for (int i = 0; i < DockLayoutPolicy.sizePresetCount(); i++) {
                 float preset = DockLayoutPolicy.sizePreset(i);
                 if (preset > DockLayoutPolicy.maxUsefulScale(capsule)) continue;
-                assertEquals(preset, DockLayoutPolicy.scaleForIconPx(capsule,
+                assertEquals(preset, DockLayoutPolicy.scaleForIconPx(capsule, false,
                     icon(capsule, preset, 2.75f), 2.75f), 0f);
             }
         }
