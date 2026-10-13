@@ -36,6 +36,13 @@ under twenty items; past that, the oldest are re-judged first.
   the screenshot under `$PREFIX/tmp/clipboard`; paste again gives the clipboard text and the glyph
   is back to paste; take another screenshot and paste with a modifier: the clipboard text, while
   the photo still shows · pong with the go-ahead.
+- 2026-10-13 · `eff06de21`, `c111b7ed5` · Dictation cleanup from context on the phone's E2B: the
+  anchor dictation and the "translate this into French" case from
+  `project-docs/reference/voice-ai/voice-cleanup-context-rework-2026-10-13.md`, Light and Polished;
+  no "pinned app console" or "100%", the French request stays English, nothing falls back as
+  `refusal_or_answer`; cleanup's feature check passes its 500-word dictation; first-token time
+  within about 0.2 s of the old prompt's · pong with the go-ahead, the same request through
+  `/v1/chat/completions`.
 
 ## Developer
 
