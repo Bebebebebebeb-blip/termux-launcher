@@ -40,6 +40,31 @@ public class DockIconSizeScaleTest {
         }
     }
 
+    /**
+     * Ten apps on a 360dp phone are 36dp slots. However large the size, an icon is never wider
+     * than its slot, so it never covers the next one; where it fits it is the size's own icon.
+     */
+    @Test
+    public void anIconIsNeverWiderThanItsSlot() {
+        for (float density : DENSITIES) {
+            int rowPx = Math.round(360f * density);
+            for (boolean capsule : STYLES) {
+                int top = icon(capsule, DockLayoutPolicy.maxUsefulScale(capsule), density);
+                for (int slots = 1; slots <= 10; slots++) {
+                    int fitted = DockLayoutPolicy.slotFitIconPx(top, rowPx, slots);
+                    assertTrue("density " + density + " slots " + slots,
+                        fitted * slots <= rowPx);
+                    assertEquals(Math.min(top, rowPx / slots), fitted);
+                }
+            }
+        }
+        // Where it fits, nothing moves: the shipped size with seven apps.
+        int shipped = icon(false, 2.18f, 2.75f);
+        assertEquals(shipped, DockLayoutPolicy.slotFitIconPx(shipped, 990, 7));
+        // A row with no width yet is held to nothing.
+        assertEquals(shipped, DockLayoutPolicy.slotFitIconPx(shipped, 0, 10));
+    }
+
     /** It only ever wobbles by the pixel two rounded figures can disagree by, never more. */
     @Test
     public void theIconGrowsWithTheScaleAcrossTheStretch() {
