@@ -2646,7 +2646,8 @@ public final class TaiManager {
                 if (refusal != null) return refusal;
             }
             String language = stringOverride(request, "language");
-            return router.transcribe(spec, audio, language, biasPromptFor(request));
+            String languageHint = stringOverride(request, WhisperLanguageDetection.REQUEST_HINT);
+            return router.transcribe(spec, audio, language, languageHint, biasPromptFor(request));
         } finally {
             // The upload was written for this one request; scripts' own files are left alone.
             if (isSttIpcFile(audio)) {
