@@ -2821,8 +2821,15 @@ public final class SuggestionBarView extends GridLayout
         setRowInteractionActive(false);
         AppDrawerGestureListener listener = appDrawerGestureListener;
         if (listener == null) return;
-        if (cancelled) listener.onDrawerDragCancel();
-        else listener.onDrawerDragEnd(velocityPxPerSec);
+        if (cancelled) {
+            listener.onDrawerDragCancel();
+        } else {
+            // The lift is the last place the finger was. On a busy frame the moves before it arrive
+            // as one late batch, or not at all before the release, and a plane settled from the
+            // last move it was shown springs shut on a pull that went well past halfway.
+            listener.onDrawerDrag(event.getRawY());
+            listener.onDrawerDragEnd(velocityPxPerSec);
+        }
     }
 
     /**
