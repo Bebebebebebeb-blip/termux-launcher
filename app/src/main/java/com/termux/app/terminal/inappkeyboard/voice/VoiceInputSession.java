@@ -13,6 +13,7 @@ import androidx.annotation.Nullable;
 import com.termux.BuildConfig;
 import com.termux.R;
 import com.termux.ai.TaiManager;
+import com.termux.ai.WhisperLanguageDetection;
 import com.termux.shared.logger.Logger;
 
 import org.json.JSONException;
@@ -65,6 +66,8 @@ public final class VoiceInputSession {
     private static final String DEBUG_DIR = "voice-debug";
     /** How many whole-session recordings {@link #pruneOldSessionRecordings} keeps; older ones are deleted. */
     private static final int MAX_SESSION_RECORDINGS = 5;
+    /** {@link #outcomeFor}'s word for a phrase that is kept. */
+    private static final String OUTCOME_TEXT = "text";
 
     /** Why the microphone was released. */
     public enum EndReason { SILENCE, USER, HIDDEN, PAUSED, DESTROYED, FAILED }
@@ -73,8 +76,14 @@ public final class VoiceInputSession {
     public static final class Config {
         /** The installed speech model id; empty lets the runtime pick the settings' one. */
         @NonNull public final String modelId;
-        /** The forced language for a multilingual graph, or {@code null} for an {@code .en} one. */
+        /** The language every phrase is decoded in, or {@code null} to send none (an {@code .en} graph, Parakeet, or Auto). */
         @Nullable public final String language;
+        /**
+         * Auto on a multilingual Whisper graph: the layout's or the locale's language, which a
+         * phrase falls back to while the graph is not sure what it hears ({@link VoiceLanguageLock}).
+         * {@code null} otherwise.
+         */
+        @Nullable public final String languageHint;
         public final int pauseMs;
         public final int windowSeconds;
         /** {@link VoiceSilenceTimeout#UNTIL_TAP} disables the timeout ("Until tap"). */
@@ -86,12 +95,13 @@ public final class VoiceInputSession {
         /** The "Mic sensitivity" setting: how far quiet speech is lifted for the voiced decision. */
         @NonNull public final VoiceMicSensitivity micSensitivity;
 
-        public Config(@NonNull String modelId, @Nullable String language,
+        public Config(@NonNull String modelId, @Nullable String language, @Nullable String languageHint,
                       int pauseMs, int windowSeconds, int silenceTimeoutMs,
                       boolean soundsEnabled, boolean hapticsEnabled,
                       @NonNull VoiceMicSensitivity micSensitivity) {
             this.modelId = modelId;
             this.language = language;
+            this.languageHint = languageHint;
             this.pauseMs = pauseMs;
             this.windowSeconds = windowSeconds;
             this.silenceTimeoutMs = silenceTimeoutMs;
@@ -132,6 +142,16 @@ public final class VoiceInputSession {
          */
         void onLevel(float rms, boolean voiced, float noiseFloor);
 
+        /**
+         * The dictation's spoken language as an ISO 639 code, once it is known: the forced one, or
+         * the one the speech model heard and locked for the rest of the session. Called at most
+         * once per session, before the transcript it was decided on.
+         *
+         * @param differsFromHint the model heard it, and it is not the keyboard layout's or the
+         *     locale's language
+         */
+        void onSpeechLanguage(@NonNull String iso, boolean differsFromHint);
+
         /** A non-empty transcript, in the order its segment was spoken. */
         void onTranscript(@NonNull String text);
 
@@ -160,6 +180,8 @@ public final class VoiceInputSession {
         runnable -> new Thread(runnable, "voice-stt"));
     private final VoiceResultSequencer<String> sequencer = new VoiceResultSequencer<>();
     private final VoiceFeedback feedback;
+    /** STT-thread state: the language each phrase is sent with, and the session's once it settles. */
+    private final VoiceLanguageLock languageLock;
     private final AtomicBoolean stopRequested = new AtomicBoolean();
     /** The speech model's warm-up and the voiced decision's load, counted down to {@link Host#onSpeechReady}. */
     private final AtomicInteger warmingParts = new AtomicInteger(2);
@@ -186,6 +208,7 @@ public final class VoiceInputSession {
         this.config = config;
         this.host = host;
         this.feedback = new VoiceFeedback(appContext, config.soundsEnabled, config.hapticsEnabled);
+        this.languageLock = new VoiceLanguageLock(config.language, config.languageHint);
     }
 
     /**
@@ -422,7 +445,10 @@ public final class VoiceInputSession {
             JSONObject request = new JSONObject();
             request.put("file", audio.getAbsolutePath());
             if (!config.modelId.isEmpty()) request.put("model", config.modelId);
-            if (config.language != null) request.put("language", config.language);
+            String language = languageLock.requestLanguage();
+            if (language != null) request.put("language", language);
+            String hint = languageLock.requestHint();
+            if (hint != null) request.put(WhisperLanguageDetection.REQUEST_HINT, hint);
             // A deadline per segment, not the IPC client's flat 120 s: a hung runtime would
             // otherwise leave the pill and the pressed key up for minutes with nothing to show for
             // it. base.en does a short phrase in well under a second, so this has plenty of room.
@@ -437,7 +463,19 @@ public final class VoiceInputSession {
                 return;
             }
             String text = result.optString("text", "");
-            logPhrase(segmentMs, voicedMs, transcribeMs, result, text.length(), outcomeFor(text));
+            String outcome = outcomeFor(text);
+            logPhrase(segmentMs, voicedMs, transcribeMs, result, text.length(), outcome);
+            // Only a phrase that is kept may settle the language: a language heard in a cough is not one.
+            VoiceLanguageLock.Settled settled = OUTCOME_TEXT.equals(outcome)
+                ? languageLock.onAnswer(result.optString("language", ""),
+                    result.optString(WhisperLanguageDetection.RESPONSE_SOURCE, ""))
+                : null;
+            if (settled != null) {
+                // Posted ahead of this phrase's delivery, so the card names the language with its text.
+                mainHandler.post(() -> {
+                    if (!ended && !discardResults) host.onSpeechLanguage(settled.code, settled.differsFromHint);
+                });
+            }
             // Delivered as heard: cleanup runs on its own thread over parts of the text at pauses
             // and at the end (VoiceSessionCleanup), so no phrase ever waits for a chat model.
             deliver(sequence, text);
@@ -462,7 +500,7 @@ public final class VoiceInputSession {
      */
     @NonNull
     private String outcomeFor(@NonNull String text) {
-        return VoiceTextSanitizer.clean(text).trim().isEmpty() ? "dropped" : "text";
+        return VoiceTextSanitizer.clean(text).trim().isEmpty() ? "dropped" : OUTCOME_TEXT;
     }
 
     /**
@@ -480,6 +518,15 @@ public final class VoiceInputSession {
                 .append(" encodeMs=").append(timings.optLong("encodeMs"))
                 .append(" decodeMs=").append(timings.optLong("decodeMs"))
                 .append(" decodeSteps=").append(timings.optLong("decodeSteps"));
+            if (timings.has("detectMs")) message.append(" detectMs=").append(timings.optLong("detectMs"));
+        }
+        if (result != null && result.has(WhisperLanguageDetection.RESPONSE_SOURCE)) {
+            message.append(" language=").append(result.optString("language"))
+                .append('/').append(result.optString(WhisperLanguageDetection.RESPONSE_SOURCE));
+            if (result.has(WhisperLanguageDetection.RESPONSE_PROBABILITY)) {
+                message.append(" heard=").append(result.optString(WhisperLanguageDetection.RESPONSE_DETECTED))
+                    .append('@').append(result.optDouble(WhisperLanguageDetection.RESPONSE_PROBABILITY));
+            }
         }
         message.append(" textLength=").append(textLength).append(" outcome=").append(outcome);
         Logger.logInfo(LOG_TAG, message.toString());

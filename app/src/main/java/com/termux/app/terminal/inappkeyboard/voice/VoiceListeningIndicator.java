@@ -180,6 +180,8 @@ public final class VoiceListeningIndicator implements VoiceCardEdit.Card {
     private boolean cleaningUp;
     /** A model or the voiced decision is still loading while the microphone is open. */
     private boolean warming;
+    /** The heard language's name ("Spanish") beside "Listening…" and "Transcribing…", or null to name none. */
+    @Nullable private String spokenLanguage;
     /** What the header's state says now, and for the cleaned text, for redo to put back. */
     @StringRes private int statusRes = R.string.voice_input_listening;
     @StringRes private int cleanedStatus = R.string.voice_input_cleaned_up;
@@ -290,6 +292,7 @@ public final class VoiceListeningIndicator implements VoiceCardEdit.Card {
         pending = 0;
         cleaningUp = false;
         warming = false;
+        spokenLanguage = null;
         cleanedStatus = R.string.voice_input_cleaned_up;
         pairIsEdit = false;
         statusRes = R.string.voice_input_listening;
@@ -505,6 +508,7 @@ public final class VoiceListeningIndicator implements VoiceCardEdit.Card {
     private void resume(boolean dimRaw, @NonNull String base) {
         pending = 0;
         cleaningUp = false;
+        spokenLanguage = null;
         pairIsEdit = false;
         setEditing(false);
         setToggle(true, true);
@@ -534,6 +538,7 @@ public final class VoiceListeningIndicator implements VoiceCardEdit.Card {
         readingProgress = "";
         pending = 0;
         cleaningUp = false;
+        spokenLanguage = null;
         drag.end();
         dragMoved = false;
         lastHandleTapMs = 0L;
@@ -560,6 +565,17 @@ public final class VoiceListeningIndicator implements VoiceCardEdit.Card {
     public void setWarmingUp(boolean warmingNow) {
         if (warming == warmingNow) return;
         warming = warmingNow;
+        refreshHeader();
+    }
+
+    /**
+     * "· Spanish" beside "Listening…" and "Transcribing…": the language the dictation was heard
+     * in, when it is not the one the keyboard or the phone would suggest; {@code null} names none.
+     */
+    public void setSpokenLanguage(@Nullable String name) {
+        String next = name == null || name.isEmpty() ? null : name;
+        if (java.util.Objects.equals(spokenLanguage, next)) return;
+        spokenLanguage = next;
         refreshHeader();
     }
 
@@ -625,8 +641,10 @@ public final class VoiceListeningIndicator implements VoiceCardEdit.Card {
         int busyVisibility = running || (listening && warming) ? View.VISIBLE : View.GONE;
         if (busy.getVisibility() != busyVisibility) busy.setVisibility(busyVisibility);
         CharSequence text = "";
-        if (listening) {
-            if (warming) text = activity.getString(R.string.voice_input_meta_warming_up);
+        if (listening && warming) {
+            text = activity.getString(R.string.voice_input_meta_warming_up);
+        } else if ((listening || statusRes == R.string.voice_input_transcribing) && spokenLanguage != null) {
+            text = activity.getString(R.string.voice_input_meta_language, spokenLanguage);
         } else if (statusRes == R.string.voice_input_as_heard) {
             text = activity.getString(R.string.voice_input_meta_undone);
         } else if (statusRes == R.string.voice_input_inserted) {

@@ -834,6 +834,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     /** The one-time language notices, once per process. */
     private boolean mVoiceLanguageFallbackNoticed;
     private boolean mVoiceEnglishOnlyNoticed;
+    /**
+     * The running dictation's spoken language (ISO 639), from {@link VoiceInputSession.Host#onSpeechLanguage}:
+     * forced by the setting, or heard and locked. Null while unknown, for Parakeet and .en models,
+     * and once the session has ended.
+     */
+    @Nullable private String mVoiceSpokenLanguage;
     private boolean mVoiceMicrophonePromptShowing;
     /** Whether the microphone was asked for from the voice key rather than the Dictate key. */
     private boolean mVoiceMicrophoneAskedFromKeyboard;
@@ -16043,8 +16049,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             requestVoiceInputMicrophone();
             return;
         }
-        String language = resolveVoiceLanguage(model);
-        VoiceInputSession.Config config = new VoiceInputSession.Config(modelId, language,
+        VoiceLanguage.Choice language = resolveVoiceLanguage(model);
+        VoiceInputSession.Config config = new VoiceInputSession.Config(modelId, language.forced, language.hint,
             mPreferences.getInAppKeyboardVoicePauseMs(), windowSeconds,
             mPreferences.getInAppKeyboardVoiceSilenceTimeoutMs(),
             mPreferences.isInAppKeyboardVoiceSoundsEnabled(),
@@ -16117,13 +16123,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     /**
-     * The language token for a multilingual graph, or null for an English-only one. Both one-time
-     * notices live here: a layout and locale Whisper does not know (English is used), and a
-     * non-English choice against an {@code .en} model (the choice is ignored).
+     * What a dictation sends the speech model: the setting's language forced on a multilingual
+     * Whisper graph, or with Auto no language and the layout's (then the locale's) as the hint
+     * the graph falls back to while it is not sure what it hears; nothing for an English-only
+     * graph or Parakeet, which decide alone. Both one-time notices live here: a setting Whisper
+     * does not know (English is used), and a non-English choice against an {@code .en} model (the
+     * choice is ignored).
      */
-    @Nullable
-    private String resolveVoiceLanguage(@NonNull com.termux.ai.TaiModelSpec model) {
+    @NonNull
+    private VoiceLanguage.Choice resolveVoiceLanguage(@NonNull com.termux.ai.TaiModelSpec model) {
+        mVoiceSpokenLanguage = null;
         String setting = mPreferences.getInAppKeyboardVoiceLanguage();
+        if (com.termux.ai.TaiSpeechModels.isParakeet(model.id, model.localPath)) return VoiceLanguage.Choice.NONE;
         boolean englishOnly = com.termux.ai.TaiSpeechModels.isEnglishOnly(model);
         if (englishOnly) {
             if (!VoiceLanguage.AUTO.equals(setting) && !VoiceLanguage.FALLBACK.equals(setting)
@@ -16132,17 +16143,22 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 AppNotice.show(this, getString(R.string.voice_input_english_only_model,
                     new java.util.Locale(setting).getDisplayLanguage()), true);
             }
-            return null;
+            return VoiceLanguage.Choice.NONE;
         }
         String layoutId = mInAppKeyboard == null ? null : mInAppKeyboard.getActiveTextLayoutId();
-        java.util.Locale system = getResources().getConfiguration().getLocales().isEmpty()
-            ? java.util.Locale.getDefault() : getResources().getConfiguration().getLocales().get(0);
-        VoiceLanguage.Resolution resolution = VoiceLanguage.resolve(setting, layoutId, system);
-        if (resolution.fallback && !mVoiceLanguageFallbackNoticed) {
+        VoiceLanguage.Resolution resolution = VoiceLanguage.resolve(setting, layoutId, userLocale());
+        // Auto listens, so an unknown layout only means an English hint, not English forced.
+        if (resolution.fallback && resolution.explicit && !mVoiceLanguageFallbackNoticed) {
             mVoiceLanguageFallbackNoticed = true;
             AppNotice.show(this, R.string.voice_input_language_fallback, false);
         }
-        return resolution.code;
+        return VoiceLanguage.Choice.forWhisper(resolution);
+    }
+
+    @NonNull
+    private java.util.Locale userLocale() {
+        return getResources().getConfiguration().getLocales().isEmpty()
+            ? java.util.Locale.getDefault() : getResources().getConfiguration().getLocales().get(0);
     }
 
     private void requestVoiceInputMicrophone() {
@@ -16691,6 +16707,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
 
         @Override
+        public void onSpeechLanguage(@NonNull String iso, boolean differsFromHint) {
+            mVoiceSpokenLanguage = iso;
+            // Named only when it was heard and is not the keyboard's or the phone's language, so
+            // someone dictating in their own language sees nothing new.
+            if (mVoiceIndicator != null) {
+                mVoiceIndicator.setSpokenLanguage(differsFromHint ? VoiceLanguage.displayName(iso, userLocale()) : null);
+            }
+        }
+
+        @Override
         public void onTranscript(@NonNull String text) {
             appendVoicePhrase(text);
         }
@@ -16726,6 +16752,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             if (mInAppKeyboard != null) mInAppKeyboard.setVoiceTypingActive(false);
             refreshVoiceWarmUp();
             finishVoiceSession(reason);
+            // After the finish, which still reads the session's language; the card's strip moves
+            // on to the outcome, which never names it.
+            mVoiceSpokenLanguage = null;
+            if (mVoiceIndicator != null) mVoiceIndicator.setSpokenLanguage(null);
         }
     };
 
