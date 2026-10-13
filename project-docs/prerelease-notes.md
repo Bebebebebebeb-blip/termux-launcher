@@ -17,6 +17,7 @@ Latest stable: v1.0.4.
 - Opening the widget picker no longer closes the launcher on Android 11 and earlier (#62).
 - Picking a letter just as the last letter's apps fade from the dock no longer closes the launcher.
 - A pull on the apps row that you let go past halfway opens the app drawer instead of springing back.
+- A new number of apps on the dock, picked in the Look editor, shows at once instead of after your next swipe.
 
 ## Experimental
 <!-- What is on pre and not yet on dev, one line each; name the pull request or branch it came from. -->

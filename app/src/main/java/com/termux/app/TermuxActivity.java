@@ -9988,10 +9988,25 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         if (mLastStyledDockButtonCount != Integer.MIN_VALUE
             && maxButtons != mLastStyledDockButtonCount) {
-            mLastStyledDockButtonCount = maxButtons;
-            mSuggestionBarView.setMaxButtonCount(maxButtons);
-            mSuggestionBarView.reloadAllApps();
+            applyDockButtonCountNow(maxButtons);
         }
+    }
+
+    /**
+     * Gives the dock {@code count} slots and re-renders it at once. Reloading the catalogue alone
+     * left the old slots standing until something else rendered the row, so a count picked in the
+     * editor showed only after the next swipe.
+     */
+    private void applyDockButtonCountNow(int count) {
+        mLastStyledDockButtonCount = count;
+        mSuggestionBarView.setMaxButtonCount(count);
+        mSuggestionBarView.reloadAllApps();
+        String input = "";
+        if (mTerminalView != null && mSuggestionBarExplicitSearchActive) {
+            input = normalizeSuggestionBarInput(mTerminalView.getCurrentInput());
+        }
+        mSuggestionBarView.reloadWithInput(input, mTerminalView);
+        updateAzOverflowAffordance();
     }
 
     private void applySuggestionBarPreferences() {
@@ -11436,9 +11451,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         @Override public void applyDockButtonCount(int count) {
             if (mSuggestionBarView == null) return;
-            mLastStyledDockButtonCount = count;
-            mSuggestionBarView.setMaxButtonCount(count);
-            mSuggestionBarView.reloadAllApps();
+            applyDockButtonCountNow(count);
         }
 
         @Override public int statusBarInsetTop() {
