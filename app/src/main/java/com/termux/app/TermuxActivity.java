@@ -2613,6 +2613,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private final class WelcomeSheetEnv implements com.termux.app.firstrun.WelcomeSheetHost.Env {
         /** Whether the sheet has asked for the location once already this showing. */
         private boolean mLocationAsked;
+        /** Whether the sheet has asked for the contacts once already this showing. */
+        private boolean mContactsAsked;
 
         @NonNull @Override public ViewGroup host() {
             return findViewById(android.R.id.content);
@@ -2696,6 +2698,30 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mLocationAsked = true;
             androidx.core.app.ActivityCompat.requestPermissions(TermuxActivity.this,
                 new String[] {permission}, REQUEST_CODE_WEATHER_LOCATION);
+        }
+
+        @Override public boolean contactsGranted() {
+            return androidx.core.content.ContextCompat.checkSelfPermission(TermuxActivity.this,
+                android.Manifest.permission.READ_CONTACTS)
+                == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        }
+
+        /**
+         * Asked with the palette's own request, so its answer reaches the palette too. Past a
+         * second refusal the system no longer asks, so this app's settings page is where contact
+         * access is turned on.
+         */
+        @Override public void askForContacts() {
+            if (contactsGranted()) return;
+            String permission = android.Manifest.permission.READ_CONTACTS;
+            if (mContactsAsked && !androidx.core.app.ActivityCompat
+                    .shouldShowRequestPermissionRationale(TermuxActivity.this, permission)) {
+                openAppSettingsPage();
+                return;
+            }
+            mContactsAsked = true;
+            androidx.core.app.ActivityCompat.requestPermissions(TermuxActivity.this,
+                new String[] {permission}, REQUEST_CODE_PALETTE_CONTACTS);
         }
 
         @Override public boolean displayOffered() {
@@ -16563,6 +16589,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             boolean granted = grantResults.length > 0
                 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED;
             getCommandPaletteController().onContactsAccessChanged(granted);
+            if (mWelcomeSheet != null) mWelcomeSheet.refresh();
         } else if (requestCode == REQUEST_CODE_VOICE_INPUT_MICROPHONE) {
             if (grantResults.length > 0
                 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {

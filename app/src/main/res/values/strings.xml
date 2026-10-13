@@ -2592,6 +2592,9 @@
     <string name="welcome_row_wallpaper_copy">Tint the launcher to match your wallpaper.</string>
     <string name="welcome_row_weather_title">Weather</string>
     <string name="welcome_row_weather_copy">Shown in the status bar, for a city you pick or where you are.</string>
+    <string name="welcome_row_contacts_title">Contacts in search</string>
+    <string name="welcome_row_contacts_copy">Find people by name or number from the command palette, and call them.</string>
+    <string name="welcome_row_contacts_copy_granted">People show up when you search the command palette.</string>
     <string name="welcome_row_display_title">Linux display</string>
     <string name="welcome_row_display_copy">Run desktop Linux apps in a window.</string>
     <string name="welcome_row_ai_title">Offline voice and AI</string>
