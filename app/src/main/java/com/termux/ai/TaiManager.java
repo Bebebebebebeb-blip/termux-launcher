@@ -3402,17 +3402,15 @@ public final class TaiManager {
             .withKvBytesPerToken(kvBytesPerToken(spec))
             .withGpuless(!device.supportsAccelerator("gpu")));
         if (!plan.fits) {
+            // The figures are the rung the ladder refused (accelerator, window, estimate), the floor
+            // it kept and the free memory it compared against, the resident chat model credited.
             TaiEventLog.log(appContext, TaiEventLog.OOM_GUARD, spec.id, spec.backend, plan.accelerator,
-                plan.contextWindow, 0L, plan.neededFreeBytes(),
-                "load refused: needs " + plan.neededFreeBytes() / (1024L * 1024L) + " MB free, "
-                    + plan.availableBytes / (1024L * 1024L) + " MB available");
+                plan.contextWindow, 0L, plan.neededFreeBytes(), "load refused: " + plan.needText());
             return new LoadDecision(null, insufficientMemory(spec.displayName, plan), plan, Collections.<String>emptyList());
         }
         if (plan.overcommitted) {
             TaiEventLog.log(appContext, TaiEventLog.OOM_GUARD, spec.id, spec.backend, plan.accelerator,
-                plan.contextWindow, 0L, plan.neededFreeBytes(),
-                "load past the budget (unrestricted): needs " + plan.neededFreeBytes() / (1024L * 1024L) + " MB free, "
-                    + plan.availableBytes / (1024L * 1024L) + " MB available");
+                plan.contextWindow, 0L, plan.neededFreeBytes(), "load past the budget (unrestricted): " + plan.needText());
         }
         String fallbackReason = acceleratorFallbackReason(spec, device, preflight, plan, fileBytes, encoders, available,
             options.momentary == Boolean.TRUE, TaiLoadPreflight.normalizeAccelerator(options.preferredAccelerator));
@@ -3466,9 +3464,8 @@ public final class TaiManager {
         // not the chat floor of 4096): the figure in the event must be the one that was refused.
         TaiLoadBudget.Estimate estimate = TaiLoadBudget.estimate(spec.backend, first, fileBytes, encoders,
             plan.contextWindow, measuredHistory(spec, device), kvBytesPerToken(spec));
-        long needed = estimate.nonReclaimableBytes + plan.reserveBytes;
-        return (momentary ? "budget(momentary): needs " : "budget: needs ") + needed / (1024L * 1024L) + " MB free, "
-            + available / (1024L * 1024L) + " MB available";
+        return (momentary ? "budget(momentary): " : "budget: ")
+            + TaiLoadBudget.needText(estimate.nonReclaimableBytes, plan.reserveBytes, available);
     }
 
     /**

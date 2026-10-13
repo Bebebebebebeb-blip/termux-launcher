@@ -700,9 +700,8 @@ public final class LiteRtTaiRuntime implements TaiRuntime {
                         TaiLoadBudget.Plan cpuPlan = cpuFallbackPlan(modelSpec, cpuOptions);
                         if (!cpuPlan.fits) {
                             throw new BudgetRefusal("GPU initialization failed (" + gpuException.getMessage()
-                                + ") and the CPU fallback does not fit the memory budget: needs "
-                                + cpuPlan.neededFreeBytes() / (1024L * 1024L) + " MB free, "
-                                + cpuPlan.availableBytes / (1024L * 1024L) + " MB available.", gpuException);
+                                + ") and the CPU fallback does not fit the memory budget: " + cpuPlan.needText() + ".",
+                                gpuException);
                         }
                         Backend backend = new Backend.CPU();
                         initializedBackendName = backend.getName();

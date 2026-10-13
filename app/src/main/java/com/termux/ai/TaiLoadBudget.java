@@ -173,6 +173,16 @@ public final class TaiLoadBudget {
         return momentary ? PEAK_FLOOR_BYTES : HOLD_FLOOR_BYTES;
     }
 
+    /**
+     * The comparison a plan made, as the event log and refusals quote it, in MiB:
+     * {@code "needs 3482 MB + 768 MB floor = 4250 MB free, 4138 MB available"}.
+     */
+    @NonNull
+    public static String needText(long estimatedBytes, long reserveBytes, long availableBytes) {
+        return "needs " + estimatedBytes / MIB + " MB + " + reserveBytes / MIB + " MB floor = "
+            + (estimatedBytes + reserveBytes) / MIB + " MB free, " + availableBytes / MIB + " MB available";
+    }
+
     /** The cost of one load: what it adds to memory pressure, what it maps reclaimably, and where the figure came from. */
     public static final class Estimate {
         /** Bytes the load takes away from MemAvailable for as long as it is resident. */
@@ -430,7 +440,11 @@ public final class TaiLoadBudget {
 
     public static final class Plan {
         public final boolean fits;
-        /** The accelerator to load with; the first one tried when nothing fits. */
+        /**
+         * The accelerator to load with. For a refusal, the one whose need it reports: of the
+         * accelerators the ladder tried, the one that needed least at the floor window; the first
+         * listed when none could be tried.
+         */
         @Nullable public final String accelerator;
         /** The window the plan chose; for a refusal, the smallest window it tried. */
         public final int contextWindow;
@@ -476,6 +490,12 @@ public final class TaiLoadBudget {
             return estimatedBytes + reserveBytes;
         }
 
+        /** {@link TaiLoadBudget#needText} for this plan: the estimate, the floor and what was free. */
+        @NonNull
+        public String needText() {
+            return TaiLoadBudget.needText(estimatedBytes, reserveBytes, availableBytes);
+        }
+
         /** Bytes the chosen evictions give back. */
         public long evictedBytes() {
             long total = 0L;
@@ -507,6 +527,11 @@ public final class TaiLoadBudget {
         boolean previousCrashed = false;
         // The first accelerator the ladder actually tried: where an unrestricted load goes when nothing fits.
         String firstTried = null;
+        // Of the rungs refused at the floor, the one that needed least: what a refusal reports. Only
+        // rungs the ladder tried count. Quoting one it skipped (E4B's CPU seed, which the 3 GB rule
+        // never lets it reach) told the user a figure that was never the one compared.
+        String refusedAccelerator = null;
+        Estimate refusedEstimate = null;
         for (int i = 0; i < r.accelerators.size(); i++) {
             String accelerator = r.accelerators.get(i);
             if (i > 0 && !otherAcceleratorAllowed(r, accelerator, floor, refusedNeed, previousCrashed)) continue;
@@ -539,6 +564,10 @@ public final class TaiLoadBudget {
                 }
                 if (context == floor) {
                     refusedNeed = need;
+                    if (refusedEstimate == null || need < refusedEstimate.nonReclaimableBytes) {
+                        refusedAccelerator = accelerator;
+                        refusedEstimate = estimate;
+                    }
                     break;
                 }
             }
@@ -550,9 +579,12 @@ public final class TaiLoadBudget {
             Estimate estimate = estimate(r.backend, firstTried, r.fileBytes, r.encoders, floor, r.history, r.kvBytesPerToken);
             return new Plan(true, firstTried, floor, estimate, r.availableBytes, reserve, true, allIdle(r.evictable), true);
         }
-        Estimate smallest = first == null ? Estimate.ratio(0L, 0L)
-            : estimate(r.backend, cheapest(r), r.fileBytes, r.encoders, floor, r.history, r.kvBytesPerToken);
-        return new Plan(false, first, floor, smallest, r.availableBytes, reserve, true, none);
+        if (refusedEstimate != null) {
+            return new Plan(false, refusedAccelerator, floor, refusedEstimate, r.availableBytes, reserve, true, none);
+        }
+        Estimate untried = first == null ? Estimate.ratio(0L, 0L)
+            : estimate(r.backend, first, r.fileBytes, r.encoders, floor, r.history, r.kvBytesPerToken);
+        return new Plan(false, first, floor, untried, r.availableBytes, reserve, true, none);
     }
 
     /**
@@ -632,22 +664,6 @@ public final class TaiLoadBudget {
             if (!entry.busy && entry.kind != TaiResidency.Kind.RUNTIME) idle.add(entry);
         }
         return idle;
-    }
-
-    /** The accelerator whose floor load costs least, for telling the user how much would be needed. */
-    @NonNull
-    private static String cheapest(@NonNull Request r) {
-        String best = r.accelerators.get(0);
-        long bestBytes = Long.MAX_VALUE;
-        for (String accelerator : r.accelerators) {
-            long bytes = estimate(r.backend, accelerator, r.fileBytes, r.encoders, floor(r.capContext), r.history,
-                r.kvBytesPerToken).nonReclaimableBytes;
-            if (bytes < bestBytes) {
-                bestBytes = bytes;
-                best = accelerator;
-            }
-        }
-        return best;
     }
 
     /** Standard phone RAM sizes, in GiB; a device is the smallest one its usable RAM fits under. */

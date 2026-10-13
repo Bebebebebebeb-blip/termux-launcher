@@ -399,6 +399,50 @@ public class TaiLoadBudgetTest {
         assertEquals(3_520_000_000L + PEAK, plan.neededFreeBytes());
     }
 
+    // --- Cleanup on pong, 2026-10-13: what a refusal reports ---
+
+    private static TaiLoadBudget.History gpuMeasured(long bytes) {
+        return (accelerator, context) -> "gpu".equals(accelerator) ? bytes : 0L;
+    }
+
+    private static TaiLoadBudget.Plan cleanupOnPong(long available, TaiLoadBudget.History history) {
+        return TaiLoadBudget.plan(request(E4B, PONG_TOTAL, available, GPU_THEN_CPU, 2048, false, history, NOTHING));
+    }
+
+    /**
+     * "load refused: needs 3238 MB free, 4138 MB available": 3238 was E4B's CPU seed (0.6 of the
+     * file plus 2048 tokens of KV, 2470 MB) plus the 768 MB hold floor, an accelerator the ladder
+     * never tried (over 3 GB, no CPU step). What it compared was the GPU: 3166 MB measured plus
+     * 10% is 3482 MB, plus the floor 4250 MB, against 4138. The refusal now reports that rung.
+     */
+    @Test
+    public void aRefusalReportsTheRungTheLadderComparedNotOneItSkipped() {
+        TaiLoadBudget.Plan plan = cleanupOnPong(4138L * MIB, gpuMeasured(3166L * MIB));
+        assertFalse(plan.fits);
+        assertEquals("gpu", plan.accelerator);
+        assertEquals(2048, plan.contextWindow);
+        assertEquals(TaiLoadBudget.SOURCE_MEASURED, plan.estimateSource);
+        assertEquals(3482L, plan.estimatedBytes / MIB);
+        assertEquals(HOLD, plan.reserveBytes);
+        assertEquals(4250L, plan.neededFreeBytes() / MIB);
+        assertTrue(plan.neededFreeBytes() > plan.availableBytes);
+        assertEquals("needs 3482 MB + 768 MB floor = 4250 MB free, 4138 MB available", plan.needText());
+        // The figure the old report quoted: the CPU seed the ladder never reached.
+        long cpuSeed = TaiLoadBudget.estimateBytes(TaiModelSpec.BACKEND_LITERT_LM, "cpu", E4B, false, 2048);
+        assertEquals(3238L, (cpuSeed + HOLD) / MIB);
+    }
+
+    /** With both rungs tried and refused, the report is the one that needed less. */
+    @Test
+    public void aRefusalAfterBothAcceleratorsReportsTheCheaperOne() {
+        TaiLoadBudget.Plan plan = TaiLoadBudget.plan(request(E2B, PONG_TOTAL, 1_500_000_000L, GPU_THEN_CPU,
+            4096, false, cpuMeasured(1_000_000_000L), NOTHING));
+        assertFalse(plan.fits);
+        assertEquals("cpu", plan.accelerator);
+        assertEquals(1_100_000_000L, plan.estimatedBytes);
+        assertEquals(TaiLoadBudget.SOURCE_MEASURED, plan.estimateSource);
+    }
+
     // --- Eviction ---
 
     /** Short of memory, the plan closes idle residents in the order given before it shrinks the window. */
