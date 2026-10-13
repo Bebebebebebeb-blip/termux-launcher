@@ -16342,16 +16342,21 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     /**
      * Types {@code text} once where the keyboard would type right now on the place on screen, and
-     * never with an Enter (the text has no line breaks, {@link VoiceDictation}): first whatever
-     * has claimed the launcher keyboard's typing — the palette, the drawer's search, a rename, a
-     * sheet, or on the Display place the display itself; then, on the Display place without a
-     * launcher keyboard, the display through the same bridge; then a focused text field of the
-     * launcher's own (a widget's editor, typed into by the phone's keyboard); and on the Terminal
-     * place the shell in front. Home has no shell in front of it and a display with no server has
+     * never with an Enter. The text may hold line breaks, a Polished cleanup's paragraphs and list
+     * items ({@link VoiceTextSanitizer#cleanLines}): the shell in front gets them in one bracketed
+     * paste when its program takes that and on one line otherwise ({@link DictationMarks#type}), a
+     * multi-line text field gets them as they are, and everywhere else a line break could run
+     * something, so the text goes in on one line ({@link VoiceTextSanitizer#oneLine}). In order:
+     * first whatever has claimed the launcher keyboard's typing — the palette, the drawer's
+     * search, a rename, a sheet, or on the Display place the display itself; then, on the Display
+     * place without a launcher keyboard, the display through the same bridge; then a focused text
+     * field of the launcher's own (a widget's editor, typed into by the phone's keyboard); and on
+     * the Terminal place the shell in front. Home has no shell in front of it and a display with no server has
      * nobody listening, so false there, and the caller copies instead.
      */
     private boolean typeVoiceText(@NonNull String text) {
-        juloo.keyboard2.KeyValue value = juloo.keyboard2.KeyValue.makeStringKey(text);
+        String oneLine = VoiceTextSanitizer.oneLine(text);
+        juloo.keyboard2.KeyValue value = juloo.keyboard2.KeyValue.makeStringKey(oneLine);
         if (offerToInAppKeyboardInterceptor(value, false, false, false)) return true;
         com.termux.app.wall.PaneWallPage page = currentWallPage();
         if (page == com.termux.app.wall.PaneWallPage.DISPLAY) {
@@ -16366,7 +16371,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             if (editable != null) {
                 int start = Math.max(0, Math.min(field.getSelectionStart(), field.getSelectionEnd()));
                 int end = Math.max(start, Math.max(field.getSelectionStart(), field.getSelectionEnd()));
-                editable.replace(start, end, text);
+                boolean multiLine = (field.getInputType() & android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0;
+                editable.replace(start, end, multiLine ? text : oneLine);
                 return true;
             }
         }
@@ -16442,7 +16448,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (indicator == null || !indicator.isShowing()) return;
         if (mVoiceDictation.phase() != VoiceDictation.Phase.FINISHING
             || !raw.trim().equals(mVoiceDictation.raw().trim())) return;
-        String cleaned = result.isPolished() ? VoiceTextSanitizer.clean(result.text) : "";
+        // A Polished pass's paragraphs and list items keep their line breaks.
+        String cleaned = result.isPolished() ? VoiceTextSanitizer.cleanLines(result.text) : "";
         if (cleaned.isEmpty() || cleaned.equals(raw.trim())) {
             indicator.showAsHeard(R.string.voice_input_kept_as_heard);
             settleVoiceDictation(raw.trim(), false);
