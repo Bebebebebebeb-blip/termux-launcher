@@ -2353,6 +2353,11 @@
     <string name="voice_input_undo">Undo the cleanup</string>
     <string name="voice_input_move_handle">Move the dictation panel. Double-tap to put it back in the corner</string>
     <string name="voice_input_redo">Redo the cleanup</string>
+    <string name="voice_input_editing">Editing</string>
+    <string name="voice_input_edited">Edited</string>
+    <string name="voice_input_before_edit">Before your edit</string>
+    <string name="voice_input_undo_edit">Undo your edit</string>
+    <string name="voice_input_redo_edit">Redo your edit</string>
     <string name="voice_input_insert">Insert at the cursor</string>
     <string name="voice_input_inserted">Inserted</string>
     <string name="voice_input_no_target_copied">Nothing here takes typing, so the dictation was copied instead</string>
