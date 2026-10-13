@@ -476,6 +476,57 @@ public class VoicePolishRulesTest {
             "But if I am in a filtered list, swiping down does nothing. Swiping down on the pinned apps row opens it."));
     }
 
+    // ------------------------------------------------------------------ gated groups
+
+    @Test
+    public void bothLevelsKeepTheSpeakersSpellingAndDictatedLabels() {
+        for (String level : new String[] {VoicePolishRules.LEVEL_LIGHT, VoicePolishRules.LEVEL_POLISHED}) {
+            String system = VoicePolishRules.instructions(level, "please fix the build");
+            assertTrue(system.contains("Keep the speaker's spelling"));
+            assertTrue(system.contains("'Summarize this:'"));
+        }
+    }
+
+    @Test
+    public void aKnownLanguageOtherThanEnglishIsNamedJustBeforeTheReturnRule() {
+        String plain = VoicePolishRules.instructions(VoicePolishRules.LEVEL_LIGHT, "mañana no puedo ir", "");
+        String spanish = VoicePolishRules.instructions(VoicePolishRules.LEVEL_LIGHT, "mañana no puedo ir", "", "es");
+        assertTrue(spanish.contains("The transcript is in Spanish. Write in Spanish. Return only"));
+        assertEquals(plain, spanish.replace("The transcript is in Spanish. Write in Spanish. ", ""));
+        // English goes untold, as before; an unknown language is not named.
+        assertEquals(plain, VoicePolishRules.instructions(VoicePolishRules.LEVEL_LIGHT, "mañana no puedo ir", "", "en"));
+        assertEquals(plain, VoicePolishRules.instructions(VoicePolishRules.LEVEL_LIGHT, "mañana no puedo ir", "", null));
+        assertEquals(plain, VoicePolishRules.instructions(VoicePolishRules.LEVEL_LIGHT, "mañana no puedo ir", "", "zz"));
+    }
+
+    @Test
+    public void theRequestCarriesTheLanguageLine() throws Exception {
+        JSONObject request = LocalTaiVoiceTextPolisher.request("gemma-4-e2b-it-litert-lm",
+            VoicePolishRules.LEVEL_POLISHED, "je pense que le le bouton est petit", "Bonjour.", "fr");
+        String system = request.getJSONArray("messages").getJSONObject(0).getString("content");
+        assertTrue(system.contains("Write in French."));
+        assertTrue(system.contains("<earlier>"));
+    }
+
+    @Test
+    public void aShortEarlierSentenceRepeatedAtTheOpeningIsCut() {
+        String earlier = "Wait, no, sorry.";
+        String raw = "it's the one on main street";
+        // Under ECHO_MIN_WORDS words, so withoutEcho alone lets it through.
+        assertEquals("Wait, no, sorry. It's the one on Main Street.",
+            VoicePolishRules.withoutEcho(earlier, raw, "Wait, no, sorry. It's the one on Main Street."));
+        assertEquals("It's the one on Main Street.",
+            VoicePolishRules.withoutRepeatedEarlier(earlier, raw, "Wait, no, sorry. It's the one on Main Street."));
+        // The transcript opening with the same words keeps them; so does an answer that is only them.
+        assertEquals("Wait, no, sorry. Fine.",
+            VoicePolishRules.withoutRepeatedEarlier(earlier, "wait no sorry fine", "Wait, no, sorry. Fine."));
+        assertEquals("Wait, no, sorry.", VoicePolishRules.withoutRepeatedEarlier(earlier, raw, "Wait, no, sorry."));
+        // Two words are a phrase said again, not the sentence repeated.
+        assertEquals("No wait. Fine.", VoicePolishRules.withoutRepeatedEarlier("No wait.", raw, "No wait. Fine."));
+        assertNull(VoicePolishRules.withoutRepeatedEarlier(earlier, raw, null));
+        assertEquals("Same.", VoicePolishRules.withoutRepeatedEarlier("", raw, "Same."));
+    }
+
     @Test
     public void wordsTheSpeakerSaidAgainAreNotAnEcho() {
         String context = "I want users to be able to open the drawer from anywhere.";

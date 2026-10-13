@@ -27,7 +27,8 @@ import java.util.Map;
 
 /**
  * {@link VoiceTextPolisher} on the local Gemma chat model through the TAI runtime: one
- * non-streamed {@code /v1/chat/completions} per part of the session ({@link VoiceCleanupPlan}) at
+ * non-streamed {@code /v1/chat/completions} per group of sentences the gate flags in each part of
+ * the session ({@link VoiceGatedCleanup}, {@link VoiceCleanupPlan}) at
  * temperature 0, thinking off, with the budgets and the prompt for the chosen cleanup level that
  * {@link VoicePolishRules} computes. Chat requests run on the runtime's serial chat lane and STT on its own, so the load
  * never holds up a transcription.
@@ -244,6 +245,12 @@ public final class LocalTaiVoiceTextPolisher implements VoiceTextPolisher {
     @NonNull
     @Override
     public Result polish(@NonNull String text, @NonNull String context, long timeoutMs) {
+        return polish(text, context, null, timeoutMs);
+    }
+
+    @NonNull
+    @Override
+    public Result polish(@NonNull String text, @NonNull String context, @Nullable String language, long timeoutMs) {
         String reason = unavailableReason;
         if (reason != null) return Result.fallback(text, reason);
         String model = modelId;
@@ -257,15 +264,16 @@ public final class LocalTaiVoiceTextPolisher implements VoiceTextPolisher {
         }
         try {
             JSONObject response = TaiManager.getInstance(appContext)
-                .openAiChatCompletions(request(model, level, text, context).toString(), timeoutMs);
+                .openAiChatCompletions(request(model, level, text, context, language).toString(), timeoutMs);
             VoiceInputSession.Failure failure = VoiceInputSession.Failure.of(response);
             if (failure != null) {
-                if (useRemoteFallback(failure.code)) return polish(text, context, timeoutMs);
+                if (useRemoteFallback(failure.code)) return polish(text, context, language, timeoutMs);
                 if (disablesForSession(failure.code)) unavailableReason = failure.code;
                 return Result.fallback(text, failure.code);
             }
             String answer = VoicePolishRules.contentOf(response);
-            String content = VoicePolishRules.withoutEcho(context, text, answer);
+            String content = VoicePolishRules.withoutEcho(context, text,
+                VoicePolishRules.withoutRepeatedEarlier(context, text, answer));
             if (answer != null && content == null) return Result.fallback(text, "context_echo");
             String accepted = VoicePolishRules.accept(text, content, level);
             if (accepted != null) return Result.polished(accepted);
@@ -314,9 +322,19 @@ public final class LocalTaiVoiceTextPolisher implements VoiceTextPolisher {
     @NonNull
     public static JSONObject request(@NonNull String model, @Nullable String level, @NonNull String text,
                                      @NonNull String context) throws JSONException {
+        return request(model, level, text, context, null);
+    }
+
+    /**
+     * {@link #request(String, String, String, String)} for a dictation in {@code language}, which the
+     * system turn names ({@link VoicePolishRules#instructions(String, String, String, String)}).
+     */
+    @NonNull
+    public static JSONObject request(@NonNull String model, @Nullable String level, @NonNull String text,
+                                     @NonNull String context, @Nullable String language) throws JSONException {
         JSONObject system = new JSONObject();
         system.put("role", "system");
-        system.put("content", VoicePolishRules.instructions(level, text, context));
+        system.put("content", VoicePolishRules.instructions(level, text, context, language));
         JSONObject message = new JSONObject();
         message.put("role", "user");
         message.put("content", VoicePolishRules.prompt(text, context));
