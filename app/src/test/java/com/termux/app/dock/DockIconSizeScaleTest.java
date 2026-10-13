@@ -1,5 +1,7 @@
 package com.termux.app.dock;
 
+import com.termux.shared.termux.settings.preferences.TermuxPreferenceConstants.TERMUX_APP;
+
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -22,36 +24,101 @@ public class DockIconSizeScaleTest {
     @Test
     public void theUsefulStretchIsWhereTheCurveIsNotPinned() {
         assertEquals(1.45f, DockLayoutPolicy.minUsefulScale(), 0f);
-        // Floating's curve runs to the top of its window; Docked's is a notch ahead and caps
-        // first, at 1.45 + (1.18 - 0.27).
-        assertEquals(2.45f, DockLayoutPolicy.maxUsefulScale(true), 1e-6f);
-        assertEquals(2.36f, DockLayoutPolicy.maxUsefulScale(false), 1e-5f);
+        // Floating's curve runs to the top of the stored range; Docked's is a notch ahead and
+        // caps first, at 1.45 + (1.38 - 0.27). They were 2.45 and 2.36 before the top grew.
+        assertEquals(TERMUX_APP.MAX_APP_LAUNCHER_BAR_HEIGHT,
+            DockLayoutPolicy.maxUsefulScale(true), 1e-5f);
+        assertEquals(2.56f, DockLayoutPolicy.maxUsefulScale(false), 1e-5f);
         for (boolean capsule : STYLES) {
             float min = DockLayoutPolicy.minUsefulScale();
             float max = DockLayoutPolicy.maxUsefulScale(capsule);
             // Past either end the icon stands still: that is the dead band the controls avoid.
             assertEquals(icon(capsule, min, 2.75f), icon(capsule, 0.4f, 2.75f));
-            assertEquals(icon(capsule, max, 2.75f), icon(capsule, 3.0f, 2.75f));
+            assertEquals(icon(capsule, max, 2.75f),
+                icon(capsule, TERMUX_APP.MAX_APP_LAUNCHER_BAR_HEIGHT, 2.75f));
             // Inside, both ends still move it.
             assertTrue(icon(capsule, min + 0.05f, 2.75f) > icon(capsule, min, 2.75f));
             assertTrue(icon(capsule, max - 0.05f, 2.75f) < icon(capsule, max, 2.75f));
             assertEquals(min, DockLayoutPolicy.clampToUsefulScale(capsule, 0.4f), 0f);
-            assertEquals(max, DockLayoutPolicy.clampToUsefulScale(capsule, 3.0f), 0f);
+            assertEquals(max, DockLayoutPolicy.clampToUsefulScale(capsule, 9f), 0f);
         }
     }
 
-    /** It only ever wobbles by the pixel two rounded figures can disagree by, never more. */
+    /**
+     * Issue: the largest size was too small. Both Styles now top out at about 55-56dp on every
+     * density (they were 47dp Docked and 45dp Floating), and every size inside the old stretch
+     * draws exactly the icon it always did.
+     */
+    @Test
+    public void theLargestIconIsAboutFiftySixDpOnBothStyles() {
+        for (float density : DENSITIES) {
+            for (boolean capsule : STYLES) {
+                float topDp = icon(capsule, DockLayoutPolicy.maxUsefulScale(capsule), density)
+                    / density;
+                assertTrue("density " + density + " capsule " + capsule + ": " + topDp,
+                    topDp >= 54.5f && topDp <= 56.5f);
+            }
+        }
+        // The old tops and the shipped default, pinned at 440dpi: unchanged.
+        assertEquals(128, icon(false, 2.36f, 2.75f));
+        assertEquals(122, icon(true, 2.45f, 2.75f));
+        assertEquals(110, icon(false, 2.18f, 2.75f));
+        assertEquals(108, icon(true, 2.18f, 2.75f));
+    }
+
+    /**
+     * Ten apps on a 360dp phone are 36dp slots. However large the size, an icon is never wider
+     * than its slot less the lone row's air, so neighbours never touch; where it fits with that
+     * air it is the size's own icon.
+     */
+    @Test
+    public void anIconLeavesAirToItsNeighbours() {
+        for (float density : DENSITIES) {
+            int rowPx = Math.round(360f * density);
+            int airPx = DockLayoutPolicy.loneRowAirPx(density);
+            for (boolean capsule : STYLES) {
+                int top = icon(capsule, DockLayoutPolicy.maxUsefulScale(capsule), density);
+                for (int slots = 1; slots <= 10; slots++) {
+                    int fitted = DockLayoutPolicy.slotFitIconPx(top, rowPx, slots, density);
+                    int slotPx = rowPx / slots;
+                    assertTrue("density " + density + " slots " + slots,
+                        slotPx - fitted >= airPx);
+                    assertEquals(Math.min(top, slotPx - airPx), fitted);
+                }
+            }
+        }
+        // Ten at the top on a 440dpi phone: 36dp slots hold a 32dp icon with 4dp between.
+        assertEquals(Math.round(360f * 2.75f) / 10 - DockLayoutPolicy.loneRowAirPx(2.75f),
+            DockLayoutPolicy.slotFitIconPx(icon(false, 2.56f, 2.75f),
+                Math.round(360f * 2.75f), 10, 2.75f));
+        // Where it fits, nothing moves: the shipped size with seven and with eight apps.
+        int shipped = icon(false, 2.18f, 2.75f);
+        assertEquals(shipped, DockLayoutPolicy.slotFitIconPx(shipped, 990, 7, 2.75f));
+        assertEquals(shipped, DockLayoutPolicy.slotFitIconPx(shipped, 990, 8, 2.75f));
+        // A row with no width yet is held to nothing.
+        assertEquals(shipped, DockLayoutPolicy.slotFitIconPx(shipped, 0, 10, 2.75f));
+    }
+
+    /**
+     * It only ever wobbles by the pixels its rounded figures can disagree by, never more: one for
+     * Docked, two for Floating, whose row padding is rounded as well as its
+     * icon figures, and where the padding gains a pixel the icon can lose two. That is the
+     * shipped curve, not the longer top: sampled finely, Floating at density 2 already steps
+     * back two pixels near 1.77. The size control is unaffected, since it stores the smallest
+     * scale that draws the icon asked for.
+     */
     @Test
     public void theIconGrowsWithTheScaleAcrossTheStretch() {
         for (float density : DENSITIES) {
             for (boolean capsule : STYLES) {
                 float min = DockLayoutPolicy.minUsefulScale();
                 float max = DockLayoutPolicy.maxUsefulScale(capsule);
+                int wobblePx = capsule ? 2 : 1;
                 int highest = 0;
                 for (int i = 0; i <= 200; i++) {
                     int px = icon(capsule, min + (max - min) * i / 200f, density);
                     assertTrue("density " + density + " capsule " + capsule + " step " + i,
-                        px >= highest - 1);
+                        px >= highest - wobblePx);
                     highest = Math.max(highest, px);
                 }
                 assertTrue(icon(capsule, max, density) > icon(capsule, min, density));

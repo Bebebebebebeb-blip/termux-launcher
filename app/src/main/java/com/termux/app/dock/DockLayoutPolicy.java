@@ -25,16 +25,37 @@ public final class DockLayoutPolicy {
     /** Where the dock size sliders land; index 2 is the shipped default. */
     private static final float[] SIZE_PRESETS = {1.72f, 1.95f, 2.18f, 2.45f};
 
-    /** The size-progress window the presets are normalized into. */
+    /**
+     * The size-progress window the presets are normalized into: progress 0 at the first figure,
+     * 1 at the second. It is the unit every curve below is drawn in, so it never moves; how far
+     * past it a style's size runs is its own ceiling.
+     */
     private static final float SIZE_PROGRESS_MIN_SCALE = 1.45f;
     private static final float SIZE_PROGRESS_MAX_SCALE = 2.45f;
+
+    /**
+     * Where Floating's size stops: the top of the stored range, so the largest size the store
+     * keeps is the largest icon it draws (about 55dp). Past the window's last preset point both
+     * styles' curves run on along their last segment ({@link
+     * AccessoryStackLayoutPolicy#interpolatePresetCurve} extrapolates), so every size inside the
+     * window draws exactly the icon it always did; only the stretch above it is new.
+     */
+    private static final float SIZE_PROGRESS_CEILING =
+        (TermuxPreferenceConstants.TERMUX_APP.MAX_APP_LAUNCHER_BAR_HEIGHT - SIZE_PROGRESS_MIN_SCALE)
+            / (SIZE_PROGRESS_MAX_SCALE - SIZE_PROGRESS_MIN_SCALE);
 
     /**
      * The default (square) dock runs the same slider one notch up the icon curve than the capsule,
      * because its rows carry less padding for the same visual weight.
      */
     private static final float DEFAULT_DOCK_SIZE_PRESET_SHIFT = 0.27f;
-    private static final float DEFAULT_DOCK_SIZE_MAX_PROGRESS = 1.18f;
+    /**
+     * Where Docked's shifted progress stops: a stored 2.56, which draws about the 55-56dp icon
+     * Floating tops out at. Docked's curve climbs about twice as fast per step of the scale, so
+     * running it to the top of the stored range would have drawn a 75dp icon. It was 1.18 (2.36,
+     * a 47dp icon) before the largest size grew.
+     */
+    private static final float DEFAULT_DOCK_SIZE_MAX_PROGRESS = 1.38f;
     private static final float[] DEFAULT_DOCK_ICON_PROGRESS_POINTS = {0.54f, 0.77f, 1.00f, 1.18f};
     private static final float[] DEFAULT_DOCK_ICON_SCALE_POINTS = {
         1.3068f, 1.487604f, 1.68f, 1.89072f
@@ -480,6 +501,21 @@ public final class DockLayoutPolicy {
     }
 
     /**
+     * One pinned icon lying down, held to the slot it stands in. The row shares its width evenly
+     * between its slots, so an icon wider than its share would cover the icons beside it: ten
+     * apps on a 360dp phone are 36dp slots, under the 40dp the shipped size draws. The icon keeps
+     * the lone row's air ({@link #LONE_ROW_AIR_DP}, the least air a pinned row keeps around its
+     * icons) from its neighbours, so a full row still reads as separate icons. Wherever the
+     * size's icon fits with that air it is unchanged; a row with no width yet is not held at all.
+     */
+    public static int slotFitIconPx(int iconPx, int rowWidthPx, int slotCount, float density) {
+        if (iconPx <= 0 || rowWidthPx <= 0)
+            return iconPx;
+        int slotPx = rowWidthPx / Math.max(1, slotCount);
+        return Math.max(1, Math.min(iconPx, slotPx - loneRowAirPx(density)));
+    }
+
+    /**
      * The shortest box a pinned-apps row lying down is ever handed: its smallest icon,
      * {@link #MIN_DOCK_ICON_DP}. The row's box is its icon (or, alone, the baseline the icon is a
      * share of), so a row that asks for more than this before it renders refuses sizes the dock
@@ -558,15 +594,15 @@ public final class DockLayoutPolicy {
 
     /**
      * The highest stored dock size the icon still answers to, per style. Floating's curve runs to
-     * the top of the window; Docked's runs one notch ahead of it and reaches its cap before the
-     * window does, so its last stretch is a dead band unless the controls stop here.
+     * the top of the stored range; Docked's runs one notch ahead of it and reaches its own cap
+     * first, so its last stretch is a dead band unless the controls stop here.
      */
     public static float maxUsefulScale(boolean capsule) {
-        if (capsule)
-            return SIZE_PROGRESS_MAX_SCALE;
+        float progress = capsule
+            ? SIZE_PROGRESS_CEILING
+            : DEFAULT_DOCK_SIZE_MAX_PROGRESS - DEFAULT_DOCK_SIZE_PRESET_SHIFT;
         return SIZE_PROGRESS_MIN_SCALE
-            + (DEFAULT_DOCK_SIZE_MAX_PROGRESS - DEFAULT_DOCK_SIZE_PRESET_SHIFT)
-            * (SIZE_PROGRESS_MAX_SCALE - SIZE_PROGRESS_MIN_SCALE);
+            + progress * (SIZE_PROGRESS_MAX_SCALE - SIZE_PROGRESS_MIN_SCALE);
     }
 
     /** A stored dock size held to the stretch where the icon follows it. */
@@ -730,10 +766,14 @@ public final class DockLayoutPolicy {
         return Math.round(basePx + encroachmentPx);
     }
 
-    /** The stored size preset normalized into 0..1. */
+    /**
+     * The stored size preset normalized into the preset window, 0..1 inside it and on up to
+     * {@link #SIZE_PROGRESS_CEILING} above it.
+     */
     public static float sizeProgress(float barHeightScale) {
-        return Math.max(0f, Math.min(1f, (barHeightScale - SIZE_PROGRESS_MIN_SCALE)
-            / (SIZE_PROGRESS_MAX_SCALE - SIZE_PROGRESS_MIN_SCALE)));
+        return Math.max(0f, Math.min(SIZE_PROGRESS_CEILING,
+            (barHeightScale - SIZE_PROGRESS_MIN_SCALE)
+                / (SIZE_PROGRESS_MAX_SCALE - SIZE_PROGRESS_MIN_SCALE)));
     }
 
     /** The default dock's shifted progress, which runs one preset notch above the capsule's. */

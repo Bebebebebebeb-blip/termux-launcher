@@ -106,6 +106,7 @@ import com.termux.app.launcher.popup.MenuRow;
 import com.termux.app.launcher.popup.MenuRowFactory;
 import com.termux.app.launcher.popup.MenuRowWidths;
 import com.termux.app.launcher.popup.MenuSpec;
+import com.termux.app.launcher.icon.ArtworkFootprint;
 import com.termux.app.launcher.icon.AsyncIconBinder;
 import com.termux.app.launcher.icon.DockIconCache;
 import com.termux.app.launcher.icon.RenderedIconDrawable;
@@ -856,6 +857,16 @@ public final class SuggestionBarView extends GridLayout
             return;
         }
         post(this::reload);
+    }
+
+    /**
+     * A row that changed width holds its icons to a different slot ({@link #iconSizePx}), so the
+     * built slots take the new size on the next frame; never from inside this pass.
+     */
+    @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+        if (w != oldw) scheduleSlotIconResize();
     }
 
     public void setMaxButtonCount(int maxButtonCount) {
@@ -2207,28 +2218,10 @@ public final class SuggestionBarView extends GridLayout
         int height = bitmap.getHeight();
         int[] pixels = new int[width * height];
         bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
-        int maxAlpha = 0;
-        for (int pixel : pixels) {
-            maxAlpha = Math.max(maxAlpha, pixel >>> 24);
-        }
-        int threshold = Math.max(8, Math.round(maxAlpha * 0.25f));
-        int left = width;
-        int top = height;
-        int right = -1;
-        int bottom = -1;
-        for (int y = 0; y < height; y++) {
-            int row = y * width;
-            for (int x = 0; x < width; x++) {
-                if ((pixels[row + x] >>> 24) < threshold) continue;
-                left = Math.min(left, x);
-                top = Math.min(top, y);
-                right = Math.max(right, x);
-                bottom = Math.max(bottom, y);
-            }
-        }
-        return right >= left && bottom >= top
-            ? new Rect(left, top, right + 1, bottom + 1)
-            : new Rect();
+        int[] visible = ArtworkFootprint.visibleBounds(pixels, width, height);
+        return visible == null
+            ? new Rect()
+            : new Rect(visible[0], visible[1], visible[2], visible[3]);
     }
 
     private void approximateAzSlotIconBounds(int slot, int slotCount, @NonNull int[] rowLocation,
@@ -8460,6 +8453,15 @@ public final class SuggestionBarView extends GridLayout
         // A rail icon is a fixed size on every side: its column has no row height to be a share of.
         if (vertical)
             return railIconSizePx();
+        // Lying down the slots share the row's width, so the icon is held to one slot's share of
+        // it, less a little air: a large size with many apps would otherwise cover its neighbours.
+        return com.termux.app.dock.DockLayoutPolicy.slotFitIconPx(rowIconSizePx(),
+            getWidth() - getPaddingLeft() - getPaddingRight(), Math.max(1, maxButtonCount),
+            screenDensity());
+    }
+
+    /** The row's icon before it is held to its slot: the height the row gives it. */
+    private int rowIconSizePx() {
         // The dock's own answer, whenever it has given one. The row's band is this icon and its
         // air, so the icon is handed over rather than read back out of the band: derived from the
         // band it would be the band less the air less the air again.

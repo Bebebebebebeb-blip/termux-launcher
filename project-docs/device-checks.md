@@ -48,6 +48,20 @@ under twenty items; past that, the oldest are re-judged first.
   insert" · A Polished list or two paragraphs show on their own lines on the card; ✓ in a shell
   with bracketed paste keeps them, in a bare shell they arrive on one line and nothing runs ·
   Waydroid, Polished cleanup on.
+- 2026-10-13 · commit "feat(dock): let the largest pinned icon reach about 56dp" · Appearance →
+  Icon size at its top reads about 56 dp on Docked and 55 dp on Floating, the dock grows with it
+  and lifts over the keyboard without clipping; the shipped size and the old tops (47 / 45 dp) draw
+  as before · Waydroid, both Styles, keyboard up and down.
+- 2026-10-13 · commit "fix(dock): never draw a pinned icon wider than its slot" · Ten apps per
+  page at the top Icon size on a 360dp-wide screen: the icons shrink to fit their slots and never
+  touch or overlap, on the pinned row, the A–Z preview and a page swipe; seven apps keep the
+  slider's size · Waydroid, `wm size` for 360dp, both Styles.
+- 2026-10-13 · commit "fix(launcher): scale an icon pack as one, not icon by icon" · With a PNG
+  pack that leaves a margin: its icons in the dock, the drawer, a pinned override and a
+  notification look as big as stock icons beside them, not cropped and not blurry. With a line
+  or glyph pack (Whicons, Lines): glyphs keep their sizes and placement relative to one another.
+  A pack with no margin looks as it always did; an app the pack does not map keeps the pack's own
+  back plate · Waydroid, icon packs from F-Droid.
 
 ## Developer
 

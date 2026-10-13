@@ -67,8 +67,10 @@ public class DockLayoutPolicyTest {
             {2.18f, false, true, 0, 0, 69, 0, 0, 67, 17, 17, 172, 88, 1.68f, 110},
             {2.18f, true, false, 133, 108, 52, 25, 28, 67, 25, 25, 313, 83, 2.21312f, 108},
             {2.18f, true, true, 0, 0, 69, 0, 28, 67, 17, 17, 172, 83, 2.21312f, 108},
-            {2.45f, false, false, 153, 128, 52, 25, 0, 67, 25, 25, 333, 88, 1.89072f, 128},
-            {2.45f, false, true, 0, 0, 69, 0, 0, 67, 17, 17, 172, 88, 1.89072f, 128},
+            // Docked at 2.45 was past its old cap (2.36), where the curve stood still at 128px;
+            // with the larger top it is inside the stretch and draws the extended curve's icon.
+            {2.45f, false, false, 164, 139, 52, 25, 0, 67, 25, 25, 344, 88, 1.9960802f, 139},
+            {2.45f, false, true, 0, 0, 69, 0, 0, 67, 17, 17, 172, 88, 1.9960802f, 139},
             {2.45f, true, false, 147, 122, 52, 25, 28, 67, 25, 25, 327, 83, 2.508f, 122},
             {2.45f, true, true, 0, 0, 69, 0, 28, 67, 17, 17, 172, 83, 2.508f, 122},
         };
@@ -228,6 +230,9 @@ public class DockLayoutPolicyTest {
         int[] legacyCapsuleHints = {107, 120, 135, 151};
         int[] defaultIcons = {75, 91, 110, 128};
         int[] capsuleIcons = {83, 96, 108, 122};
+        // Docked's last preset was past its old cap, where the legacy band stood still; it now
+        // follows the curve that runs on to the larger top. Every other preset is unchanged.
+        int[] defaultIconsNow = {75, 91, 110, 139};
         for (int i = 0; i < DockLayoutPolicy.sizePresetCount(); i++) {
             float scale = DockLayoutPolicy.sizePreset(i);
             assertEquals("default preset " + i, defaultIcons[i],
@@ -238,7 +243,7 @@ public class DockLayoutPolicyTest {
                 DockLayoutPolicy.dockIconSizePx(legacyCapsuleHints[i],
                     DockLayoutPolicy.capsuleDockIconScaleForProgress(
                         DockLayoutPolicy.sizeProgress(scale)), DENSITY));
-            assertEquals(defaultIcons[i], DockLayoutPolicy.compute(
+            assertEquals(defaultIconsNow[i], DockLayoutPolicy.compute(
                 inputs(scale, false, false).build()).appsRowIconPx);
             assertEquals(capsuleIcons[i], DockLayoutPolicy.compute(
                 inputs(scale, true, false).build()).appsRowIconPx);
@@ -553,12 +558,15 @@ public class DockLayoutPolicyTest {
         assertEquals(0f, DockLayoutPolicy.sizeProgress(0.5f), 0f);
         assertEquals(0.27f, DockLayoutPolicy.sizeProgress(1.72f), 0.000001f);
         assertEquals(1f, DockLayoutPolicy.sizeProgress(2.45f), 0f);
-        assertEquals(1f, DockLayoutPolicy.sizeProgress(9f), 0f);
+        // Past the window it runs on to the top of the stored range, 3.0.
+        assertEquals(1.55f, DockLayoutPolicy.sizeProgress(3.0f), 0.000001f);
+        assertEquals(1.55f, DockLayoutPolicy.sizeProgress(9f), 0.000001f);
         assertEquals(0.27f, DockLayoutPolicy.defaultDockSizeProgress(1.45f), 0.000001f);
         assertEquals(0.54f, DockLayoutPolicy.defaultDockSizeProgress(1.72f), 0.000001f);
-        // The shifted progress is capped one notch above the capsule's own ceiling.
-        assertEquals(1.18f, DockLayoutPolicy.defaultDockSizeProgress(2.45f), 0.000001f);
-        assertEquals(1.18f, DockLayoutPolicy.defaultDockSizeProgress(99f), 0.000001f);
+        assertEquals(1.27f, DockLayoutPolicy.defaultDockSizeProgress(2.45f), 0.000001f);
+        // The shifted progress has a cap of its own, where Docked's icon meets Floating's top.
+        assertEquals(1.38f, DockLayoutPolicy.defaultDockSizeProgress(2.56f), 0.000001f);
+        assertEquals(1.38f, DockLayoutPolicy.defaultDockSizeProgress(99f), 0.000001f);
     }
 
     @Test
