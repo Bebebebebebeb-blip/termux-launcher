@@ -2388,6 +2388,7 @@
     <string name="voice_input_no_model">No speech model installed — using the Android recognizer</string>
     <string name="voice_input_fallback">%1$s — using the Android recognizer</string>
     <string name="voice_input_stopped">Voice input stopped: %1$s</string>
+    <string name="voice_input_runtime_closed">the speech model closed</string>
     <string name="voice_input_mic_unavailable">Microphone unavailable</string>
     <string name="voice_input_permission_denied">Microphone access denied</string>
     <string name="voice_input_permission_title">Microphone for voice input</string>

@@ -11,6 +11,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.termux.BuildConfig;
+import com.termux.R;
 import com.termux.ai.TaiManager;
 import com.termux.shared.logger.Logger;
 
@@ -562,9 +563,10 @@ public final class VoiceInputSession {
         }
     }
 
-    private void fail(@NonNull Failure failure) {
+    private void fail(@NonNull Failure raw) {
         if (!failed.compareAndSet(false, true)) return;
-        Logger.logWarn(LOG_TAG, "voice input failed: " + failure.code + ": " + failure.message);
+        Logger.logWarn(LOG_TAG, "voice input failed: " + raw.code + ": " + raw.message);
+        Failure failure = raw.forUser(appContext.getString(R.string.voice_input_runtime_closed));
         mainHandler.post(() -> {
             if (endReason == null) endReason = EndReason.FAILED;
             if (!discardResults) host.onFailure(failure.code, failure.message, anyTranscript);
@@ -638,5 +640,19 @@ public final class VoiceInputSession {
             }
             return null;
         }
+
+        /**
+         * The failure as the user is told it. The runtime process dying under a phrase (the memory
+         * watch ending a model load beside dictation, the system, a crash) reads as one short line
+         * ({@code runtimeClosed}) rather than the client's paragraph about retries and accelerators;
+         * the phrases already heard stay on the card, and the session ends as for any failure.
+         */
+        @NonNull
+        Failure forUser(@NonNull String runtimeClosed) {
+            return RUNTIME_CRASHED.equals(code) ? new Failure(code, runtimeClosed) : this;
+        }
     }
+
+    /** The client's code for a runtime process that died under a request ({@code TaiRuntimeServiceClient}). */
+    static final String RUNTIME_CRASHED = "tai_runtime_crashed";
 }

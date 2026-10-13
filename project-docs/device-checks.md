@@ -83,6 +83,22 @@ under twenty items; past that, the oldest are re-judged first.
   they freeze, take the launcher's Java stacks mid-freeze (`debuggerd -j <pid>`) and read
   `/proc/pressure/memory`: a `main` thread parked in `nativePollOnce` means the stall is GPU or
   memory contention from the load, not a wait on the runtime · pong with the go-ahead.
+- 2026-10-13 · commit "feat(tai): plan a load on the typical measured drop, not the largest" · E4B
+  dictation cleanup on the GPU at 2048 is admitted with about 3.8–4 GB free (`tai logs`: a
+  `load_ok … gpu ctx=2048`, no `load refused`), both with this version's own samples and right
+  after an install that cleared them (the prior); any refusal reads `needs X MB + 768 MB floor = Y
+  MB free, Z MB available` with the GPU's figure, not the CPU seed · pong with the go-ahead.
+- 2026-10-13 · commit "feat(tai): stop a model that runs the phone under 448 MB free" · Start an
+  E4B GPU load at about 3.7 GB free with a memory hog opened beside it: `tai logs` shows an
+  `oom_guard … stopped the model to keep the phone responsive` line, the runtime goes away, the
+  launcher keeps answering throughout, and dictation keeps the text as heard; the same while a
+  long chat answer generates (cancelled and unloaded, the runtime stays) · pong with the go-ahead,
+  `adb logcat -s TaiMemory`.
+- 2026-10-13 · commit "fix(tai): book a memory stop as a stop, not a crash" · After the guard ends
+  an E4B GPU load mid-dictation: the card keeps the phrases already heard and says "Voice input
+  stopped: the speech model closed", the pill settles; within 2 min the next dictation's cleanup
+  logs `load held back on gpu` and keeps the text, `tai load gemma-4-e4b` goes ahead at its window;
+  after 2 min cleanup loads E4B on the GPU at 2048 again (no half window) · pong with the go-ahead.
 
 ## Developer
 
