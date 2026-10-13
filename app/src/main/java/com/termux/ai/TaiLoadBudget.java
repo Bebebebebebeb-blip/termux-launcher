@@ -29,8 +29,8 @@ import java.util.List;
  * ring) at the smallest measured window at or above the wanted one, plus 10% ({@code "measured"});
  * with samples only below it, a fit or the seed slope carries them up. It used to be the largest
  * drop, which on pong sat at the worst of a 2.1–3.2 GB spread for E4B on the GPU at 2048 and
- * refused it with 3.8–4.1 GB free. A load that runs past a typical estimate is the runtime's
- * watch's to stop ({@link TaiPressureWatch}), not refused up front. Otherwise the estimate
+ * refused it with 3.8–4.1 GB free. A load that runs past a typical estimate is stopped by the
+ * runtime's watch at {@link #CRITICAL_FLOOR_BYTES}, not refused up front. Otherwise the estimate
  * is a seed from the model file ({@code "ratio"}): a fixed part plus a per-token part (the KV
  * cache), per accelerator, split into what the kernel can reclaim and what it cannot. With no
  * measurement to go on it errs high; fitted on pong:
@@ -63,8 +63,15 @@ import java.util.List;
  *       first accelerator tried at the floor window, and Android closes background apps to make
  *       room.</li>
  * </ul>
- * Neither mode adds a margin to the estimate beyond a measured one's 10% headroom. Android's own
- * low-memory signal (the runtime's watch) and the preflight's low-memory block apply in both.
+ * Neither mode adds a margin to the estimate beyond a measured one's 10% headroom. The
+ * preflight's low-memory block applies in both.
+ *
+ * <p><b>The guard.</b> Admission plans on the typical load, so the runtime's watch
+ * ({@link TaiPressureWatch}, polled in {@code :tai_runtime} only while something is resident, fast
+ * while a model loads or generates) stops the model when MemAvailable falls under
+ * {@link #CRITICAL_FLOOR_BYTES} or Android reports low memory: a generation is cancelled and the
+ * model unloaded, and a native load, which cannot be interrupted, ends with the runtime process.
+ * Unrestricted keeps only Android's signal.
  *
  * <p><b>The ladder.</b> At each step — first the requested accelerator at the wanted window, then
  * halving down to a 4k floor, then the next accelerator at the floor only — a load that fits with
@@ -103,6 +110,14 @@ public final class TaiLoadBudget {
     public static final long PEAK_FLOOR_BYTES = 512L * MIB;
     /** Relaxed hold floor: what a load that stays resident keeps free, a quarter gigabyte above the peak floor. */
     public static final long HOLD_FLOOR_BYTES = 768L * MIB;
+    /**
+     * Relaxed critical floor: where the runtime's watch stops a model that is loading or generating
+     * ({@link TaiPressureWatch}). Under the peak floor, so idle residents are given up first; and one
+     * fast poll ({@link TaiPressureWatch#POLL_BUSY_MS}) at the fastest load pong has shown — 5.7 to
+     * 1.4 GB in twelve seconds, about 90 MB a poll — still stops it above Android's own low-memory
+     * line there (315 MB), where the system starts killing apps to make room.
+     */
+    public static final long CRITICAL_FLOOR_BYTES = 448L * MIB;
     /** How long the runtime lets a momentary load live, counted from its start, before it unloads it itself. */
     public static final long MOMENTARY_DEADLINE_MS = 3L * 60L * 1000L;
     /** A LiteRT file larger than this is not taken to the CPU as a fallback accelerator. */
@@ -175,6 +190,14 @@ public final class TaiLoadBudget {
     public static long floorBytes(boolean momentary, @NonNull Conditions conditions) {
         if (conditions.mode == MemoryMode.UNRESTRICTED) return 0L;
         return momentary ? PEAK_FLOOR_BYTES : HOLD_FLOOR_BYTES;
+    }
+
+    /**
+     * Where the runtime's watch stops a busy model: {@link #CRITICAL_FLOOR_BYTES} with relaxed
+     * limits; {@code 0} unrestricted, which leaves the watch only Android's low-memory signal.
+     */
+    public static long criticalFloorBytes(@NonNull Conditions conditions) {
+        return conditions.mode == MemoryMode.UNRESTRICTED ? 0L : CRITICAL_FLOOR_BYTES;
     }
 
     /**

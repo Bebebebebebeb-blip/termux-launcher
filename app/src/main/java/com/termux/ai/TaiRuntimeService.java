@@ -545,9 +545,10 @@ public final class TaiRuntimeService extends Service {
      * that have sat idle past their kind's limit. Decisions are {@link TaiPressureWatch}'s; the
      * tick holds no lock — the registry is read lock-free and the actions go to
      * {@link #pressureExecutor}. The pressure read runs every {@link TaiPressureWatch#POLL_BUSY_MS}
-     * while a load or first prefill is running and every {@link TaiPressureWatch#POLL_IDLE_MS}
-     * otherwise; the publish and idle checks always keep the slow beat. It stops itself once
-     * nothing but the baseline is left and arms the idle exit.
+     * while a model loads, waits for its first token or generates, and every
+     * {@link TaiPressureWatch#POLL_IDLE_MS} otherwise; the publish and idle checks always keep the
+     * slow beat. It stops itself once nothing but the baseline is left and no request is in flight
+     * (a load still in its preflight shows as neither held nor loading), and arms the idle exit.
      */
     private synchronized void startRuntimeWatch() {
         if (watch != null && !watch.isCancelled()) return;
@@ -562,10 +563,12 @@ public final class TaiRuntimeService extends Service {
     }
 
     private void watchTick(int epoch) {
+        boolean busy = TaiLoadMeter.anyActive();
         try {
             TaiManager manager = TaiManager.getRuntimeProcessInstance(this);
             TaiRuntimeState state = manager.getRuntimeState();
             boolean chat = chatActive(state);
+            busy = busy || state.activeGeneration;
             long now = SystemClock.elapsedRealtime();
             boolean slow = now - lastSlowTickMs >= TaiPressureWatch.POLL_IDLE_MS;
             if (slow) {
@@ -578,19 +581,21 @@ public final class TaiRuntimeService extends Service {
             MultiBackendTaiRuntime router = MultiBackendTaiRuntime.processInstance();
             List<TaiResidency.Entry> residents = router == null
                 ? Collections.<TaiResidency.Entry>emptyList() : router.residency().snapshot();
-            if (!chat && (router == null || !router.residency().hasModels())) {
+            boolean holding = chat || TaiLoadMeter.nativeInitRunning()
+                || (router != null && router.residency().hasModels());
+            if (!holding && inFlight.get() == 0) {
                 stopRuntimeWatch();
                 noteModelsGone();
                 return;
             }
             modelsGoneAtMs = 0L;
-            evaluatePressure(residents);
+            evaluatePressure(residents, holding);
             if (slow) evaluateIdle(residents);
         } catch (Exception ignored) {
         }
         synchronized (this) {
             if (epoch != watchEpoch || watch == null) return;
-            scheduleWatchTick(epoch, TaiPressureWatch.pollIntervalMs(TaiLoadMeter.anyActive()));
+            scheduleWatchTick(epoch, TaiPressureWatch.pollIntervalMs(busy));
         }
     }
 
@@ -617,32 +622,39 @@ public final class TaiRuntimeService extends Service {
      * {@link TaiMemInfo}'s (MemAvailable on every release) and the floors are the budget's
      * ({@link TaiLoadBudget#floorBytes}, under the memory limits the gate read too), so the watch
      * starts reclaiming at the line a load stops being admitted: the hold floor for tier 1, the
-     * lower peak floor for tier 2. Unrestricted, both are {@code 0} and only {@code lowMemory} acts.
+     * lower peak floor for tier 2, and the critical floor ({@link TaiLoadBudget#criticalFloorBytes})
+     * stops a busy model. Unrestricted, all three are {@code 0} and only {@code lowMemory} acts.
      */
-    private void evaluatePressure(@NonNull List<TaiResidency.Entry> residents) {
+    private void evaluatePressure(@NonNull List<TaiResidency.Entry> residents, boolean holding) {
         ActivityManager.MemoryInfo info = memoryInfo();
         if (info == null) return;
         TaiMemInfo.Reading memory = TaiMemInfo.read(this);
         TaiLoadBudget.Conditions conditions = TaiMemInfo.conditions(this);
         long hold = TaiLoadBudget.floorBytes(false, conditions);
         long peak = TaiLoadBudget.floorBytes(true, conditions);
-        TaiPressureWatch.Tier tier = TaiPressureWatch.tier(memory.availBytes, hold, peak, info.lowMemory);
-        applyTier(tier, residents, memory.availBytes, hold, peak, "poll");
+        long critical = TaiLoadBudget.criticalFloorBytes(conditions);
+        TaiPressureWatch.Tier tier = TaiPressureWatch.tier(memory.availBytes, hold, peak, critical, info.lowMemory);
+        applyTier(tier, residents, holding, memory.availBytes, hold, peak, critical, info.lowMemory, "poll");
     }
 
     /**
-     * Carries out one tier: tier 3 cancels and unloads everything; tiers 1 and 2 give up the one
-     * resident {@link TaiPressureWatch#nextVictim} names, and the next tick looks again. A tier
-     * with nothing idle to give (a busy chat model alone) does nothing and logs nothing — it would
-     * log every tick otherwise.
+     * Carries out one tier: tier 3 stops and unloads everything ({@link #releaseAll}); tiers 1 and 2
+     * give up the one resident {@link TaiPressureWatch#nextVictim} names, and the next tick looks
+     * again. A tier with nothing to give (a busy chat model alone for tiers 1 and 2; for tier 3,
+     * no model held or loading, as while a request runs after everything was released) does
+     * nothing and logs nothing — it would log every tick otherwise.
      */
     private void applyTier(@NonNull TaiPressureWatch.Tier tier, @NonNull List<TaiResidency.Entry> residents,
-                           long availMem, long hold, long peak, @NonNull String source) {
+                           boolean holding, long availMem, long hold, long peak, long critical, boolean lowMemory,
+                           @NonNull String source) {
         if (tier == TaiPressureWatch.Tier.NONE) return;
-        String reading = String.format(Locale.US, "avail=%d MB hold=%d MB peak=%d MB",
-            availMem / MIB, hold / MIB, peak / MIB);
+        String reading = String.format(Locale.US, "avail=%d MB hold=%d MB peak=%d MB critical=%d MB",
+            availMem / MIB, hold / MIB, peak / MIB, critical / MIB);
         if (tier == TaiPressureWatch.Tier.RELEASE_ALL) {
-            queuePressureAction(() -> releaseAll("pressure tier 3 (" + source + "): lowMemory, " + reading));
+            if (!holding) return;
+            String why = lowMemory ? "Android reports low memory, " + availMem / MIB + " MB free"
+                : availMem / MIB + " MB free, under the " + critical / MIB + " MB line";
+            queuePressureAction(() -> releaseAll(why, "pressure tier 3 (" + source + "): " + reading));
             return;
         }
         TaiResidency.Entry victim = TaiPressureWatch.nextVictim(residents, tier, System.currentTimeMillis());
@@ -801,16 +813,45 @@ public final class TaiRuntimeService extends Service {
 
     /**
      * Gives everything back when the phone runs out: the home screen and whatever the user is
-     * doing matter more than a resident model, which reloads on the next request. The budget keeps
-     * loads from getting here and the lower tiers give up idle residents first; this is for the
-     * phone filling up around a model that is busy.
+     * doing matter more than a resident model, which reloads on the next request. The budget plans
+     * on the typical load and the lower tiers give up idle residents first; this is for a load or a
+     * generation that ran past the plan, or the phone filling up around a busy model. A generation
+     * is cancelled and its model unloaded. A chat model's native init cannot be cancelled, so the
+     * process exits ({@link TaiPressureWatch#stopFor}): the line is written first, synchronously,
+     * and the crash marker the load wrote stays, so the next load of that model is held to half the
+     * window. The client sees the runtime die, and its caller falls back.
+     *
+     * @param why    what crossed the line, for the event log
+     * @param detail the tier and the reading, for logcat
      */
-    private void releaseAll(@NonNull String reason) throws JSONException {
-        Log.i(LOG_TAG, reason + ": cancelling in-flight work and unloading everything");
-        TaiEventLog.log(this, TaiEventLog.OOM_GUARD, reason + ": cancelling in-flight work and unloading everything");
+    private void releaseAll(@NonNull String why, @NonNull String detail) throws JSONException {
         TaiManager manager = TaiManager.getRuntimeProcessInstance(this);
+        boolean exit = TaiPressureWatch.stopFor(TaiLoadMeter.nativeInitRunning()) == TaiPressureWatch.Stop.EXIT_PROCESS;
+        String model = exit ? loadingModelId() : manager.getRuntimeState().loadedModelId;
+        String reason = (model == null ? "released every model" : "stopped the model")
+            + " to keep the phone responsive: " + why
+            + (exit ? "; a load cannot be cancelled, so the runtime exited" : "");
+        Log.i(LOG_TAG, detail + ": " + (model == null ? "" : model + " ") + reason);
+        if (exit) {
+            TaiEventLog.logNow(this, TaiEventLog.OOM_GUARD, model, null, null, 0, 0L, 0L, reason);
+            Process.killProcess(Process.myPid());
+            return;
+        }
+        TaiEventLog.log(this, TaiEventLog.OOM_GUARD, model, null, null, 0, 0L, 0L, reason);
         manager.cancelRuntime(TaiBenchHarness.STOP_MEMORY_PRESSURE);
         manager.unloadModel();
+    }
+
+    /** The model whose load is in progress, from the crash marker it wrote; {@code null} when there is none. */
+    @Nullable
+    private String loadingModelId() {
+        try {
+            JSONObject marker = TaiRuntimeCrashMarker.read(this);
+            String id = marker == null ? "" : marker.optString("modelId", "");
+            return id.isEmpty() ? null : id;
+        } catch (JSONException e) {
+            return null;
+        }
     }
 
     /** Nothing but the baseline is resident: stamp when, and arm the idle exit. */

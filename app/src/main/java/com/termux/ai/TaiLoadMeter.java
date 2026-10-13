@@ -7,6 +7,7 @@ import android.os.SystemClock;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -33,7 +34,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * <p>Loads are serialized by the runtimes, so one meter runs at a time, apart from the tail of a
  * previous one still waiting for its first token. {@link #activeCount} tells the pressure watch
- * when a load or first prefill is in progress, so it polls faster. A {@code null} context (the
+ * when a load or first prefill is in progress, so it polls faster; {@link #nativeInitRunning} tells
+ * it when a chat model's native init is, which nothing can cancel. A {@code null} context (the
  * router's test seam) yields a meter that measures nothing and reports {@code -1}.
  */
 final class TaiLoadMeter {
@@ -43,6 +45,11 @@ final class TaiLoadMeter {
 
     /** Meters whose sampler thread is running: a load or a first prefill is in progress. */
     private static final AtomicInteger ACTIVE = new AtomicInteger();
+    /** Meters started by {@link #startNativeInit} whose load phase has not ended. */
+    private static final AtomicInteger NATIVE_INITS = new AtomicInteger();
+
+    /** Set while this meter counts in {@link #NATIVE_INITS}; cleared once, by {@link #endLoad} or {@link #stop}. */
+    private final AtomicBoolean inNativeInit = new AtomicBoolean();
 
     @Nullable private final ActivityManager activityManager;
     private final long beforeBytes;
@@ -65,6 +72,28 @@ final class TaiLoadMeter {
         TaiLoadMeter meter = new TaiLoadMeter(activityManager);
         if (meter.beforeBytes > 0L) meter.startSampling();
         return meter;
+    }
+
+    /**
+     * {@link #start} for a chat model's native init (LiteRT-LM {@code initialize()}, MNN
+     * {@code load}): counted by {@link #nativeInitRunning} until {@link #endLoad} or {@link #stop},
+     * whether or not free memory can be read.
+     */
+    @NonNull
+    static TaiLoadMeter startNativeInit(@Nullable Context context) {
+        TaiLoadMeter meter = start(context);
+        meter.inNativeInit.set(true);
+        NATIVE_INITS.incrementAndGet();
+        return meter;
+    }
+
+    /** Whether a chat model's native init is running: a load the runtime cannot cancel, only end with its process. */
+    static boolean nativeInitRunning() {
+        return NATIVE_INITS.get() > 0;
+    }
+
+    private void leaveNativeInit() {
+        if (inNativeInit.compareAndSet(true, false)) NATIVE_INITS.decrementAndGet();
     }
 
     /** Whether any meter is sampling now: a load, or the wait for a first token, is in progress. */
@@ -124,6 +153,7 @@ final class TaiLoadMeter {
      * {@link #firstTokenDrop}.
      */
     long endLoad() {
+        leaveNativeInit();
         loadEndedAtMs = SystemClock.elapsedRealtime();
         if (beforeBytes <= 0L) return -1L;
         observe(sample());
@@ -143,6 +173,7 @@ final class TaiLoadMeter {
      * returns {@code before − minimum} in bytes; {@code -1} when free memory could not be read.
      */
     long stop() {
+        leaveNativeInit();
         running = false;
         Thread toJoin = thread;
         if (toJoin != null) {

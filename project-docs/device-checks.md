@@ -83,6 +83,12 @@ under twenty items; past that, the oldest are re-judged first.
   `load_ok … gpu ctx=2048`, no `load refused`), both with this version's own samples and right
   after an install that cleared them (the prior); any refusal reads `needs X MB + 768 MB floor = Y
   MB free, Z MB available` with the GPU's figure, not the CPU seed · pong with the go-ahead.
+- 2026-10-13 · commit "feat(tai): stop a model that runs the phone under 448 MB free" · Start an
+  E4B GPU load at about 3.7 GB free with a memory hog opened beside it: `tai logs` shows an
+  `oom_guard … stopped the model to keep the phone responsive` line, the runtime goes away, the
+  launcher keeps answering throughout, and dictation keeps the text as heard; the same while a
+  long chat answer generates (cancelled and unloaded, the runtime stays) · pong with the go-ahead,
+  `adb logcat -s TaiMemory`.
 
 ## Developer
 

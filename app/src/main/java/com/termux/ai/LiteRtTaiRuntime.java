@@ -1037,7 +1037,9 @@ public final class LiteRtTaiRuntime implements TaiRuntime {
         lastLoadDropBytes = -1L;
         if (lastLoadMeter != null) lastLoadMeter.stop();
         lastLoadMeter = null;
-        TaiLoadMeter meter = TaiLoadMeter.start(appContext);
+        // A native init: nothing can cancel it, so the runtime's watch ends the process instead
+        // when memory runs out under it (TaiPressureWatch).
+        TaiLoadMeter meter = TaiLoadMeter.startNativeInit(appContext);
         boolean initialized = false;
         try {
             Engine created = createAndInitializeEngine(modelSpec, modelPath, options, profile, deviceCapabilities, backend);
