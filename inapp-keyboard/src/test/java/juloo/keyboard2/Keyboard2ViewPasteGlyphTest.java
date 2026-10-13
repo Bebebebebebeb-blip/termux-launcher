@@ -12,7 +12,8 @@ import org.robolectric.RuntimeEnvironment;
 
 /**
  * While paste will put in a picture, paste draws a photo glyph in the symbols face instead of
- * its own key-font glyph, under a modifier too (pasteAsPlainText), and nothing else changes.
+ * its own key-font glyph, under a modifier too (pasteAsPlainText), a size down so it matches its
+ * neighbours, and nothing else changes.
  */
 @RunWith(RobolectricTestRunner.class)
 @org.robolectric.annotation.Config(sdk = 28)
@@ -58,6 +59,17 @@ public class Keyboard2ViewPasteGlyphTest
     assertEquals(LabelFace.SYMBOL, view.labelFaceForDrawing(PASTE));
     assertEquals(PHOTO, view.labelForDrawing(PASTE_PLAIN));
     assertEquals(LabelFace.SYMBOL, view.labelFaceForDrawing(PASTE_PLAIN));
+  }
+
+  @Test
+  public void thePhotoGlyphIsDrawnSmallerThanTheKeysOwn()
+  {
+    float own = view.labelSizeForDrawing(PASTE, false);
+    view.setPasteShowsPicture(true);
+
+    assertEquals(own * Keyboard2View.PASTE_PICTURE_SCALE,
+        view.labelSizeForDrawing(PASTE, false), 0.001f);
+    assertEquals(view.labelSizeForDrawing(KeyValue.getKeyByName("copy"), false), own, 0.001f);
   }
 
   @Test

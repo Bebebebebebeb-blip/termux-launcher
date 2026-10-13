@@ -262,7 +262,9 @@ fails when the catalogue has gone stale.
   screenshot it offers), makes `drawLabel`, `drawSubLabel`,
   the corner-bounds probe and the popup labels draw `paste` and `pasteAsPlainText` as Nerd Font
   nf-md-image (U+F02E9, symbols face) instead of their key-font glyphs. Only the drawn label
-  changes; size, colour and the value sent are the key's own. Upstream has no such state.
+  changes, drawn at `PASTE_PICTURE_SCALE` (0.78) of the key's size so the full-em picture
+  matches the key-font glyphs beside it; colour and the value sent are the key's own. Upstream has
+  no such state.
 
 ## Refresh procedure
 

@@ -50,6 +50,13 @@ public class Keyboard2View extends View
    */
   static final String PASTE_PICTURE_GLYPH = new String(Character.toChars(0xF02E9));
 
+  /**
+   * [PASTE_PICTURE_GLYPH]'s size against the key's own: the Nerd Font picture fills its whole em
+   * square, where the key font's clipboard is 0.75 em wide, so at full size it towers over the
+   * glyphs beside it.
+   */
+  static final float PASTE_PICTURE_SCALE = 0.78f;
+
   private Pointers _pointers;
 
   private Pointers.Modifiers _mods;
@@ -1464,6 +1471,13 @@ public class Keyboard2View extends View
     return kv == null ? null : drawnString(shiftedKeyeventLabel(kv));
   }
 
+  /** The size [drawLabel] or [drawSubLabel] draws the layout value [kv] at; for tests. */
+  float labelSizeForDrawing(KeyValue kv, boolean mainLabel)
+  {
+    kv = modifyKey(kv, _mods);
+    return kv == null ? 0f : scaleTextSize(shiftedKeyeventLabel(kv), mainLabel);
+  }
+
   /** The face [labelForDrawing] is drawn in; for tests. */
   LabelFace labelFaceForDrawing(KeyValue kv)
   {
@@ -2362,7 +2376,8 @@ public class Keyboard2View extends View
   {
     float smaller_font = k.hasFlagsAny(KeyValue.FLAG_SMALLER_FONT) ? 0.75f : 1.f;
     float label_size = main_label ? _mainLabelSize : _subLabelSize;
-    return label_size * smaller_font;
+    float picture = showsPictureGlyph(k) ? PASTE_PICTURE_SCALE : 1.f;
+    return label_size * smaller_font * picture;
   }
 
   private static final class Trail
