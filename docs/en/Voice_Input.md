@@ -95,8 +95,10 @@ On **Home** with no search or field open, nothing takes typing, so the text is c
 
 ## Cleanup
 
-Cleanup is one pass a chat model makes over the whole dictation once it stops. It reads the
-whole passage and writes what you meant: misheard words replaced from context, broken sentences
+Cleanup removes hesitations like "uh" and "um" on its own, then rewrites only the sentences that
+need it (a stumble, a self-correction, a spoken list) and leaves the rest exactly as you said it.
+It writes in the language you spoke and keeps your spelling. A dictation with nothing to fix is
+kept as heard. Where it rewrites, it reads the passage and writes what you meant: misheard words replaced from context, broken sentences
 put back together, run-ons split, fillers removed and self-corrections resolved ("at five, no,
 six" becomes "at six"). It keeps your points and adds nothing you did not say. Changed and added
 words show in the accent colour and removed words struck through; **Insert** and **Copy** use the
@@ -169,8 +171,11 @@ whether cleanup is on or off. The strip says **Cleaned up** and **Undo** takes i
   is. The first speech model to finish becomes the one in use. With several installed, choose with
   **Use for…** in the Model centre, or **Settings → Keyboard → Voice input → Speech model**, which
   also offers **Change window** and **Unload after idle** (2 minutes by default).
-- **Voice language** (Speech group) applies to the multilingual Whisper models only. **Auto** takes
-  the keyboard layout's language, then the phone's. Parakeet detects the language itself.
+- **Voice language** (Speech group) applies to the multilingual Whisper models only.
+  **Auto-detect** listens to your first phrase and keeps that language for the rest of the
+  dictation. Until it is sure, it uses your keyboard layout's language, then your phone's. When it
+  hears a language other than those, the card names it beside Listening. Parakeet detects the
+  language itself.
 
 ## Listening settings
 

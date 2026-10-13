@@ -35,6 +35,9 @@ These may change or be dropped before they reach a stable release.
 - Swipe down on the apps row to open the app drawer while an A–Z letter's apps are showing, not only from your pinned apps.
 - Dictation cleanup now writes what you meant from the whole passage, fixing misheard words and broken sentences rather than only dropping fillers; Polished keeps its paragraphs and lists.
 - Cleaned-up dictation is ready a moment after you stop: on phones that run cleanup on the graphics chip (or with a remote model), it tidies your words at natural pauses while you talk.
+- Dictation cleanup is about twice as fast and leaves what you said alone where nothing needs fixing: "uh" and "um" are always removed, only sentences that need it are rewritten, it no longer turns other languages into English, and it keeps your spelling.
+- With a multilingual Whisper model, Voice language **Auto-detect** listens for the language you speak instead of assuming your keyboard's, and the dictation card names it when it differs.
+- On-device models load with less free memory than before, and one that would fill the phone's memory is stopped instead of freezing it.
 - Tap the text on the dictation card to fix a word with the keyboard before you insert or copy it.
 - Look › Custom starts from the Look on screen, so you can tune Clear or Mist without losing it; a quick look at another Look and back keeps your changes, and Undo puts back what you opened with.
 
