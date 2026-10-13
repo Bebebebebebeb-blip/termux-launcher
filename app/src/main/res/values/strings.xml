@@ -2283,7 +2283,7 @@
     <string name="settings_keyboard_voice_engine_system">Android system</string>
     <string name="settings_keyboard_voice_engine_on_device">On-device</string>
     <string name="settings_keyboard_voice_language_title">Voice language</string>
-    <string name="settings_keyboard_voice_language_auto">Auto</string>
+    <string name="settings_keyboard_voice_language_auto">Auto-detect</string>
     <string name="settings_keyboard_voice_polish_title">Clean up dictation</string>
     <string name="settings_keyboard_voice_polish_summary">Review local corrections before inserting; requires a cleanup model.</string>
     <string name="settings_keyboard_voice_polish_model_title">Cleanup model</string>
@@ -2373,6 +2373,8 @@
     <string name="voice_input_meta_undone">· cleanup undone</string>
     <string name="voice_input_meta_inserted">· at the cursor</string>
     <string name="voice_input_meta_copied">· to the clipboard</string>
+    <!-- The language a dictation was heard in, beside "Listening…" when it is not the keyboard's: "· Spanish" -->
+    <string name="voice_input_meta_language">· %1$s</string>
     <!-- Read aloud's card: the dictation card's shell, reading the terminal selection. -->
     <string name="read_aloud_reading">Reading</string>
     <string name="read_aloud_paused">Paused</string>

@@ -99,6 +99,14 @@ under twenty items; past that, the oldest are re-judged first.
   stopped: the speech model closed", the pill settles; within 2 min the next dictation's cleanup
   logs `load held back on gpu` and keeps the text, `tai load gemma-4-e4b` goes ahead at its window;
   after 2 min cleanup loads E4B on the GPU at 2048 again (no half window) · pong with the go-ahead.
+- 2026-10-13 · commit "feat(voice): detect the spoken language with Voice language on Auto" ·
+  Multilingual Whisper (Base, then Small), Voice language Auto-detect, an English keyboard layout:
+  dictate a Spanish clip through the fake mic; the strip reads "Listening… · Spanish" (or
+  "Transcribing… · Spanish") and the text is Spanish, not English; `logcat -s VoiceInputSession`
+  shows `language=es/detected heard=es@…` on the first kept phrase and `language=es/forced` after.
+  A fresh dictation of an English clip: no language on the strip, `language=en/detected`. Note each
+  phrase's `detectMs` against its `decodeMs`/`decodeSteps`, and the probability a one-word command
+  scores (the 0.8 bar) · Waydroid, fake PipeWire mic.
 
 ## Developer
 
