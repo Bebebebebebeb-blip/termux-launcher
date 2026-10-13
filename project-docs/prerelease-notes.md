@@ -15,6 +15,7 @@ Latest stable: v1.0.4.
 
 - A fresh install comes with the current tlstore (0.13).
 - Opening the widget picker no longer closes the launcher on Android 11 and earlier (#62).
+- Picking a letter just as the last letter's apps fade from the dock no longer closes the launcher.
 
 ## Experimental
 <!-- What is on pre and not yet on dev, one line each; name the pull request or branch it came from. -->
