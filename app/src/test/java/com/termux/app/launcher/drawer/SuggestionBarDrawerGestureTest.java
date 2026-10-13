@@ -162,10 +162,10 @@ public class SuggestionBarDrawerGestureTest {
     @Test
     public void everyVetoBlocksTheDrawerAndLeavesThePageSwipeIntact() {
         List<String> failures = new ArrayList<>();
-        // "searchText" is deliberately absent: a filtered apps row no longer vetoes the pull-down
-        // (the vertical pull is unambiguous even over filtered results).
+        // "searchText" and "azLetter" are deliberately absent: neither a filtered apps row nor a
+        // lingering A–Z preview vetoes the pull-down (the vertical pull is unambiguous over both).
         for (String veto : new String[] {"pref", "surfaceEditor", "palette", "engaged",
-            "azLetter", "landscape", "activePickup", "noListener"}) {
+            "landscape", "activePickup", "noListener"}) {
             setUp();
             applyVeto(veto);
 
@@ -196,6 +196,17 @@ public class SuggestionBarDrawerGestureTest {
         assertEquals(1, listener.begins);
     }
 
+    @Test
+    public void anAzPreviewRowStillOpensTheDrawer() {
+        ReflectionHelpers.setField(row, "activeAzLetter", Character.valueOf('A'));
+
+        dispatch(MotionEvent.ACTION_DOWN, 100f, 20f);
+        dispatch(MotionEvent.ACTION_MOVE, 100f, 20f + TRAVEL);
+
+        assertEquals(CLAIM_DRAWER_DRAG, claim());
+        assertEquals(1, listener.begins);
+    }
+
     private void applyVeto(String veto) {
         switch (veto) {
             case "pref": listener.drawerEnabled = false; break;
@@ -203,9 +214,6 @@ public class SuggestionBarDrawerGestureTest {
             case "palette": listener.paletteOpen = true; break;
             case "engaged": listener.drawerEngaged = true; break;
             case "searchText": ReflectionHelpers.setField(row, "lastInput", "ls "); break;
-            case "azLetter":
-                ReflectionHelpers.setField(row, "activeAzLetter", Character.valueOf('A'));
-                break;
             case "landscape":
                 context.getResources().getConfiguration().orientation =
                     Configuration.ORIENTATION_LANDSCAPE;

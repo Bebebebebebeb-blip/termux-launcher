@@ -516,7 +516,7 @@
     <string name="settings_most_used_page_summary">Adds a page ranked by launcher usage.</string>
     <string name="settings_app_drawer_header">App drawer</string>
     <string name="settings_app_drawer_enabled_title">Swipe down for app drawer</string>
-    <string name="settings_app_drawer_enabled_summary">Swipe down on the pinned apps row to open the full-screen app drawer.</string>
+    <string name="settings_app_drawer_enabled_summary">Swipe down on the apps row to open the full-screen app drawer.</string>
     <string name="settings_app_drawer_view_type_title">Drawer layout</string>
     <string name="settings_app_drawer_view_type_vertical">Vertical</string>
     <string name="settings_app_drawer_view_type_horizontal">Horizontal pages</string>
