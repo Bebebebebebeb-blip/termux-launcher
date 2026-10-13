@@ -71,22 +71,33 @@ public final class VoiceGatedCleanup {
     /** {@link #clean(String, String, String, String, Calls)} through {@code polisher}, {@link VoicePolishRules#timeoutMs} a call. */
     @NonNull
     public static Outcome clean(@NonNull VoiceTextPolisher polisher, @NonNull String raw, @NonNull String context,
-                                @NonNull String level, @Nullable String languageHint) {
-        return clean(raw, context, level, languageHint, (text, earlier, language) ->
+                                @NonNull String level, @Nullable String languageHint,
+                                @Nullable String languageFallback) {
+        return clean(raw, context, level, languageHint, languageFallback, (text, earlier, language) ->
             polisher.polish(text, earlier, language, VoicePolishRules.timeoutMs(text)));
+    }
+
+    /** {@link #clean(String, String, String, String, String, Calls)} with no fallback language. */
+    @NonNull
+    public static Outcome clean(@NonNull String raw, @NonNull String context, @NonNull String level,
+                                @Nullable String languageHint, @NonNull Calls calls) {
+        return clean(raw, context, level, languageHint, null, calls);
     }
 
     /**
      * Cleans {@code raw}, a part that follows {@code context} (the dictation before it, already
      * cleaned; {@code ""} for none), at {@code level}. {@code languageHint} is the speech model's
-     * language; without one it is read from the text ({@link VoiceTextLanguage#guess}). After a call
-     * that finds the runtime stuck or full, the remaining groups are not sent.
+     * language; without one it is read from the text ({@link VoiceTextLanguage#guess}), and only
+     * when the text is unclear is {@code languageFallback} (the keyboard's or the phone's) taken.
+     * After a call that finds the runtime stuck or full, the remaining groups are not sent.
      */
     @NonNull
     public static Outcome clean(@NonNull String raw, @NonNull String context, @NonNull String level,
-                                @Nullable String languageHint, @NonNull Calls calls) {
+                                @Nullable String languageHint, @Nullable String languageFallback,
+                                @NonNull Calls calls) {
         String language = VoiceTextLanguage.normalize(languageHint);
         if (language == null) language = VoiceTextLanguage.guess((context + " " + raw).trim());
+        if (language == null) language = VoiceTextLanguage.normalize(languageFallback);
         String stripped = VoiceFillers.strip(raw.trim(), language);
         if (language == null) return new Outcome(stripped, null, 0, 0, null);
         List<VoiceCleanupGate.Group> groups = VoiceCleanupGate.groups(stripped, level);

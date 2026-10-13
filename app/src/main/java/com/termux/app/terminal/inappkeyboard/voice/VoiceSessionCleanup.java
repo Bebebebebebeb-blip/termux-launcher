@@ -41,6 +41,8 @@ public final class VoiceSessionCleanup {
     private volatile boolean cancelled;
     /** The speech model's language for the dictation; {@code null} reads it from the text. */
     @Nullable private volatile String languageHint;
+    /** The keyboard's or the phone's language, taken only when the text itself is unclear. */
+    @Nullable private volatile String languageFallback;
     /** Main-thread state. */
     private boolean warming;
     private final VoiceCleanupPlan plan;
@@ -113,6 +115,16 @@ public final class VoiceSessionCleanup {
      */
     public void setLanguageHint(@Nullable String iso639) {
         languageHint = VoiceTextLanguage.normalize(iso639);
+    }
+
+    /**
+     * The language to assume when there is no hint and the text does not say ({@link
+     * VoiceTextLanguage#guess} is unclear): the keyboard layout's or the phone's. Without it, a
+     * short part that reads as no language in particular gets its fillers stripped and nothing
+     * else. Any thread.
+     */
+    public void setLanguageFallback(@Nullable String iso639) {
+        languageFallback = VoiceTextLanguage.normalize(iso639);
     }
 
     /** Whether {@link #warm} is still loading the model. Main thread. */
@@ -208,7 +220,7 @@ public final class VoiceSessionCleanup {
                 String gated = "";
                 try {
                     VoiceGatedCleanup.Outcome outcome =
-                        VoiceGatedCleanup.clean(polisher, pass.raw, pass.context, level, languageHint);
+                        VoiceGatedCleanup.clean(polisher, pass.raw, pass.context, level, languageHint, languageFallback);
                     result = outcome.result(pass.raw, pass.early);
                     gated = " lang=" + (outcome.language == null ? "unclear" : outcome.language)
                         + " sent=" + outcome.calls + "/" + outcome.groups;

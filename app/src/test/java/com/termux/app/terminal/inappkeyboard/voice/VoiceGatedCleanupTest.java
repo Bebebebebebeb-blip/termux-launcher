@@ -90,6 +90,19 @@ public class VoiceGatedCleanupTest {
     }
 
     @Test
+    public void theFallbackLanguageIsTakenOnlyWhenTheTextIsUnclear() {
+        Recorder calls = new Recorder();
+        String spanish = "Mañana no puedo ir a la reunión porque tengo que llevar a mi hija al al médico.";
+        // The text says Spanish, so the keyboard's English does not override it.
+        VoiceGatedCleanup.clean(spanish, "", LIGHT, null, "en", calls);
+        assertTrue(calls.calls.get(0).endsWith("|es"));
+        // Text that reads as no language in particular takes the fallback and is still sent.
+        VoiceGatedCleanup.Outcome outcome = VoiceGatedCleanup.clean("uh the meeting ist um sieben", "", LIGHT,
+            null, "de", calls);
+        assertEquals("de", outcome.language);
+    }
+
+    @Test
     public void unclearLanguageOnlyStripsFillers() {
         Recorder calls = new Recorder();
         String raw = "uh the meeting ist um sieben";

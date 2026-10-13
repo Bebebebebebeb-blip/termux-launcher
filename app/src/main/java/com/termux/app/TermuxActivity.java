@@ -16093,6 +16093,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             String level = mPreferences.getInAppKeyboardVoicePolishLevel();
             VoiceSessionCleanup cleanup = new VoiceSessionCleanup(new LocalTaiVoiceTextPolisher(this, level), level);
             cleanup.carryOn(base, baseFinal, previous);
+            // A language the setting forces (or an English-only model) is certain; otherwise the
+            // speech model's own guess arrives later (onSpeechLanguage), and the keyboard's or the
+            // phone's language is assumed only for text that reads as no language in particular.
+            cleanup.setLanguageHint(language.forced != null ? language.forced
+                : com.termux.ai.TaiSpeechModels.isEnglishOnly(model) ? "en" : null);
+            cleanup.setLanguageFallback(VoiceLanguage.resolve(mPreferences.getInAppKeyboardVoiceLanguage(),
+                mInAppKeyboard == null ? null : mInAppKeyboard.getActiveTextLayoutId(), userLocale()).code);
             mVoiceCleanup = cleanup;
             cleanup.warm(this::refreshVoiceWarmUp);
         }
@@ -16709,6 +16716,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         @Override
         public void onSpeechLanguage(@NonNull String iso, boolean differsFromHint) {
             mVoiceSpokenLanguage = iso;
+            if (mVoiceCleanup != null) mVoiceCleanup.setLanguageHint(iso);
             // Named only when it was heard and is not the keyboard's or the phone's language, so
             // someone dictating in their own language sees nothing new.
             if (mVoiceIndicator != null) {
