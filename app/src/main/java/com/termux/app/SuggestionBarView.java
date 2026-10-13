@@ -2657,11 +2657,12 @@ public final class SuggestionBarView extends GridLayout
         boolean noActivePickup = activeLongPressPickupState == null && folderDragHoverIndex < 0;
         return new AppDrawerGestureArbiter.Eligibility(
             listener != null && listener.isAppDrawerEnabled(),
-            // The filtered apps row used to veto the pull-down, forcing a search clear before the
-            // drawer could open. A vertical pull is unambiguous even over filtered results — the
-            // page swipe stays horizontal — so the veto slot is permanently clear.
+            // The filtered apps row and a lingering A–Z preview used to veto the pull-down, forcing
+            // the row back to pinned apps before the drawer could open. A vertical pull is
+            // unambiguous over either — their page swipes stay horizontal, and the A–Z scrub itself
+            // runs in its own view's touch stream — so both veto slots are permanently clear.
             true,
-            activeAzLetter == null,
+            true,
             pull,
             listener != null && !listener.isSurfaceEditorActive(),
             listener != null && !listener.isCommandPaletteOpen(),
