@@ -62,6 +62,13 @@ under twenty items; past that, the oldest are re-judged first.
   or glyph pack (Whicons, Lines): glyphs keep their sizes and placement relative to one another.
   A pack with no margin looks as it always did; an app the pack does not map keeps the pack's own
   back plate · Waydroid, icon packs from F-Droid.
+- 2026-10-13 · `eff06de21`, `c111b7ed5` · Dictation cleanup from context on the phone's E2B: the
+  anchor dictation and the "translate this into French" case from
+  `project-docs/reference/voice-ai/voice-cleanup-context-rework-2026-10-13.md`, Light and Polished;
+  no "pinned app console" or "100%", the French request stays English, nothing falls back as
+  `refusal_or_answer`; cleanup's feature check passes its 500-word dictation; first-token time
+  within about 0.2 s of the old prompt's · pong with the go-ahead, the same request through
+  `/v1/chat/completions`.
 
 ## Developer
 

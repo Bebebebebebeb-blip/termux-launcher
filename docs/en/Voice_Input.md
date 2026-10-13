@@ -90,10 +90,12 @@ On **Home** with no search or field open, nothing takes typing, so the text is c
 
 ## Cleanup
 
-Cleanup is one pass a chat model makes over the whole dictation once it stops. It fixes
-punctuation, capitals, fillers and grammar, and resolves self-corrections ("at five, no, six"
-becomes "at six"). Changed and added words show in the accent colour and removed words struck
-through; **Insert** and **Copy** use the plain cleaned text.
+Cleanup is one pass a chat model makes over the whole dictation once it stops. It reads the
+whole passage and writes what you meant: misheard words replaced from context, broken sentences
+put back together, run-ons split, fillers removed and self-corrections resolved ("at five, no,
+six" becomes "at six"). It keeps your points and adds nothing you did not say. Changed and added
+words show in the accent colour and removed words struck through; **Insert** and **Copy** use the
+plain cleaned text.
 
 The settings are in the **Dictation cleanup** group of **Settings → Keyboard → Voice input**:
 
@@ -101,14 +103,16 @@ The settings are in the **Dictation cleanup** group of **Settings → Keyboard �
 | --- | --- | --- |
 | **Clean up dictation** | on or off | on |
 | **Cleanup model** | Opens the **Tidy dictation** picker: **Automatic**, an installed model, a **Remote** model, or **Raw text** (no model) | Automatic |
-| **Cleanup level** | **Light: punctuation, fillers and grammar, in your words. Runs on this phone.** or **Polished: also paragraphs and lists. Uses your remote model when one is set up.** | Polished |
+| **Cleanup level** | **Light**: one cleaned-up paragraph. **Polished**: also paragraphs and lists | Polished |
 | **Cleanup details** | What cleanup does, and shell commands | |
 
 **Automatic** uses Gemma 4 E2B, then E4B, then raw text. On a phone with 6 GB of RAM or less it
 means **Raw text**. The model loads while you speak, so the pass at the end does not wait for it.
-**Polished** uses the [remote model](On_Device_AI.md#remote-model) whenever one is set up, and the
-cleanup model otherwise. A Polished result's line breaks are pasted only into programs that accept
-bracketed paste; elsewhere they are joined with spaces.
+Both levels use the cleanup model. That is the [remote model](On_Device_AI.md#remote-model) when
+you pick it, when **Automatic** meets a remote model set to **Prefer remote**, or when a remote
+model set to **Only when no local model fits** steps in for a local model with no room. A Polished
+result's line breaks are pasted only into programs that accept bracketed paste; elsewhere they are
+joined with spaces.
 
 The text is **Kept as heard** when the dictation has fewer than 4 words, when it is a spoken
 command, when the model's answer looks like a reply instead of a cleanup (or drops most of your
