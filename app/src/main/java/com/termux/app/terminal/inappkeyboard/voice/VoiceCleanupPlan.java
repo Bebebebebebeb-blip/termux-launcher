@@ -14,7 +14,8 @@ import java.util.regex.Pattern;
 /**
  * Which parts of a dictation are cleaned when, so the wait after the user stops is only the text
  * since the last pause that was cleaned. Pure and main-thread only; {@link VoiceSessionCleanup}
- * runs the passes it hands out.
+ * runs the passes it hands out, each through the gate ({@link VoiceGatedCleanup}), which sends only
+ * the part's sentences that show a sign of trouble.
  *
  * <p><b>Early passes.</b> After a phrase lands in the panel, {@link #nextEarlyPass} hands out the
  * raw text since the last checkpoint when all of these hold: early passes are on (the cleanup model
@@ -380,7 +381,8 @@ public final class VoiceCleanupPlan {
         covered = "";
     }
 
-    private static boolean endsEarlyPasses(@NonNull String outcome) {
+    /** Whether {@code outcome} says the runtime is stuck or full, so no more calls are worth making this session. */
+    static boolean endsEarlyPasses(@NonNull String outcome) {
         if (!outcome.startsWith(VoiceTextPolisher.Result.OUTCOME_FALLBACK_PREFIX)) return false;
         return ENDS_EARLY_PASSES.contains(outcome.substring(VoiceTextPolisher.Result.OUTCOME_FALLBACK_PREFIX.length()));
     }

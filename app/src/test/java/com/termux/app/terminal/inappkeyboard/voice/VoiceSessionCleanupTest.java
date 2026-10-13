@@ -6,6 +6,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -73,9 +74,17 @@ public class VoiceSessionCleanupTest {
 
     private static final class FakePolisher implements VoiceTextPolisher {
         final List<String> calls = new ArrayList<>();
+        final List<String> languages = new ArrayList<>();
         String answer = "Cleaned.";
         boolean whileListening;
         String outcome;
+
+        @NonNull
+        @Override
+        public Result polish(@NonNull String text, @NonNull String context, @Nullable String language, long timeoutMs) {
+            languages.add(language);
+            return polish(text, context, timeoutMs);
+        }
 
         @NonNull
         @Override
@@ -111,12 +120,50 @@ public class VoiceSessionCleanupTest {
         assertFalse(cleanup.isWarming());
 
         List<String> got = new ArrayList<>();
-        cleanup.run("uh run the failing tests again", (raw, result) -> got.add(raw + "|" + result.text + "|" + result.outcome));
+        String raw = "uh run the the failing tests again on the branch";
+        cleanup.run(raw, (cleanedRaw, result) -> got.add(cleanedRaw + "|" + result.text + "|" + result.outcome));
         assertEquals(2, polisher.calls.size());
         assertEquals("warm", polisher.calls.get(0));
-        assertEquals("polish:uh run the failing tests again", polisher.calls.get(1));
+        // The filler is stripped before the model sees the text, and the language is named.
+        assertEquals("polish:run the the failing tests again on the branch", polisher.calls.get(1));
+        assertEquals(Collections.singletonList("en"), polisher.languages);
         assertEquals(1, got.size());
-        assertEquals("uh run the failing tests again|Cleaned.|polished", got.get(0));
+        assertEquals(raw + "|Cleaned.|polished", got.get(0));
+    }
+
+    @Test
+    public void cleanTextIsKeptAsHeardWithoutAModelCall() {
+        FakePolisher polisher = new FakePolisher();
+        VoiceSessionCleanup cleanup = new VoiceSessionCleanup(polisher, VoicePolishRules.LEVEL_LIGHT, new DirectExecutor(), Runnable::run);
+        cleanup.warm(() -> { });
+        List<VoiceTextPolisher.Result> got = new ArrayList<>();
+        String raw = "The keyboard opens fine in portrait mode. In landscape it covers half the screen.";
+        cleanup.run(raw, (cleanedRaw, result) -> got.add(result));
+        assertEquals(Collections.singletonList("warm"), polisher.calls);
+        assertEquals(raw, got.get(0).text);
+        assertEquals("fallback:unchanged", got.get(0).outcome);
+    }
+
+    @Test
+    public void fillersAloneAreStrippedWithoutAModelCall() {
+        FakePolisher polisher = new FakePolisher();
+        VoiceSessionCleanup cleanup = new VoiceSessionCleanup(polisher, VoicePolishRules.LEVEL_LIGHT, new DirectExecutor(), Runnable::run);
+        cleanup.warm(() -> { });
+        List<VoiceTextPolisher.Result> got = new ArrayList<>();
+        cleanup.run("So um, I think we should uh move the meeting to Thursday.", (raw, result) -> got.add(result));
+        assertEquals(Collections.singletonList("warm"), polisher.calls);
+        assertEquals("So I think we should move the meeting to Thursday.", got.get(0).text);
+        assertTrue(got.get(0).isPolished());
+    }
+
+    @Test
+    public void theSpeechModelsLanguageReachesTheModel() {
+        FakePolisher polisher = new FakePolisher();
+        VoiceSessionCleanup cleanup = new VoiceSessionCleanup(polisher, VoicePolishRules.LEVEL_LIGHT, new DirectExecutor(), Runnable::run);
+        cleanup.warm(() -> { });
+        cleanup.setLanguageHint("es-ES");
+        cleanup.run("Mañana no puedo ir a la la reunión del lunes.", (raw, result) -> { });
+        assertEquals(Collections.singletonList("es"), polisher.languages);
     }
 
     @Test
@@ -157,8 +204,9 @@ public class VoiceSessionCleanupTest {
         assertTrue(polisher.calls.isEmpty());
     }
 
-    private static final String SENTENCES =
-        "We are working on the branch. A user asked for bigger icons. The biggest size is small. Custom packs look off.";
+    /** Four sentences, each with a stutter, so the gate sends the whole part as one group. */
+    private static final String SENTENCES = "We are are working on the branch. A user user asked for bigger icons. "
+        + "The the biggest size is small. Custom packs packs look off.";
 
     @Test
     public void earlyPassesWaitForTheWarmUpAndTheEndCleansOnlyTheTail() {

@@ -99,6 +99,13 @@ under twenty items; past that, the oldest are re-judged first.
   stopped: the speech model closed", the pill settles; within 2 min the next dictation's cleanup
   logs `load held back on gpu` and keeps the text, `tai load gemma-4-e4b` goes ahead at its window;
   after 2 min cleanup loads E4B on the GPU at 2048 again (no half window) · pong with the go-ahead.
+- 2026-10-13 · commit "feat(voice): send only the sentences that need it to the cleanup model" ·
+  A real English dictation with "uh"/"um" in clean sentences and one stutter or "no wait": no
+  filler is left, the clean sentences come back word for word, and logcat `VoiceSessionCleanup`
+  shows `lang=en sent=N/M` with N below M (0 for a part with nothing to fix, `fallback:unchanged`
+  for a clean dictation). Then a Spanish (or German) dictation with "eh"/"äh": the fillers go,
+  the text stays in that language (`lang=es`), never English · pong with the go-ahead, Light and
+  Polished.
 
 ## Developer
 
