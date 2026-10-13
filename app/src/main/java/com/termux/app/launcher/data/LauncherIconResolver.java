@@ -15,6 +15,7 @@ import android.graphics.drawable.Drawable;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.termux.app.launcher.icon.DrawablePixels;
 import com.termux.app.launcher.model.AppRef;
 import com.termux.app.launcher.model.PinnedIconOverride;
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
@@ -107,11 +108,11 @@ public final class LauncherIconResolver {
         @Nullable PinnedIconOverride override,
         @Nullable Drawable systemFallback
     ) {
-        Drawable icon = loadOverride(override);
+        Drawable icon = packArtwork(loadOverride(override));
         if (icon != null) return new ResolvedIcon(icon, true);
 
         if (configRepository != null) {
-            icon = loadOverride(configRepository.loadAppIconOverride(ref));
+            icon = packArtwork(loadOverride(configRepository.loadAppIconOverride(ref)));
             if (icon != null) return new ResolvedIcon(icon, true);
         }
 
@@ -139,7 +140,7 @@ public final class LauncherIconResolver {
         @Nullable PinnedIconOverride override,
         @Nullable Drawable globalIcon
     ) {
-        Drawable icon = loadOverride(override);
+        Drawable icon = packArtwork(loadOverride(override));
         if (icon != null) return icon;
 
         if (preferences != null) {
@@ -160,7 +161,7 @@ public final class LauncherIconResolver {
         @Nullable Drawable globalIcon,
         boolean globalIconPackArtwork
     ) {
-        Drawable icon = loadOverride(override);
+        Drawable icon = packArtwork(loadOverride(override));
         if (icon != null) return new ResolvedIcon(icon, true);
         if (preferences != null) {
             String pinnedPack = preferences.getAppLauncherPinnedIconPackPackage();
@@ -186,6 +187,11 @@ public final class LauncherIconResolver {
         iconPackRepository.loadIconPack(packageName);
     }
 
+    /**
+     * The drawable an override names, as the pack ships it, which is all a check that the
+     * override still exists needs. Resolving one for an icon goes through {@link #packArtwork}
+     * as well.
+     */
     @Nullable
     public Drawable loadOverride(@Nullable PinnedIconOverride override) {
         if (override == null || !override.isValid()) return null;
@@ -223,10 +229,26 @@ public final class LauncherIconResolver {
         if (pack == null) return null;
         String drawableName = pack.drawableForComponent(ref.packageName, ref.activityName, Calendar.getInstance().get(Calendar.DAY_OF_MONTH));
         if (drawableName != null) {
-            Drawable mapped = loadDrawableFromPack(pack.info.packageName, drawableName);
+            Drawable mapped = packArtwork(loadDrawableFromPack(pack.info.packageName, drawableName));
             if (mapped != null) return mapped;
         }
+        // A composed icon is the system icon drawn at the pack's own scale on its own back plate,
+        // which is the size the pack asked for; it is not trimmed.
         return composeUnmappedIcon(pack, ref, systemFallback);
+    }
+
+    /**
+     * A pack's own drawable for an app, drawn so its artwork spans what a stock icon's does. Pack
+     * PNGs usually carry a transparent margin, and every surface draws every source into the
+     * same box, so the pack icon came out smaller than the stock one beside it at every size.
+     * Measured once here, when the icon is resolved, so every surface showing it benefits and no
+     * frame pays for it.
+     */
+    @Nullable
+    private Drawable packArtwork(@Nullable Drawable drawable) {
+        if (drawable == null) return null;
+        return DrawablePixels.fillFootprint(context.getResources(), drawable,
+            DrawablePixels.stockIconExtent());
     }
 
     @Nullable

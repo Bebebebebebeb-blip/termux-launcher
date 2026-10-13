@@ -106,6 +106,7 @@ import com.termux.app.launcher.popup.MenuRow;
 import com.termux.app.launcher.popup.MenuRowFactory;
 import com.termux.app.launcher.popup.MenuRowWidths;
 import com.termux.app.launcher.popup.MenuSpec;
+import com.termux.app.launcher.icon.ArtworkFootprint;
 import com.termux.app.launcher.icon.AsyncIconBinder;
 import com.termux.app.launcher.icon.DockIconCache;
 import com.termux.app.launcher.icon.RenderedIconDrawable;
@@ -2217,28 +2218,10 @@ public final class SuggestionBarView extends GridLayout
         int height = bitmap.getHeight();
         int[] pixels = new int[width * height];
         bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
-        int maxAlpha = 0;
-        for (int pixel : pixels) {
-            maxAlpha = Math.max(maxAlpha, pixel >>> 24);
-        }
-        int threshold = Math.max(8, Math.round(maxAlpha * 0.25f));
-        int left = width;
-        int top = height;
-        int right = -1;
-        int bottom = -1;
-        for (int y = 0; y < height; y++) {
-            int row = y * width;
-            for (int x = 0; x < width; x++) {
-                if ((pixels[row + x] >>> 24) < threshold) continue;
-                left = Math.min(left, x);
-                top = Math.min(top, y);
-                right = Math.max(right, x);
-                bottom = Math.max(bottom, y);
-            }
-        }
-        return right >= left && bottom >= top
-            ? new Rect(left, top, right + 1, bottom + 1)
-            : new Rect();
+        int[] visible = ArtworkFootprint.visibleBounds(pixels, width, height);
+        return visible == null
+            ? new Rect()
+            : new Rect(visible[0], visible[1], visible[2], visible[3]);
     }
 
     private void approximateAzSlotIconBounds(int slot, int slotCount, @NonNull int[] rowLocation,

@@ -44,6 +44,11 @@ under twenty items; past that, the oldest are re-judged first.
   page at the top Icon size on a 360dp-wide screen: the icons shrink to fit their slots and never
   touch or overlap, on the pinned row, the A–Z preview and a page swipe; seven apps keep the
   slider's size · Waydroid, `wm size` for 360dp, both Styles.
+- 2026-10-13 · commit "feat(launcher): draw icon-pack icons as big as stock icons" · With a PNG
+  icon pack that leaves a margin (and a vector one if at hand): its icons in the dock, the drawer,
+  a pinned override and a notification look as big as stock icons beside them, not cropped and
+  not blurry; an app the pack does not map keeps the pack's own back plate and scale · Waydroid,
+  icon pack installed from F-Droid.
 
 ## Developer
 
