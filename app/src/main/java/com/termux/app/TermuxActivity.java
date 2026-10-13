@@ -16059,16 +16059,19 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             launchVoiceTyping(false);
             return;
         }
-        // Text still waiting in the panel is carried on from rather than lost, a cleanup still
-        // running on it included (the new dictation's pass covers the whole text); a pill that is
-        // only saying what became of used text gives way. An edit still open is kept first, so
-        // the new dictation carries on from it.
+        // Text still waiting in the panel is carried on from rather than lost; a pill that is
+        // only saying what became of used text gives way. Waiting text that is a cleanup or an
+        // edit is final and is not cleaned again; text as heard is, and a cleanup still running on
+        // it hands over what it had cleaned. An edit still open is kept first, so the new
+        // dictation carries on from it.
         endVoiceEdit();
         String base = mVoiceDictation.carryOver();
+        boolean baseFinal = !base.trim().equals(mVoiceDictation.raw().trim());
+        VoiceSessionCleanup previous = null;
         if (base.isEmpty()) {
             closeVoicePill();
         } else {
-            VoiceSessionCleanup previous = mVoiceCleanup;
+            previous = mVoiceCleanup;
             mVoiceCleanup = null;
             if (previous != null) previous.cancel();
             getWindow().getDecorView().removeCallbacks(mVoicePillAutoClose);
@@ -16077,12 +16080,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mVoiceTiedToKeyboard = fromKeyboard;
         mVoiceDictation.start(base);
         // Phrases collect as heard; with cleanup on, the chat model resolves and loads on its own
-        // thread while the user speaks, and one pass cleans the whole dictation at the end. With
-        // no Gemma installed that pass hands the raw text back and nothing changes.
+        // thread while the user speaks, cleans what was said so far at phrase pauses when it is
+        // quick enough, and cleans the rest at the end. With no Gemma installed the passes hand
+        // the raw text back and nothing changes.
         if (mPreferences.isInAppKeyboardVoicePolishEnabled()) {
-            VoiceTextPolisher polisher = new LocalTaiVoiceTextPolisher(this,
-                mPreferences.getInAppKeyboardVoicePolishLevel());
-            VoiceSessionCleanup cleanup = new VoiceSessionCleanup(polisher);
+            String level = mPreferences.getInAppKeyboardVoicePolishLevel();
+            VoiceSessionCleanup cleanup = new VoiceSessionCleanup(new LocalTaiVoiceTextPolisher(this, level), level);
+            cleanup.carryOn(base, baseFinal, previous);
             mVoiceCleanup = cleanup;
             cleanup.warm(this::refreshVoiceWarmUp);
         }
@@ -16437,10 +16441,19 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         return true;
     }
 
-    /** One transcribed phrase into the panel, as heard; nothing reaches the terminal. */
+    /**
+     * One transcribed phrase into the panel, as heard; nothing reaches the terminal. The cleanup
+     * may clean what was said so far in the background, shown only once the dictation ends.
+     */
     private void appendVoicePhrase(@NonNull String transcript) {
         String piece = mVoiceDictation.append(transcript);
         if (piece.isEmpty()) return;
+        VoiceSessionCleanup cleanup = mVoiceCleanup;
+        VoiceInputSession session = mVoiceInput;
+        if (cleanup != null) {
+            cleanup.onPhrase(mVoiceDictation.raw(), session != null && session.isTranscribing(),
+                mVoiceDictation.isByHand());
+        }
         // While the text is open in the editor the phrase joins the draft's end instead.
         if (mVoiceCardEdit != null && mVoiceCardEdit.onPhrase(piece)) return;
         if (mVoiceIndicator != null) mVoiceIndicator.appendTranscript(piece);
@@ -16449,8 +16462,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     /**
      * The microphone is released and every phrase delivered. Nothing heard closes the pill; a
      * dictated command is written as one ({@link VoiceCommandFormatter}, no model, cleanup on or
-     * off); with cleanup on and something worth cleaning, the one pass runs; otherwise the text
-     * waits as heard.
+     * off); with cleanup on and something worth cleaning, what the passes during the dictation
+     * have not cleaned is cleaned now; otherwise the text waits as heard.
      */
     private void finishVoiceSession(@NonNull VoiceInputSession.EndReason reason) {
         mVoiceDictation.onStopped();
@@ -16491,7 +16504,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (cleanup != null && cleanable) {
             indicator.setCleaningUp();
             cleanup.run(raw, (cleanedRaw, result) -> onVoiceCleaned(cleanup, cleanedRaw, result));
-            cleanup.close();
             return;
         }
         mVoiceCleanup = null;
@@ -16501,8 +16513,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     /**
-     * The one pass has landed. Anything but a real change keeps the text as heard; a change shows
-     * with its words marked. Either way the text now waits for the panel's buttons. A pass that
+     * The cleanup has landed, the whole text at once. Anything but a real change keeps the text
+     * as heard; a change shows with its words marked. Either way the text now waits for the panel's buttons. A pass that
      * is no longer the dictation's own — a resume or a discard replaced it, or the text moved on
      * from what it cleaned — is dropped, so an older version never comes back over the panel.
      */

@@ -69,6 +69,15 @@ under twenty items; past that, the oldest are re-judged first.
   `refusal_or_answer`; cleanup's feature check passes its 500-word dictation; first-token time
   within about 0.2 s of the old prompt's · pong with the go-ahead, the same request through
   `/v1/chat/completions`.
+- 2026-10-13 · commit "feat(voice): clean dictation at phrase pauses while the user speaks" · A
+  90-second dictation with E2B on the GPU, Polished then Light: logcat `VoiceSessionCleanup` shows
+  `cleanup early` lines while listening and a `cleanup session` line with `cleanupMs` about 1–2 s
+  after Pause (was about 8 s); phrases keep transcribing at their usual speed while a pass runs; the
+  card shows the text as heard until it swaps once to the cleaned text with marks; the joined text
+  reads as one passage (no repeated sentence at a part boundary, a counted list on its own lines);
+  no `fallback:context_echo`. Then: edit the text mid-dictation (no cleanup lands), Pause and resume
+  (only the new speech is cleaned), and a CPU-only cleanup model (no `cleanup early` lines) · pong
+  with the go-ahead.
 
 ## Developer
 

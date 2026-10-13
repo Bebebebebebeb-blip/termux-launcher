@@ -270,6 +270,11 @@ public final class VoiceInputSession {
         return stopRequested.get();
     }
 
+    /** Whether a captured phrase is still transcribing, so another transcript is on its way. Main thread. */
+    public boolean isTranscribing() {
+        return submitted.get() > delivered;
+    }
+
     // ------------------------------------------------------------------ capture thread
 
     private void capture(@NonNull AudioRecord recorder) {
@@ -432,8 +437,8 @@ public final class VoiceInputSession {
             }
             String text = result.optString("text", "");
             logPhrase(segmentMs, voicedMs, transcribeMs, result, text.length(), outcomeFor(text));
-            // Delivered as heard: any cleanup is one pass over the whole session once it has ended
-            // (VoiceSessionCleanup), so no phrase ever waits for a chat model.
+            // Delivered as heard: cleanup runs on its own thread over parts of the text at pauses
+            // and at the end (VoiceSessionCleanup), so no phrase ever waits for a chat model.
             deliver(sequence, text);
         } catch (IOException | JSONException | RuntimeException e) {
             long transcribeMs = (System.nanoTime() - start) / 1_000_000L;
