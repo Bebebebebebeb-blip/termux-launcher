@@ -272,25 +272,27 @@ public final class AppearanceLooks {
 
     /**
      * The Icon size slider's ends, {@code {min, max}} in dp: the smallest and largest pinned icon
-     * the dock draws under the Style on a screen of this density. The stored dock height scale
+     * the dock draws under the Style on a screen of this density, for a row that stands
+     * {@code alone} in its container or shares it. The stored dock height scale
      * moves the icon only between {@link DockLayoutPolicy#minUsefulScale} and
      * {@link DockLayoutPolicy#maxUsefulScale}, so a slider over these ends moves it everywhere.
      */
     @NonNull
-    public static int[] iconSizeRangeDp(boolean floating, float density) {
+    public static int[] iconSizeRangeDp(boolean floating, boolean alone, float density) {
         float d = safeDensity(density);
         return new int[] {
-            iconDp(DockLayoutPolicy.iconPxForScale(floating,
+            iconDp(DockLayoutPolicy.iconPxForScale(floating, alone,
                 DockLayoutPolicy.minUsefulScale(), d), d),
-            iconDp(DockLayoutPolicy.iconPxForScale(floating,
+            iconDp(DockLayoutPolicy.iconPxForScale(floating, alone,
                 DockLayoutPolicy.maxUsefulScale(floating), d), d)};
     }
 
     /** Where the Icon size slider stands for a stored dock height scale: the icon it draws. */
-    public static int iconSizeValueFor(boolean floating, float scale, float density) {
+    public static int iconSizeValueFor(boolean floating, boolean alone, float scale,
+                                       float density) {
         float d = safeDensity(density);
-        int[] range = iconSizeRangeDp(floating, d);
-        return clamp(iconDp(DockLayoutPolicy.iconPxForScale(floating,
+        int[] range = iconSizeRangeDp(floating, alone, d);
+        return clamp(iconDp(DockLayoutPolicy.iconPxForScale(floating, alone,
             DockLayoutPolicy.clampToUsefulScale(floating, scale), d), d), range[0], range[1]);
     }
 
@@ -299,18 +301,19 @@ public final class AppearanceLooks {
      * shipped preset that reads as this value is preferred, so the slider brought back to the
      * default's reading stores the default rather than a scale a pixel away from it.
      */
-    public static float dockScaleForIconSize(boolean floating, int iconDp, float density) {
+    public static float dockScaleForIconSize(boolean floating, boolean alone, int iconDp,
+                                             float density) {
         float d = safeDensity(density);
-        int[] range = iconSizeRangeDp(floating, d);
+        int[] range = iconSizeRangeDp(floating, alone, d);
         int dp = clamp(iconDp, range[0], range[1]);
         for (int i = 0; i < DockLayoutPolicy.sizePresetCount(); i++) {
             float preset = DockLayoutPolicy.sizePreset(i);
             if (preset >= DockLayoutPolicy.minUsefulScale()
                 && preset <= DockLayoutPolicy.maxUsefulScale(floating)
-                && iconSizeValueFor(floating, preset, d) == dp)
+                && iconSizeValueFor(floating, alone, preset, d) == dp)
                 return preset;
         }
-        return DockLayoutPolicy.scaleForIconPx(floating, Math.round(dp * d), d);
+        return DockLayoutPolicy.scaleForIconPx(floating, alone, Math.round(dp * d), d);
     }
 
     private static int iconDp(int px, float density) {

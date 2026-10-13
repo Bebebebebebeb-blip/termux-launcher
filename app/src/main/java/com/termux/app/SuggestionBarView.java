@@ -8467,11 +8467,15 @@ public final class SuggestionBarView extends GridLayout
         // band it would be the band less the air less the air again.
         if (dockIconSizePx > 0)
             return dockIconSizePx;
+        // The box the dock hands over is the band less its air, which is the icon itself, alone
+        // or sharing its container; a fill ratio of it would draw a lone row's icons small.
+        int hintPx = rowHeightHintPx();
+        if (hintPx > 0)
+            return hintPx;
         // Only when it has not does the measured host decide, and then it is capped: a plank
         // measured before it was sized, or a stack that swallowed the whole content column, is a
         // host several screens tall and must not scale one pinned icon across it.
-        int availableHeight = rowHeightHintPx();
-        if (availableHeight <= 0) availableHeight = measuredRowHeightPx();
+        int availableHeight = measuredRowHeightPx();
         if (availableHeight <= 0) {
             return Math.max(dp(20), Math.round(24f * iconScale * getResources().getDisplayMetrics().density));
         }

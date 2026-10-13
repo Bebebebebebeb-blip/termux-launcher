@@ -258,11 +258,12 @@ public class DockLayoutPolicyTest {
     @Test
     public void theSizeControlsIconIsTheDocksIcon() {
         assertEquals(expectedIconPx,
-            DockLayoutPolicy.iconPxForScale(capsule, preset, BASE_TOOLBAR_PX, DENSITY));
-        assertEquals(expectedIconPx, DockLayoutPolicy.iconPxForScale(capsule, preset, DENSITY));
+            DockLayoutPolicy.iconPxForScale(capsule, false, preset, BASE_TOOLBAR_PX, DENSITY));
+        assertEquals(expectedIconPx,
+            DockLayoutPolicy.iconPxForScale(capsule, false, preset, DENSITY));
         if (preset <= DockLayoutPolicy.maxUsefulScale(capsule)) {
             assertEquals(preset,
-                DockLayoutPolicy.scaleForIconPx(capsule, expectedIconPx, DENSITY), 0f);
+                DockLayoutPolicy.scaleForIconPx(capsule, false, expectedIconPx, DENSITY), 0f);
         }
     }
 
@@ -336,7 +337,7 @@ public class DockLayoutPolicyTest {
     }
 
     @Test
-    public void aRowStandingAloneKeepsASliverOfAirAndTheSameIcon() {
+    public void aRowStandingAloneKeepsASliverOfAirAndFillsItsBaseline() {
         // The complaint: a row on a plank of its own was spaced like a row on a dock with two
         // others under it — the dock's paddings inside the sheet, the plank's margin outside it.
         DockLayout shared = DockLayoutPolicy.compute(inputs(2.18f, true, false).build());
@@ -360,16 +361,18 @@ public class DockLayoutPolicyTest {
         assertEquals(stripPx, alone.appsRowTickSideAirPx);
         assertEquals("the strip fills that side, so the row keeps nothing of it",
             0, alone.appsRowPaddingBesideTicksPx());
-        // The icon is the same size either way: only the air around it changes.
-        assertEquals(shared.appsRowIconPx, alone.appsRowIconPx);
-        // P8's baseline, untouched: a lone row is still formed around the preset's own baseline
-        // rather than around the icon, so the box its icons stand in is the one it drew.
+        // Updated with a reason: alone, the icon fills the preset's baseline instead of taking
+        // the shared row's fill ratio of it, which left a tall bar around a small icon.
+        assertEquals(108, shared.appsRowIconPx);
+        assertEquals(135, alone.appsRowIconPx);
+        assertEquals(135, aloneNoTicks.appsRowIconPx);
+        // P8's baseline, untouched: the box a lone row's icons stand in is the one it always
+        // drew, so the bar is exactly as tall as it was.
         assertEquals(135, alone.appsRowBandHintPx);
         assertEquals("band = icon box + the ticks' 9dp band on both sides",
             135 + (2 * stripPx), alone.appsRowBandPx);
         // Updated for Q7 with a reason: the shared row is the tighter of the two now. Its band is
-        // the icon and its air, where the lone row's is a baseline that still carries the preset's
-        // leftover around the same icon.
+        // the icon and its air, where the lone row's is the whole baseline its larger icon fills.
         assertTrue("and the shared row is the tighter for it",
             shared.appsRowBandPx < alone.appsRowBandPx);
         assertEquals(25, shared.appsTopPaddingPx);

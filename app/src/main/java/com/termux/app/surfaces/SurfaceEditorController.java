@@ -127,6 +127,11 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         void hideInAppKeyboardForEditor();
         boolean isFloatingDock();
         /**
+         * The pinned-apps row shares its container with nothing, so its icons fill the bar
+         * rather than a share of it: the Icon size slider reads its dp off that icon.
+         */
+        boolean isAppsRowAlone();
+        /**
          * Holds the top status bar expanded for the editor, or lets it rest as it is stored: a
          * transient state that animates the bar's height like a fold does but never writes the
          * stored compact/expanded choice. A side-edge bar cannot expand, so there it does nothing.
@@ -1826,7 +1831,8 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             boolean enabled = control == Control.CONTRAST ? palette : edge;
             if (control == Control.ICON_SIZE) {
                 // The icons the dock can give under this Style on this screen, end to end.
-                int[] range = AppearanceLooks.iconSizeRangeDp(mHost.isFloatingDock(), density());
+                int[] range = AppearanceLooks.iconSizeRangeDp(mHost.isFloatingDock(),
+                    mHost.isAppsRowAlone(), density());
                 states.add(new AppearanceEditorPanel.SliderState(control, valueOf(control, prefs),
                     enabled, legendFor(control, enabled), range[0], range[1]));
                 continue;
@@ -1876,7 +1882,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                 return AppearanceLooks.keySpacingValueFor(prefs.getInAppKeyboardKeyMarginScale());
             case ICON_SIZE:
                 return AppearanceLooks.iconSizeValueFor(mHost.isFloatingDock(),
-                    dockHeightScale(prefs), density());
+                    mHost.isAppsRowAlone(), dockHeightScale(prefs), density());
             case APP_ICONS:
                 return AppearanceLooks.appIconsValueFor(prefs.getAppLauncherButtonCount());
             case BEND:
@@ -2439,10 +2445,11 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     private void writeIconSize(int iconDp) {
         TermuxAppSharedPreferences prefs = prefs();
         boolean floating = mHost.isFloatingDock();
-        if (prefs != null && AppearanceLooks.iconSizeValueFor(floating, dockHeightScale(prefs),
-                density()) == iconDp)
+        boolean alone = mHost.isAppsRowAlone();
+        if (prefs != null && AppearanceLooks.iconSizeValueFor(floating, alone,
+                dockHeightScale(prefs), density()) == iconDp)
             return;
-        float scale = AppearanceLooks.dockScaleForIconSize(floating, iconDp, density());
+        float scale = AppearanceLooks.dockScaleForIconSize(floating, alone, iconDp, density());
         LayoutEditorController layout = mHost.layoutEditor();
         if (layout != null && mSliderDragActive) {
             layout.holdDockHeightScale(scale);

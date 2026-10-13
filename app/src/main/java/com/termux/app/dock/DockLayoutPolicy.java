@@ -139,8 +139,9 @@ public final class DockLayoutPolicy {
         public final boolean appsOnRail;
         /**
          * The row shares its container with nothing else — the only dock row on the bottom edge, or
-         * the only bar on its plank off the dock, which a rail always is. It is what swaps the
-         * dock's own paddings for {@link #LONE_ROW_AIR_DP}; the icon is the same size either way.
+         * the only bar on its plank off the dock, which a rail always is. It swaps the dock's own
+         * paddings for {@link #LONE_ROW_AIR_DP}, and lets the icon fill the preset's whole
+         * baseline rather than a share of it ({@link #iconPxForScale}).
          */
         public final boolean appsRowAlone;
         /**
@@ -311,7 +312,8 @@ public final class DockLayoutPolicy {
         out.defaultAppsBottomPaddingPx = Math.round(density * LEGACY_DEFAULT_BOTTOM_PADDING_DP);
         // The pair above is the legacy spacing of the dock's three rows on one sheet. It is no
         // longer any row's padding: it survives only as the baseline the icon's size is read out
-        // of ({@link #iconBaselinePx}), so a given preset draws exactly the icon it always drew.
+        // of ({@link #iconBaselinePx}), so a given preset draws exactly the icon it always drew in
+        // a shared row, and a lone row exactly the band it always had.
         int loneAirPx = loneRowAirPx(density);
         // The band the page ticks stand in is that side's air, not a band beside it. It used to
         // stack on top of the air, so the icon sat half a strip below the middle of what the two
@@ -355,17 +357,15 @@ public final class DockLayoutPolicy {
                 ? iconBaselinePx(capsule, in.barHeightScale, in.baseToolbarHeightPx, density,
                     in.additionalAppsBarHeightPx)
                 : 0;
-            out.appsRowIconPx = iconBaselinePx <= 0
-                ? 0 : dockIconSizePx(iconBaselinePx, out.iconScale, density);
+            out.appsRowIconPx =
+                rowIconPx(iconBaselinePx, out.iconScale, in.appsRowAlone, density);
             // The band a lying-down apps row claims, whichever edge it lies on: the icon and the
             // air either side of it, and nothing else. The dock's own height is that band while
             // the row is the dock's; a row standing along the top is the same band in another
-            // stack, and the dock collapses to nothing. Alone the row is still formed around the
-            // baseline rather than the icon, so P8's numbers are exactly what they were.
+            // stack, and the dock collapses to nothing. A lone row's icon is the baseline itself
+            // (see rowIconPx), so its band is the height each size has always given it.
             out.appsRowBandPx = iconBaselinePx <= 0
-                ? 0
-                : (in.appsRowAlone ? iconBaselinePx : out.appsRowIconPx)
-                    + airPx + tickSideAirPx;
+                ? 0 : out.appsRowIconPx + airPx + tickSideAirPx;
             // The dock's own row view is the band less the strip's share of it: the ticks stand
             // in the host beside the pager rather than inside it, and between them they are the
             // band. Nothing is reserved for the strip on top of the air.
@@ -483,6 +483,18 @@ public final class DockLayoutPolicy {
     }
 
     /**
+     * The pinned icon a row lying down draws from its preset's baseline. Sharing its container the
+     * row's band is formed around the icon, a fill ratio of the baseline. Alone, the band is the
+     * baseline itself, the height every size has always given a lone bar, and the icon fills it:
+     * a fill ratio there left a tall bar around a small icon. Width still has the last word
+     * ({@link #slotFitIconPx}).
+     */
+    private static int rowIconPx(int baselinePx, float iconScale, boolean alone, float density) {
+        if (baselinePx <= 0) return 0;
+        return alone ? baselinePx : dockIconSizePx(baselinePx, iconScale, density);
+    }
+
+    /**
      * One pinned icon in the form that lies down: a fill ratio of the row's content box, floored
      * at a thumb-sized 20dp and never taller than the box it is centred in.
      *
@@ -517,9 +529,9 @@ public final class DockLayoutPolicy {
 
     /**
      * The shortest box a pinned-apps row lying down is ever handed: its smallest icon,
-     * {@link #MIN_DOCK_ICON_DP}. The row's box is its icon (or, alone, the baseline the icon is a
-     * share of), so a row that asks for more than this before it renders refuses sizes the dock
-     * really gives it — Docked at the bottom of the size stretch is a 21dp box.
+     * {@link #MIN_DOCK_ICON_DP}. The row's box is its icon, so a row that asks for more than this
+     * before it renders refuses sizes the dock really gives it — Docked sharing its container at
+     * the bottom of the size stretch is a 21dp box.
      */
     public static int minRowContentPx(float density) {
         return Math.round(Math.max(0f, density) * MIN_DOCK_ICON_DP);
@@ -564,19 +576,26 @@ public final class DockLayoutPolicy {
 
     /**
      * The pinned icon a stored dock size draws, lying down, with no tuning drag on top: exactly
-     * the {@link DockLayout#appsRowIconPx} {@link #compute} gives for that scale. The dock's band
-     * is this icon and its air, so it is the one figure the size control moves.
+     * the {@link DockLayout#appsRowIconPx} {@link #compute} gives for that scale and the same
+     * {@code alone} ({@link DockInputs#appsRowAlone}). The dock's band is this icon and its air, so
+     * it is the one figure the size control moves. A lone row's icon is the larger of the two at
+     * every size, since it fills the band a shared row only takes a share of.
      */
-    public static int iconPxForScale(boolean capsule, float barHeightScale,
+    public static int iconPxForScale(boolean capsule, boolean alone, float barHeightScale,
                                      int baseToolbarHeightPx, float density) {
         int baselinePx = iconBaselinePx(capsule, barHeightScale, baseToolbarHeightPx, density, 0);
-        return baselinePx <= 0 ? 0 : dockIconSizePx(baselinePx,
-            iconScaleFor(capsule, styleProgress(capsule, barHeightScale)), density);
+        return rowIconPx(baselinePx,
+            iconScaleFor(capsule, styleProgress(capsule, barHeightScale)), alone, density);
     }
 
-    /** As {@link #iconPxForScale(boolean, float, int, float)} on the shipped extra-keys row. */
-    public static int iconPxForScale(boolean capsule, float barHeightScale, float density) {
-        return iconPxForScale(capsule, barHeightScale, baseToolbarHeightPx(density), density);
+    /**
+     * As {@link #iconPxForScale(boolean, boolean, float, int, float)} on the shipped extra-keys
+     * row.
+     */
+    public static int iconPxForScale(boolean capsule, boolean alone, float barHeightScale,
+                                     float density) {
+        return iconPxForScale(capsule, alone, barHeightScale, baseToolbarHeightPx(density),
+            density);
     }
 
     /** {@link #BASE_TOOLBAR_HEIGHT_DP} in pixels. */
@@ -616,13 +635,13 @@ public final class DockLayoutPolicy {
      * preset that draws that icon is the answer before anything else, so a control brought back
      * to a preset's icon stores the preset itself; otherwise the smallest scale that draws it.
      */
-    public static float scaleForIconPx(boolean capsule, int iconPx, int baseToolbarHeightPx,
-                                       float density) {
+    public static float scaleForIconPx(boolean capsule, boolean alone, int iconPx,
+                                       int baseToolbarHeightPx, float density) {
         float min = minUsefulScale();
         float max = maxUsefulScale(capsule);
         for (float preset : SIZE_PRESETS) {
             if (preset >= min && preset <= max
-                && iconPxForScale(capsule, preset, baseToolbarHeightPx, density) == iconPx)
+                && iconPxForScale(capsule, alone, preset, baseToolbarHeightPx, density) == iconPx)
                 return preset;
         }
         int steps = Math.max(1, Math.round((max - min) / ICON_SEARCH_STEP_SCALE));
@@ -631,7 +650,7 @@ public final class DockLayoutPolicy {
         for (int i = 0; i <= steps; i++) {
             float scale = min + (max - min) * i / steps;
             int diff = Math.abs(
-                iconPxForScale(capsule, scale, baseToolbarHeightPx, density) - iconPx);
+                iconPxForScale(capsule, alone, scale, baseToolbarHeightPx, density) - iconPx);
             if (diff < bestDiff) {
                 bestDiff = diff;
                 best = scale;
@@ -641,9 +660,13 @@ public final class DockLayoutPolicy {
         return best;
     }
 
-    /** As {@link #scaleForIconPx(boolean, int, int, float)} on the shipped extra-keys row. */
-    public static float scaleForIconPx(boolean capsule, int iconPx, float density) {
-        return scaleForIconPx(capsule, iconPx, baseToolbarHeightPx(density), density);
+    /**
+     * As {@link #scaleForIconPx(boolean, boolean, int, int, float)} on the shipped extra-keys
+     * row.
+     */
+    public static float scaleForIconPx(boolean capsule, boolean alone, int iconPx,
+                                       float density) {
+        return scaleForIconPx(capsule, alone, iconPx, baseToolbarHeightPx(density), density);
     }
 
     /** The progress a style's icon curve reads: its own window, or Docked's shifted one. */
@@ -653,8 +676,9 @@ public final class DockLayoutPolicy {
 
     /**
      * The row content an icon is a fill ratio of, for a stored size: the preset's baseline band
-     * less the legacy paddings. Shared by {@link #compute} and {@link #iconPxForScale} so the
-     * dock and its size control can never disagree about the icon.
+     * less the legacy paddings. A lone row's icon is all of it ({@link #rowIconPx}). Shared by
+     * {@link #compute} and {@link #iconPxForScale} so the dock and its size control can never
+     * disagree about the icon.
      */
     private static int iconBaselinePx(boolean capsule, float barHeightScale,
                                       int baseToolbarHeightPx, float density,

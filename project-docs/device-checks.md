@@ -141,3 +141,10 @@ under twenty items; past that, the oldest are re-judged first.
   linked from `~/.claude/skills/`, Claude Code and Codex each: open a pane beside the shell and
   wait on it; answer "how do I change the terminal font" from the docs, naming the settings path;
   with the speech skill, read one answer aloud and stop when told · pong, by hand.
+- 2026-10-13 · commit "fix(dock): let a lone pinned-apps row's icons fill its bar" · The pinned
+  apps alone on their dock or plank (no A–Z row, no extra keys), Docked and Floating, Icon size at
+  its smallest, the default and its largest, with 5 and 10 apps, keyboard up and down: the bar is
+  as tall as before and the icons fill it, centred between the ticks and the far rim; 10 apps
+  never touch; an A–Z scrub's matches in that row are the same size; the Icon size slider reads
+  the bigger icon, and adding an A–Z row in Layout shrinks the icons back to today's size · pong,
+  by hand.
