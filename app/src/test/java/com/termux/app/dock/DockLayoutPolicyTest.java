@@ -347,9 +347,11 @@ public class DockLayoutPolicyTest {
         DockLayout aloneNoTicks = DockLayoutPolicy.compute(inputs(2.18f, true, false)
             .appsRowAlone(true).appsRowPageStripShown(false).build());
         int sliverPx = DockLayoutPolicy.loneRowAirPx(DENSITY);
-        int stripPx = PageTickStrip.bandPx(DENSITY);
+        int stripPx = DockLayoutPolicy.stripBandPx(true, DENSITY);
         assertEquals("4dp at density 2.75", 11, sliverPx);
-        assertEquals("9dp at density 2.75", 25, stripPx);
+        // Updated with a reason: a lone row's ticks stand in a band of their own, a size down from
+        // the strip's 9dp, which a bar one icon tall spent twice over.
+        assertEquals("6.5dp at density 2.75", 18, stripPx);
         assertEquals(sliverPx, aloneNoTicks.appsTopPaddingPx);
         assertEquals(sliverPx, aloneNoTicks.appsRowTickSideAirPx);
         assertEquals(135 + (2 * sliverPx), aloneNoTicks.appsRowBandPx);
@@ -369,7 +371,7 @@ public class DockLayoutPolicyTest {
         // P8's baseline, untouched: the box a lone row's icons stand in is the one it always
         // drew, so the bar is exactly as tall as it was.
         assertEquals(135, alone.appsRowBandHintPx);
-        assertEquals("band = icon box + the ticks' 9dp band on both sides",
+        assertEquals("band = icon box + the ticks' lone band on both sides",
             135 + (2 * stripPx), alone.appsRowBandPx);
         // Updated for Q7 with a reason: the shared row is the tighter of the two now. Its band is
         // the icon and its air, where the lone row's is the whole baseline its larger icon fills.
@@ -407,7 +409,7 @@ public class DockLayoutPolicyTest {
         // Alone the row has no band beyond it, so next to the canvas changes nothing.
         DockLayout alone = DockLayoutPolicy.compute(inputs(2.18f, true, false)
             .appsRowAlone(true).appsRowNextToCanvas(true).build());
-        assertEquals(stripPx, alone.appsTopPaddingPx);
+        assertEquals(DockLayoutPolicy.stripBandPx(true, DENSITY), alone.appsTopPaddingPx);
     }
 
     @Test

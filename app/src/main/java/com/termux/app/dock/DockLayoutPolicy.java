@@ -113,6 +113,14 @@ public final class DockLayoutPolicy {
     public static final float LONE_ROW_AIR_DP = 4f;
 
     /**
+     * The band a lone row's page ticks stand in, which is also the air it keeps on the side away
+     * from them. The strip's own band ({@link PageTickStrip#BAND_DP}) is the space between two
+     * rows of one sheet; a bar one icon tall spent it twice, above and below its icons, so it keeps
+     * the tick and a sliver either side of it instead.
+     */
+    public static final float LONE_ROW_STRIP_BAND_DP = 6.5f;
+
+    /**
      * The air a pinned-apps row sharing its container keeps around its icons, above and below.
      *
      * <p>It is the letters' own crown ({@link AccessoryStackLayoutPolicy#AZ_ROW_CROWN_DP}) rather
@@ -319,7 +327,7 @@ public final class DockLayoutPolicy {
         // stack on top of the air, so the icon sat half a strip below the middle of what the two
         // hairlines enclose and the row read bottom-heavy. The strip draws inside the air now and
         // the row is symmetric about its icon on every edge it lies on.
-        int stripBandPx = in.appsRowPageStripShown ? PageTickStrip.bandPx(density) : 0;
+        int stripBandPx = in.appsRowPageStripShown ? stripBandPx(in.appsRowAlone, density) : 0;
         // Sharing, the row keeps the letters' crown on both sides — unless the ticks need more
         // than that, in which case their own band is the air on both sides and the icon sits in
         // the middle of it. Alone it keeps its sliver while it carries no ticks; with them it
@@ -377,8 +385,7 @@ public final class DockLayoutPolicy {
                 azRowEnabled, in.rowOverAz, density);
             out.azRowChinPaddingPx = AccessoryStackLayoutPolicy.computeAzRowChinPaddingPx(
                 azRowEnabled, in.rowUnderAz, density);
-            out.indicatorBandHeightPx = AccessoryStackLayoutPolicy.computePageIndicatorBandHeightPx(
-                appsRowEnabled && in.appsRowPageStripShown, density);
+            out.indicatorBandHeightPx = appsRowEnabled ? stripBandPx : 0;
             out.interRowGapPx = out.indicatorBandHeightPx;
         }
         // The box the icon is centred in: the band less the air on each side of it. Taken off the
@@ -450,6 +457,7 @@ public final class DockLayoutPolicy {
      * <p>A row standing alone keeps its sliver while it carries no ticks, so a plank of one bar is
      * the icon and as little as it can be. With ticks it matches their band here too: the sliver
      * alone set the icons against the rim across from the strip, and the row read bottom-heavy.
+     * That band is the lone one ({@link #LONE_ROW_STRIP_BAND_DP}), a size down from the strip's.
      */
     public static int rowAirPx(boolean alone, boolean pageStripShown, float density) {
         return rowAirPx(alone, pageStripShown, false, density);
@@ -466,7 +474,7 @@ public final class DockLayoutPolicy {
                                float density) {
         if (!alone && nextToCanvas) return sharedRowAirPx(density);
         if (alone) return Math.max(loneRowAirPx(density),
-            pageStripShown ? PageTickStrip.bandPx(density) : 0);
+            pageStripShown ? stripBandPx(true, density) : 0);
         return Math.max(sharedRowAirPx(density),
             pageStripShown ? PageTickStrip.bandPx(density) : 0);
     }
@@ -479,7 +487,16 @@ public final class DockLayoutPolicy {
      */
     public static int rowTickSideAirPx(boolean alone, boolean pageStripShown, float density) {
         int base = alone ? loneRowAirPx(density) : sharedRowAirPx(density);
-        return Math.max(base, pageStripShown ? PageTickStrip.bandPx(density) : 0);
+        return Math.max(base, pageStripShown ? stripBandPx(alone, density) : 0);
+    }
+
+    /**
+     * The band a lying-down row's page ticks stand in: the strip's own while the row shares its
+     * container, {@link #LONE_ROW_STRIP_BAND_DP} while it stands alone.
+     */
+    public static int stripBandPx(boolean alone, float density) {
+        return alone ? Math.round(Math.max(0f, density) * LONE_ROW_STRIP_BAND_DP)
+            : PageTickStrip.bandPx(density);
     }
 
     /**

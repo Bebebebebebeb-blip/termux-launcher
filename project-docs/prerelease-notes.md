@@ -34,7 +34,7 @@ These may change or be dropped before they reach a stable release.
 - Pictures travel through the terminal clipboard: programs that speak kitty's clipboard protocol (OSC 5522) can read a picture from Android's clipboard and copy one to it, pasting a picture into a shell or an agent pastes it as a file path under `$PREFIX/tmp/clipboard`, and pictures inserted from the keyboard land the same way (#61).
 - A screenshot you just took can be pasted from the keyboard's paste key, which shows a photo while it or a copied picture is waiting; plain paste (paste with a modifier) keeps the clipboard. Screenshots need the storage permission (Settings › Permissions & services › Files and media, or `termux-setup-storage`).
 - Pinned app icons go bigger: the Icon size slider reaches further on both dock styles, icon packs draw as big as stock icons, and a full row of apps keeps its icons from touching.
-- Pinned apps fill the dock when it holds nothing else: the bar keeps its height and the icons grow into it, at every Icon size.
+- Pinned apps fill the dock when it holds nothing else: the icons grow into the bar, and the bar sheds some of the space above and below them, at every Icon size.
 - Swipe down on the apps row to open the app drawer while an A–Z letter's apps are showing, not only from your pinned apps.
 - Dictation cleanup now writes what you meant from the whole passage, fixing misheard words and broken sentences rather than only dropping fillers; Polished keeps its paragraphs and lists.
 - Cleaned-up dictation is ready a moment after you stop: on phones that run cleanup on the graphics chip (or with a remote model), it tidies your words at natural pauses while you talk.

@@ -58,12 +58,14 @@ public class DockLoneRowIconTest {
     }
 
     /**
-     * Nobody's dock changes height: the lone band is the preset's baseline plus the lone air, the
-     * figures the band was before (P8's 135px Floating baseline at 440dpi, for one).
+     * The lone band is the preset's baseline plus the lone air (P8's 135px Floating baseline at
+     * 440dpi, for one): the ticks' lone band either side while it carries them, the sliver while
+     * it does not.
      */
     @Test
-    public void theLoneBarKeepsTheHeightEachSizeGaveIt() {
-        int stripPx = com.termux.app.launcher.paging.PageTickStrip.bandPx(2.75f);
+    public void theLoneBarIsItsBaselineAndItsAir() {
+        int stripPx = DockLayoutPolicy.stripBandPx(true, 2.75f);
+        assertEquals("6.5dp at density 2.75", 18, stripPx);
         assertEquals(135 + 2 * stripPx, layout(true, true, true, 2.18f, 2.75f).appsRowBandPx);
         int sliverPx = DockLayoutPolicy.loneRowAirPx(2.75f);
         assertEquals(135 + 2 * sliverPx, layout(true, true, false, 2.18f, 2.75f).appsRowBandPx);
@@ -71,14 +73,15 @@ public class DockLoneRowIconTest {
 
     /**
      * What pong (420dpi, 411dp wide, ticks shown) draws alone at min, the shipped default and max,
-     * in px: the band is unchanged and the icon fills it. Docked was 21, 40 and 55dp, and is 32,
-     * 51 and 68dp; Floating was 24, 39 and 55dp, and is 34, 49 and 67dp.
+     * in px: the icon fills the baseline. Docked was 21, 40 and 55dp, and is 32, 51 and 68dp;
+     * Floating was 24, 39 and 55dp, and is 34, 49 and 67dp. The bars are 5dp shorter than they
+     * were, the ticks' band a size down on both sides.
      */
     @Test
     public void pongsLoneIconsAtEachSize() {
         float density = 2.625f;
-        int[][] docked = {{55, 84, 132}, {105, 134, 182}, {145, 178, 226}};
-        int[][] floating = {{64, 88, 136}, {103, 128, 176}, {144, 176, 224}};
+        int[][] docked = {{55, 84, 118}, {105, 134, 168}, {145, 178, 212}};
+        int[][] floating = {{64, 88, 122}, {103, 128, 162}, {144, 176, 210}};
         for (boolean capsule : STYLES) {
             float[] scales = sizes(capsule);
             int[][] expected = capsule ? floating : docked;
