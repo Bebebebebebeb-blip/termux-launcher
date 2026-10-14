@@ -100,6 +100,14 @@ public final class TermuxInAppKeyboard {
     private final ExecutorService mLayoutExecutor;
     private final TapCorrectionController mTapCorrection;
     private TermuxInAppKeyboardLayoutLoader mLayoutLoader;
+    /**
+     * One loader per non-main text layout the keyboard has reached, keyed by id: the file in
+     * {@code ~/.termux/keyboard/layouts/} over the bundled layout it edits, or a user's own.
+     * Created on first use, so a layout never swapped to costs nothing.
+     */
+    private final Map<String, TermuxInAppKeyboardLayoutLoader> mFileLayoutLoaders = new HashMap<>();
+    /** Tests' error sink for layout files; null shows the user-facing notice. */
+    @Nullable private final TermuxInAppKeyboardLayoutLoader.ErrorReporter mLayoutErrorReporter;
 
     private TerminalKeyEventHandler mKeyEventHandler;
     private Keyboard2View mKeyboardView;
@@ -220,6 +228,7 @@ public final class TermuxInAppKeyboard {
         mHost = Objects.requireNonNull(host, "host");
         mPreferences = Objects.requireNonNull(preferences, "preferences");
         mLayoutExecutor = Objects.requireNonNull(layoutExecutor, "layoutExecutor");
+        mLayoutErrorReporter = errorReporter;
 
         Context context = requireContainer().getContext();
         mHardwareKeyboardConnected = () -> KeyboardUtils.isHardKeyboardConnected(context);
@@ -376,6 +385,9 @@ public final class TermuxInAppKeyboard {
             mHost.detachKeyboardView();
         if (mLayoutLoader != null)
             mLayoutLoader.close();
+        for (TermuxInAppKeyboardLayoutLoader loader : mFileLayoutLoaders.values())
+            loader.close();
+        mFileLayoutLoaders.clear();
         mTapCorrection.flush();
         mLayoutExecutor.shutdown();
         destroyKeyPopup();
@@ -1472,6 +1484,8 @@ public final class TermuxInAppKeyboard {
         mGreekMathKeyboardData = null;
         if (mLayoutLoader != null)
             mLayoutLoader.setLayoutOptions(mLayoutOptions);
+        for (TermuxInAppKeyboardLayoutLoader loader : mFileLayoutLoaders.values())
+            loader.setLayoutOptions(mLayoutOptions);
         if (mKeyboardView != null) {
             resetInputPipeline();
             applyKeyboardToView(getSelectedLayoutData());
@@ -1656,12 +1670,58 @@ public final class TermuxInAppKeyboard {
             }
             requestIntrinsicSizeGeometrySync();
         });
+        // Every ring layout, and the one on screen, rechecks its file too: an edit made in
+        // Settings or in a terminal lands on the same return as the ring itself.
+        for (String id : mLayoutRing)
+            recheckLayoutFile(id);
+        recheckLayoutFile(mActiveTextLayoutId);
+    }
+
+    /**
+     * Rechecks {@code layoutId}'s file — a stat, and a background parse only when it changed —
+     * creating its loader on first use. The launcher layout and the modal pads have their own.
+     */
+    private void recheckLayoutFile(String layoutId) {
+        if (!mEnabled || mDestroyed || layoutId == null || LAYOUT_MAIN.equals(layoutId)
+            || LAYOUT_NUMERIC.equals(layoutId) || LAYOUT_GREEK_MATH.equals(layoutId))
+            return;
+        TermuxInAppKeyboardLayoutLoader loader = mFileLayoutLoaders.get(layoutId);
+        if (loader == null) {
+            LauncherKeyboardLayouts.Layout layout = LauncherKeyboardLayouts.find(
+                requireContainer().getResources(), layoutId);
+            File file = KeyboardLayoutFiles.overrideFile(KeyboardLayoutFiles.defaultHome(),
+                layoutId);
+            if (layout == null || file == null)
+                return;
+            // A user layout has no bundled original; a broken one falls back as layout.xml does.
+            int fallbackResId = layout.xmlResId != 0 ? layout.xmlResId
+                : juloo.keyboard2.R.xml.termux_launcher_qwerty;
+            loader = new TermuxInAppKeyboardLayoutLoader(requireContainer().getContext(), file,
+                fallbackResId, mLayoutExecutor, mHost::runOnMain, mLayoutOptions,
+                mLayoutErrorReporter);
+            mFileLayoutLoaders.put(layoutId, loader);
+        }
+        loader.recheck(data -> {
+            if (mDestroyed || !mEnabled)
+                return;
+            if (LauncherKeyboardLayouts.isUserLayout(layoutId))
+                LauncherKeyboardLayouts.rememberUserLabel(layoutId, data.name);
+            if (layoutId.equals(mSelectedLayoutId)) {
+                resetInputPipeline();
+                applyKeyboardToView(formed(data));
+                requestIntrinsicSizeGeometrySync();
+            }
+        });
     }
 
     private void selectLayout(String layoutId) {
         if (!mEnabled || mDestroyed)
             return;
         String normalizedId = normalizeLayoutId(layoutId);
+        // A layout reached for the first time — a palette row or a binding outside the ring —
+        // gets its loader now, so an edited file replaces the bundled one a frame later.
+        if (!mFileLayoutLoaders.containsKey(normalizedId))
+            recheckLayoutFile(normalizedId);
         KeyboardData data = getLayoutData(normalizedId);
         if (data == null)
             return;
@@ -1924,6 +1984,10 @@ public final class TermuxInAppKeyboard {
                     mMainKeyboardData = loadBundledLayout(juloo.keyboard2.R.xml.termux_launcher_qwerty);
                 return mMainKeyboardData;
             default:
+                TermuxInAppKeyboardLayoutLoader loader = mFileLayoutLoaders.get(layoutId);
+                KeyboardData fromFile = loader == null ? null : loader.getLastKnownGood();
+                if (fromFile != null)
+                    return fromFile;
                 return getBundledTextLayoutData(layoutId);
         }
     }

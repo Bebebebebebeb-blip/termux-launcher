@@ -120,7 +120,7 @@ public class SettingsActivity extends AppCompatActivity implements PreferenceFra
                 || scrollToKey.equals("pass_ctrl_space_to_android"))
                 page = "KeyboardHardwarePreferencesFragment";
             else if (scrollToKey.equals("keyboard_layout") || scrollToKey.equals("in_app_keyboard_extra_keys")
-                || scrollToKey.equals("in_app_keyboard_custom_layout") || scrollToKey.equals("in_app_keyboard_layouts")
+                || scrollToKey.equals("in_app_keyboard_layouts")
                 || scrollToKey.startsWith("keyboard_docs_") || scrollToKey.startsWith("keyboard_credits"))
                 page = "KeyboardLayoutPreferencesFragment";
             else if (scrollToKey.equals("keyboard_shapes") || scrollToKey.startsWith("in_app_keyboard_floating_")

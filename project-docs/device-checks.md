@@ -115,6 +115,27 @@ under twenty items; past that, the oldest are re-judged first.
   the text stays in that language (`lang=es`), never English · pong with the go-ahead, Light and
   Polished.
 
+- 2026-10-14 · commit "feat(keyboard): edit, reset and create layouts in Settings › Layouts" ·
+  Layouts screen: "Your layouts" with + on top; every row has an edit icon, an edited shipped
+  layout shows "Edited" and a reset icon, a user layout a delete icon; icons are 48dp and read
+  by TalkBack; the cycle rows (↑ ↓ ✕ ✎ ⟲) still leave the title readable at 360dp; add, remove,
+  reorder, search and the 16-layout cap work as before. The "Custom layout" row is gone from
+  Keyboard › Layout · pong with the go-ahead (no emulator/Waydroid).
+- 2026-10-14 · same commit · Editor: typing with the system keyboard (no suggestions), long-press
+  copy and paste, horizontal and vertical scrolling of the XML field, the field shrinks above the
+  IME; a broken tag shows "Line N, column M: …" under the field within half a second and Save
+  greys out; Save is off until something changes; Back with edits asks to discard; rotation keeps
+  the draft · pong with the go-ahead.
+- 2026-10-14 · same commit · Reset and delete: reset an edited Dvorak (confirm) and the shipped
+  one is back on the keyboard; + → name "Test" → Save → add it to the cycle → leave Settings: the
+  cycle key reaches it, the switch notice says "Test"; delete it (confirm): it leaves the cycle and
+  the keyboard · pong with the go-ahead.
+- 2026-10-14 · same commit · Files: `vim ~/.termux/keyboard/layouts/latn_dvorak.xml` (or a
+  user-*.xml) from the terminal is picked up on the next return to the launcher and shows
+  "Edited" in Settings; a broken hand edit shows the layout-error notice and keeps the last
+  working layout; an existing `~/.termux/keyboard/layout.xml` still applies as the launcher
+  layout and editing "Launcher layout" in Settings writes that same file · pong with the go-ahead.
+
 ## Developer
 
 - 2026-10-12 · fix(appearance): Custom starts from the Look on screen · On pong, apply Clear,
