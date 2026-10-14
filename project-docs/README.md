@@ -48,6 +48,7 @@ Three rules keep this directory from rotting:
 | [`active/device-checks-pending-2026-09-27.md`](active/device-checks-pending-2026-09-27.md) | The 2026-09-27 parked list, to be folded into `device-checks.md` or dropped. |
 | [`active/termux-api-consolidation-research.md`](active/termux-api-consolidation-research.md) | Termux:API against the launcher: what to port, bridge, keep delegating or remove. |
 | [`active/release-promotion-heuristics-research.md`](active/release-promotion-heuristics-research.md) | When a pre-release feature is ready for a stable: the sources behind the promotion rules in `docs/agents/releasing.md`. Decided 2026-10-14. |
+| [`active/obtainium-channels-research.md`](active/obtainium-channels-research.md) | How Obtainium picks a release and an APK from our one repo of three editions and two channels, what went wrong in the real history, and the fixes: draft-first publishing with Termux last, and six one-tap import links. Research; fixes not adopted. |
 | [`active/terminal-url-tap-research.md`](active/terminal-url-tap-research.md) | Why tapping a link in the terminal often does nothing. Research, no decision yet. |
 
 ## Reference: delivered records
