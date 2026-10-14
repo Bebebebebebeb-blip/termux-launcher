@@ -23,7 +23,7 @@ Kept as they were: Shine (the diagonal bevel light) and Dispersion stay 0 in eve
 every seam rule; the plain draw below API 33.
 
 New Look recipes (bend, edge width, edge light, shine, dispersion, clarity):
-Clear 6/14/24/0/0/70 · Mist 9/20/18/0/0/45 · Tint 6/14/22/0/0/55 · Solid unchanged, clarity 0.
+Clear 6/14/40/0/0/70 · Mist 9/20/30/0/0/60 · Tint 6/14/36/0/0/55 · Solid unchanged, clarity 0.
 Preset format version 4; a look stored earlier reads clarity 0.
 
 ## Progress
@@ -35,7 +35,8 @@ Preset format version 4; a look stored earlier reads clarity 0.
 - [x] Clear frame on the keyboard host, the under-keyboard card and the pane slabs; dock touch light with a stepped fade (b7df86c02)
 - [x] Emulator (tl16, x86_64 debug): Clear, Mist and Tint apply without a crash; the Edge group shows six sliders with the Look's values; the corner bend and hairline are clean; clarity shows at the keyboard's top rim under Mist on a dark wallpaper (faint at 45%); the dock touch light is a soft glow behind the pressed icon that fades after release, the far side of the dock unchanged (frames in the session scratchpad, `fr-dock3-sheet.png`)
 - [ ] Not seen on the emulator: the touch light on a sheet card row (no centred card was reached in the time; the terminal action sheet's Kill process confirm is one), clarity on the panes under Floating, the Widgets and Display pages, RTL and large font
-- [ ] Instrumentation test on the emulator: `GlassRefractionAgslInstrumentationTest` (running at hand-off; result in the PR)
+- [x] Instrumentation test on the emulator: `GlassRefractionAgslInstrumentationTest`, 8 tests, 0 failures (tl16)
+- [x] A fresh reviewer (no code) on the crops: the rim still read as the surfaces' own stroke and clarity as not visible at Clear 24 / Mist 18 / Mist clarity 45; retuned to Clear 40, Tint 36, Mist 30 and Mist clarity 60, and the clarity profile to a smoothstep across the band. The dock "flash" it reported was Chrome launching at the end of the recorded tap, not the light.
 - [x] SPEC.md §4.1
 - [ ] ADR amending 0005; pong look by the developer
 
@@ -47,6 +48,11 @@ Preset format version 4; a look stored earlier reads clarity 0.
   `fix/wallpaper-reapply-keeps-look`, PR #74.
 
 ## Open questions for the developer
+
+0. The emulator renders on the CPU and the test wallpaper is synthetic: the rim light, the
+   thickness and the clarity are tuned to read there, which may be too much or too little on pong.
+   The three knobs to move are the Looks' Edge light and Clarity (`SurfacePresets`) and the band
+   profile in the shader (`x * x * (3.0 - 2.0 * x)`).
 
 1. The lit rim changes the resting look of every Look (and the dock in the default mode): sides are
    fainter than before at the same Edge light. If that reads as too faint on pong, raise the floor

@@ -122,7 +122,7 @@ polymer with a stroke. Working note: `natural-glass-2026-10-14.md`.
   `sharp`, is a clearer frame of the same wallpaper rect, obtained from the blur cache at
   `GlassRefraction.CLARITY_RADIUS_DP` (2 dp, full size, about 15.5 MB on a 1.5×-wide frame). In
   the band the bent edge shows it in place of the frost on x² (near the frost over the inner
-  half, the knob's share at the rim): one extra sample, only in the band, only when the Look asks.
+  half, half way at the band's middle, the knob's share at the rim): one extra sample, only in the band, only when the Look asks.
   A surface frosted at 2 dp or less takes none. Until a surface binds one the frost is its own
   clear picture and the term is zero, so a RenderEffect surface (the dock, the under-pill strip)
   never reads an unbound shader and has no clarity. Reaches: the painter's frosts (status band,
@@ -137,8 +137,8 @@ polymer with a stroke. Working note: `natural-glass-2026-10-14.md`.
   (`chrome/DockTouchFade`), five rebuilds per tap at most. Off under reduced motion, lazy mode,
   battery saver, and while an extra key's lens is up.
 
-Looks (bend / edge width / edge light / shine / dispersion / clarity): Clear 6/14/24/0/0/70,
-Mist 9/20/18/0/0/45, Tint 6/14/22/0/0/55, Solid unchanged with clarity 0. Preset format 4; a
+Looks (bend / edge width / edge light / shine / dispersion / clarity): Clear 6/14/40/0/0/70,
+Mist 9/20/30/0/0/60, Tint 6/14/36/0/0/55, Solid unchanged with clarity 0. Preset format 4; a
 look stored earlier reads clarity 0.
 
 ## 5. Wallpapers (Fancier Glass only)

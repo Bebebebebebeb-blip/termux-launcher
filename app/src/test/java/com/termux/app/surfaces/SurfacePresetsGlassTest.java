@@ -78,10 +78,10 @@ public class SurfacePresetsGlassTest {
 
     @Test
     public void clearTintAndSolidCarryTheRecipesOfTheSpec() {
-        assertRecipe(preset("minimal"), 4, 10, 4, 6, 14, 24, 70);
-        assertRecipe(preset("stock"), 10, 46, 10, 6, 14, 22, 55);
+        assertRecipe(preset("minimal"), 4, 10, 4, 6, 14, 40, 70);
+        assertRecipe(preset("stock"), 10, 46, 10, 6, 14, 36, 55);
         assertRecipe(preset("solid"), 0, 92, 0, 0, 1, 0, 0);
-        assertRecipe(preset("frost"), 25, 60, 8, 9, 20, 18, 45);
+        assertRecipe(preset("frost"), 25, 60, 8, 9, 20, 30, 60);
         assertEquals(TERMUX_APP.GLASS_TINT_MATERIAL,
             preset("stock").values.get(TERMUX_APP.KEY_SURFACE_GLASS_TINT));
 
@@ -156,7 +156,7 @@ public class SurfacePresetsGlassTest {
     @Test
     public void clearMistAndTintCarryTheirClarityAndSolidNone() {
         assertEquals(70, preset("minimal").values.get(TERMUX_APP.KEY_FANCIER_GLASS_CLARITY));
-        assertEquals(45, preset("frost").values.get(TERMUX_APP.KEY_FANCIER_GLASS_CLARITY));
+        assertEquals(60, preset("frost").values.get(TERMUX_APP.KEY_FANCIER_GLASS_CLARITY));
         assertEquals(55, preset("stock").values.get(TERMUX_APP.KEY_FANCIER_GLASS_CLARITY));
         assertEquals(0, preset("solid").values.get(TERMUX_APP.KEY_FANCIER_GLASS_CLARITY));
 
@@ -177,7 +177,7 @@ public class SurfacePresetsGlassTest {
         SurfacePresets.saveCustom(preferences);
         SurfacePresets.apply(preferences, preset("solid"));
         SurfacePresets.apply(preferences, SurfacePresets.custom(preferences));
-        assertEquals(45, preferences.getFancierGlassClarityPercent());
+        assertEquals(60, preferences.getFancierGlassClarityPercent());
     }
 
     private static void assertRecipe(SurfacePresets.Preset preset, int blur, int opacity,

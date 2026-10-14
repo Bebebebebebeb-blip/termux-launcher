@@ -80,10 +80,10 @@ public final class SurfacePresets {
     private static final List<Preset> PRESETS = Collections.unmodifiableList(Arrays.asList(
         // Clear (id minimal): the most transparent glass, wallpaper forward. Blur 4, opacity 10 on
         // every surface (the terminal follows Base, no detached override), grain 4, a thick edge
-        // (bend 6, edge 14, light 24) that shows the wallpaper clearest of all the Looks (clarity
+        // (bend 6, edge 14, light 40) that shows the wallpaper clearest of all the Looks (clarity
         // 70), no specular and no dispersion. Scheme tint, hairline rim, classic motion.
         preset("minimal", R.string.termux_surface_preset_minimal,
-            TERMUX_APP.SURFACE_MATERIAL_GLASS, 50, 4, 10, 4, 6, 14, 24, 0, 0, 70,
+            TERMUX_APP.SURFACE_MATERIAL_GLASS, 50, 4, 10, 4, 6, 14, 40, 0, 0, 70,
             look -> { }),
         // Mist: Obsidian-Music's glass and motion (Apache-2.0; see
         // project-docs/reference/launcher/mist-preset-obsidian-values.md). Blur 25
@@ -93,16 +93,16 @@ public final class SurfacePresets {
         // same faint tooth. The edge is the deepest (bend 9, edge 20, light 18), and clears the
         // heavy frost toward the rim by less than Clear does (clarity 45).
         preset("frost", R.string.termux_surface_preset_frost,
-            TERMUX_APP.SURFACE_MATERIAL_FROST, 50, 25, 60, 8, 9, 20, 18, 0, 0, 45,
+            TERMUX_APP.SURFACE_MATERIAL_FROST, 50, 25, 60, 8, 9, 20, 30, 0, 0, 60,
             look -> {
                 look.put(TERMUX_APP.KEY_SURFACE_GLASS_TINT, TERMUX_APP.GLASS_TINT_OBSIDIAN);
                 look.put(TERMUX_APP.KEY_SURFACE_GLASS_RIM, TERMUX_APP.GLASS_RIM_GRADIENT);
                 look.put(TERMUX_APP.KEY_SURFACE_GLASS_MOTION, TERMUX_APP.GLASS_MOTION_MIST);
             }),
         // Tint (id stock): glass in Material colours (surface tint toward primary container), with
-        // Clear's edge (bend 6, edge 14) a little less lit (light 22) and clear (clarity 55).
+        // Clear's edge (bend 6, edge 14) a little less lit (light 36) and clear (clarity 55).
         preset("stock", R.string.termux_surface_preset_stock,
-            TERMUX_APP.SURFACE_MATERIAL_GLASS, 50, 10, 46, 10, 6, 14, 22, 0, 0, 55,
+            TERMUX_APP.SURFACE_MATERIAL_GLASS, 50, 10, 46, 10, 6, 14, 36, 0, 0, 55,
             look -> look.put(TERMUX_APP.KEY_SURFACE_GLASS_TINT, TERMUX_APP.GLASS_TINT_MATERIAL)),
         // Solid: opaque, no blur cost, and no edge to clear.
         preset("solid", R.string.termux_surface_preset_solid,

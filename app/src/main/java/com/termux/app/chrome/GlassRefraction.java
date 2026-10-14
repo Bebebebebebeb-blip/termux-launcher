@@ -421,11 +421,13 @@ public final class GlassRefraction {
         "    }\n" +
         // Through the bent edge the wallpaper shows clearer than through the slab's face: the
         // clearer picture, read at the same bent coordinate, takes over across the band on a
-        // curve that stays near the frost over the inner half and reaches uClarity at the rim.
-        // One extra sample, only in the band and only when a Look asks for it.
+        // smoothstep, easing in from the frost at the band's inner edge, half way at the band's
+        // middle, and settling at uClarity under the rim (x squared left the lip too thin to
+        // read at any shipped value). One extra sample, only in the band and only when a Look
+        // asks for it.
         "    if (uClarity > 0.0 && x > 0.0) {\n" +
         "        half4 clear = sharp.eval(framePx(sampleCoord));\n" +
-        "        col = mix(col, clear, half(x * x * uClarity));\n" +
+        "        col = mix(col, clear, half(x * x * (3.0 - 2.0 * x) * uClarity));\n" +
         "    }\n" +
         // How squarely this bit of rim faces each light.
         "    float faceUp = max(dot(n, kLightUp), 0.0);\n" +

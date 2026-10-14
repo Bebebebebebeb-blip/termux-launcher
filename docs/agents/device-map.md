@@ -81,6 +81,7 @@ ad -s emu runas com.termux 'launcherctl pane list'
 - `ad ui` truncates the terminal's text: read the terminal from a `zoom` crop, or run the command
   through `ad runas` instead.
 - Force-stop the app after a density or font-scale change.
+- `./gradlew :app:connectedDebugAndroidTest` installs its own copy of the app and **uninstalls it when the run ends**: the launcher's data (prefs, managed wallpaper, pins, tour) is gone and the next `ad install` is a first run. Run device checks before the instrumentation tests, or set the state up again after.
 - Settings reopens on the page it was left on: Back to the root before searching (`settings_search_input`).
 - Voice: with no speech model the dictate action opens Google's dictation dialog, not the card, and
   the emulator has no microphone; the card's checks run on pong.
