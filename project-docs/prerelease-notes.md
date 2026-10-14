@@ -21,6 +21,8 @@ Latest stable: v1.0.5.
 - The Voice input pause and silence timeout you choose take effect again; some phones were using the defaults.
 - Choosing System for icon packs brings back stock icons everywhere, and large packs such as Arcticons now reach every app and stay applied after a restart; Pinned app icons only stays as you set it.
 - The Model centre shows the full size of the KittenTTS voice.
+- Round icons in icon packs stay whole circles now that pack icons draw bigger.
+- Removing a pinned app in Edit pinned apps unticks it in the list too, so it cannot slip back in.
 
 ## Experimental
 <!-- What is on pre and not yet in a stable, one line each; name the pull request or branch it came from,
