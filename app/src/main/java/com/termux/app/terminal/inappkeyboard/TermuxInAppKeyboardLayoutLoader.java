@@ -132,6 +132,35 @@ public final class TermuxInAppKeyboardLayoutLoader {
         mGeneration++;
     }
 
+    /**
+     * Parses the file on the calling thread when nothing has loaded yet, so the first swap to an
+     * edited or user-made layout shows it straight away instead of its fallback for a frame.
+     * Returns null when there is no file or it does not parse; the background load then falls
+     * back and reports as usual.
+     */
+    public KeyboardData loadFileNow() {
+        Signature signature = Signature.read(mLayoutFile);
+        synchronized (this) {
+            if (mClosed) return null;
+            if (mLastKnownGood != null) return mLastKnownGood;
+        }
+        if (!signature.exists) return null;
+        KeyboardData loaded;
+        try {
+            loaded = loadCustom(signature);
+        } catch (Exception ignored) {
+            return null;
+        }
+        synchronized (this) {
+            if (mClosed) return null;
+            // The pending background parse of this same file has nothing left to add.
+            mLastKnownGood = loaded;
+            mCachedSignature = signature;
+            mGeneration++;
+        }
+        return loaded;
+    }
+
     /** Prevents an in-flight parse from being delivered to a destroyed controller. */
     public synchronized void close() {
         mClosed = true;

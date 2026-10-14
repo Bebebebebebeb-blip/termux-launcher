@@ -188,6 +188,9 @@ public class KeyboardLayoutFilesTest {
             String source = KeyboardLayoutFiles.bundledSource(mResources, layout.xmlResId);
             KeyboardData fromResource = KeyboardData.load(mResources, layout.xmlResId);
             KeyboardData fromText = KeyboardData.load_string_exn(source);
+            // Slots read under the compass names the guide uses, never key0..key8.
+            assertTrue(id, source.contains("<key c=\""));
+            assertTrue(id, !source.matches("(?s).*\\skey[0-8]=.*"));
             assertEquals(id, fromResource.name, fromText.name);
             assertEquals(id, fromResource.rows.size(), fromText.rows.size());
             for (int row = 0; row < fromResource.rows.size(); row++) {
