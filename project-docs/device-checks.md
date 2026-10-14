@@ -14,6 +14,7 @@ under twenty items; past that, the oldest are re-judged first.
 
 ## Agent
 
+- 2026-10-14 · commit "fix(icons): the pinned-only switch keeps its position after System" · Icon pack: switch off, System → Done, reopen: the switch is still off; Arcticons then applies to every app. (emulator)
 - 2026-10-14 · commit "fix(icons): wait for an icon pack's parse in flight instead of drawing
   stock icons" · With Arcticons chosen in the Icons mode and "Pinned app icons only" off: after
   Done, the dock, the drawer's C page (Calendar, Clock, Contacts, Camera, Chrome) and the palette
