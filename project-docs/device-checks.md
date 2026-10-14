@@ -14,16 +14,6 @@ under twenty items; past that, the oldest are re-judged first.
 
 ## Agent
 
-- 2026-10-14 · fix(icons) · Appearance editor › Icon pack: MBE Style → Done, switch "Pinned app
-  icons only" off then on, System → Done: dock, drawer and palette chips all show stock icons; MBE
-  with the switch on changes only the pinned icons · emulator.
-- 2026-10-14 · fix(tai) · Model centre shows KittenTTS Nano as about 90 MB (94 MB on disk) after a fresh
-  download and after an export/import restore, not 32.3 MB · emulator.
-- 2026-10-14 · commits "fix(voice): …cleanup model…" (load only at the session's end when cold) ·
-  A cold dictation (cleanup model unloaded) keeps the waveform moving throughout; logcat shows
-  `cleanup warm deferred` at the mic opening, then `cleanup warm start: at the session's end`,
-  `polish warm` and `cleanup final`. A dictation right after it (model warm) logs `cleanup warm
-  start: at the mic opening` and `cleanup early` at pauses as before · pong with the go-ahead.
 - 2026-10-12 · PR #64 · A contact chip with a photo set in Contacts: the initial swaps to the photo
   with no shift (the reopened palette was seen showing the photo at once, 2026-10-14) · emulator;
   the device map has the adb route to a contact with a photo.
@@ -50,11 +40,10 @@ under twenty items; past that, the oldest are re-judged first.
   insert" · A Polished list or two paragraphs show on their own lines on the card; ✓ in a shell
   with bracketed paste keeps them, in a bare shell they arrive on one line and nothing runs ·
   emulator, Polished cleanup on.
-- 2026-10-13 · commit "fix(launcher): scale an icon pack as one, not icon by icon" · A PNG pack
-  (MBE Style) was seen scaled and sharp on the palette chips, 2026-10-14. Still owed: the same in
-  the dock, the drawer, a pinned override and a notification; a line or glyph pack (Whicons,
-  Lines) keeps its glyphs' sizes and placement relative to one another; a pack with no margin
-  looks as it always did · emulator, icon packs from F-Droid.
+- 2026-10-13 · commit "fix(launcher): scale an icon pack as one, not icon by icon" · MBE Style on
+  the palette chips and Arcticons in the dock and drawer were seen right, 2026-10-14. Still owed: a
+  pinned override and a notification with a pack; a pack with no margin looks as it always did ·
+  emulator, icon packs from F-Droid (`me.iacn.mbestyle_27.apk`, `com.donnnno.arcticons_1570.apk`).
 - 2026-10-13 · `eff06de21`, `c111b7ed5` · Dictation cleanup from context on the phone's E2B: the
   anchor dictation and the "translate this into French" case from
   `project-docs/reference/voice-ai/voice-cleanup-context-rework-2026-10-13.md`, Light and Polished;
@@ -71,11 +60,6 @@ under twenty items; past that, the oldest are re-judged first.
   no `fallback:context_echo`. Then: edit the text mid-dictation (no cleanup lands), Pause and resume
   (only the new speech is cleaned), and a CPU-only cleanup model (no `cleanup early` lines) · pong
   with the go-ahead.
-- 2026-10-13 · commit "test(voice): keep a loading cleanup model off the main thread" · Start a
-  dictation while E4B loads on the GPU (11–19 s): the card and the launcher stay responsive. If
-  they freeze, take the launcher's Java stacks mid-freeze (`debuggerd -j <pid>`) and read
-  `/proc/pressure/memory`: a `main` thread parked in `nativePollOnce` means the stall is GPU or
-  memory contention from the load, not a wait on the runtime · pong with the go-ahead.
 - 2026-10-13 · commit "feat(tai): plan a load on the typical measured drop, not the largest" · E4B
   dictation cleanup on the GPU at 2048 is admitted with about 3.8–4 GB free (`tai logs`: a
   `load_ok … gpu ctx=2048`, no `load refused`), both with this version's own samples and right
@@ -122,22 +106,17 @@ under twenty items; past that, the oldest are re-judged first.
   next dictation starts where it was left, landscape keeps its own place, a double tap returns to
   the top-right corner · pong with the go-ahead (the emulator cannot put text on the card).
 - 2026-10-14 · commit "feat(keyboard): edit, reset and create layouts in Settings › Layouts" ·
-  Rows, edit/reset/delete icons and the Edited tag were seen on the emulator, 2026-10-14. Still
-  owed: TalkBack reads the 48dp icons; the cycle rows (↑ ↓ ✕ ✎ ⟲) leave the title readable at
-  360dp; add, remove, reorder, search and the 16-layout cap; the "Custom layout" row is gone from
-  Keyboard › Layout · emulator.
+  Rows, icons, add/remove/reorder, search and the removed "Custom layout" row were seen on the
+  emulator, 2026-10-14. Still owed: TalkBack reads the 48dp icons; the cycle rows leave the title
+  readable at 360dp; the 16-layout cap · emulator.
 - 2026-10-14 · same commit · Editor: the error line, Save greyed and off until a change, the
   discard question and rotation were seen, 2026-10-14. Still owed: typing with the system keyboard
   and the field shrinking above it (the emulator never drew the IME), horizontal and vertical
   scrolling of the XML field · emulator, or pong with the go-ahead.
-- 2026-10-14 · same commit · Files: hand edits and a broken file were seen, 2026-10-14. Still
-  owed: an existing `~/.termux/keyboard/layout.xml` still applies as the launcher layout, and
-  editing "Launcher layout" in Settings writes that same file · emulator.
-- 2026-10-14 · commit "feat(keyboard): slide a layout row's buttons open beneath it" · The strip
-  opening, closing, and closing the first row when another opens were seen, 2026-10-14. Still owed:
-  about 200 ms; ↑/↓ tapped repeatedly keep the strip open on the moving row without re-animating;
-  + on a catalogue row carries the strip to the cycle; with animations off it snaps; TalkBack reads
-  "name, second line, actions hidden" and offers Show/Hide · emulator.
+- 2026-10-14 · commit "feat(keyboard): slide a layout row's buttons open beneath it" · Opening,
+  closing, repeated ↑ and + on a catalogue row were seen, 2026-10-14. Still owed: about 200 ms and
+  a snap with animations off (judge on pong, the emulator renders on the CPU); TalkBack reads
+  "name, second line, actions hidden" and offers Show/Hide · pong with the go-ahead.
 - 2026-10-14 · commit "fix(keyboard): readable rebuilt layouts, no fallback flash on a first
   swap" · Readable slot names were seen, 2026-10-14. Still owed: right after creating a user layout
   that differs from the launcher layout and adding it to the cycle, the first swap shows it at once

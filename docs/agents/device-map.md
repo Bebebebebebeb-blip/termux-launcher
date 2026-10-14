@@ -55,7 +55,8 @@ ad -s emu runas com.termux 'launcherctl pane list'
 | Command palette | tap the terminal so the keyboard is up, then swipe up on its space bar: `ad swipe 540 2250 540 2000 250` | type to filter, `ad key DPAD_DOWN` moves the selection; chip strip kbd, pick, split, font; app chips need usage history; a theme change closes it |
 | Icon pack | Appearance editor → `appearance_page_mode_icon_pack` (the editor reopens on its last page) | tiles `icon_pack_tile_label` (tap the tile art if the label does not take); "Pinned app icons only" is `icon_pack_pinned_only`, on by default. MBE Style (`me.iacn.mbestyle_27.apk`, F-Droid) installs as a PNG pack |
 | AI models | Settings → Model centre; Export/Import use the system folder picker (USE THIS FOLDER, then ALLOW), export lands in `/sdcard/Documents/Termux Launcher models` | Get models goes stale after a `tai delete`: leave and re-enter the page |
-| Keyboard layouts | Settings search "Layouts"; cycle to the next layout by swiping down on the space bar: `ad swipe 540 2200 540 2330 250` | — |
+| Keyboard layouts | Settings → Keyboard → Layouts (list at about 487,1242) → Layouts (487,671); a tap on a catalogue row slides its strip open, `ad find` by description works ("Add Colemak to the cycle"); cycle to the next layout by swiping down on the space bar: `ad swipe 540 2200 540 2330 250` | — |
+| Pinned apps | long-press the dock's empty area (`ad swipe x y x y 1200`) → "Edit pinned apps": tap names under MOST USED, then Done; remove with "Remove from pinned apps" | a letter in the dock strip shows that letter's apps in the dock; the letters shift when an app is installed. The dock's grid glyph (about 810,1700) opens a split pane, not the drawer; a pane opened that way is not `launcherctl`'s to close (`exit` in it) |
 | App drawer, A–Z | not yet mapped | `launcher/drawer/`, `AzPullTabLayer` |
 | Split panes, window chips | `launcherctl pane open` / `window open -- CMD` (a command is required) is faster than the UI; `window close <id>` | window chips switch windows; on Docked, the grid glyph on the dock row opens a split |
 | Sessions sidebar (legacy) | tap the session indicator `terminal_sessions_indicator`, the number box left of the chips | after it closes, focus stays on the indicator: tap the terminal before typing |
@@ -78,4 +79,6 @@ ad -s emu runas com.termux 'launcherctl pane list'
   broadcast MEDIA_SCANNER_SCAN_FILE, then `am start -a android.intent.action.EDIT -d
   content://com.android.contacts/contacts/lookup/<key>/<id>` → Add picture › Gallery › Save.
 - `ad runas` needs `AD_RUNAS_PRELUDE` exported in the same shell call.
+- Dock zoom crop: `ad zoom 0 1455 1080 1650`.
+- Never `pkill -f` a pattern that appears in your own command line: it kills your shell.
 - The only AVD is tl16 (API 36); there is none for API 29/30.
