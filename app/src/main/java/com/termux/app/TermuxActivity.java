@@ -14781,6 +14781,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return com.termux.app.chrome.GlassMotion.of(mPreferences);
         }
 
+        @Override public boolean glassTouchLightAllowed() {
+            return isGlassTouchLightAllowed();
+        }
+
         @NonNull @Override public Context context() {
             return TermuxActivity.this;
         }
@@ -14834,6 +14838,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         @Override public boolean isReducedMotionEnabled() {
             return TermuxActivity.this.isReducedMotionEnabled();
         }
+    }
+
+    /**
+     * Whether a finger on glass may light it ({@link com.termux.app.chrome.GlassTouchLight}): a
+     * Fancier Glass motion, so only while the look is on, and stopped by lazy mode and battery
+     * saver as every other one is (SPEC §3). Reduced motion and the system's animator setting are
+     * the light's own to ask.
+     */
+    private boolean isGlassTouchLightAllowed() {
+        if (mFancierGlassLook == null || isLazyModeEnabled()) return false;
+        android.os.PowerManager power = getSystemService(android.os.PowerManager.class);
+        return power == null || !power.isPowerSaveMode();
     }
 
     /** Guarded on the field, not the lazy accessor: asking must not build a plane. */
