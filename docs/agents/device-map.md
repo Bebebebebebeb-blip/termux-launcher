@@ -1,0 +1,57 @@
+# Device map
+
+How a test agent reaches each part of the launcher over adb, so a device check spends its time
+checking rather than exploring. Commands use the `ad` tool of the host's android-control skill;
+plain `adb -s <serial>` works the same. Add what you had to find out; fix what turned out wrong.
+
+## The app
+
+- Package `com.termux` on the Termux edition (`com.termux.launcher.nix`, `io.vaj.tl` on the
+  others). Main activity `.app.TermuxActivity`; it is also the HOME activity.
+- Build for the emulator: `./gradlew :app:assembleDebug`, then install
+  `app/build/outputs/apk/debug/termux-app_apt-android-7-debug_x86_64.apk` (`ad install` keeps
+  data). Pong takes release builds only; see AGENTS.md.
+- After installing on the emulator the launcher becomes home. Before handing the emulator over:
+  `ad shell cmd package set-home-activity com.google.android.apps.nexuslauncher/.NexusLauncherActivity`.
+- Owed checks: `project-docs/device-checks.md` (Agent items can run here; Developer items need
+  the developer's hand).
+
+## Running commands inside the app
+
+Debug builds allow `run-as`. With this prelude, `ad runas` runs anything in the terminal's own
+environment and prints the output — no typing into the terminal, no reading files back:
+
+```bash
+export AD_RUNAS_PRELUDE='P=/data/data/com.termux/files; export HOME=$P/home PREFIX=$P/usr TMPDIR=$P/usr/tmp PATH=$P/usr/bin:/system/bin LD_PRELOAD=$P/usr/lib/libtermux-exec-ld-preload.so TERMUX_EXEC__SYSTEM_LINKER_EXEC__MODE=disable; cd $HOME'
+ad -s emu runas com.termux 'launcherctl pane list'
+```
+
+- `launcherctl` (`launcherctl --help`, `docs/en/LauncherCtl.md`) changes the live UI from there:
+  `pane open|resize|close`, `window open|focus|close`, `keyboard show|hide`,
+  `wallpaper set FILE`, `launch <app>`, `notify`, `toast`, `clipboard copy|paste`.
+- To see a command run in the UI, open your own pane and drive it: `id=$(launcherctl pane open
+  --print-id --no-focus)`, `launcherctl pane write "$id" --enter 'cmd'`, `launcherctl pane read
+  "$id" --lines 20`. `pane write`/`read` refuse panes you did not open (`not_owned`).
+- Typing into the user's own pane needs `ad type` one word at a time with `ad key SPACE`.
+- Prefs live in `shared_prefs/com.termux_preferences.xml`; edit them **before** a force-stop,
+  never after (AGENTS.md, "It is the home screen").
+
+## Places
+
+| Place | How to get there | Useful ids / text |
+|---|---|---|
+| Settings | `ad shell am start -n com.termux/.app.activities.SettingsActivity` | `settings_search_input` finds any setting by name; rows by `title` text (Appearance, Apps, …) |
+| Appearance editor | long-press the top-left corner of the pane (about 40,262 on the emulator at 420 dpi) to raise the corner tab, then Appearance | pages `appearance_page_mode_wallpaper`, `_look`, `_layout`, `_icon_pack`; styles `appearance_editor_style_docked`, `_floating`; Done `appearance_page_done`. Tap by id: the tab row shifts per page. Changes apply only on Done |
+| Icon size, Icons per page | Appearance editor → Layout page | value shows only on screen (not in the accessibility tree); read it from a `zoom` crop |
+| Command palette | not yet mapped | chip strip; app chips need usage history before they appear |
+| App drawer, A–Z | not yet mapped | `launcher/drawer/`, `AzPullTabLayer` |
+| Split panes, window chips | `launcherctl pane open` / `window open` is faster than the UI | on Docked, the grid glyph on the dock row opens a split |
+| Widgets page | not yet mapped | `WidgetPaneView` |
+| Voice pill | needs a microphone: pong only | — |
+
+## Device quirks
+
+- The emulator renders on the CPU: judge looks there, never motion or frame time.
+- Injected swipes release with zero velocity; read the end state, not the fling.
+- `ad ui` does not see dialog windows; screenshot and tap coordinates.
+- Force-stop the app after a density or font-scale change.
