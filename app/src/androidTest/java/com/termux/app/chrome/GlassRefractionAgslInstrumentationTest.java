@@ -99,7 +99,8 @@ public class GlassRefractionAgslInstrumentationTest {
         // The sharp input is a flat colour nothing like the checker, so wherever it shows the
         // pixels move a long way; the middle, outside the band, never reads it.
         Bitmap content = checker();
-        Bitmap sharp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888);
+        // Held at twice the content's size, as a frame at a lower blur is, to prove the aim scales.
+        Bitmap sharp = Bitmap.createBitmap(W * 2, H * 2, Bitmap.Config.ARGB_8888);
         sharp.eraseColor(Color.rgb(250, 250, 250));
         Bitmap frosted = draw(new GlassRefraction.Look(28, 32, 0, 0, 0, 0), content, sharp, null);
         Bitmap clear = draw(new GlassRefraction.Look(28, 32, 0, 0, 0, 100), content, sharp, null);
@@ -140,7 +141,8 @@ public class GlassRefractionAgslInstrumentationTest {
         assertNotNull(program);
         program.setInput(new BitmapShader(content, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP));
         if (sharp != null)
-            program.setClarityInput(new BitmapShader(sharp, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP));
+            program.setClarityInput(new BitmapShader(sharp, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP),
+                sharp.getWidth() / (float) content.getWidth(), sharp.getHeight() / (float) content.getHeight());
         program.setAim(1f, 1f, 0f, 0f);
         program.setRect(0f, 0f, W, H, 32f);
         program.setLook(look);

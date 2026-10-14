@@ -578,19 +578,23 @@ public final class GlassRefraction {
         }
 
         /**
-         * A clearer picture of the same wallpaper, aimed exactly as the content is (the same frame
-         * rect at any resolution), for the bent edge to show in place of the frost. Null hands
-         * the content back as its own clear picture, which is no clarity at all. Under a
-         * {@code RenderEffect}, where the content is the view and nothing can be bound here, the
-         * clarity term stays at zero, so the program never reads an unbound shader.
+         * A clearer picture of the same wallpaper, captured for the same frame rect as the
+         * content but held at its own resolution: {@code pxScaleX}/{@code pxScaleY} are its
+         * pixels per content pixel (its width over the content's), so the program, which reads
+         * everything in content pixels, lands on the same spot in it. Null hands the content back
+         * as its own clear picture, which is no clarity at all. Under a {@code RenderEffect},
+         * where the content is the view and nothing can be bound here, the clarity term stays at
+         * zero, so the program never reads an unbound shader.
          */
-        public void setClarityInput(@Nullable Shader sharp) {
+        public void setClarityInput(@Nullable Shader sharp, float pxScaleX, float pxScaleY) {
             if (sharp == null) {
                 mSharpBound = false;
                 syncClarity();
                 return;
             }
-            sharp.setLocalMatrix(null);
+            Matrix toSharp = new Matrix();
+            toSharp.setScale(1f / Math.max(1e-4f, pxScaleX), 1f / Math.max(1e-4f, pxScaleY));
+            sharp.setLocalMatrix(toSharp);
             if (sharp instanceof BitmapShader) {
                 ((BitmapShader) sharp).setFilterMode(BitmapShader.FILTER_MODE_LINEAR);
             }
