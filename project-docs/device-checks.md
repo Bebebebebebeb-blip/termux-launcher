@@ -14,14 +14,16 @@ under twenty items; past that, the oldest are re-judged first.
 
 ## Agent
 
-- 2026-10-12 · PR #63 · Floating style: the keyboard capsule and the dock card catch the Shine
-  light on their top-left and bottom-right corners and not the other two, at Shine 100% · emulator,
-  managed wallpaper set; Layout tab → Floating, then Look → Custom → Edge.
+- 2026-10-12 · PR #63 · Floating style, on the live screen after Done (the editor preview passed
+  on the emulator 2026-10-14): the keyboard capsule and the dock card catch the Shine light on
+  their top-left and bottom-right corners and not the other two, at Shine 100% · emulator,
+  managed wallpaper set; Layout tab → Floating, then Look → Custom → Edge, then Done.
 - 2026-10-12 · PR #64 · A contact chip with a photo set in Contacts: the initial swaps to the photo
   with no shift, and a reopened palette shows the photo at once · emulator; set the photo in the
   Contacts app, open the contact twice from the palette.
 - 2026-10-12 · PR #64 · App chips on a light chip (light theme or a light Look): the icon's ring is
-  the dark one, not the white one · emulator, night mode off.
+  the dark one, not the white one · emulator, night mode off; needs pinned app chips (usage
+  history), which a fresh emulator install does not have.
 - 2026-10-12 · PR #65 · The widget picker opens without closing the launcher on Android 10 and 11
   (#62) · an API 29 or 30 emulator, or the reporter on the next drop.
 - 2026-10-12 · PR #67 · A restored model works and reads like a fresh download: `tai speak` with
@@ -48,14 +50,6 @@ under twenty items; past that, the oldest are re-judged first.
   insert" · A Polished list or two paragraphs show on their own lines on the card; ✓ in a shell
   with bracketed paste keeps them, in a bare shell they arrive on one line and nothing runs ·
   emulator, Polished cleanup on.
-- 2026-10-13 · commit "feat(dock): let the largest pinned icon reach about 56dp" · Appearance →
-  Icon size at its top reads about 56 dp on Docked and 55 dp on Floating, the dock grows with it
-  and lifts over the keyboard without clipping; the shipped size and the old tops (47 / 45 dp) draw
-  as before · emulator, both Styles, keyboard up and down.
-- 2026-10-13 · commit "fix(dock): never draw a pinned icon wider than its slot" · Ten apps per
-  page at the top Icon size on a 360dp-wide screen: the icons shrink to fit their slots and never
-  touch or overlap, on the pinned row, the A–Z preview and a page swipe; seven apps keep the
-  slider's size · emulator, `wm size` for 360dp, both Styles.
 - 2026-10-13 · commit "fix(launcher): scale an icon pack as one, not icon by icon" · With a PNG
   pack that leaves a margin: its icons in the dock, the drawer, a pinned override and a
   notification look as big as stock icons beside them, not cropped and not blurry. With a line
@@ -126,10 +120,6 @@ under twenty items; past that, the oldest are re-judged first.
   the place (under the status bar, above the keyboard), a sideways swipe on it never discards; the
   next dictation starts where it was left, landscape keeps its own place, a double tap returns to
   the top-right corner · emulator or pong.
-- 2026-09-27 · `launcherctl pane` and `window` (agent pane control) · With "Let programs and agents
-  control panes" on: `pane open --direction right --size 0.4 --no-focus -- htop` opens beside the
-  caller and focus stays; `pane resize`, `pane wait --match` (and 408 and 429 answers), `pane
-  current` geometry in portrait and landscape; `window open --cwd`, `focus` and `close` · emulator.
 - 2026-10-05 · MNN diffusion (`tai image`) · After the library rebuild (backlog): import both image
   repositories from a link and from a folder; SD 1.5 at memory modes 1 and 2, OpenCL against
   `--cpu`, first-load tuning time against the cached one; Sana text and edit; memory next to a
