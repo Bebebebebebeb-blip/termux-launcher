@@ -14,16 +14,6 @@ under twenty items; past that, the oldest are re-judged first.
 
 ## Agent
 
-- 2026-10-14 · commit "fix(icons): wait for an icon pack's parse in flight instead of drawing
-  stock icons" · With Arcticons chosen in the Icons mode and "Pinned app icons only" off: after
-  Done, the dock, the drawer's C page (Calendar, Clock, Contacts, Camera, Chrome) and the palette
-  rows all show Arcticons line icons, also after reopening the palette; then `am force-stop` and
-  relaunch: the dock and the drawer come back in Arcticons, not stock, and stay so, with no
-  freeze or "not responding" dialog while the home screen comes up (stock icons for a moment
-  that turn to Arcticons on their own are expected); opening the palette right after choosing
-  Arcticons never freezes; the switch to
-  MBE Style and back to Default still follows at once · emulator, icon packs from F-Droid
-  (`com.donnnno.arcticons_1570.apk`).
 - 2026-10-12 · PR #64 · A contact chip with a photo set in Contacts: the initial swaps to the photo
   with no shift (the reopened palette was seen showing the photo at once, 2026-10-14) · emulator;
   the device map has the adb route to a contact with a photo.
@@ -50,10 +40,11 @@ under twenty items; past that, the oldest are re-judged first.
   insert" · A Polished list or two paragraphs show on their own lines on the card; ✓ in a shell
   with bracketed paste keeps them, in a bare shell they arrive on one line and nothing runs ·
   emulator, Polished cleanup on.
-- 2026-10-13 · commit "fix(launcher): scale an icon pack as one, not icon by icon" · MBE Style on
-  the palette chips and Arcticons in the dock and drawer were seen right, 2026-10-14. Still owed: a
-  pinned override and a notification with a pack; a pack with no margin looks as it always did ·
-  emulator, icon packs from F-Droid (`me.iacn.mbestyle_27.apk`, `com.donnnno.arcticons_1570.apk`).
+- 2026-10-13 · commit "fix(launcher): scale an icon pack as one, not icon by icon" · Seen right
+  on the palette, dock, drawer and a pinned override, 2026-10-14. Still owed: an app's notification
+  icon with a pack (needs a real app posting one; `cmd notification post` shows a system icon); a
+  pack with no margin looks as it always did · emulator, icon packs from F-Droid
+  (`me.iacn.mbestyle_27.apk`; Arcticons from `https://mirror.cyberbits.eu/fdroid/repo/com.donnnno.arcticons_1570.apk`).
 - 2026-10-13 · `eff06de21`, `c111b7ed5` · Dictation cleanup from context on the phone's E2B: the
   anchor dictation and the "translate this into French" case from
   `project-docs/reference/voice-ai/voice-cleanup-context-rework-2026-10-13.md`, Light and Polished;

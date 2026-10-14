@@ -16,6 +16,11 @@ Latest stable: v1.0.5.
 - With the status bar hidden on a phone with a camera cutout, the app drawer no longer shows a dark band with square corners behind it (#69).
 - The welcome sheet has a Contacts in search switch, so the command palette can find people from the start.
 - The command palette's contact search, shortcuts for actions and contacts, and its most-used chips have shipped in v1.0.5, so they leave the list below.
+- Videos and animations that programs draw in the terminal with kitty graphics play smoothly, without flicker.
+- Starting a dictation no longer freezes the screen for a few seconds: when the cleanup model is not loaded yet, it loads after you stop speaking.
+- The Voice input pause and silence timeout you choose take effect again; some phones were using the defaults.
+- Choosing System for icon packs brings back stock icons everywhere, and large packs such as Arcticons now reach every app and stay applied after a restart.
+- The Model centre shows the full size of the KittenTTS voice.
 
 ## Experimental
 <!-- What is on pre and not yet in a stable, one line each; name the pull request or branch it came from,
