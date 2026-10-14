@@ -746,7 +746,8 @@ public final class TerminalSheetController
     private TerminalDrawerMetrics.Bounds leadingBounds() {
         terminalAreaInPlane(mAreaBounds);
         return TerminalDrawerMetrics.place(mAreaBounds.left, mAreaBounds.top, mAreaBounds.width(),
-            mAreaBounds.height(), isRtl(), mDensity);
+            mAreaBounds.height(), isRtl(), mDensity,
+            mHost.context().getResources().getConfiguration().fontScale);
     }
 
     /** How much of the plane's bottom the in-app keyboard is taking. */
