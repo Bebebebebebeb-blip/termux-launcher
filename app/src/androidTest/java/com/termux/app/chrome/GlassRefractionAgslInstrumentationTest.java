@@ -62,6 +62,20 @@ public class GlassRefractionAgslInstrumentationTest {
         assertTrue("the middle stays, mean diff " + middle, middle < 1f);
     }
 
+    @Test
+    public void aStraightEdgeKeepsOnlyAFaintBevelLight() {
+        // The middle of the top edge faces the light half-on. The plain cosine gave it 71% of a
+        // corner's light, so every edge glowed; the corner glint leaves it a faint trace. Measured
+        // at the same depth from the rim as the corner box above.
+        Bitmap content = checker();
+        Bitmap dark = draw(new GlassRefraction.Look(28, 32, 85, 0, 0), content);
+        Bitmap lit = draw(new GlassRefraction.Look(28, 32, 85, 100, 0), content);
+        float topLeft = meanDiff(dark, lit, 8, 8, 24, 24);
+        float topEdge = meanDiff(dark, lit, W / 2 - 20, 4, W / 2 + 20, 17);
+        assertTrue("the top edge keeps a faint light, mean diff " + topEdge + " against " + topLeft,
+            topEdge < topLeft / 2f);
+    }
+
     private static Bitmap draw(GlassRefraction.Look look, Bitmap content) {
         GlassRefraction.Program program = GlassRefraction.Program.create(2f);
         assertNotNull(program);

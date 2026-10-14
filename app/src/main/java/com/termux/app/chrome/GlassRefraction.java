@@ -353,9 +353,13 @@ public final class GlassRefraction {
         "    col.rgb = col.rgb + half3(rim * uRim);\n" +
         "    col.rgb = col.rgb + half3(lensGlow * uRim * 0.6);\n" +
         // The bevel light, falling along the diagonal: the top-left and bottom-right of the rim face
-        // it and catch it, the other two corners run edge-on to it and stay dark. It rounds off
-        // within uBevel of the rim, a lip of light inside the hairline. Off at uSpec 0.
-        "    float lit = abs(dot(n, float2(0.70710678, 0.70710678)));\n" +
+        // it and catch it, the other two corners run edge-on to it and stay dark. The fourth power
+        // keeps it a corner glint: a straight edge, half facing the light, keeps a quarter of it
+        // (the plain cosine left it 71% and lit every edge). It rounds off within uBevel of the
+        // rim, a lip of light inside the hairline. Off at uSpec 0.
+        "    float facing = dot(n, float2(0.70710678, 0.70710678));\n" +
+        "    float lit = facing * facing;\n" +
+        "    lit = lit * lit;\n" +
         "    float bevel = clamp(1.0 - inside / uBevel, 0.0, 1.0);\n" +
         "    bevel = bevel * bevel;\n" +
         "    col.rgb = col.rgb + half3(bevel * lit * uSpec);\n" +
