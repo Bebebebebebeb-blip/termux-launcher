@@ -4,7 +4,7 @@ Status 2026-10-06: delivered on `feat/first-party-widgets` (all twelve widgets a
 both directions), Waydroid-checked; awaiting the developer's review and the merge to `dev`.
 
 Twelve widgets drawn by the launcher itself on the Widgets page, beside the app widgets the page
-already hosts. They are the design handoff of 2026-10-06 (`design-handoff.html` beside this file:
+already hosts. They are the design handoff of 2026-10-06 (a design board since deleted:
 twelve widgets at five spans, two directions, solid and glass boards), implemented as in-process
 views rather than app widgets, so they follow the terminal scheme, the Look and the page's glass
 without a provider round trip.

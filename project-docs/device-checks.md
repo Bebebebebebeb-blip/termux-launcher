@@ -114,9 +114,32 @@ under twenty items; past that, the oldest are re-judged first.
   for a clean dictation). Then a Spanish (or German) dictation with "eh"/"äh": the fillers go,
   the text stays in that language (`lang=es`), never English · pong with the go-ahead, Light and
   Polished.
+- 2026-09-27 · voice panel (rounds 3 and 4) · With cleanup on, dictate a passage with an "um": while
+  listening and cleaning the text is italic and dim, the cleaned text is upright with changed words
+  in the accent and removed words struck through, and the marks stay until the panel closes; Undo
+  gives the italic as-heard text, Redo the marks; ✓ inserts the plain cleaned text. Readable on the
+  light, dark and glass looks · pong with the go-ahead (the emulator has no microphone).
+- 2026-09-27 · voice panel · The screen stays on while listening, cleaning and while text waits, and
+  sleeps after about 3 minutes untouched (a touch on the pill restarts them); ×, ✓, Copy, a swipe
+  and leaving the app let it time out at once · pong, screen timeout 30 s.
+- 2026-09-27 · voice panel · The grab handle under the card: dragging moves pill and panel inside
+  the place (under the status bar, above the keyboard), a sideways swipe on it never discards; the
+  next dictation starts where it was left, landscape keeps its own place, a double tap returns to
+  the top-right corner · emulator or pong.
+- 2026-09-27 · `launcherctl pane` and `window` (agent pane control) · With "Let programs and agents
+  control panes" on: `pane open --direction right --size 0.4 --no-focus -- htop` opens beside the
+  caller and focus stays; `pane resize`, `pane wait --match` (and 408 and 429 answers), `pane
+  current` geometry in portrait and landscape; `window open --cwd`, `focus` and `close` · emulator.
+- 2026-10-05 · MNN diffusion (`tai image`) · After the library rebuild (backlog): import both image
+  repositories from a link and from a folder; SD 1.5 at memory modes 1 and 2, OpenCL against
+  `--cpu`, first-load tuning time against the cached one; Sana text and edit; memory next to a
+  loaded chat model; idle unload; Ctrl-C cancels · pong with the go-ahead.
 
 ## Developer
 
+- 2026-09-27 · voice panel · Keyboard → Voice input → Mic sensitivity (Normal, High): soft speech at
+  arm's length is picked up on both; High lets in more of a nearby voice or video, Normal fewer;
+  keyboard clicks, a fan or air conditioning alone never open a phrase on either · pong, by hand.
 - 2026-10-12 · fix(appearance): Custom starts from the Look on screen · On pong, apply Clear,
   Done, reopen the editor, tap Custom: the sliders show Clear's numbers and the look does not
   change. Tweak Blur, tap Mist, tap Custom: the tweak is back. Undo: Clear again · pong, by hand.
@@ -129,8 +152,6 @@ under twenty items; past that, the oldest are re-judged first.
   keyboard up/down at 90 Hz, no frame over 11 ms · `scripts/perf-baseline.sh`.
 - 2026-10-12 · PR #63 · Dispersion fringing shows on the city wallpaper between 50 and 100%; on
   a blue test picture it was only measurable, not visible.
-- 2026-09-27 · parked list `active/device-checks-pending-2026-09-27.md` (voice redesign, keyboard
-  off, tai speak): fold what still applies into this file, drop the rest.
 - 2026-10-12 · PR #67 · Export settings, then Import settings on pong as the default home: the
   launcher comes back as home within a few seconds with the same look, layout and terminal font
   size, and nothing asks to pick a home app.

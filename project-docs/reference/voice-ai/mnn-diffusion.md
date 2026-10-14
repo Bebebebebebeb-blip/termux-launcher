@@ -2,7 +2,7 @@
 
 Status: engine bridge, runtime, admission, route, `tai image`, tests and docs are on `feat/mnn-diffusion`; the
 importer now installs image models (Hugging Face link, picked folder, `tai import`) and Model Centre lists them
-under Image generation. Not compiled on a device, not device-tested.
+under Image generation. Not device-tested; see the device checks.
 
 ## What is built
 
@@ -40,15 +40,12 @@ under Image generation. Not compiled on a device, not device-tested.
 - Sana is never kept resident (it frees the LLM and the diffusion stack each run, like upstream).
 - The crash marker the chat loads use is not written for image loads.
 
-## Owed
+## Not covered
 
-1. Rebuild `libmnnllmapp.so` (CI or the local recipe) and update the SHA lines in
-   `app/src/main/jniLibs/arm64-v8a/README.md`; until then image routes answer `501 mnn_image_unavailable`.
-2. Device tests on pong: import both repositories from the app (link) and from a folder; SD 1.5 at mode 1 and 2,
-   OpenCL vs `--cpu`, the first-load tuning time against the cached one (the `tai-diffusion-cache` effect),
-   Sana text and edit, memory behaviour next to a loaded chat model, idle unload, Ctrl-C.
-3. Taiyi has no published `tokenizer.mtok` here: a Taiyi package with raw tokenizer files is refused; one that ships
-   `tokenizer.mtok` imports (the type comes from the name containing "taiyi").
-4. Catalogue entries for image models (signed and published separately) and the Sana prompt-LLM defaults the
-   upstream app sets.
-5. Not supported yet: Wan video and Stable Diffusion 3.5; a direct file link to an image package.
+- Taiyi has no published `tokenizer.mtok` here: a Taiyi package with raw tokenizer files is refused; one that ships
+  `tokenizer.mtok` imports (the type comes from the name containing "taiyi").
+- No catalogue entries for image models (they would be signed and published separately), and the Sana prompt-LLM
+  defaults the upstream app sets are not set.
+- Not supported yet: Wan video and Stable Diffusion 3.5; a direct file link to an image package.
+- The library rebuild and the pong tests of this work are tracked in `project-docs/backlog.md` and
+  `project-docs/device-checks.md`.

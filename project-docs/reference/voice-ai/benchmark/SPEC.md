@@ -232,7 +232,7 @@ The filter:
 4. MNN needs `mnnSupported`.
 5. GPU runs only where `supportsAccelerator` allows.
 
-The recommended downloads come from the signed remote catalogue (`TaiRemoteCatalog`), so the list changes without an app release. Full per-model source/revision, sizes, verification steps and the signing/publish process: `project-docs/active/benchmark/recommended-set.md`; draft payload: `project-docs/active/benchmark/recommended-catalog-draft.json`.
+The recommended downloads come from the signed remote catalogue (`TaiRemoteCatalog`), so the list changes without an app release. Full per-model source/revision, sizes, verification steps and the signing/publish process: `project-docs/reference/voice-ai/benchmark/recommended-set.md`; draft payload: `project-docs/reference/voice-ai/benchmark/recommended-catalog-draft.json`.
 
 ## Storage
 

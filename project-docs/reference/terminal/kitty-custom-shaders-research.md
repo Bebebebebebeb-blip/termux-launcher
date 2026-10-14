@@ -5,7 +5,8 @@
 # kitty custom shaders: research for termux-launcher
 
 Date: 2026-09-30. Status: research only. Nothing is built, and no decision is recorded here.
-Companion to `SPEC.md` in this folder.
+Written beside the animated-wallpaper spec, which was deleted when living and animated wallpapers
+were removed (2026-10-06); its `SPEC.md` § citations below are historical.
 
 The kitty source links point to commit
 [`3d06c27a`](https://github.com/kovidgoyal/kitty/tree/3d06c27a76526306ec003c1fbdce38718c844238)
@@ -191,7 +192,7 @@ Several kitty backgrounds are themselves Shadertoy ports
 
 The app's `minSdkVersion` is 26 and its `targetSdkVersion` is 28 (`gradle.properties:26-27`).
 Fancier Glass gates AGSL at `TIRAMISU` (33) (`app/src/main/java/com/termux/app/chrome/FancierGlassPolicy.java:19`).
-The animated-wallpaper spec settled on API 34+ (`SPEC.md` §13 Q1).
+The animated-wallpaper spec (since deleted) settled on API 34+ (`SPEC.md` §13 Q1).
 
 ## 3. Fit with termux-launcher
 

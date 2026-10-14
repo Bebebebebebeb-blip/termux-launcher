@@ -10,8 +10,8 @@ Paths are short: `ai/` is `app/src/main/java/com/termux/ai/`, `living/` is
 `app/src/main/java/com/termux/app/chrome/wallpaper/living/`. Source keys such as [A1] are listed under
 Sources.
 
-Read first: `local-ai-and-living-wallpaper-review-2026-10-04.md` (T1–T14), `tai-memory-manager.md`,
-`animated-wallpaper/director-comparison-2026-10-04.md`.
+Read first: `tai-memory-manager.md` (in `project-docs/active/`). The 2026-10-04 local-AI review (T1–T14) and the
+director comparison it also drew on were deleted with the living wallpapers.
 
 ## Summary
 
@@ -541,7 +541,7 @@ Model cards and configs (read 2026-10-05):
 - [C10] Qwen/Qwen3-0.6B `config.json`. https://huggingface.co/Qwen/Qwen3-0.6B/blob/main/config.json
 
 App notes used for measurements (repo, with dates): `tai-memory-manager.md` (2026-09-24),
-`animated-wallpaper/director-comparison-2026-10-04.md`, `local-ai-and-living-wallpaper-review-2026-10-04.md`,
+the 2026-10-04 director comparison and local-AI review (both since deleted),
 `reference/voice-ai/gallery-gpu-loading-comparison.md` (2026-09-24),
 `reference/voice-ai/local-llm-speedups-verification-2026-09-30.md`. Agent memory notes cited by name
 (`tai-context-window-oom` 09-23, `tai-bench-issues-2026-09-29`, `mnn-update-tai-reload-2026-09-28`,
