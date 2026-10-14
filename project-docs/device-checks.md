@@ -14,11 +14,6 @@ under twenty items; past that, the oldest are re-judged first.
 
 ## Agent
 
-- 2026-10-14 · commit "fix(launcher): an icon pack's round icons stay whole at the bigger size" ·
-  Arcticons round icons (Clock, Chrome, Google) are whole circles in the dock and drawer, as big as
-  the build before 860f1a67c or bigger, never cut · emulator, Arcticons from
-  `https://mirror.cyberbits.eu/fdroid/repo/com.donnnno.arcticons_1570.apk`.
-- 2026-10-14 · commit "fix(pinned): removing a pin in the editor unticks it in the apps list" · Edit pinned apps: pin three apps, tap the first row's remove three times quickly, Done: none stay pinned and no box stays ticked. (emulator)
 - 2026-10-12 · PR #64 · A contact chip with a photo set in Contacts: the initial swaps to the photo
   with no shift (the reopened palette was seen showing the photo at once, 2026-10-14) · emulator;
   the device map has the adb route to a contact with a photo.
