@@ -118,49 +118,46 @@ under twenty items; past that, the oldest are re-judged first.
   the place (under the status bar, above the keyboard), a sideways swipe on it never discards; the
   next dictation starts where it was left, landscape keeps its own place, a double tap returns to
   the top-right corner · emulator or pong.
-- 2026-10-05 · MNN diffusion (`tai image`) · After the library rebuild (backlog): import both image
-  repositories from a link and from a folder; SD 1.5 at memory modes 1 and 2, OpenCL against
-  `--cpu`, first-load tuning time against the cached one; Sana text and edit; memory next to a
-  loaded chat model; idle unload; Ctrl-C cancels · pong with the go-ahead.
-
 - 2026-10-14 · commit "feat(keyboard): edit, reset and create layouts in Settings › Layouts" ·
   Layouts screen: "Your layouts" with + on top; every row has an edit icon, an edited shipped
   layout shows "Edited" and a reset icon, a user layout a delete icon; icons are 48dp and read
   by TalkBack; the cycle rows (↑ ↓ ✕ ✎ ⟲) still leave the title readable at 360dp; add, remove,
   reorder, search and the 16-layout cap work as before. The "Custom layout" row is gone from
-  Keyboard › Layout · pong with the go-ahead (no emulator/Waydroid).
+  Keyboard › Layout · emulator.
 - 2026-10-14 · same commit · Editor: typing with the system keyboard (no suggestions), long-press
   copy and paste, horizontal and vertical scrolling of the XML field, the field shrinks above the
   IME; a broken tag shows "Line N, column M: …" under the field within half a second and Save
   greys out; Save is off until something changes; Back with edits asks to discard; rotation keeps
-  the draft · pong with the go-ahead.
+  the draft · emulator.
 - 2026-10-14 · same commit · Reset and delete: reset an edited Dvorak (confirm) and the shipped
   one is back on the keyboard; + → name "Test" → Save → add it to the cycle → leave Settings: the
   cycle key reaches it, the switch notice says "Test"; delete it (confirm): it leaves the cycle and
-  the keyboard · pong with the go-ahead.
+  the keyboard · emulator.
 - 2026-10-14 · same commit · Files: `vim ~/.termux/keyboard/layouts/latn_dvorak.xml` (or a
   user-*.xml) from the terminal is picked up on the next return to the launcher and shows
   "Edited" in Settings; a broken hand edit shows the layout-error notice and keeps the last
   working layout; an existing `~/.termux/keyboard/layout.xml` still applies as the launcher
-  layout and editing "Launcher layout" in Settings writes that same file · pong with the go-ahead.
+  layout and editing "Launcher layout" in Settings writes that same file · emulator.
 - 2026-10-14 · commit "feat(keyboard): slide a layout row's buttons open beneath it" · Settings ›
   Keyboard › Layouts: rows show only name and second line ("Edited" tag kept), a full-width title
   at 360dp; tapping a row slides a rounded tonal strip of its buttons open beneath it (~200 ms),
   tapping again slides it shut; opening another row closes the first; ↑/↓ tapped repeatedly keep
   the strip open on the moving row without re-animating; + on a catalogue row carries the strip to
   the cycle; with animations off it snaps; TalkBack reads "name, second line, actions hidden" and
-  offers Show/Hide actions · pong with the go-ahead (no emulator).
+  offers Show/Hide actions · emulator.
 - 2026-10-14 · commit "fix(keyboard): readable rebuilt layouts, no fallback flash on a first
   swap" · Editing a shipped layout (e.g. Dvorak) opens XML with `c`/`nw`…`se` slot names under a
   short header; right after creating a user layout and adding it to the cycle, the first swap to
-  it shows it at once with no launcher-layout flash · pong with the go-ahead (no emulator).
+  it shows it at once with no launcher-layout flash · emulator.
+
+## Developer
+
 - 2026-09-27 · voice panel · Keyboard → Voice input → Mic sensitivity (Normal, High): soft speech at
   arm's length is picked up on both; High lets in more of a nearby voice or video, Normal fewer;
   keyboard clicks, a fan or air conditioning alone never open a phrase on either · pong, by hand.
 - 2026-10-12 · fix(appearance): Custom starts from the Look on screen · On pong, apply Clear,
   Done, reopen the editor, tap Custom: the sliders show Clear's numbers and the look does not
   change. Tweak Blur, tap Mist, tap Custom: the tweak is back. Undo: Clear again · pong, by hand.
-
 - 2026-10-12 · PR #63 · The resting look at Clear and Mist on pong: the outer ~2 dp of every rim
   now mirrors the wallpaper (quarter-circle bevel along the true normal); it should read as a
   thick glass edge, not a double line. If it reads wrong, the profile in `GlassRefraction` is the
