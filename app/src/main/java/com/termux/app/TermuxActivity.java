@@ -4773,6 +4773,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     new Rect(mChrome.blurCache().frameRectRef()), mWallpaperParallax,
                     com.termux.app.chrome.GlassAnchor.layout(under,
                         () -> mAccessoryStackLift.px() + under.getTranslationY()));
+                backdrop.setClearFrame(glassClearFrame(state.blurRadiusDp));
             }
         }
         com.termux.app.chrome.GlassStack.Spec spec = com.termux.app.chrome.GlassStack.Spec.of(
@@ -4794,6 +4795,25 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     /** The shared frame the under-keyboard card is drawing, for the blur cache's in-use scan. */
     @Nullable private Bitmap mUnderKeyboardBackdropBitmap;
+
+    /**
+     * Fancier Glass's edge clarity for a surface frosted at {@code blurRadiusDp}: the blur cache's
+     * clear frame ({@link com.termux.app.chrome.GlassRefraction#CLARITY_RADIUS_DP}, the same rect
+     * as the frost's), or null while the look asks for none or that blur is still in flight. The
+     * frame lands through the cache's ready pass, which rebuilds these surfaces. Read on every
+     * build, so a radius, look or wallpaper change and a cache clear restate it with the frame.
+     * The in-use scan finds it through the drawable ({@code SharedFrameDrawable.shows}).
+     */
+    @Nullable
+    private Bitmap glassClearFrame(int blurRadiusDp) {
+        if (!com.termux.app.chrome.WallpaperFrostPainter.wantsClearFrame(mFancierGlassLook,
+                blurRadiusDp)) return null;
+        View wallpaperFrame = findViewById(R.id.activity_termux_root_view);
+        if (wallpaperFrame == null) return null;
+        Bitmap clear = mChrome.blurCache().obtain(
+            com.termux.app.chrome.GlassRefraction.CLARITY_RADIUS_DP, wallpaperFrame);
+        return clear != null && !clear.isRecycled() ? clear : null;
+    }
 
     /**
      * The dock's glass, started below a bottom status bar that kept a sheet of its own. Without
@@ -6586,6 +6606,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 backdrop = new com.termux.app.chrome.SharedFrameDrawable(frame,
                     mInAppKeyboardBackdropFrameRect, mWallpaperParallax,
                     com.termux.app.chrome.GlassAnchor.layout(surfaceHost, mAccessoryStackLift));
+                backdrop.setClearFrame(glassClearFrame(blurRadiusDp));
             }
         }
         // The drawable reports no intrinsic size. This background is installed on a wrap-content
