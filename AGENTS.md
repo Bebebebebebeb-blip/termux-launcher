@@ -218,15 +218,15 @@ before you hand work over. CI owns the rest.
   test *name lists* against a clean worktree**, never counts.
   `TerminalIOPreferencesDataStoreLazyModeTest` is a known order-dependent flake (static singleton
   in `TerminalIOPreferencesFragment`) — it passes alone.
-- **Emulator first, for anything visual.** If your host has an emulator skill or driver, use it
-  rather than re-deriving the setup. The non-negotiables: an AVD such as `tl_test`, `-gpu angle_indirect` (the
-  default swiftshader segfaults on this app's blur), stop the Gradle daemon first on a small host,
-  install the **x86_64** split, and always pass `-s emulator-5554` — if qemu dies, adb silently
-  falls back to the phone.
-- **Tear the test setup down when you are done.** Waydroid and the emulator hold this host's RAM
-  and GPU for as long as they run. When the testing is finished, force-stop the app, then shut the
-  whole setup down: `ad waydroid stop` for Waydroid, kill the emulator, and stop any background
-  monitor or logcat loop you left behind. Leave nothing running for the next task.
+- **Emulator first, for anything visual.** The Android emulator is the test platform. If your
+  host has an emulator skill or driver, use it rather than re-deriving the setup; drive the app
+  through Mobilerun Portal where the host provides it. The non-negotiables: an AVD such as
+  `tl16`, `-gpu angle_indirect` (the default swiftshader segfaults on this app's blur), stop the
+  Gradle daemon first on a small host, install the **x86_64** split, and always pass
+  `-s emulator-5554` — if qemu dies, adb silently falls back to the phone.
+- **Tear the test setup down when you are done.** The emulator holds this host's RAM and GPU for
+  as long as it runs. When the testing is finished, force-stop the app, then shut the whole setup
+  down: kill the emulator, and stop any background monitor or logcat loop you left behind. Leave nothing running for the next task.
 - **What the emulator cannot tell you.** Jank: `gfxinfo` on ANGLE/lavapipe reports everything as
   100% janky — judge motion on a real phone. Dialogs: a UI-bounds dump does not see dialog windows, so
   screenshot and tap fresh coordinates. Simulate other phones with `wm size` / `wm density` /

@@ -2,7 +2,7 @@
 
 Built, merged, not yet seen on a device. The list a drop or a cut is checked against first.
 
-**Agent** items can be driven over adb: Waydroid, or pong with the developer's go-ahead.
+**Agent** items can be driven over adb: the emulator, or pong with the developer's go-ahead.
 **Developer** items need a hand on the phone: feel, frame timing, a lock screen, taste.
 
 One line per item: date · commit or PR · what to look at · what passes · how (device, route).
@@ -15,21 +15,21 @@ under twenty items; past that, the oldest are re-judged first.
 ## Agent
 
 - 2026-10-12 · PR #63 · Floating style: the keyboard capsule and the dock card catch the Shine
-  light on their top-left and bottom-right corners and not the other two, at Shine 100% · Waydroid,
+  light on their top-left and bottom-right corners and not the other two, at Shine 100% · emulator,
   managed wallpaper set; Layout tab → Floating, then Look → Custom → Edge.
 - 2026-10-12 · PR #64 · A contact chip with a photo set in Contacts: the initial swaps to the photo
-  with no shift, and a reopened palette shows the photo at once · Waydroid; set the photo in the
+  with no shift, and a reopened palette shows the photo at once · emulator; set the photo in the
   Contacts app, open the contact twice from the palette.
 - 2026-10-12 · PR #64 · App chips on a light chip (light theme or a light Look): the icon's ring is
-  the dark one, not the white one · Waydroid, night mode off.
+  the dark one, not the white one · emulator, night mode off.
 - 2026-10-12 · PR #65 · The widget picker opens without closing the launcher on Android 10 and 11
   (#62) · an API 29 or 30 emulator, or the reporter on the next drop.
 - 2026-10-12 · PR #67 · A restored model works and reads like a fresh download: `tai speak` with
   KittenTTS after Import AI models, and its Model centre row shows the same size a fresh download
-  shows (Waydroid read "32.3 MB" after a restore; the catalog says 90 MB) · Waydroid.
+  shows (Waydroid read "32.3 MB" after a restore; the catalog says 90 MB) · emulator.
 - 2026-10-12 · PR #67 · Export AI models with a model over 1 GB: leave Settings mid-copy, Cancel
   from the notification removes the half-written file and keeps finished models; Export again
-  skips them · Waydroid.
+  skips them · emulator.
 - 2026-10-12 · commit "feat(keyboard): paste a fresh screenshot from the paste key" · With the
   storage permission granted and text copied first: take a screenshot, open the keyboard; the "v"
   key's paste corner shows the photo where the paste glyph sat; paste types a path to a copy of
@@ -43,25 +43,25 @@ under twenty items; past that, the oldest are re-judged first.
   while "Cleaning up…" keeps the text as heard and the cleanup never lands. A finger scroll of 7
   lines and a sideways swipe do not open the editor. On the Display place ✓ types into the
   display afterwards. With the in-app keyboard off the phone's keyboard comes up and types; at
-  font scale 1.3 the caret sits on the line · Waydroid.
+  font scale 1.3 the caret sits on the line · emulator.
 - 2026-10-13 · commit "fix(voice): keep a Polished cleanup's line breaks to the card and the
   insert" · A Polished list or two paragraphs show on their own lines on the card; ✓ in a shell
   with bracketed paste keeps them, in a bare shell they arrive on one line and nothing runs ·
-  Waydroid, Polished cleanup on.
+  emulator, Polished cleanup on.
 - 2026-10-13 · commit "feat(dock): let the largest pinned icon reach about 56dp" · Appearance →
   Icon size at its top reads about 56 dp on Docked and 55 dp on Floating, the dock grows with it
   and lifts over the keyboard without clipping; the shipped size and the old tops (47 / 45 dp) draw
-  as before · Waydroid, both Styles, keyboard up and down.
+  as before · emulator, both Styles, keyboard up and down.
 - 2026-10-13 · commit "fix(dock): never draw a pinned icon wider than its slot" · Ten apps per
   page at the top Icon size on a 360dp-wide screen: the icons shrink to fit their slots and never
   touch or overlap, on the pinned row, the A–Z preview and a page swipe; seven apps keep the
-  slider's size · Waydroid, `wm size` for 360dp, both Styles.
+  slider's size · emulator, `wm size` for 360dp, both Styles.
 - 2026-10-13 · commit "fix(launcher): scale an icon pack as one, not icon by icon" · With a PNG
   pack that leaves a margin: its icons in the dock, the drawer, a pinned override and a
   notification look as big as stock icons beside them, not cropped and not blurry. With a line
   or glyph pack (Whicons, Lines): glyphs keep their sizes and placement relative to one another.
   A pack with no margin looks as it always did; an app the pack does not map keeps the pack's own
-  back plate · Waydroid, icon packs from F-Droid.
+  back plate · emulator, icon packs from F-Droid.
 - 2026-10-13 · `eff06de21`, `c111b7ed5` · Dictation cleanup from context on the phone's E2B: the
   anchor dictation and the "translate this into French" case from
   `project-docs/reference/voice-ai/voice-cleanup-context-rework-2026-10-13.md`, Light and Polished;
@@ -106,7 +106,7 @@ under twenty items; past that, the oldest are re-judged first.
   shows `language=es/detected heard=es@…` on the first kept phrase and `language=es/forced` after.
   A fresh dictation of an English clip: no language on the strip, `language=en/detected`. Note each
   phrase's `detectMs` against its `decodeMs`/`decodeSteps`, and the probability a one-word command
-  scores (the 0.8 bar) · Waydroid, fake PipeWire mic.
+  scores (the 0.8 bar) · pong; the emulator has no working microphone.
 - 2026-10-13 · commit "feat(voice): send only the sentences that need it to the cleanup model" ·
   A real English dictation with "uh"/"um" in clean sentences and one stutter or "no wait": no
   filler is left, the clean sentences come back word for word, and logcat `VoiceSessionCleanup`

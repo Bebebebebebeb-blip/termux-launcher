@@ -11,7 +11,7 @@ active and to drop them to 10 Hz at rest. The launcher's working frame budget is
 number assumes before you compare against it. Read the live rate from the device when you measure
 (`scripts/perf-baseline.sh` prints the display's active mode), and name it beside any frame
 number you write.
-Emulator and Waydroid numbers count for memory and start-up trends only. They do not count for
+Emulator numbers count for memory and start-up trends only. They do not count for
 frame time or jank, because `gfxinfo` on ANGLE or lavapipe reports every frame as janky. Ask before
 measuring on pong; AGENTS.md's rule on touching a real phone applies.
 
@@ -61,7 +61,7 @@ measuring on pong; AGENTS.md's rule on touching a real phone applies.
 | Scripted gestures (`pong.txt` x 3) | 2.4% janky; p50 16 ms, p90 22 ms, p99 44 ms; about 71 frames/s | `scripts/perf-frametime.sh`, 1.1.0-pre.1, 2026-10-12 | `scripts/perf-frametime.sh` |
 | Sliding between places | median 15–16 ms; worst page-change frame 47 ms | `707920f71`, `c6223ec76` | perfetto, `Wall.*` trace sections |
 | Pre-roll and settle frames | 30–77 ms now. Target: none above 16.7 ms | `project-docs/active/fancier-glass/SPEC.md` | perfetto |
-| Cold start | 1.33–1.54 s from force-stop to first frame, relaunched as home (about 2 s of main thread in an older trace; `am start -W` 4.0 s on a release build under Waydroid) | `scripts/perf-baseline.sh start`, 1.1.0-pre.1, 2026-10-12; `project-docs/active/release-build-type-2026-10-06.md` | logcat `Displayed` after `am force-stop`, three runs |
+| Cold start | 1.33–1.54 s from force-stop to first frame, relaunched as home (about 2 s of main thread in an older trace) | `scripts/perf-baseline.sh start`, 1.1.0-pre.1, 2026-10-12 | logcat `Displayed` after `am force-stop`, three runs |
 | Release APK, universal | about 100 MB | same | file size |
 | On-device AI runtime | 330 MiB resident at rest; E4B on GPU: first token 1.11 s, decode about 11 tok/s | `TaiResidency.java`, `project-docs/reference/voice-ai/gallery-gpu-loading-comparison.md` | `tai benchmark --compare` |
 
