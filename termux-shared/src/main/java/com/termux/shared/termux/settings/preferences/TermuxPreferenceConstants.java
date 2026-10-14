@@ -1285,6 +1285,17 @@ public final class TermuxPreferenceConstants {
         public static final int MAX_FANCIER_GLASS_DISPERSION = 100;
 
         /**
+         * Edge clarity: how clearly the wallpaper shows through the bent edge, as a percentage.
+         * A thick glass edge shows what is behind it sharper than the frosted face does; at 100
+         * the rim shows the wallpaper itself, at 0 (the default, and the dock's own refraction,
+         * which has no clearer picture to show) the edge keeps the surface's frost.
+         */
+        public static final String KEY_FANCIER_GLASS_CLARITY = "fancier_glass_clarity";
+        public static final int DEFAULT_VALUE_FANCIER_GLASS_CLARITY = 0;
+        public static final int MIN_FANCIER_GLASS_CLARITY = 0;
+        public static final int MAX_FANCIER_GLASS_CLARITY = 100;
+
+        /**
          * Whether holding a keybind prefix (Ctrl+Alt) automatically shows the key-hint strip.
          * When off, nothing appears on its own: the {@code ?} cap lights up under the prefix and
          * pressing it opens the full table on demand.

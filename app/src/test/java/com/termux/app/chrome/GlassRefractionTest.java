@@ -59,6 +59,34 @@ public class GlassRefractionTest {
         assertEquals(0f, look.dispersionPx(DENSITY), 0f);
         assertEquals("the three-knob constructor leaves them off",
             new GlassRefraction.Look(12, 30, 50), new GlassRefraction.Look(12, 30, 50, 0, 0));
+        assertEquals(0, look.clarityPercent);
+        assertEquals(0f, look.clarity(), 0f);
+        assertEquals("the five-knob constructor leaves clarity off",
+            new GlassRefraction.Look(12, 30, 50, 3, 4), new GlassRefraction.Look(12, 30, 50, 3, 4, 0));
+    }
+
+    @Test
+    public void clarityMapsToItsUniformAndIsClamped() {
+        // uClarity: how much of the clearer picture the rim shows.
+        assertEquals(0.6f * GlassRefraction.Look.MAX_CLARITY,
+            new GlassRefraction.Look(9, 20, 18, 0, 0, 60).clarity(), 1e-4f);
+        assertEquals(GlassRefraction.Look.MAX_CLARITY,
+            new GlassRefraction.Look(9, 20, 18, 0, 0, 100).clarity(), 1e-4f);
+        assertEquals(GlassRefraction.Look.MAX_CLARITY,
+            new GlassRefraction.Look(9, 20, 18, 0, 0, 400).clarity(), 1e-4f);
+        assertEquals(0f, new GlassRefraction.Look(9, 20, 18, 0, 0, -5).clarity(), 0f);
+    }
+
+    @Test
+    public void theThicknessShadingFollowsTheBendAndIsNotAKnob() {
+        // uThick: nothing with no bend, full from THICKNESS_FULL_BEND_DP on, linear between.
+        assertEquals(0f, new GlassRefraction.Look(0, 20, 18).thickness(), 0f);
+        assertEquals(0.5f, new GlassRefraction.Look(4, 20, 18).thickness(), 1e-4f);
+        assertEquals(1f, new GlassRefraction.Look(8, 20, 18).thickness(), 1e-4f);
+        assertEquals("a thicker slab shades no harder", 1f,
+            new GlassRefraction.Look(30, 20, 18).thickness(), 1e-4f);
+        assertEquals("the dock's own refraction is a thick slab", 1f,
+            GlassRefraction.Look.DEFAULT.thickness(), 1e-4f);
     }
 
     @Test
@@ -119,12 +147,14 @@ public class GlassRefractionTest {
             "uFrameScale", "uFrameOffset", "uLocalX", "uLocalY", "uLocalW", "uRectMin", "uRectMax",
             "uRadius", "uBand", "uStrength", "uRim", "uDisp", "uSpec", "uBevel", "uDensity",
             "uLensActive", "uLensCenter", "uLensHalf", "uLensRadius", "uLensStrength", "uLensFeather",
+            "uClarity", "uThick", "uTouchActive", "uTouch", "uTouchRadius", "uTouchLens",
         };
         for (String name : written) {
             assertTrue(name + " is declared",
                 Pattern.compile("uniform \\w+ " + name + ";").matcher(GlassRefraction.AGSL).find());
         }
         assertTrue(GlassRefraction.AGSL.contains("uniform shader content;"));
+        assertTrue("the clearer picture is a second input", GlassRefraction.AGSL.contains("uniform shader sharp;"));
     }
 
     @Test
@@ -142,6 +172,7 @@ public class GlassRefractionTest {
         assertNotEquals(one, new GlassRefraction.Look(10, 20, 18));
         assertNotEquals(one, new GlassRefraction.Look(9, 21, 18));
         assertNotEquals(one, new GlassRefraction.Look(9, 20, 19));
+        assertNotEquals(one, new GlassRefraction.Look(9, 20, 18, 0, 0, 1));
     }
 
     @Test

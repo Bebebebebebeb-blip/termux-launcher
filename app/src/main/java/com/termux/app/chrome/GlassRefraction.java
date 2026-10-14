@@ -28,11 +28,19 @@ import java.util.Arrays;
  * sample inward along the rim's own normal by the curve of a thick slab's rounded bevel: nothing
  * at the band's inner edge, bending ever faster toward the rim, where the picture compresses and
  * at the very edge folds back on itself. It then lays one sharp hairline of light where the edge
- * catches it. Two extras sit on top for the clearest glass, both off unless a Look sets them: a
- * bevel light falling along the diagonal, which the top-left and bottom-right of the rim catch
- * and the other two corners do not, and a split of the bent picture into its colours across the
- * band, the way a prism fans out white light. A pressed extra key adds a lens that magnifies
- * toward the key's centre and eases to nothing at its pill rim.</p>
+ * catches it, lit from above and a little to the left with a weaker light answering from below,
+ * so the top edge is bright, the bottom edge softer and the sides faint, as a slab under a room's
+ * light reads. Across the same band the bend carries the slab's thickness: the picture brightens
+ * a little toward the lit rim and dims a little toward the one in shadow, in step with how far it
+ * is bent. Where a clearer picture of the wallpaper is handed in ({@link Program#setClarityInput}),
+ * the band shows it through the bend in place of the frost, growing clearer toward the rim, which
+ * is what a thick glass edge does to what is behind it. Two extras sit on top for the clearest
+ * glass, both off unless a Look sets them: a bevel light falling along the diagonal, which the
+ * top-left and bottom-right of the rim catch and the other two corners do not, and a split of
+ * the bent picture into its colours across the band, the way a prism fans out white light. A
+ * pressed extra key adds a lens that magnifies toward the key's centre and eases to nothing at
+ * its pill rim, and a finger resting on the glass ({@link Program#setTouch}) lights the rim
+ * nearest it, scatters a faint glow under it and draws the picture very slightly toward it.</p>
  *
  * <p>It used to live in the activity as the dock's own effect. It is one program now, with two
  * ways in: as a {@code RenderEffect} over a view's finished pixels, which is what the dock and
@@ -88,6 +96,15 @@ public final class GlassRefraction {
          */
         static final float MAX_DISPERSION_DP = 16f;
 
+        /** How much of the clearer picture the band shows at the rim at 100%: all of it. */
+        static final float MAX_CLARITY = 1f;
+
+        /**
+         * The bend at which the thickness shading is at full strength, in dp: a bend of a few dp
+         * is a thin pane and shades little; from here on the slab reads as thick.
+         */
+        static final float THICKNESS_FULL_BEND_DP = 8f;
+
         /**
          * How far in the bevel light reaches, as a share of the edge width, and the narrowest and
          * widest it gets in dp: a thin rounded lip on any band, never a wash over a wide one.
@@ -103,18 +120,26 @@ public final class GlassRefraction {
         public final int specularPercent;
         /** The chromatic split at the rim, a percentage; 0 samples r, g and b alike. */
         public final int dispersionPercent;
+        /** How clear the wallpaper shows through the bent edge, a percentage; 0 keeps the frost. */
+        public final int clarityPercent;
 
         public Look(int bendDp, int edgeWidthDp, int edgeLightPercent) {
-            this(bendDp, edgeWidthDp, edgeLightPercent, 0, 0);
+            this(bendDp, edgeWidthDp, edgeLightPercent, 0, 0, 0);
         }
 
         public Look(int bendDp, int edgeWidthDp, int edgeLightPercent,
                     int specularPercent, int dispersionPercent) {
+            this(bendDp, edgeWidthDp, edgeLightPercent, specularPercent, dispersionPercent, 0);
+        }
+
+        public Look(int bendDp, int edgeWidthDp, int edgeLightPercent,
+                    int specularPercent, int dispersionPercent, int clarityPercent) {
             this.bendDp = bendDp;
             this.edgeWidthDp = edgeWidthDp;
             this.edgeLightPercent = edgeLightPercent;
             this.specularPercent = specularPercent;
             this.dispersionPercent = dispersionPercent;
+            this.clarityPercent = clarityPercent;
         }
 
         /** The user's knobs, already clamped by their accessors. */
@@ -124,7 +149,8 @@ public final class GlassRefraction {
                 preferences.getFancierGlassEdgeWidthDp(),
                 preferences.getFancierGlassEdgeLightPercent(),
                 preferences.getFancierGlassSpecularPercent(),
-                preferences.getFancierGlassDispersionPercent());
+                preferences.getFancierGlassDispersionPercent(),
+                preferences.getFancierGlassClarityPercent());
         }
 
         /** {@code uStrength}: how far a rim pixel's sample is pulled inward, in px. */
@@ -165,6 +191,20 @@ public final class GlassRefraction {
             return Math.max(0, Math.min(100, dispersionPercent)) / 100f * MAX_DISPERSION_DP * density;
         }
 
+        /** {@code uClarity}: how much of the clearer picture the rim shows, 0..{@link #MAX_CLARITY}. */
+        public float clarity() {
+            return Math.max(0, Math.min(100, clarityPercent)) / 100f * MAX_CLARITY;
+        }
+
+        /**
+         * {@code uThick}: how strongly the band carries the slab's thickness shading, 0..1: none
+         * with no bend, full from {@link #THICKNESS_FULL_BEND_DP} on. Not a knob: a thin pane
+         * shades thinly, a thick slab fully, and the bend already says which this is.
+         */
+        public float thickness() {
+            return Math.max(0f, Math.min(1f, bendDp / THICKNESS_FULL_BEND_DP));
+        }
+
         @Override
         public boolean equals(@Nullable Object other) {
             if (this == other) return true;
@@ -173,20 +213,21 @@ public final class GlassRefraction {
             return bendDp == that.bendDp && edgeWidthDp == that.edgeWidthDp
                 && edgeLightPercent == that.edgeLightPercent
                 && specularPercent == that.specularPercent
-                && dispersionPercent == that.dispersionPercent;
+                && dispersionPercent == that.dispersionPercent
+                && clarityPercent == that.clarityPercent;
         }
 
         @Override
         public int hashCode() {
-            return (((bendDp * 31 + edgeWidthDp) * 31 + edgeLightPercent) * 31 + specularPercent) * 31
-                + dispersionPercent;
+            return ((((bendDp * 31 + edgeWidthDp) * 31 + edgeLightPercent) * 31 + specularPercent) * 31
+                + dispersionPercent) * 31 + clarityPercent;
         }
 
         @NonNull
         @Override
         public String toString() {
             return "Look{bend=" + bendDp + "dp, edge=" + edgeWidthDp + "dp, light=" + edgeLightPercent + "%, specular="
-                + specularPercent + "%, dispersion=" + dispersionPercent + "%}";
+                + specularPercent + "%, dispersion=" + dispersionPercent + "%, clarity=" + clarityPercent + "%}";
         }
     }
 
@@ -241,6 +282,9 @@ public final class GlassRefraction {
      */
     static final String AGSL =
         "uniform shader content;\n" +
+        // The same picture with less frost, aimed exactly as content is; bound to content itself
+        // where there is none, so the mix below is then the identity.
+        "uniform shader sharp;\n" +
         "uniform float2 uFrameScale;\n" +
         "uniform float2 uFrameOffset;\n" +
         "uniform float3 uLocalX;\n" +
@@ -255,7 +299,14 @@ public final class GlassRefraction {
         "uniform float uDisp;\n" +
         "uniform float uSpec;\n" +
         "uniform float uBevel;\n" +
+        "uniform float uClarity;\n" +
+        "uniform float uThick;\n" +
         "uniform float uDensity;\n" +
+        // A finger on the glass: where it rests, how far its light reaches, and its 0..1 fade.
+        "uniform float uTouchActive;\n" +
+        "uniform float2 uTouch;\n" +
+        "uniform float uTouchRadius;\n" +
+        "uniform float uTouchLens;\n" +
         // Active extra-key "lens": a rounded-rect that MAGNIFIES (bends) the backdrop strongest from
         // the middle and eases to nothing at its rim, so a pressed key reads as a thick glass pill
         // refracting the wallpaper that shows through the transparent key cell. uLensActive carries
@@ -266,6 +317,10 @@ public final class GlassRefraction {
         "uniform float uLensRadius;\n" +
         "uniform float uLensStrength;\n" +
         "uniform float uLensFeather;\n" +
+        // The room's light: from above and a little to the left, and a weaker one answering from
+        // below and the right, which is how a slab on a desk is lit. Unit vectors toward each.
+        "const float2 kLightUp = float2(-0.33, -0.944);\n" +
+        "const float2 kLightDown = float2(0.33, 0.944);\n" +
         "float sdRoundRect(float2 p, float2 b, float r) {\n" +
         "    float2 q = abs(p) - b + float2(r, r);\n" +
         "    return min(max(q.x, q.y), 0.0) + length(max(q, float2(0.0, 0.0))) - r;\n" +
@@ -302,6 +357,15 @@ public final class GlassRefraction {
         "    float x = clamp(1.0 - inside / uBand, 0.0, 1.0);\n" +
         "    float e = 1.0 - sqrt(1.0 - x * x);\n" +
         "    float2 sampleCoord = fragCoord - n * (e * uStrength);\n" +
+        // A finger on the glass: its reach, 1 under the fingertip and 0 at uTouchRadius. The
+        // picture is drawn a little toward the touch (a shallow lens, uTouchLens of the distance
+        // at most), and the glow and the rim light below reuse the same reach.
+        "    float touchG = 0.0;\n" +
+        "    if (uTouchActive > 0.001) {\n" +
+        "        float2 tp = fragCoord - uTouch;\n" +
+        "        touchG = (1.0 - smoothstep(0.0, max(uTouchRadius, 1.0), length(tp))) * uTouchActive;\n" +
+        "        sampleCoord = sampleCoord - tp * (uTouchLens * touchG);\n" +
+        "    }\n" +
         // Per-key lens: magnify the backdrop toward the key centre, fading out to the pill rim.
         "    float lensGlow = 0.0;\n" +
         "    if (uLensActive > 0.001) {\n" +
@@ -347,11 +411,36 @@ public final class GlassRefraction {
         "    } else {\n" +
         "        col = content.eval(framePx(sampleCoord));\n" +
         "    }\n" +
-        // One clean, sharp hairline rim where the light catches the glass edge. No dark contour, no
-        // wide bevel band, no inner shadow — minimal/zen: a crisp pane with slight edge refraction.
+        // Through the bent edge the wallpaper shows clearer than through the slab's face: the
+        // clearer picture, read at the same bent coordinate, takes over across the band on a
+        // curve that stays near the frost over the inner half and reaches uClarity at the rim.
+        // One extra sample, only in the band and only when a Look asks for it.
+        "    if (uClarity > 0.0 && x > 0.0) {\n" +
+        "        half4 clear = sharp.eval(framePx(sampleCoord));\n" +
+        "        col = mix(col, clear, half(x * x * uClarity));\n" +
+        "    }\n" +
+        // How squarely this bit of rim faces each light.
+        "    float faceUp = max(dot(n, kLightUp), 0.0);\n" +
+        "    float faceDown = max(dot(n, kLightDown), 0.0);\n" +
+        // The slab's thickness, carried by the band: the picture brightens toward the rim that
+        // faces the light and dims toward the one in shadow, both fading to nothing at the band's
+        // inner edge. Multiplicative, so it reads the same on a dark and a light wallpaper, and
+        // small: a hint of a bevel, never a contour.
+        "    float thick = x * x * uThick;\n" +
+        "    col.rgb = col.rgb * half3(1.0 + thick * (0.12 * faceUp - 0.06 * faceDown));\n" +
+        // One clean, sharp hairline rim where the light catches the glass edge, bright where the
+        // edge faces the upper light, softer where it faces the lower one, and faint along the
+        // sides that face neither; never gone, since the hairline is what reads as the edge. No
+        // dark contour, no wide band: a crisp pane with slight edge refraction.
         "    float rim = 1.0 - smoothstep(0.0, 2.0 * uDensity, inside);\n" +
-        "    col.rgb = col.rgb + half3(rim * uRim);\n" +
+        "    float rimK = 0.40 + 0.60 * max(faceUp * faceUp, 0.6 * faceDown * faceDown);\n" +
+        "    col.rgb = col.rgb + half3(rim * uRim * rimK);\n" +
         "    col.rgb = col.rgb + half3(lensGlow * uRim * 0.6);\n" +
+        // The finger's light: the rim nearest it catches more of the light, and a faint glow
+        // scatters in the glass under it. Both fade with uTouchActive, both are additive light.
+        "    if (touchG > 0.0) {\n" +
+        "        col.rgb = col.rgb + half3(rim * uRim * 1.5 * touchG + 0.045 * touchG * touchG);\n" +
+        "    }\n" +
         // The bevel light, falling along the diagonal: the top-left and bottom-right of the rim face
         // it and catch it, the other two corners run edge-on to it and stay dark. The fourth power
         // keeps it a corner glint: a straight edge, half facing the light, keeps a quarter of it
@@ -389,6 +478,13 @@ public final class GlassRefraction {
     private static final float LENS_FEATHER_DP = 10f;
 
     /**
+     * How far the picture is drawn toward a resting finger, as a share of the distance to it at
+     * the touch's centre: a shallow lens, a few px at most on a phone, so the glass answers the
+     * finger without the picture swimming.
+     */
+    static final float TOUCH_LENS = 0.10f;
+
+    /**
      * One compiled program and the uniforms it was last given. Every setter compares before it
      * writes, so a draw that re-states an unmoved surface pushes nothing to the GPU. Held only on
      * API 33+; the outer class keeps no field of this type, so a phone below that never loads it.
@@ -407,6 +503,11 @@ public final class GlassRefraction {
         @Nullable private Look mLook;
         private boolean mLensOn;
         private float mLensCx, mLensCy, mLensHx, mLensHy, mLensRadius, mLensIntensity;
+        /** Whether {@code sharp} has a shader bound: only then may the program read it. */
+        private boolean mSharpBound;
+        private float mClarityWritten = Float.NaN;
+        private boolean mTouchOn;
+        private float mTouchX, mTouchY, mTouchRadius, mTouchIntensity;
 
         private Program(float density) {
             mShader = new RuntimeShader(AGSL);
@@ -414,11 +515,14 @@ public final class GlassRefraction {
             mShader.setFloatUniform("uDensity", density);
             mShader.setFloatUniform("uLensStrength", LENS_STRENGTH);
             mShader.setFloatUniform("uLensFeather", density * LENS_FEATHER_DP);
+            mShader.setFloatUniform("uTouchLens", TOUCH_LENS);
             setAim(1f, 1f, 0f, 0f);
             setLocal(null);
             setLook(Look.DEFAULT);
             mLensOn = true; // so the clear below is a write, not a skip
             clearLens();
+            mTouchOn = true;
+            clearTouch();
         }
 
         /**
@@ -466,6 +570,47 @@ public final class GlassRefraction {
                 ((BitmapShader) content).setFilterMode(BitmapShader.FILTER_MODE_LINEAR);
             }
             mShader.setInputShader("content", content);
+            // The clearer picture is the frost itself until a caller hands one in, so the mix
+            // reads back what it was given; the clarity term is then free to be written.
+            mShader.setInputShader("sharp", content);
+            mSharpBound = true;
+            syncClarity();
+        }
+
+        /**
+         * A clearer picture of the same wallpaper, aimed exactly as the content is (the same frame
+         * rect at any resolution), for the bent edge to show in place of the frost. Null hands
+         * the content back as its own clear picture, which is no clarity at all. Under a
+         * {@code RenderEffect}, where the content is the view and nothing can be bound here, the
+         * clarity term stays at zero, so the program never reads an unbound shader.
+         */
+        public void setClarityInput(@Nullable Shader sharp) {
+            if (sharp == null) {
+                mSharpBound = false;
+                syncClarity();
+                return;
+            }
+            sharp.setLocalMatrix(null);
+            if (sharp instanceof BitmapShader) {
+                ((BitmapShader) sharp).setFilterMode(BitmapShader.FILTER_MODE_LINEAR);
+            }
+            mShader.setInputShader("sharp", sharp);
+            mSharpBound = true;
+            syncClarity();
+        }
+
+        /** True once a shader is bound as the clearer picture, by {@link #setInput} or {@link #setClarityInput}. */
+        public boolean hasClarityInput() {
+            return mSharpBound;
+        }
+
+        /** {@code uClarity}: the look's clarity while a sharp shader is bound, zero otherwise. */
+        private void syncClarity() {
+            Look look = mLook;
+            float clarity = look != null && mSharpBound ? look.clarity() : 0f;
+            if (clarity == mClarityWritten) return;
+            mClarityWritten = clarity;
+            mShader.setFloatUniform("uClarity", clarity);
         }
 
         /**
@@ -524,6 +669,38 @@ public final class GlassRefraction {
             mShader.setFloatUniform("uDisp", look.dispersionPx(mDensity));
             mShader.setFloatUniform("uSpec", look.specular());
             mShader.setFloatUniform("uBevel", look.bevelPx(mDensity));
+            mShader.setFloatUniform("uThick", look.thickness());
+            syncClarity();
+        }
+
+        /**
+         * A finger resting on the glass at {@code (x, y)} in the surface's own coordinates: its
+         * light reaches {@code radiusPx}, at {@code intensity} (0..1, the press's fade). Written
+         * on every move and every fade frame, so a caller animates it; the program itself never
+         * does.
+         */
+        public void setTouch(float x, float y, float radiusPx, float intensity) {
+            radiusPx = Math.max(1f, radiusPx);
+            if (mTouchOn && mTouchX == x && mTouchY == y && mTouchRadius == radiusPx
+                && mTouchIntensity == intensity) return;
+            mTouchOn = true;
+            mTouchX = x;
+            mTouchY = y;
+            mTouchRadius = radiusPx;
+            mTouchIntensity = intensity;
+            mShader.setFloatUniform("uTouchActive", intensity);
+            mShader.setFloatUniform("uTouch", x, y);
+            mShader.setFloatUniform("uTouchRadius", radiusPx);
+        }
+
+        /** No finger on the glass: the resting look, which is every surface nobody is touching. */
+        public void clearTouch() {
+            if (!mTouchOn) return;
+            mTouchOn = false;
+            mTouchIntensity = 0f;
+            mShader.setFloatUniform("uTouchActive", 0f);
+            mShader.setFloatUniform("uTouch", 0f, 0f);
+            mShader.setFloatUniform("uTouchRadius", 1f);
         }
 
         /**
