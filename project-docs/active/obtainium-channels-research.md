@@ -340,11 +340,17 @@ Encode the other five the same way: `encodeURIComponent` of the JSON line.
 Caveats:
 
 - One `id` per edition means a user tracks one channel per edition. Switching channel is the
-  "Include prereleases" toggle in the app's settings, which the README can say.
-- A user who already tracks upstream Termux (`com.termux`) in Obtainium gets "App already added"
-  (`add_app.dart:312-316`). That clash is inherent to sharing upstream's package name.
-- The links must be tested once on a device before they go on the site. This note did not run
-  Obtainium.
+  "Include prereleases" toggle in the app's settings, which the README says.
+- Opening a second link for the same `id` does **not** refuse: the import replaces the tracked
+  entry and its settings (seen on the emulator, below). The `add_app.dart` "App already added"
+  path is the manual Add App screen, not the deep-link import.
+
+**Tested 2026-10-14** on the agents' emulator (AVD tl16, Android 16, x86_64 with arm64
+translation) with Obtainium 1.6.17. All six raw links and the https redirect wrapper imported with
+every setting intact and resolved as intended: v1.0.5 / v1.1.0-pre.4 for Termux, nix-v1.0.5 /
+nix-v1.1.0-pre.4, vaj-v1.0.5 / vaj-v1.1.0-pre.4, each with its own edition's APK (the x86_64 build
+on the emulator, arm64-v8a for VAJ). No Termux Launcher APK was installed. The links are in the
+README's "Updates with Obtainium" section and on the site.
 
 ### 5.3 Proposal: manual instructions for people who paste the URL
 
