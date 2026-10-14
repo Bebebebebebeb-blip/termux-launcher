@@ -132,6 +132,14 @@ under twenty items; past that, the oldest are re-judged first.
   swap" · Readable slot names were seen, 2026-10-14. Still owed: right after creating a user layout
   that differs from the launcher layout and adding it to the cycle, the first swap shows it at once
   with no launcher-layout flash · emulator.
+- 2026-10-14 · commit "feat(terminal): touch reports, private mode 5523" · In a pane run
+  `stty raw -echo; printf '\033[?5523h'; timeout 20 cat -v; stty sane`. A one-finger drag prints
+  `^[[<0;0;X;Y;Tt` then `<1;0;…` moves and one `<2;0;…` up, pixels growing the way the finger went
+  and times rising; a two-finger pinch adds `<0;1;…` and both ids move; nothing scrolls, selects,
+  clicks or zooms the font. A finger in the padding outside the grid prints nothing. With
+  `printf '\033[?1000h\033[?1006h'` also set, a real mouse click still prints `^[[<0;…M` and
+  `…m`, not a touch report · emulator (pinch through the emulator's multi-touch), or pong with the
+  go-ahead.
 
 ## Developer
 
