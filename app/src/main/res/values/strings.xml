@@ -1047,8 +1047,6 @@
                 <string name="termux_in_app_keyboard_key_spacing_slider">Adjust space between keyboard keys</string>
                 <string name="termux_in_app_keyboard_key_corner_radius">Corner radius</string>
                 <string name="termux_in_app_keyboard_key_corner_radius_slider">Adjust keyboard key corner radius</string>
-                <string name="termux_in_app_keyboard_custom_layout_title">Custom layout</string>
-                <string name="termux_in_app_keyboard_custom_layout_summary">Load your own layout from ~/.termux/keyboard/layout.xml</string>
                 <string name="termux_keyboard_docs_layouts_summary">How to write your own layout.xml</string>
                 <string name="settings_keyboard_layouts_title">Layouts</string>
                 <string name="settings_keyboard_layouts_summary">Choose the layouts the keyboard cycles through</string>
@@ -1064,6 +1062,37 @@
                 <string name="settings_keyboard_layouts_full">The cycle holds at most %1$d layouts</string>
                 <string name="settings_keyboard_layouts_last">At least one layout has to stay in the cycle</string>
                 <string name="settings_keyboard_layouts_none_match">No layout matches “%1$s”</string>
+                <string name="settings_keyboard_layouts_yours">Your layouts</string>
+                <string name="settings_keyboard_layouts_yours_empty">None yet. + starts one from a copy of the launcher layout.</string>
+                <string name="settings_keyboard_layouts_new">New layout</string>
+                <string name="settings_keyboard_layouts_edit">Edit %1$s</string>
+                <string name="settings_keyboard_layouts_reset">Reset %1$s</string>
+                <string name="settings_keyboard_layouts_delete">Delete %1$s</string>
+                <string name="settings_keyboard_layouts_edited">Edited</string>
+                <string name="settings_keyboard_layouts_reset_title">Reset %1$s?</string>
+                <string name="settings_keyboard_layouts_reset_message">Your edits are deleted and the shipped layout comes back. This removes %1$s.</string>
+                <string name="settings_keyboard_layouts_reset_action">Reset</string>
+                <string name="settings_keyboard_layouts_delete_title">Delete %1$s?</string>
+                <string name="settings_keyboard_layouts_delete_message">The layout is removed from the cycle and its file, %1$s, is deleted.</string>
+                <string name="settings_keyboard_layouts_delete_action">Delete</string>
+                <string name="settings_keyboard_layouts_file_error">Could not change %1$s</string>
+                <string name="settings_keyboard_layout_editor_title">Edit layout</string>
+                <string name="settings_keyboard_layout_editor_new_title">New layout</string>
+                <string name="settings_keyboard_layout_editor_name">Name</string>
+                <string name="settings_keyboard_layout_editor_name_required">Give the layout a name</string>
+                <string name="settings_keyboard_layout_editor_name_taken">Another layout already has this name</string>
+                <string name="settings_keyboard_layout_editor_xml">Layout XML</string>
+                <string name="settings_keyboard_layout_editor_file">Saved to %1$s</string>
+                <string name="settings_keyboard_layout_editor_checking">Checking…</string>
+                <string name="settings_keyboard_layout_editor_valid">Valid layout · saved to %1$s</string>
+                <string name="settings_keyboard_layout_editor_load_error">Could not open this layout: %1$s</string>
+                <string name="settings_keyboard_layout_editor_save">Save</string>
+                <string name="settings_keyboard_layout_editor_discard">Discard</string>
+                <string name="settings_keyboard_layout_editor_saved">Layout saved. The keyboard picks it up when you leave Settings.</string>
+                <string name="settings_keyboard_layout_editor_save_error">Could not save the layout: %1$s</string>
+                <string name="settings_keyboard_layout_editor_discard_title">Discard changes?</string>
+                <string name="settings_keyboard_layout_editor_discard_message">Your edits to this layout will be lost.</string>
+                <string name="settings_keyboard_layout_editor_keep_editing">Keep editing</string>
                 <string name="keyboard_layout_ring_single">Only one layout is in the cycle — add more in Settings ▸ Keyboard ▸ Layouts</string>
                 <string name="termux_keyboard_docs_keys_summary">Every key name and value you can use in a layout</string>
                 <string-array name="termux_in_app_keyboard_theme_entries">
@@ -2000,9 +2029,6 @@
     <string name="settings_configure_action">Configure</string>
     <string name="settings_install_action">Install</string>
     <string name="settings_status_available">Available</string>
-    <string name="settings_custom_layout_missing">No custom layout found at ~/.termux/keyboard/layout.xml.</string>
-    <string name="settings_custom_layout_valid">Custom layout is valid and loads automatically.</string>
-    <string name="settings_custom_layout_invalid">Custom layout is invalid. Open Layout documentation for the supported format.</string>
     <string name="settings_status_action_needed">Action needed</string>
 
     <!-- Command palette chrome -->
