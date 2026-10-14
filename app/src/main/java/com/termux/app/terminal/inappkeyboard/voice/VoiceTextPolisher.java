@@ -48,11 +48,21 @@ public interface VoiceTextPolisher {
     }
 
     /**
-     * Gets ready ahead of the cleanup (loads a model, opens a connection): called once as the
-     * microphone opens, on the cleanup thread, before any {@link #polish}. Best effort; a failure
-     * here shows up as a fallback at the end, never as a session failure.
+     * Gets ready ahead of the cleanup (loads a model, opens a connection): called once, as the
+     * microphone opens when {@link #warmLoadsNothing}, else as the session ends
+     * ({@link VoiceCleanupWarmUp}), on the cleanup thread, before any {@link #polish}. Best effort;
+     * a failure here shows up as a fallback at the end, never as a session failure.
      */
     void warm();
+
+    /**
+     * Whether {@link #warm} would load nothing now: the model is already resident, is remote, or
+     * there is none to load. Asked as the microphone opens, on the cleanup thread; a cheap read,
+     * never a load. Unknown answers false, and the load waits for the session's end.
+     */
+    default boolean warmLoadsNothing() {
+        return false;
+    }
 
     /**
      * Rewrites {@code text}, returning within about {@code timeoutMs}. Never throws; on an error,

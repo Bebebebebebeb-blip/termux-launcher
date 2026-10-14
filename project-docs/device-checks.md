@@ -19,6 +19,11 @@ under twenty items; past that, the oldest are re-judged first.
   with the switch on changes only the pinned icons · emulator.
 - 2026-10-14 · fix(tai) · Model centre shows KittenTTS Nano as about 90 MB (94 MB on disk) after a fresh
   download and after an export/import restore, not 32.3 MB · emulator.
+- 2026-10-14 · commits "fix(voice): …cleanup model…" (load only at the session's end when cold) ·
+  A cold dictation (cleanup model unloaded) keeps the waveform moving throughout; logcat shows
+  `cleanup warm deferred` at the mic opening, then `cleanup warm start: at the session's end`,
+  `polish warm` and `cleanup final`. A dictation right after it (model warm) logs `cleanup warm
+  start: at the mic opening` and `cleanup early` at pauses as before · pong with the go-ahead.
 - 2026-10-12 · PR #64 · A contact chip with a photo set in Contacts: the initial swaps to the photo
   with no shift (the reopened palette was seen showing the photo at once, 2026-10-14) · emulator;
   the device map has the adb route to a contact with a photo.

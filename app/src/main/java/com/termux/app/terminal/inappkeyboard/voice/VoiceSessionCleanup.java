@@ -12,10 +12,13 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.function.BooleanSupplier;
 
 /**
  * A dictation session's cleanup (spec D5): the model warms on its own {@code voice-cleanup} thread
- * as the microphone opens, every phrase collects in the panel as heard meanwhile, and the text goes
+ * as the microphone opens when that costs no load, else at the session's end
+ * ({@link #warmIfResident}, {@link VoiceCleanupWarmUp}); every phrase collects in the panel as
+ * heard meanwhile, and the text goes
  * through the {@link VoiceTextPolisher} in the parts {@link VoiceCleanupPlan} hands out: early
  * passes at phrase pauses while the user speaks ({@link #onPhrase}), and once the session has ended
  * the rest ({@link #run}), before ✓ or Copy uses it. Each part goes through the gate
@@ -43,8 +46,12 @@ public final class VoiceSessionCleanup {
     @Nullable private volatile String languageHint;
     /** The keyboard's or the phone's language, taken only when the text itself is unclear. */
     @Nullable private volatile String languageFallback;
-    /** Main-thread state. */
+    /** Main-thread state: the warm-up asked for as the mic opened is still checking or loading. */
     private boolean warming;
+    /** Main-thread state: {@link #warmIfResident} was asked, so a cold model loads at {@link #run}. */
+    private boolean warmAtEnd;
+    /** Cleanup-thread state: the model has been warmed this session. */
+    private boolean warmedOnWorker;
     private final VoiceCleanupPlan plan;
     /** Set by {@link #run}: the session has ended on this text, and this is waiting for it. */
     @Nullable private String finishingRaw;
@@ -79,23 +86,50 @@ public final class VoiceSessionCleanup {
     }
 
     /**
-     * Loads the model in the background; {@code onWarmed} runs on the main thread once it is done,
-     * loaded or not. Early passes start only after it, and only when the model allows them.
+     * Loads the model in the background now; {@code onWarmed} runs on the main thread once it is
+     * done, loaded or not. Early passes start only after it, and only when the model allows them.
+     * {@link #isWarming} holds until then.
      */
     public void warm(@NonNull Runnable onWarmed) {
         warming = true;
+        onWorkerThenMain(this::warmOnWorker, onWarmed);
+    }
+
+    /**
+     * {@link #warm}, but only when it costs no load ({@link VoiceTextPolisher#warmLoadsNothing}: the
+     * model is already resident, or is remote, or there is none); a cold model loads at the
+     * session's end instead ({@link #run}), queued ahead of the passes, and early passes stay off
+     * for this session. A cold GPU load held the GPU for seconds and the launcher's frames, the
+     * waveform included, waited on it, and the first phrase pause comes while the user is still
+     * talking. The next session finds the model warm. {@code onWarmed} runs on the main thread
+     * once the check, and a load it allowed, is done. Call once, as the microphone opens.
+     */
+    public void warmIfResident(@NonNull Runnable onWarmed) {
+        warmAtEnd = true;
+        warming = true;
+        onWorkerThenMain(() -> {
+            boolean resident;
+            try {
+                resident = polisher.warmLoadsNothing();
+            } catch (RuntimeException e) {
+                resident = false;
+            }
+            VoiceCleanupWarmUp.Trigger trigger = VoiceCleanupWarmUp.atOpen(resident);
+            if (trigger == null) {
+                Logger.logInfo(LOG_TAG, "cleanup warm deferred: the model is cold; it loads at the session's end"
+                    + " so no load holds the GPU while the user speaks; early passes off");
+                return false;
+            }
+            Logger.logInfo(LOG_TAG, "cleanup warm start: at " + trigger.why);
+            return warmOnWorker();
+        }, onWarmed);
+    }
+
+    /** Runs {@code onWorker} on the cleanup thread; its answer allows early passes, then {@code onWarmed} runs. */
+    private void onWorkerThenMain(@NonNull BooleanSupplier onWorker, @NonNull Runnable onWarmed) {
         try {
             worker.execute(() -> {
-                boolean early = false;
-                if (!cancelled) {
-                    try {
-                        polisher.warm();
-                        early = polisher.cleansWhileListening();
-                    } catch (RuntimeException e) {
-                        Logger.logWarn(LOG_TAG, "cleanup warm failed: " + e.getMessage());
-                    }
-                }
-                boolean allowed = early;
+                boolean allowed = !cancelled && onWorker.getAsBoolean();
                 main.execute(() -> {
                     warming = false;
                     if (cancelled) return;
@@ -105,6 +139,18 @@ public final class VoiceSessionCleanup {
             });
         } catch (RejectedExecutionException e) {
             warming = false;
+        }
+    }
+
+    /** Loads the model, once a session. Whether early passes may run. Cleanup thread. */
+    private boolean warmOnWorker() {
+        warmedOnWorker = true;
+        try {
+            polisher.warm();
+            return polisher.cleansWhileListening();
+        } catch (RuntimeException e) {
+            Logger.logWarn(LOG_TAG, "cleanup warm failed: " + e.getMessage());
+            return false;
         }
     }
 
@@ -127,7 +173,7 @@ public final class VoiceSessionCleanup {
         languageFallback = VoiceTextLanguage.normalize(iso639);
     }
 
-    /** Whether {@link #warm} is still loading the model. Main thread. */
+    /** Whether the warm-up asked for as the mic opened is still checking or loading the model. Main thread. */
     public boolean isWarming() {
         return warming;
     }
@@ -168,6 +214,7 @@ public final class VoiceSessionCleanup {
             return;
         }
         if (cancelled) return;
+        if (warmAtEnd) warmAtEnd();
         finishingRaw = raw;
         finishing = callback;
         finishStartNs = System.nanoTime();
@@ -178,6 +225,21 @@ public final class VoiceSessionCleanup {
     public void cancel() {
         cancelled = true;
         worker.shutdown();
+    }
+
+    /** A model that was cold as the mic opened loads now, queued ahead of the passes. */
+    private void warmAtEnd() {
+        try {
+            worker.execute(() -> {
+                if (cancelled) return;
+                VoiceCleanupWarmUp.Trigger trigger = VoiceCleanupWarmUp.atEnd(warmedOnWorker);
+                if (trigger == null) return;
+                Logger.logInfo(LOG_TAG, "cleanup warm start: at " + trigger.why);
+                warmOnWorker();
+            });
+        } catch (RejectedExecutionException ignored) {
+            // cancel() got there first: nothing will be cleaned.
+        }
     }
 
     /** The end's next step: wait for the pass in flight, send the next, or deliver the whole text. */
