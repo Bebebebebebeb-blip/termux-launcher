@@ -4,7 +4,7 @@
 #   scripts/cut-prerelease.sh [--publish] [--base <ref>] [--only termux|nix|vaj] X.Y.Z-pre.N [branch ...]
 #
 # `pre` is the channel's own, persistent branch: features bound for the channel are merged into it
-# (pull requests target it), and it is promoted into dev by a merge when the developer accepts it.
+# (pull requests target it); what is ready is cherry-picked onto dev at a stable minor cut.
 # A drop brings `pre` level with <base> (default dev), merges each extra branch named on the command
 # line, and adds one `release: vX.Y.Z-pre.N` commit setting versionName, tagged vX.Y.Z-pre.N. The
 # Nix and VAJ builds come from two disposable branches rebuilt per drop in worktrees:

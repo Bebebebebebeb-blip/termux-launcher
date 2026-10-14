@@ -18,7 +18,9 @@ Latest stable: v1.0.5.
 - The command palette's contact search, shortcuts for actions and contacts, and its most-used chips have shipped in v1.0.5, so they leave the list below.
 
 ## Experimental
-<!-- What is on pre and not yet on dev, one line each; name the pull request or branch it came from. -->
+<!-- What is on pre and not yet in a stable, one line each; name the pull request or branch it came from,
+and end the line with its status in an HTML comment: ready, stays: P2, P6 (the checks still failing)
+or drop: reason (docs/agents/releasing.md, "Promoting from pre to a stable"). -->
 These may change or be dropped before they reach a stable release.
 
 - Settings › About & help has an Ask on Discord row, Documentation opens the website guide, and the help panel's support link goes to Discord (#58).

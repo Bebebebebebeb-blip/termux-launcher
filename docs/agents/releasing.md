@@ -46,13 +46,14 @@ AGENTS.md ("Things already decided").
 `+hotfixN`, no `-a`. The edition is a separate fact: it is derived from the package name and shown
 as an `Edition` line in the About screen and every report, and it is part of the tag and the APK
 name. `versionCode` stays **1020** for upstream parity — never change it. The current release is
-**1.0.4**.
+**1.0.5**.
 
 - **Tags** carry the edition as a prefix: `vX.Y.Z` (Termux edition, `main`), `nix-vX.Y.Z`
   (`nix-edition`), `vaj-vX.Y.Z` (`io-vaj-package`). CI (`attach_debug_apks_to_release.yml`) strips
   the prefix and the `v` and aborts unless the rest equals `versionName`.
-- **Hotfixes bump the patch number** (`1.0.1`) and are a
-  real version with real notes, on every edition.
+- **A stable with any promoted feature bumps the minor** (`1.1.0`); **a stable with only fixes
+  bumps the patch** (`1.0.6`). A patch carries no feature and its notes have no `## New`. Both are
+  real versions with real notes, on every edition.
 - **Nightlies** (`debug_build.yml`) build as `X.Y.Z+dev.<shortsha>`: semver build metadata, so a
   nightly sorts equal to the release it follows. That string is the in-app `versionName` and goes
   verbatim into the APK name. The TAI bench groups results by the `X.Y.Z` core only.
@@ -73,13 +74,85 @@ or more behind). The last shipped version is the one on `main`, `nix-edition` an
 ## Cutting a stable release
 
 First `project-docs/device-checks.md`: run its Agent items, hand its Developer items over, and
-cut only once the list is empty or the developer has accepted what is left. Then, per edition, as in `Release v1.0.1 (merge dev into io-vaj-package)` followed by `release: vaj-v1.0.1`:
+cut only once the list is empty or the developer has accepted what is left. **Accepted items are
+recorded** in the body of the `main` `release:` commit, one `Accepted owed: <item>` line each, and
+deleted from `device-checks.md` in the same pass. A minor cut first promotes from `pre`
+("Promoting from `pre` to a stable" below). Then, per edition, as in `Release v1.0.1 (merge dev into io-vaj-package)` followed by `release: vaj-v1.0.1`:
 merge `dev`, then set `versionName` to the plain `X.Y.Z` in a `release:` commit (it **must** equal
 the tag minus its edition prefix and `v`, or CI aborts), push, tag, `gh release create --notes-file …`
 (`--latest` on `vX.Y.Z`, `--latest=false` on the edition tags, never `--prerelease` on a stable),
 then dispatch `attach_debug_apks_to_release.yml` with the tag. Publishing the plain `vX.Y.Z`
 (or `vX.Y.Z-pre.N`) release fires `announce_release_discord.yml`, which posts once to Discord
 linking all three edition releases, so create the three in one pass and the plain one last.
+
+**A stable and the next drop are published together**, the drop right after the stable, so the
+channel always has a drop newer than the stable and a pre-release user is never left on a build
+older than it. The stable's notes close with a `## Still in the pre-release channel` list: the
+Experimental lines that did not ship, so a pre-release user who installs the stable knows what
+goes away until they do.
+
+## From pong to `pre`
+
+Work reaches the channel only after all of these:
+
+1. **Used on pong** as a release-type build (debuggable builds go to Waydroid; pong stays on
+   release builds), in normal use, with no crash or freeze.
+2. **Suite green** on the branch with `pre` merged in.
+3. **Within budget**: frame-path work holds the pong baselines in
+   [`performance.md`](performance.md); an on-device AI load is admitted at its intended context
+   with no `oom_guard` stop in `tai logs`.
+4. **The developer says it goes in the next drop.**
+
+It then gets a line under `## Experimental` in `project-docs/prerelease-notes.md` naming its pull
+request or branch, with the status `<!-- stays: P1 -->`.
+
+## Promoting from `pre` to a stable
+
+A stable minor cut decides, line by line, which `## Experimental` items ship. The reasoning and
+sources (Kubernetes graduation, Mozilla uplift rules, Rust stabilisation, Google SRE, SemVer) are in
+`project-docs/active/release-promotion-heuristics-research.md`.
+
+**Every Experimental line ends with its status** in an HTML comment, set at each drop and
+re-judged at the cut: `<!-- ready -->`, `<!-- stays: P2, P6 -->` (the checks still failing), or
+`<!-- drop: <reason> -->`. The comments do not render on GitHub. A line is **ready** only when all
+of these hold:
+
+| | Check | Holds when |
+|---|---|---|
+| P1 | Soak | In at least two published drops, and no behaviour change for 3 days; 7 days for on-device AI, memory-budget, backup or data-format and settings-schema work. A behaviour change restarts the clock; a cosmetic fix does not. |
+| P2 | Device checks | Nothing owed for it in `device-checks.md`, or the developer accepts what is left (recorded as in "Cutting a stable release"). |
+| P3 | No open bug | No open issue or known regression against it from the channel. |
+| P4 | Release build | The cherry-picked `dev`, built as `assembleRelease`, installed on pong and the feature used (step 3 below). |
+| P5 | Within budget | As in "From pong to `pre`", measured again on the candidate. Pong's results are enough. |
+| P6 | Swap-safe | For anything that writes settings, config files, backups or caches: on Waydroid, stable → drop → stable → drop keeps the settings, does not crash, and the feature comes back. With `versionCode` 1020 Android never refuses this downgrade, so nothing else catches it. |
+| P7 | Off switch | A change to existing behaviour ships with a setting that brings the old behaviour back, or a default that leaves it as it was, for at least its first stable. A later minor may remove the setting. |
+| P8 | Finished | No open design question; the stable notes line, help and `docs/en/` are written. |
+| P9 | All editions | It was in the `nix-` and `vaj-` drops; anything touching packages, bootstrap, tlstore or the companions ran on the Nix edition once. |
+| P10 | Developer | The developer says yes for this line. |
+
+- **Stays on `pre`** when any check fails, when it depends on another item that stays (promote both
+  or neither), or while it is still being changed.
+- **Revert on `pre`** (and remove the line) when it crashes, freezes the phone, loses data or
+  breaks an existing feature and the next drop has no fix; when it has stayed four drops or three
+  weeks with the same blocker and nothing rides on it; or when it blocks promoting unrelated work.
+- **Features never ride a patch.** A fix for the current stable lands on `dev`, is checked on a
+  staging or release build before the tag, and ships in the next patch. A large fix waits for the
+  next minor and is held to the checklist. A change to working-as-designed behaviour is a feature
+  even when it is reported as a bug. A fix for something only `pre` has goes to `pre`.
+
+The promotion, step by step:
+
+1. Stamp every Experimental line's status; list the ready lines and their commits from the pull
+   request or branch each names (`git log --oneline v<stable>..pre`).
+2. On `dev`, `git cherry-pick -x` each ready feature's commits, oldest first (`-m 1` for a merge
+   commit). Keep `dev`'s `versionName`.
+3. Run the full suite on `dev`, build `assembleRelease`, install it on pong
+   (`--no-incremental`), launch it, and use each promoted feature once. This combination never ran
+   on the channel; without this step the cut is not ready.
+4. Cut the minor as in "Cutting a stable release". The notes' `## New` comes from the promoted
+   lines; those lines leave `prerelease-notes.md`.
+5. Cut the next drop (`X.Y+1.0-pre.1`) straight after. Its merge of `dev` into `pre` meets the
+   cherry-picked changes already there; on a conflict, keep `pre`'s side.
 
 ## The pre-release channel
 
@@ -92,12 +165,9 @@ ones to keep if it changes:
 - **`pre` is the channel's own, persistent branch.** Feature work and pull requests that are
   bound for the channel target `pre` and merge there; nothing is force-pushed. A drop first brings
   `pre` level with `dev` (merged `--no-ff`), then merges any extra branch named on the command
-  line, then adds one `release: vX.Y.Z-pre.N` commit setting `versionName`. **Promotion is a
-  merge of `pre` into `dev`** when the developer accepts what the channel has had a round with.
-  Keep `dev`'s `versionName`: `dev` has usually not touched that line since the last drop, so git
-  takes `pre`'s `-pre.N` value without a conflict. Check `app/build.gradle` before committing the
-  merge, and put `dev`'s value back if needed. To leave something out of a promotion, revert it on
-  `pre` before merging. A fix for the current stable lands on `dev` (see the table above), and the
+  line, then adds one `release: vX.Y.Z-pre.N` commit setting `versionName`. **Promotion
+  cherry-picks what is ready onto `dev`**, never merges `pre` whole ("Promoting from `pre` to a
+  stable" above). A fix for the current stable lands on `dev` (see the table above), and the
   next drop merges it into `pre`.
 - **`pre-nix` and `pre-vaj` are disposable build branches**: rebuilt per drop in worktrees from
   `origin/nix-edition` and `origin/io-vaj-package` with `pre` merged in, keeping their edition's
@@ -105,8 +175,8 @@ ones to keep if it changes:
   stops on a conflict for you to resolve to the edition's side). They are never pushed; their tags
   carry the commits. Never merge them anywhere.
 - **Version `X.Y.Z-pre.N`.** `X.Y.Z` is the next minor above the current stable (`1.1.0-pre.1`
-  while 1.0.x is current). A stable patch (`1.0.5`) does not change it; the stable `1.1.0` retires
-  the series and the next drop is `1.2.0-pre.1`. `N` counts drops from 1 and is never reused. It is
+  while 1.0.x is current). A stable patch (`1.0.6`) does not change it; the stable `1.1.0` retires
+  the series and the next drop, published with it, is `1.2.0-pre.1`. `N` counts drops from 1 and is never reused. It is
   a semver prerelease, so it sorts above every 1.0.x and below 1.1.0; `validateVersionName`, CI and
   the nightly regex all accept it. `dev`'s own `versionName` is untouched. Between drops `pre`
   carries the last drop's version, so nightlies from `pre` build as `X.Y.Z-pre.N+dev.<sha>`; the
@@ -129,8 +199,8 @@ ones to keep if it changes:
   a promotion), in the release-notes voice, listing everything the channel carries beyond the
   **latest stable** — a `## New in this drop` part first (only what this drop adds over the
   one before it, checked against `git log v<previous drop>..pre` and replaced whole at every
-  drop), a `## Heading for the next release` part (what `dev` has since the last
-  stable tag), a `## Experimental` part (what is on `pre` and not yet on `dev`) and a closing
+  drop), a `## Experimental` part (what is on `pre` and not yet in a stable, each line ending in
+  its status comment, see "Promoting from `pre` to a stable") and a closing
   `## Editions` list with only what is exclusive to Nix or VAJ, as in the stable notes. The whole
   file is every drop's release body (its guidance sits in HTML comments, which GitHub does not
   render), so each drop restates the list. When the stable ships, the lines that shipped move into
