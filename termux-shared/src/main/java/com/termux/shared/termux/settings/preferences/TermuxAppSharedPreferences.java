@@ -955,6 +955,15 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
         SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_PINNED_ICON_PACK_PACKAGE, value == null ? "" : value, true);
     }
 
+    public boolean isAppLauncherIconPackPinnedOnly() {
+        return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_ICON_PACK_PINNED_ONLY,
+            TERMUX_APP.DEFAULT_APP_LAUNCHER_ICON_PACK_PINNED_ONLY);
+    }
+
+    public void setAppLauncherIconPackPinnedOnly(boolean value) {
+        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_ICON_PACK_PINNED_ONLY, value, false);
+    }
+
     public String getAppLauncherPinnedItemsV2() {
         return SharedPreferenceUtils.getString(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_PINNED_ITEMS_V2,
             TERMUX_APP.DEFAULT_APP_LAUNCHER_PINNED_ITEMS_V2, true);

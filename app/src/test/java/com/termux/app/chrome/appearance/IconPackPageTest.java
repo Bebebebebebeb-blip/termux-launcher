@@ -77,6 +77,12 @@ public class IconPackPageTest {
             return v == null ? "" : v;
         }
 
+        boolean savedPinnedOnly = true;
+
+        @Override public boolean pinnedOnlySaved() { return savedPinnedOnly; }
+
+        @Override public void savePinnedOnly(boolean on) { savedPinnedOnly = on; }
+
         @Override public void apply(@NonNull String key, @NonNull String value) {
             writes.add(key + "=" + value);
             events.add("write " + key + "=" + value);
@@ -280,6 +286,21 @@ public class IconPackPageTest {
         IconPackPage page = open();
         page.tilesView().getChildAt(0).performClick();
         assertEquals("", mBackend.current(IconPackChoices.KEY_GLOBAL));
+        assertEquals("", mBackend.current(IconPackChoices.KEY_PINNED));
+    }
+
+    @Test
+    public void theSwitchKeepsItsPositionAfterSystemClearsBothKeys() {
+        IconPackPage page = open();
+        page.pinnedOnlySwitch().performClick();
+        assertFalse(page.pinnedOnlySwitch().isChecked());
+        page.tilesView().getChildAt(0).performClick();
+        page.release();
+
+        IconPackPage reopened = open();
+        assertFalse("still off after System", reopened.pinnedOnlySwitch().isChecked());
+        reopened.tilesView().getChildAt(1).performClick();
+        assertEquals("pack.alpha", mBackend.current(IconPackChoices.KEY_GLOBAL));
         assertEquals("", mBackend.current(IconPackChoices.KEY_PINNED));
     }
 
