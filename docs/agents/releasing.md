@@ -156,8 +156,8 @@ The promotion, step by step:
    request or branch each names (`git log --oneline v<stable>..pre`).
 2. On `dev`, `git cherry-pick -x` each ready feature's commits, oldest first (`-m 1` for a merge
    commit). Keep `dev`'s `versionName`.
-3. Run the full suite on `dev`, build `assembleRelease`, install it on pong
-   (`--no-incremental`), launch it, and use each promoted feature once. This combination never ran
+3. Run the full suite on `dev`, build and install it on pong with `BUILD_TYPE=release scripts/dev-install.sh`
+   (it checks the launcher came back up), and use each promoted feature once. This combination never ran
    on the channel; without this step the cut is not ready.
 4. Cut the minor as in "Cutting a stable release". The notes' `## New` comes from the promoted
    lines; those lines leave `prerelease-notes.md`.
