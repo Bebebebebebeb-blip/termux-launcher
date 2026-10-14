@@ -267,6 +267,12 @@ repository-wide formatter: match the surrounding code.
 - Comments describe how a thing is used and move when the code moves. Do not annotate every line.
 - Inferred types over ceremony. Do not preserve complexity because it already exists, and do not
   add machinery because it looks architecturally impressive.
+- No magic padding, no negative margins, no per-size special cases where a measured rule will do.
+  A number that appears twice is a constant that appears once, next to the code it governs.
+- A layout never requests another layout from inside measure, layout or draw: compare before
+  setting text, visibility, minimum sizes or layout params.
+- Robolectric layout tests use `@GraphicsMode(GraphicsMode.Mode.NATIVE)` so text has real
+  metrics; a layout assertion in legacy mode proves nothing.
 
 ## Things already decided — do not re-litigate
 
