@@ -52,8 +52,10 @@ import java.util.Map;
  * <p><b>Load.</b> Requests name the feature, and TAI loads by the plan: its accelerator, its
  * speculative decoding and its 2048-token window. Nothing about the load is decided here.
  *
- * <p><b>Residency.</b> {@link #warm} loads the model at the dictation's first pause (or its end,
- * {@link VoiceCleanupWarmUp}) so the passes do not each pay the load, unless the runtime is loading or generating with another model —
+ * <p><b>Residency.</b> {@link #warm} runs as the microphone opens when the model is already
+ * resident ({@link #warmLoadsNothing}, read from {@link TaiRuntimePresence}), and at the session's
+ * end when it is cold ({@link VoiceCleanupWarmUp}), so no cold load holds the GPU while the user
+ * speaks and the passes do not each pay it; unless the runtime is loading or generating with another model —
  * then nothing is evicted and the request autoloads (or is refused) on its own. After the session
  * the model is <em>left resident</em> for the runtime's ordinary idle unload: dictation comes in
  * bursts, and reloading whatever was there before would thrash a multi-second load on every
@@ -96,18 +98,21 @@ public final class LocalTaiVoiceTextPolisher implements VoiceTextPolisher {
         @Nullable final String remoteFallback;
         /** A local model the plan loads on the GPU. */
         final boolean onGpu;
+        /** The window a local load is given; 0 when the plan does not say. */
+        final int window;
 
         Plan(@NonNull String model, boolean remote, @Nullable String skipReason, @Nullable String remoteFallback) {
-            this(model, remote, skipReason, remoteFallback, false);
+            this(model, remote, skipReason, remoteFallback, false, 0);
         }
 
         Plan(@NonNull String model, boolean remote, @Nullable String skipReason, @Nullable String remoteFallback,
-             boolean onGpu) {
+             boolean onGpu, int window) {
             this.model = model;
             this.remote = remote;
             this.skipReason = skipReason;
             this.remoteFallback = remoteFallback;
             this.onGpu = onGpu;
+            this.window = window;
         }
 
         /** Whether parts are cleaned while the user speaks: a remote model, or a local one on the GPU. */
@@ -125,7 +130,7 @@ public final class LocalTaiVoiceTextPolisher implements VoiceTextPolisher {
                 return new Plan(model == null ? "" : model, true, null, null);
             case ON_DEVICE:
                 return new Plan(model == null ? "" : model, false, null, feature.remoteFallback,
-                    TaiTierPolicy.ACCEL_GPU.equals(feature.accelerator));
+                    TaiTierPolicy.ACCEL_GPU.equals(feature.accelerator), feature.contextWindow);
             default:
                 boolean raw = feature.without == TaiTierPolicy.WithoutModel.RAW_TEXT
                     || feature.without == TaiTierPolicy.WithoutModel.OFF;
@@ -161,6 +166,29 @@ public final class LocalTaiVoiceTextPolisher implements VoiceTextPolisher {
             chatModels.put(entry.getKey(), spec);
         }
         return chatModels;
+    }
+
+    /**
+     * True when the plan's model is the one the runtime last published as loaded, with a window
+     * the plan's fits in (TAI reuses it then), or the plan loads nothing locally (a remote model,
+     * or no model). Reads the model store and the presence file, never the runtime itself: not for
+     * the main thread.
+     */
+    @Override
+    public boolean warmLoadsNothing() {
+        Plan plan;
+        try {
+            plan = resolvePlan(appContext);
+        } catch (RuntimeException e) {
+            return false;
+        }
+        return loadsNothing(plan, TaiRuntimePresence.read(appContext));
+    }
+
+    static boolean loadsNothing(@NonNull Plan plan, @NonNull TaiRuntimePresence.Snapshot presence) {
+        if (plan.skipReason != null || plan.remote) return true;
+        if (!presence.loaded || plan.model.isEmpty() || !plan.model.equals(presence.modelId)) return false;
+        return plan.window <= 0 || presence.contextWindow <= 0 || presence.contextWindow >= plan.window;
     }
 
     @Override

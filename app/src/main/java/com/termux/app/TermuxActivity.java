@@ -16135,11 +16135,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mVoiceInput = session;
         mVoiceTiedToKeyboard = fromKeyboard;
         mVoiceDictation.start(base);
-        // Phrases collect as heard; with cleanup on, the chat model resolves and loads on its own
-        // thread at the first phrase pause an early pass would start at, or at the end, never as
-        // the mic opens (a cold GPU load there froze the screen), cleans what was said so far at
-        // phrase pauses when it is quick enough, and cleans the rest at the end. With no Gemma
-        // installed the passes hand the raw text back and nothing changes.
+        // Phrases collect as heard; with cleanup on, the chat model resolves on its own thread. A
+        // model already resident is warmed now and cleans what was said so far at phrase pauses
+        // when it is quick enough; a cold one loads only once the session ends (a cold GPU load
+        // while the user spoke froze the screen). Either way the rest is cleaned at the end. With
+        // no Gemma installed the passes hand the raw text back and nothing changes.
         if (mPreferences.isInAppKeyboardVoicePolishEnabled()) {
             String level = mPreferences.getInAppKeyboardVoicePolishLevel();
             VoiceSessionCleanup cleanup = new VoiceSessionCleanup(new LocalTaiVoiceTextPolisher(this, level), level);
@@ -16152,7 +16152,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             cleanup.setLanguageFallback(VoiceLanguage.resolve(mPreferences.getInAppKeyboardVoiceLanguage(),
                 mInAppKeyboard == null ? null : mInAppKeyboard.getActiveTextLayoutId(), userLocale()).code);
             mVoiceCleanup = cleanup;
-            cleanup.warmAtFirstPause(this::refreshVoiceWarmUp);
+            cleanup.warmIfResident(this::refreshVoiceWarmUp);
         }
     }
 
@@ -16750,7 +16750,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         public void onSpeechReady() {
             mVoiceSpeechWarming = false;
             refreshVoiceWarmUp();
-            if (mVoiceCleanup != null) mVoiceCleanup.onSpeechReady();
         }
 
         @Override
