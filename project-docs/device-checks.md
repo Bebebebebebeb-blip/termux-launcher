@@ -155,6 +155,13 @@ under twenty items; past that, the oldest are re-judged first.
   "Edited" in Settings; a broken hand edit shows the layout-error notice and keeps the last
   working layout; an existing `~/.termux/keyboard/layout.xml` still applies as the launcher
   layout and editing "Launcher layout" in Settings writes that same file · pong with the go-ahead.
+- 2026-10-14 · commit "feat(keyboard): slide a layout row's buttons open beneath it" · Settings ›
+  Keyboard › Layouts: rows show only name and second line ("Edited" tag kept), a full-width title
+  at 360dp; tapping a row slides a rounded tonal strip of its buttons open beneath it (~200 ms),
+  tapping again slides it shut; opening another row closes the first; ↑/↓ tapped repeatedly keep
+  the strip open on the moving row without re-animating; + on a catalogue row carries the strip to
+  the cycle; with animations off it snaps; TalkBack reads "name, second line, actions hidden" and
+  offers Show/Hide actions · pong with the go-ahead (no emulator).
 
 ## Developer
 

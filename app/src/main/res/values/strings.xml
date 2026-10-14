@@ -1076,6 +1076,10 @@
                 <string name="settings_keyboard_layouts_delete_message">The layout is removed from the cycle and its file, %1$s, is deleted.</string>
                 <string name="settings_keyboard_layouts_delete_action">Delete</string>
                 <string name="settings_keyboard_layouts_file_error">Could not change %1$s</string>
+                <string name="settings_keyboard_layouts_row_expanded">actions shown</string>
+                <string name="settings_keyboard_layouts_row_collapsed">actions hidden</string>
+                <string name="settings_keyboard_layouts_row_expand">Show actions</string>
+                <string name="settings_keyboard_layouts_row_collapse">Hide actions</string>
                 <string name="settings_keyboard_layout_editor_title">Edit layout</string>
                 <string name="settings_keyboard_layout_editor_new_title">New layout</string>
                 <string name="settings_keyboard_layout_editor_name">Name</string>
