@@ -1239,6 +1239,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private boolean mTerminalGlassActive = false;
     /** The blur frame the panes are painting from; kept out of the cache's recycler. */
     @Nullable private Bitmap mPaneGlassFrame;
+    /** The clear frame the panes' bent edges show (edge clarity); kept out of the recycler too. */
+    @Nullable private Bitmap mPaneGlassClearFrame;
     /** The unblurred wallpaper frame the Display page's corner mask paints; held so no eviction recycles it under a draw. */
     @Nullable private Bitmap mWallBehindFrame;
     /** The self-drawn wallpaper behind everything; see {@link WallpaperBackdropPolicy}. */
@@ -1619,6 +1621,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         @Override public void onCacheCleared() {
             mPaneGlassFrame = null;
+            mPaneGlassClearFrame = null;
             mWallBehindFrame = null;
         }
 
@@ -3568,6 +3571,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 return mFancierGlassLook;
             }
 
+            @Override @Nullable public Bitmap paneGlassClearFrame() {
+                // Asked of the look the slabs actually draw: the joined frame's insert keeps no
+                // bend and so no clarity, and holds no clear frame for it.
+                return obtainTerminalPaneGlassClearFrame(paneGlassRefraction());
+            }
+
             @Override @Nullable public ColorFilter paneGlassFrostFilter() {
                 return com.termux.app.chrome.GlassFilters.frost(mPreferences != null ? mPreferences.getTerminalBackgroundOpacity() : 100);
             }
@@ -3688,6 +3697,30 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         Bitmap frame = mChrome.blurCache().obtain(radiusDp, wallpaperFrame);
         mPaneGlassFrame = frame != null && !frame.isRecycled() ? frame : null;
         return mPaneGlassFrame;
+    }
+
+    /**
+     * The clearer frame the panes' bent edges show (Fancier Glass's edge clarity), at
+     * {@link com.termux.app.chrome.GlassRefraction#CLARITY_RADIUS_DP} from the same cache and the
+     * same wallpaper frame as {@link #obtainTerminalPaneGlassFrame}, under the same gate, or null
+     * when the look asks for none or that blur is still in flight. Remembered for the cache's
+     * in-use scan as the frame is; its landing changes the panes' style key, so the pass the
+     * cache's ready callback runs re-dresses them.
+     */
+    @Nullable
+    private Bitmap obtainTerminalPaneGlassClearFrame(
+            @Nullable com.termux.app.chrome.GlassRefraction.Look look) {
+        int radiusDp = mPreferences != null ? mPreferences.getTerminalGlassBlurRadius() : 0;
+        View wallpaperFrame = findViewById(R.id.activity_termux_root_view);
+        if (wallpaperFrame == null || !isTerminalPaneGlassActive() || !wallpaperPicture().blurs()
+                || !com.termux.app.chrome.WallpaperFrostPainter.wantsClearFrame(look, radiusDp)) {
+            mPaneGlassClearFrame = null;
+            return null;
+        }
+        Bitmap clear = mChrome.blurCache().obtain(
+            com.termux.app.chrome.GlassRefraction.CLARITY_RADIUS_DP, wallpaperFrame);
+        mPaneGlassClearFrame = clear != null && !clear.isRecycled() ? clear : null;
+        return mPaneGlassClearFrame;
     }
 
     /**
@@ -7360,7 +7393,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (frame == null) {
             return false;
         }
-        if (frame == mPaneGlassFrame || frame == mWallBehindFrame) {
+        if (frame == mPaneGlassFrame || frame == mPaneGlassClearFrame || frame == mWallBehindFrame) {
             return true;   // a pane is drawing it right now; recycling it would crash its next draw
         }
         if (mWallpaperBackdropView != null && (mWallpaperBackdropView.heldFrame() == frame
