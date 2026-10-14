@@ -46,6 +46,13 @@ public class VoiceCleanupGateTest {
     }
 
     @Test
+    public void sentencesSplitAtAnyKindOfSpace() {
+        // A no-break or thin space after the stop splits too, as plain spaces and a line break do.
+        assertEquals(Arrays.asList("One.", "Two?", "Three!", "Four."),
+            VoiceCleanupGate.sentences("One.\u00a0Two? Three!\n\u202fFour."));
+    }
+
+    @Test
     public void aPartWithNoSignMakesOneUnsentGroup() {
         String text = "The keyboard opens fine in portrait mode. In landscape it covers half the screen.";
         List<VoiceCleanupGate.Group> groups = VoiceCleanupGate.groups(text, LIGHT);
