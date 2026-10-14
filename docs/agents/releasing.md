@@ -79,11 +79,21 @@ recorded** in the body of the `main` `release:` commit, one `Accepted owed: <ite
 deleted from `device-checks.md` in the same pass. A minor cut first promotes from `pre`
 ("Promoting from `pre` to a stable" below). Then, per edition, as in `Release v1.0.1 (merge dev into io-vaj-package)` followed by `release: vaj-v1.0.1`:
 merge `dev`, then set `versionName` to the plain `X.Y.Z` in a `release:` commit (it **must** equal
-the tag minus its edition prefix and `v`, or CI aborts), push, tag, `gh release create --notes-file …`
-(`--latest` on `vX.Y.Z`, `--latest=false` on the edition tags, never `--prerelease` on a stable),
-then dispatch `attach_debug_apks_to_release.yml` with the tag. Publishing the plain `vX.Y.Z`
-(or `vX.Y.Z-pre.N`) release fires `announce_release_discord.yml`, which posts once to Discord
-linking all three edition releases, so create the three in one pass and the plain one last.
+the tag minus its edition prefix and `v`, or CI aborts), push, tag, `gh release create --draft
+--notes-file …` (never `--prerelease` on a stable), then dispatch `attach_debug_apks_to_release.yml`
+with the tag. **Publish only when all three editions' APK runs have finished**, in the order
+`nix-vX.Y.Z`, `vaj-vX.Y.Z`, then `vX.Y.Z`, a few seconds apart: `gh release edit <tag>
+--draft=false`, with `--latest=false` on the edition tags and `--latest` on `vX.Y.Z`. Publishing the
+plain `vX.Y.Z` (or `vX.Y.Z-pre.N`) release fires `announce_release_discord.yml`, which posts once to
+Discord linking all three edition releases.
+
+**Why drafts, and why Termux last: Obtainium.** Obtainium ignores GitHub's Latest badge. It takes
+the newest *published* release by date, skips drafts, skips pre-releases unless the user includes
+them, and skips a release with no APK. Edition plays no part
+(`project-docs/active/obtainium-channels-research.md`). Publishing the Termux release last means a
+user who added the bare repo URL gets the Termux build; publishing only after the APKs exist means
+nobody is offered a release that has none. Before this rule, vaj-v1.0.2 and vaj-v1.0.3 were the
+"latest" for such users.
 
 **A stable and the next drop are published together**, the drop right after the stable, so the
 channel always has a drop newer than the stable and a pre-release user is never left on a build
@@ -182,10 +192,11 @@ ones to keep if it changes:
   carries the last drop's version, so nightlies from `pre` build as `X.Y.Z-pre.N+dev.<sha>`; the
   script aligns that line with `dev`'s before each merge so it never conflicts.
 - **Tags `vX.Y.Z-pre.N`, `nix-vX.Y.Z-pre.N`, `vaj-vX.Y.Z-pre.N`**, annotated like the stable
-  tags. Every GitHub release is created `--prerelease --latest=false`, so none becomes "Latest" and
-  the website's download links (which skip prereleases) never point at one. CI aborts when a
-  `-pre` tag's release lacks the flag. The plain tag is created last: its publish fires the Discord
-  post that links the other two.
+  tags. Every GitHub release is created `--draft --prerelease --latest=false`, so none becomes
+  "Latest" and the website's download links (which skip prereleases) never point at one. CI aborts
+  when a `-pre` tag's release lacks the flag. As with a stable, the three are published only after
+  their APK runs finish, Nix, VAJ, then the plain tag last: its publish fires the Discord post that
+  links the other two.
 - **One visible pre-release per edition.** Publishing a drop retires the one before it: its three
   releases become drafts (invisible to users, APKs and tags kept, so a bug report that names
   `1.1.0-pre.1` can still be reproduced from the draft), and drafts beyond the newest two drops
@@ -214,9 +225,11 @@ ones to keep if it changes:
 The cut, as the script does it: `scripts/cut-prerelease.sh X.Y.Z-pre.N [branch …]` opens `pre`
 in a worktree, merges `dev` and the named branches, sets `versionName`, commits and tags, builds
 the two edition branches the same way, and prints what it would publish; `--publish` additionally
-pushes `pre` and the three tags, runs `gh release create --prerelease --latest=false --notes-file
-project-docs/prerelease-notes.md` for each and dispatches `attach_debug_apks_to_release.yml` on
-each tag. Merges already done are skipped, so after resolving a conflict in a worktree you re-run
+pushes `pre` and the three tags, creates each release as a draft (`gh release create --draft
+--prerelease --latest=false --notes-file project-docs/prerelease-notes.md`), dispatches
+`attach_debug_apks_to_release.yml` on each tag, waits for the three runs, publishes Nix, VAJ and
+then the plain tag, and retires the drop before. A failed APK run stops it with the releases still
+drafts; re-run the same command once it is fixed. Merges already done are skipped, so after resolving a conflict in a worktree you re-run
 the same command; `--only nix` (or `termux`, `vaj`) redoes one edition. A dry run leaves local
 tags: discard them (the script prints how) before publishing. Run it with the notes already
 describing the drop, after the full suite is green on `pre`.

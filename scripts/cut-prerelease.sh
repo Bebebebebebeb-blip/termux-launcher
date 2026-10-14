@@ -18,8 +18,8 @@
 #
 # Without --publish nothing leaves this machine: the worktrees stay under .claude/worktrees/ for
 # inspection and the publish commands are printed. With --publish: push pre and the three tags,
-# create the GitHub releases (--prerelease --latest=false), dispatch the APK build on each tag, and
-# retire the drop before: its releases become drafts (kept with their APKs and tags, for a bug
+# create the GitHub releases as drafts (--prerelease --latest=false), dispatch the APK build on each
+# tag, wait for the builds, publish the three with the plain tag last, and retire the drop before: its releases become drafts (kept with their APKs and tags, for a bug
 # report that names the build), and drafts beyond the newest KEEP_RETIRED drops are deleted, tag
 # kept. The public list shows one pre-release per edition. The edition branches themselves are
 # never pushed; their tags carry the commits.
@@ -186,9 +186,11 @@ if [ "$PUBLISH" -ne 1 ]; then
     for e in "${EDITIONS[@]}"; do
         wt="$(wt_of "$e")"; t="$(tag_of "$e")"
         echo "  git -C '$wt' push origin '$t'"
-        echo "  gh release create '$t' --repo $REPO_SLUG --prerelease --latest=false --title '$t' --notes-file '$PRE_WT/$NOTES'"
+        echo "  gh release create '$t' --repo $REPO_SLUG --draft --prerelease --latest=false --title '$t' --notes-file '$PRE_WT/$NOTES'"
         echo "  gh workflow run attach_debug_apks_to_release.yml --repo $REPO_SLUG --ref '$t' -f release_tag='$t'"
     done
+    echo "  (wait for the three attach runs, then publish nix, vaj and the plain tag last:"
+    echo "   gh release edit <tag> --repo $REPO_SLUG --draft=false --latest=false)"
     echo "or re-run this script with --publish, which also retires the previous drop (drafts, then"
     echo "deletes beyond the newest $KEEP_RETIRED drafts per edition). To discard the drop:"
     for e in "${EDITIONS[@]}"; do
@@ -215,13 +217,50 @@ retire_previous() { # <edition> <this drop's tag>
         done
 }
 
+# Obtainium picks a repo's newest published release by date, whatever its edition, and skips drafts
+# (project-docs/active/obtainium-channels-research.md). So every release is created as a draft, its
+# APKs are attached while nobody can see it, and only then are the three published, nix and vaj
+# first and the plain tag last, a few seconds apart: a user without an edition filter gets the
+# Termux build, and nobody is offered a release that has no APK yet. The plain tag's publish also
+# fires the Discord post. A re-run skips a release that already exists, so no tag gets two drafts.
+newest_attach_run() { # <tag> -> id of the newest attach run dispatched on it, or nothing
+    gh run list --repo "$REPO_SLUG" --workflow attach_debug_apks_to_release.yml --branch "$1" \
+        --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId // empty'
+}
+attach_run_after() { # <tag> <id before dispatch> -> the new run's id, waiting for it to appear
+    local id
+    for _ in $(seq 30); do
+        id="$(newest_attach_run "$1")"
+        [ -n "$id" ] && [ "$id" != "$2" ] && { echo "$id"; return; }
+        sleep 4
+    done
+    die "no new attach run appeared for $1"
+}
+
 git -C "$PRE_WT" push -q origin pre
+declare -A RUN
 for e in "${EDITIONS[@]}"; do
     wt="$(wt_of "$e")"; t="$(tag_of "$e")"
     git -C "$wt" push -q origin "$t"
-    gh release create "$t" --repo "$REPO_SLUG" --prerelease --latest=false --title "$t" --notes-file "$PRE_WT/$NOTES"
+    gh release view "$t" --repo "$REPO_SLUG" >/dev/null 2>&1 \
+        || gh release create "$t" --repo "$REPO_SLUG" --draft --prerelease --latest=false --title "$t" --notes-file "$PRE_WT/$NOTES"
+    before="$(newest_attach_run "$t")"
     gh workflow run attach_debug_apks_to_release.yml --repo "$REPO_SLUG" --ref "$t" -f "release_tag=$t"
-    retire_previous "$e" "$t"
-    if [ "$e" != termux ]; then git worktree remove "$wt"; git branch -q -D "$(branch_of "$e")"; fi
+    RUN[$e]="$(attach_run_after "$t" "$before")"
+    echo "$t: draft created, attach run ${RUN[$e]}"
 done
-echo "published; watch the APK runs with: gh run list --repo $REPO_SLUG --workflow attach_debug_apks_to_release.yml"
+for e in "${EDITIONS[@]}"; do
+    gh run watch "${RUN[$e]}" --repo "$REPO_SLUG" --exit-status >/dev/null \
+        || die "the attach run for $(tag_of "$e") failed; the releases are still drafts. Fix it and re-run the same command."
+done
+for e in "${EDITIONS[@]}"; do # termux is last in EDITIONS
+    t="$(tag_of "$e")"
+    gh release edit "$t" --repo "$REPO_SLUG" --draft=false --latest=false >/dev/null
+    echo "published $t"
+    sleep 3
+done
+for e in "${EDITIONS[@]}"; do
+    retire_previous "$e" "$(tag_of "$e")"
+    if [ "$e" != termux ]; then git worktree remove "$(wt_of "$e")"; git branch -q -D "$(branch_of "$e")"; fi
+done
+echo "published"
