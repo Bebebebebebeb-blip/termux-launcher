@@ -224,9 +224,15 @@ before you hand work over. CI owns the rest.
   `tl16`, `-gpu angle_indirect` (the default swiftshader segfaults on this app's blur), stop the
   Gradle daemon first on a small host, install the **x86_64** split, and always pass
   `-s emulator-5554` — if qemu dies, adb silently falls back to the phone.
+- **Device checks run through the `device-checker` agent** where the host has one: it gets the
+  user-facing summary and the `device-checks.md` items, never the diff, and reports pass or fail
+  with crops. Take the device's lease for the whole session, and batch pong items into one ask.
+  This launcher becomes the emulator's home screen when installed: set the stock launcher back
+  as home before you hand the emulator over. Swap checks (stable → drop → stable) need release
+  builds of both, which install over each other because every build shares one signing key.
 - **Tear the test setup down when you are done.** The emulator holds this host's RAM and GPU for
-  as long as it runs. When the testing is finished, force-stop the app, then shut the whole setup
-  down: kill the emulator, and stop any background monitor or logcat loop you left behind. Leave nothing running for the next task.
+  as long as it runs. When the testing is finished, force-stop the app, release the lease (which
+  stops an emulator it started), and stop any background monitor or logcat loop you left behind.
 - **What the emulator cannot tell you.** Jank: `gfxinfo` on ANGLE/lavapipe reports everything as
   100% janky — judge motion on a real phone. Dialogs: a UI-bounds dump does not see dialog windows, so
   screenshot and tap fresh coordinates. Simulate other phones with `wm size` / `wm density` /
