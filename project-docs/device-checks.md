@@ -163,6 +163,10 @@ under twenty items; past that, the oldest are re-judged first.
   the session number box: the dark overlay beside the Sessions drawer follows the terminal's
   rounded corners, no square corner poking past the outline, in Docked and Floating, with the
   keyboard up and down · emulator.
+- 2026-10-14 · commit "fix(palette): solid keycaps in the strip under the search field" · Open
+  the palette over a screen full of terminal text: the kbd / pick / split / font chips are solid,
+  no terminal text shows through or collides with their labels; same size, shape and hairline as
+  before; light, dark and black themes, and with the launcher's own scheme on · emulator.
 
 ## Developer
 

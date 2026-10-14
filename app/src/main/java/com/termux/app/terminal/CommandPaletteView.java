@@ -396,6 +396,13 @@ public final class CommandPaletteView extends View {
     private int mOnSurfaceVariant;
     private int mMeta;
     private int mChipFill;
+    /**
+     * The strip's keycap fill. The strip hangs below the glass, straight over the terminal, so a
+     * translucent cap let the terminal's text run through its label; this is the chip composited
+     * over the glass it was designed against, made solid, which is also the colour its label's
+     * contrast is checked against.
+     */
+    private int mCapFill;
     private int mCapLabel;
     /** White on a dark chip, black on a light one, at {@link #MARK_OUTLINE_ALPHA}. */
     private int mMarkOutlineColor;
@@ -496,7 +503,9 @@ public final class CommandPaletteView extends View {
         // Keycaps use the keyboard's chip recipe, so their labels are checked against the
         // chip composited over the glass rather than over the glass alone.
         mChipFill = ColorUtils.setAlphaComponent(surfaceContainerHigh, 160);
-        int capOverGlass = ColorUtils.compositeColors(mChipFill, overGlass);
+        int capOverGlass = ColorUtils.setAlphaComponent(
+            ColorUtils.compositeColors(mChipFill, overGlass), 255);
+        mCapFill = capOverGlass;
         mCapLabel = InAppKeyboardPaletteFactory.ensureContrast(onSurface, capOverGlass);
         mMarkOutlineColor = ColorUtils.setAlphaComponent(
             ColorUtils.calculateLuminance(capOverGlass) < 0.5 ? Color.WHITE : Color.BLACK,
@@ -891,6 +900,12 @@ public final class CommandPaletteView extends View {
         return Math.max(0f, listContentHeight() - (listBottom() - listTop()));
     }
 
+    /** The strip keycaps' fill, for tests. */
+    @ColorInt
+    int keycapFill() {
+        return mCapFill;
+    }
+
     private void drawList(@NonNull Canvas canvas, float top, float bottom, int alpha) {
         int save = canvas.save();
         canvas.clipRect(mFrame.left, top, mFrame.right, bottom);
@@ -1120,7 +1135,7 @@ public final class CommandPaletteView extends View {
             // mark.
             float radius = keycap.hasMark() ? cap.height() / 2f : dp(CAP_RADIUS);
             mFill.setShader(null);
-            mFill.setColor(withBodyAlpha(mChipFill, alpha));
+            mFill.setColor(withBodyAlpha(mCapFill, alpha));
             canvas.drawRoundRect(cap, radius, radius, mFill);
             mFill.setShader(new LinearGradient(0f, cap.top, 0f, cap.bottom,
                 ColorUtils.setAlphaComponent(GlassTokens.HIGHLIGHT, 26),
