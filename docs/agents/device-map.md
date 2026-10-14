@@ -35,7 +35,13 @@ ad -s emu runas com.termux 'launcherctl pane list'
 - Typing into the user's own pane needs `ad type` one word at a time with `ad key SPACE`
   (e.g. `seq -s w 1 900` fills the pane with long lines).
 - `launcherctl keyboard show|hide` raises or drops the in-app keyboard without a tap.
-- A fresh `pre` debug install starts Docked, light, font scale 1.0.
+- A fresh `pre` debug install starts Docked, light, font scale 1.0, and opens with a Welcome sheet
+  (Skip the tour), a media-permission dialog and a "You're set" card (Start).
+- **The Look page's Edge sliders (Bend, Edge width, Edge light, Shine, Dispersion) stay disabled
+  until a wallpaper is set from the launcher.** Push a PNG to `/data/local/tmp`, `chmod 644`, then
+  `ad runas com.termux 'cp /data/local/tmp/x.png $HOME/x.png; launcherctl wallpaper set $HOME/x.png'`
+  (an `/sdcard` path is refused). There is no unset: the emulator keeps that wallpaper.
+- `launcherctl keyboard hide` can answer "inaccessible" right after the editor closes; retry.
 - Prefs live in `shared_prefs/com.termux_preferences.xml`; edit them **before** a force-stop,
   never after (AGENTS.md, "It is the home screen").
 
@@ -44,7 +50,7 @@ ad -s emu runas com.termux 'launcherctl pane list'
 | Place | How to get there | Useful ids / text |
 |---|---|---|
 | Settings | `ad shell am start -n com.termux/.app.activities.SettingsActivity` | `settings_search_input` finds any setting by name; rows by `title` text (Appearance, Apps, …) |
-| Appearance editor | long-press the top-left corner of the pane (about 40,262 on the emulator at 420 dpi), then tap Appearance within about a second (`ad find Appearance`) | pages `appearance_page_mode_wallpaper`, `_look`, `_icon_pack` (Layout has no id: it is the grid icon in the top pill, about 655,218); styles `appearance_editor_style_docked`, `_floating`; Done `appearance_page_done`. Tap by id: the tab row shifts per page. Changes apply only on Done. Look page: tap a Look by its label (Clear, Mist, Tint, Solid, Custom), then the Surface/Edge toggle by text. Sliders (Shine, Blur, …) are vertical: `ad swipe X 2270 X 1850 800` takes Shine from 0 to 100%; the label shows the value |
+| Appearance editor | long-press the top-left corner of the pane (about 40,262 on the emulator at 420 dpi), then tap Appearance within about a second (`ad find Appearance`) | pages `appearance_page_mode_wallpaper`, `_look`, `_icon_pack` (Layout has no id: it is the grid icon in the top pill, about 655,218); styles `appearance_editor_style_docked`, `_floating`; Done `appearance_page_done`. Tap by id: the tab row shifts per page. Changes apply only on Done. Look page: tap a Look by its label (Clear, Mist, Tint, Solid, Custom), then the Surface/Edge toggle by text. Sliders (Shine, Blur, …) are vertical and fill from the bottom; a drag must start inside the slider (y about 1980–2295): `ad swipe 745 2270 745 1850 800` takes Shine to 100%, `2000 → 2310` to 0. Tapping a status pill in the preview swaps the sheet to Status bar controls; Back with changes asks Keep editing / Discard / Save |
 | Icon size, Icons per page | Appearance editor → Layout page | value shows only on screen (not in the accessibility tree); read it from a `zoom` crop |
 | Command palette | tap the terminal so the keyboard is up, then swipe up on its space bar: `ad swipe 540 2250 540 2000 250` | type to filter, `ad key DPAD_DOWN` moves the selection; chip strip kbd, pick, split, font; app chips need usage history; a theme change closes it |
 | App drawer, A–Z | not yet mapped | `launcher/drawer/`, `AzPullTabLayer` |

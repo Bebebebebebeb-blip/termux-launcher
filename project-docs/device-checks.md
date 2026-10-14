@@ -14,11 +14,6 @@ under twenty items; past that, the oldest are re-judged first.
 
 ## Agent
 
-- 2026-10-12 · PR #63 · **Failed on the emulator 2026-10-14: the dock card is also lit at its
-  top-right corner (about two thirds of top-left); the keyboard capsule is right.** Floating style,
-  on the live screen after Done (the editor preview passed): the keyboard capsule and the dock card catch the Shine light on
-  their top-left and bottom-right corners and not the other two, at Shine 100% · emulator,
-  managed wallpaper set; Layout tab → Floating, then Look → Custom → Edge, then Done.
 - 2026-10-12 · PR #64 · A contact chip with a photo set in Contacts: the initial swaps to the photo
   with no shift, and a reopened palette shows the photo at once · emulator; set the photo in the
   Contacts app, open the contact twice from the palette.
