@@ -105,7 +105,7 @@ goes away until they do.
 
 Work reaches the channel only after all of these:
 
-1. **Used on pong** as a release-type build (debuggable builds go to Waydroid; pong stays on
+1. **Used on pong** as a release-type build (debuggable builds go to the emulator; pong stays on
    release builds), in normal use, with no crash or freeze.
 2. **Suite green** on the branch with `pre` merged in.
 3. **Within budget**: frame-path work holds the pong baselines in
@@ -134,7 +134,7 @@ of these hold:
 | P3 | No open bug | No open issue or known regression against it from the channel. |
 | P4 | Release build | The cherry-picked `dev`, built as `assembleRelease`, installed on pong and the feature used (step 3 below). |
 | P5 | Within budget | As in "From pong to `pre`", measured again on the candidate. Pong's results are enough. |
-| P6 | Swap-safe | For anything that writes settings, config files, backups or caches: on Waydroid, stable → drop → stable → drop keeps the settings, does not crash, and the feature comes back. With `versionCode` 1020 Android never refuses this downgrade, so nothing else catches it. |
+| P6 | Swap-safe | For anything that writes settings, config files, backups or caches: on the emulator, stable → drop → stable → drop keeps the settings, does not crash, and the feature comes back. With `versionCode` 1020 Android never refuses this downgrade, so nothing else catches it. |
 | P7 | Off switch | A change to existing behaviour ships with a setting that brings the old behaviour back, or a default that leaves it as it was, for at least its first stable. A later minor may remove the setting. |
 | P8 | Finished | No open design question; the stable notes line, help and `docs/en/` are written. |
 | P9 | All editions | It was in the `nix-` and `vaj-` drops; anything touching packages, bootstrap, tlstore or the companions ran on the Nix edition once. |
