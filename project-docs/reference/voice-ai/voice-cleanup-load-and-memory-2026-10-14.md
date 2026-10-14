@@ -59,8 +59,10 @@ Steady use is fine at that level; the cost is the load itself, which needs ~3.7 
 Android reclaim cached apps when the phone has less. Neither model turned "first … second …
 third" into a numbered list on this sample, though Polished asks for one.
 
-## Open decision
+## What this means for the model choice
 
-Whether dictation cleanup defaults to E2B: less than half the memory, half the cold wait, no
-cached-app purge at pong's usual 4–5 GB free, and the same output on this sample. E4B stays
-selectable in Settings. Not changed yet.
+E2B is already the shipped cleanup default (settled 2026-09-27 from the pong benchmarks in
+`voice-cleanup-benchmark-2026-09-27.md`); pong ran E4B because it was picked in Settings. These
+numbers are the cost of that pick: E4B needs ~3.7 GB free to load and, at pong's usual 4–5 GB,
+makes Android reclaim cached apps, Shizuku included; E2B loads in half the time at less than half
+the memory with the same output on this sample.
