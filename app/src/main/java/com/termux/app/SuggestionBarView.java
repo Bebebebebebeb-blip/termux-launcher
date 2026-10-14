@@ -264,7 +264,18 @@ public final class SuggestionBarView extends GridLayout
         getResources(),
         DockIconCache.memoryClassMb(getContext()),
         () -> getContext().getPackageManager().getDefaultActivityIcon(),
-        entry -> LauncherAppDataProvider.getInstance(getContext()).icons().artwork(entry));
+        new DockIconCache.ArtworkSource() {
+            @Nullable @Override
+            public Drawable artwork(@NonNull LauncherAppEntry entry) {
+                return artworkDetailed(entry).drawable;
+            }
+
+            @NonNull @Override
+            public com.termux.app.launcher.icon.LauncherIconStore.Artwork artworkDetailed(
+                    @NonNull LauncherAppEntry entry) {
+                return LauncherAppDataProvider.getInstance(getContext()).icons().artworkDetailed(entry);
+            }
+        });
     /**
      * Binds the dock's and the drawer's icons without rendering on the main thread: an icon the
      * cache holds binds at once, a missing one is rendered on the icon thread — into the same
@@ -4010,15 +4021,23 @@ public final class SuggestionBarView extends GridLayout
         if (entry == null) {
             return entry;
         }
-        Drawable globalArtwork = artworkOrNull(entry);
+        com.termux.app.launcher.icon.LauncherIconStore.Artwork global = entry.icon != null
+            ? com.termux.app.launcher.icon.LauncherIconStore.Artwork.kept(entry.icon)
+            : LauncherAppDataProvider.getInstance(getContext()).icons().artworkDetailed(entry);
+        Drawable globalArtwork = global.drawable;
         String memoKey = pinnedArtworkKey(entry, item);
         LauncherIconResolver.ResolvedIcon resolvedIcon = pinnedArtworkMemo.get(memoKey, globalArtwork);
         if (resolvedIcon == null) {
             resolvedIcon = getIconResolver().resolvePinnedDetailed(
                 entry.appRef, item.iconOverride, globalArtwork, entry.iconPackArtwork);
-            pinnedArtworkMemo.put(memoKey, globalArtwork, resolvedIcon);
+            // A stand-in drawn while a pack is read is not remembered: its landing redraws.
+            if (!resolvedIcon.provisional && !global.provisional)
+                pinnedArtworkMemo.put(memoKey, globalArtwork, resolvedIcon);
         }
         Drawable pinnedIcon = resolvedIcon.drawable;
+        // While the pinned treatment waits on a pack, the row shows the app's own entry: an entry
+        // carrying the stand-in as its icon would have its render kept.
+        if (resolvedIcon.provisional) return entry;
         if ((pinnedIcon == null || pinnedIcon == globalArtwork)
             && resolvedIcon.iconPackArtwork == entry.iconPackArtwork) {
             return entry;
@@ -4122,7 +4141,9 @@ public final class SuggestionBarView extends GridLayout
             }
         }
         LauncherAppEntry built = buildEntryFromPackageManager(ref, defaultComponent);
-        if (built != null) {
+        // An entry built with no artwork of its own (its icon was a stand-in while a pack is
+        // read) is drawn through the icon store and built again next time, after the pack lands.
+        if (built != null && built.icon != null) {
             resolvedRefCache.put(cacheKey, built);
         }
         return built;
@@ -4140,6 +4161,7 @@ public final class SuggestionBarView extends GridLayout
         String label = originalRef.packageName;
         Drawable icon = null;
         boolean iconPackArtwork = false;
+        boolean provisional = false;
 
         try {
             if (component != null) {
@@ -4148,6 +4170,7 @@ public final class SuggestionBarView extends GridLayout
                 LauncherIconResolver.ResolvedIcon resolvedIcon = getIconResolver().resolveDetailed(resolvedRef, null, null);
                 icon = resolvedIcon.drawable;
                 iconPackArtwork = resolvedIcon.iconPackArtwork;
+                provisional = resolvedIcon.provisional;
             }
         } catch (Exception ignored) {
         }
@@ -4160,12 +4183,15 @@ public final class SuggestionBarView extends GridLayout
                 LauncherIconResolver.ResolvedIcon resolvedIcon = getIconResolver().resolveDetailed(originalRef, null, null);
                 icon = resolvedIcon.drawable;
                 iconPackArtwork = resolvedIcon.iconPackArtwork;
+                provisional = resolvedIcon.provisional;
             } catch (Exception ignored) {
                 return null;
             }
         }
 
-        return new LauncherAppEntry(resolvedRef, label, icon, iconPackArtwork);
+        // A stand-in is not carried on the entry, where its render would be kept: the store
+        // draws it instead and keeps nothing until the pack lands.
+        return new LauncherAppEntry(resolvedRef, label, provisional ? null : icon, iconPackArtwork);
     }
 
     @NonNull
@@ -4618,7 +4644,18 @@ public final class SuggestionBarView extends GridLayout
         @NonNull IconOverrideApplier applier
     ) {
         dismissIconPickerPopup();
-        IconPack pack = getIconPackRepository().loadIconPack(packInfo.packageName);
+        IconPackRepository.Lookup lookup = getIconPackRepository().lookupIconPack(packInfo.packageName);
+        if (lookup.pending) {
+            // The main thread never parses a pack: read it on the worker, then open the picker.
+            searchExecutor.execute(() -> {
+                getIconPackRepository().loadIconPack(packInfo.packageName);
+                post(() -> {
+                    if (isAttachedToWindow()) showIconDrawablePicker(item, packInfo, applier);
+                });
+            });
+            return;
+        }
+        IconPack pack = lookup.pack;
         if (pack == null || pack.drawableItems().isEmpty()) {
             showIconPickerMessagePopup(packInfo.label, "This icon pack does not expose selectable icons.");
             return;

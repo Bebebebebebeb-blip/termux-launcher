@@ -43,10 +43,22 @@ public final class LauncherIconResolver {
     public static final class ResolvedIcon {
         @Nullable public final Drawable drawable;
         public final boolean iconPackArtwork;
+        /**
+         * A stand-in: the main thread asked while a pack this icon comes from was still being
+         * parsed in the background ({@link IconPackRepository#lookupIconPack}), so this is the
+         * icon it falls back to. Show it, never keep it: the surfaces are told to draw again when
+         * the pack lands.
+         */
+        public final boolean provisional;
 
         ResolvedIcon(@Nullable Drawable drawable, boolean iconPackArtwork) {
+            this(drawable, iconPackArtwork, false);
+        }
+
+        public ResolvedIcon(@Nullable Drawable drawable, boolean iconPackArtwork, boolean provisional) {
             this.drawable = drawable;
             this.iconPackArtwork = iconPackArtwork;
+            this.provisional = provisional;
         }
     }
     public interface SystemIconLoader {
@@ -116,20 +128,23 @@ public final class LauncherIconResolver {
         @Nullable PinnedIconOverride override,
         @Nullable Drawable systemFallback
     ) {
-        Drawable icon = overrideArtwork(override);
-        if (icon != null) return new ResolvedIcon(icon, true);
+        ResolvedIcon picked = overrideArtwork(override);
+        if (picked != null) return picked;
 
         if (configRepository != null) {
-            icon = overrideArtwork(configRepository.loadAppIconOverride(ref));
-            if (icon != null) return new ResolvedIcon(icon, true);
+            picked = overrideArtwork(configRepository.loadAppIconOverride(ref));
+            if (picked != null) return picked;
         }
 
+        boolean provisional = false;
         if (preferences != null) {
-            icon = loadFromPack(preferences.getAppLauncherIconPackPackage(), ref, systemFallback);
-            if (icon != null) return new ResolvedIcon(icon, true);
+            ResolvedIcon fromPack = fromPack(preferences.getAppLauncherIconPackPackage(), ref, systemFallback);
+            if (fromPack != null && !fromPack.provisional) return fromPack;
+            provisional = fromPack != null;
         }
 
-        return new ResolvedIcon(systemFallback != null ? systemFallback : loadSystemIcon(ref), false);
+        return new ResolvedIcon(systemFallback != null ? systemFallback : loadSystemIcon(ref), false,
+            provisional);
     }
 
     @Nullable
@@ -148,9 +163,10 @@ public final class LauncherIconResolver {
         @Nullable PinnedIconOverride override,
         @Nullable Drawable globalIcon
     ) {
-        Drawable icon = overrideArtwork(override);
-        if (icon != null) return icon;
+        ResolvedIcon picked = overrideArtwork(override);
+        if (picked != null) return picked.drawable;
 
+        Drawable icon;
         if (preferences != null) {
             String pinnedPack = preferences.getAppLauncherPinnedIconPackPackage();
             if (pinnedPack != null && !pinnedPack.trim().isEmpty()) {
@@ -169,20 +185,27 @@ public final class LauncherIconResolver {
         @Nullable Drawable globalIcon,
         boolean globalIconPackArtwork
     ) {
-        Drawable icon = overrideArtwork(override);
-        if (icon != null) return new ResolvedIcon(icon, true);
+        ResolvedIcon picked = overrideArtwork(override);
+        if (picked != null) return picked;
+        boolean provisional = false;
         if (preferences != null) {
             String pinnedPack = preferences.getAppLauncherPinnedIconPackPackage();
             if (pinnedPack != null && !pinnedPack.trim().isEmpty()) {
-                icon = loadFromPack(pinnedPack, ref, globalIcon);
-                if (icon != null) return new ResolvedIcon(icon, true);
+                ResolvedIcon fromPack = fromPack(pinnedPack, ref, globalIcon);
+                if (fromPack != null && !fromPack.provisional) return fromPack;
+                provisional = fromPack != null;
             }
         }
-        if (globalIcon != null) return new ResolvedIcon(globalIcon, globalIconPackArtwork);
-        return resolveDetailed(ref, null, null);
+        if (globalIcon != null) return new ResolvedIcon(globalIcon, globalIconPackArtwork, provisional);
+        ResolvedIcon global = resolveDetailed(ref, null, null);
+        return provisional && !global.provisional
+            ? new ResolvedIcon(global.drawable, global.iconPackArtwork, true) : global;
     }
 
-    /** Clears the icon-pack repository, which every surface shares: parsed packs and resources. */
+    /**
+     * Clears the icon-pack repository, which every surface shares: the resources go, and each
+     * parsed pack is kept only until its installed version is checked again.
+     */
     public void clearCache() {
         iconPackRepository.clearCache();
     }
@@ -225,16 +248,34 @@ public final class LauncherIconResolver {
 
     @Nullable
     public Drawable loadFromPack(@Nullable String packageName, @NonNull AppRef ref) {
-        return loadFromPack(packageName, ref, null);
+        ResolvedIcon fromPack = fromPack(packageName, ref, null);
+        return fromPack == null ? null : fromPack.drawable;
     }
 
+    /**
+     * {@code ref}'s icon from {@code packageName}: the pack's own drawing, or the system icon
+     * composed on the pack's plates; null when the pack has neither for it, or is not installed.
+     * While the pack is being parsed for the main thread, a provisional answer with no drawing,
+     * which the caller fills with its own fallback.
+     */
     @Nullable
-    private Drawable loadFromPack(
+    private ResolvedIcon fromPack(
         @Nullable String packageName,
         @NonNull AppRef ref,
         @Nullable Drawable systemFallback
     ) {
-        IconPack pack = iconPackRepository.loadIconPack(packageName);
+        IconPackRepository.Lookup lookup = iconPackRepository.lookupIconPack(packageName);
+        if (lookup.pending) return new ResolvedIcon(null, false, true);
+        Drawable drawn = drawFromPack(lookup.pack, ref, systemFallback);
+        return drawn == null ? null : new ResolvedIcon(drawn, true);
+    }
+
+    @Nullable
+    private Drawable drawFromPack(
+        @Nullable IconPack pack,
+        @NonNull AppRef ref,
+        @Nullable Drawable systemFallback
+    ) {
         if (pack == null) return null;
         String drawableName = pack.drawableForComponent(ref.packageName, ref.activityName, Calendar.getInstance().get(Calendar.DAY_OF_MONTH));
         if (drawableName != null) {
@@ -247,12 +288,16 @@ public final class LauncherIconResolver {
         return composeUnmappedIcon(pack, ref, systemFallback);
     }
 
-    /** An override's drawable, drawn at the scale of the pack it was picked from. */
+    /**
+     * An override's drawable, drawn at the scale of the pack it was picked from; provisional, at
+     * the drawable's own scale, while that pack is being parsed for the main thread.
+     */
     @Nullable
-    private Drawable overrideArtwork(@Nullable PinnedIconOverride override) {
+    private ResolvedIcon overrideArtwork(@Nullable PinnedIconOverride override) {
         Drawable drawable = loadOverride(override);
         if (drawable == null) return null;
-        return packArtwork(iconPackRepository.loadIconPack(override.iconPackPackage), drawable);
+        IconPackRepository.Lookup lookup = iconPackRepository.lookupIconPack(override.iconPackPackage);
+        return new ResolvedIcon(packArtwork(lookup.pack, drawable), true, lookup.pending);
     }
 
     /**

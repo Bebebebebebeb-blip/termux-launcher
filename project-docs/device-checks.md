@@ -19,7 +19,9 @@ under twenty items; past that, the oldest are re-judged first.
   Done, the dock, the drawer's C page (Calendar, Clock, Contacts, Camera, Chrome) and the palette
   rows all show Arcticons line icons, also after reopening the palette; then `am force-stop` and
   relaunch: the dock and the drawer come back in Arcticons, not stock, and stay so, with no
-  freeze or "not responding" dialog while the home screen comes up; the switch to
+  freeze or "not responding" dialog while the home screen comes up (stock icons for a moment
+  that turn to Arcticons on their own are expected); opening the palette right after choosing
+  Arcticons never freezes; the switch to
   MBE Style and back to Default still follows at once · emulator, icon packs from F-Droid
   (`com.donnnno.arcticons_1570.apk`).
 - 2026-10-12 · PR #64 · A contact chip with a photo set in Contacts: the initial swaps to the photo
