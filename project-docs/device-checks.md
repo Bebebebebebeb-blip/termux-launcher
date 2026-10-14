@@ -159,21 +159,6 @@ under twenty items; past that, the oldest are re-judged first.
   swap" · Editing a shipped layout (e.g. Dvorak) opens XML with `c`/`nw`…`se` slot names under a
   short header; right after creating a user layout and adding it to the cycle, the first swap to
   it shows it at once with no launcher-layout flash · pong with the go-ahead (no emulator).
-- 2026-10-14 · commit "fix(sessions): round the drawer's scrim to the terminal's corners" · Tap
-  the session number box: the dark overlay beside the Sessions drawer follows the terminal's
-  rounded corners, no square corner poking past the outline, in Docked and Floating, with the
-  keyboard up and down · emulator.
-- 2026-10-14 · commit "fix(palette): solid keycaps in the strip under the search field" · Open
-  the palette over a screen full of terminal text: the kbd / pick / split / font chips are solid,
-  no terminal text shows through or collides with their labels; same size, shape and hairline as
-  before; light, dark and black themes, and with the launcher's own scheme on · emulator.
-- 2026-10-14 · commit "fix(palette): keep the list's last row legible above the rounded bottom" ·
-  Type "se" in the palette and scroll the results to the end: the last row ("Rename session")
-  is full strength, not greyed, and sits clear of the panel's rounded bottom; mid-list, rows
-  passing the bottom edge stay legible over a soft darkening behind them · emulator.
-
-## Developer
-
 - 2026-09-27 · voice panel · Keyboard → Voice input → Mic sensitivity (Normal, High): soft speech at
   arm's length is picked up on both; High lets in more of a nearby voice or video, Normal fewer;
   keyboard clicks, a fan or air conditioning alone never open a phrase on either · pong, by hand.
