@@ -48,6 +48,7 @@ final class AppearanceSnapshot {
     private final int mEdgeLight;
     private final int mSpecular;
     private final int mDispersion;
+    private final int mClarity;
     private final int mKeyboardBlurRaw;
     private final int mKeyOpacity;
     /** The stored radius, or NaN when the key is absent and the style's default applies. */
@@ -94,6 +95,7 @@ final class AppearanceSnapshot {
         mEdgeLight = prefs.getFancierGlassEdgeLightPercent();
         mSpecular = prefs.getFancierGlassSpecularPercent();
         mDispersion = prefs.getFancierGlassDispersionPercent();
+        mClarity = prefs.getFancierGlassClarityPercent();
         mKeyboardBlurRaw = prefs.getInAppKeyboardBlurRadiusRaw();
         mKeyOpacity = prefs.getInAppKeyboardKeyOpacity();
         mKeyRadiusRaw = rawKeyRadius(prefs);
@@ -142,6 +144,7 @@ final class AppearanceSnapshot {
         prefs.setFancierGlassEdgeLightPercent(mEdgeLight);
         prefs.setFancierGlassSpecularPercent(mSpecular);
         prefs.setFancierGlassDispersionPercent(mDispersion);
+        prefs.setFancierGlassClarityPercent(mClarity);
         prefs.setInAppKeyboardBlurRadiusRaw(mKeyboardBlurRaw);
         prefs.setInAppKeyboardKeyOpacity(mKeyOpacity);
         restoreKeyRadius(prefs, mKeyRadiusRaw);
@@ -170,6 +173,7 @@ final class AppearanceSnapshot {
             .append('|').append(mTint).append('|').append(mRim).append('|').append(mMotion)
             .append('|').append(mBend).append('|').append(mEdgeWidth).append('|').append(mEdgeLight)
             .append('|').append(mSpecular).append('|').append(mDispersion)
+            .append('|').append(mClarity)
             .append('|').append(mKeyboardBlurRaw).append('|').append(mKeyOpacity)
             .append('|').append(mKeyRadiusRaw).append('|').append(mKeySpacingRaw)
             .append('|').append(mDockButtonCount).append('|').append(mDim).append('|').append(mSoft)

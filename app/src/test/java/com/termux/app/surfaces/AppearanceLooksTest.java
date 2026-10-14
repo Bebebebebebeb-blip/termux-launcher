@@ -112,7 +112,8 @@ public class AppearanceLooksTest {
         assertEquals(Arrays.asList(Control.BLUR, Control.GRAIN, Control.OPACITY, Control.TINT,
             Control.MARGIN, Control.CORNER_RADIUS), AppearanceLooks.controls(null, Group.SURFACE));
         assertEquals(Arrays.asList(Control.BEND, Control.EDGE_WIDTH, Control.EDGE_LIGHT,
-            Control.SPECULAR, Control.DISPERSION), AppearanceLooks.controls(null, Group.EDGE));
+            Control.SPECULAR, Control.DISPERSION, Control.CLARITY),
+            AppearanceLooks.controls(null, Group.EDGE));
         assertTrue(AppearanceLooks.controls(null, Group.EDGE).size()
             <= AppearanceLooks.MAX_CONTROLS);
         assertEquals(AppearanceLooks.controls(null, Group.SURFACE), AppearanceLooks.controls(null));
@@ -156,6 +157,8 @@ public class AppearanceLooksTest {
         assertEquals(TERMUX_APP.MAX_FANCIER_GLASS_SPECULAR, Control.SPECULAR.max);
         assertEquals(0, Control.DISPERSION.min);
         assertEquals(TERMUX_APP.MAX_FANCIER_GLASS_DISPERSION, Control.DISPERSION.max);
+        assertEquals(TERMUX_APP.MIN_FANCIER_GLASS_CLARITY, Control.CLARITY.min);
+        assertEquals(TERMUX_APP.MAX_FANCIER_GLASS_CLARITY, Control.CLARITY.max);
         for (Control control : AppearanceLooks.controls(null, Group.EDGE))
             assertEquals(control.name(), 1, control.step);
     }

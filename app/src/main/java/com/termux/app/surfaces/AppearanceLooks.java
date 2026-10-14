@@ -124,7 +124,7 @@ public final class AppearanceLooks {
      * Icon size is the pinned icon in dp, and its slider runs over the range the dock gives under
      * the Style ({@link #iconSizeRangeDp}); the bounds here are only the ones no dock passes, the
      * icon's floor and the deepest row. Key spacing is the key margin scale in tenths; the others
-     * are their own units (dp, percent, a count, a stop). Bend through Dispersion are the glass
+     * are their own units (dp, percent, a count, a stop). Bend through Clarity are the glass
      * edge's knobs over their stored ranges: Bend and Edge width in dp, the rest in percent.
      */
     public enum Control {
@@ -147,7 +147,8 @@ public final class AppearanceLooks {
             TERMUX_APP.MAX_FANCIER_GLASS_EDGE_LIGHT, 1),
         SPECULAR(TERMUX_APP.MIN_FANCIER_GLASS_SPECULAR, TERMUX_APP.MAX_FANCIER_GLASS_SPECULAR, 1),
         DISPERSION(TERMUX_APP.MIN_FANCIER_GLASS_DISPERSION,
-            TERMUX_APP.MAX_FANCIER_GLASS_DISPERSION, 1);
+            TERMUX_APP.MAX_FANCIER_GLASS_DISPERSION, 1),
+        CLARITY(TERMUX_APP.MIN_FANCIER_GLASS_CLARITY, TERMUX_APP.MAX_FANCIER_GLASS_CLARITY, 1);
 
         public final int min;
         public final int max;
@@ -208,7 +209,7 @@ public final class AppearanceLooks {
     public static List<Control> controls(@Nullable Target target, @NonNull Group group) {
         if (target == null && group == Group.EDGE)
             return Arrays.asList(Control.BEND, Control.EDGE_WIDTH, Control.EDGE_LIGHT,
-                Control.SPECULAR, Control.DISPERSION);
+                Control.SPECULAR, Control.DISPERSION, Control.CLARITY);
         if (target == null)
             return Arrays.asList(Control.BLUR, Control.GRAIN, Control.OPACITY, Control.TINT,
                 Control.MARGIN, Control.CORNER_RADIUS);

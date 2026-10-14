@@ -58,6 +58,14 @@ public final class GlassRefraction {
 
     private GlassRefraction() {}
 
+    /**
+     * The blur radius, in dp, of the clearer frame a surface hands in for the bent edge to show
+     * ({@link Program#setClarityInput}): a touch of blur so the upscale does not alias, kept under
+     * the pre-blur's 25 px script radius so the frame stays full size. A surface whose own frost
+     * is this clear or clearer takes none.
+     */
+    public static final int CLARITY_RADIUS_DP = 2;
+
     /** True on phones that run an AGSL shader at all. Everything below is reachable only then. */
     @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.TIRAMISU)
     public static boolean available() {

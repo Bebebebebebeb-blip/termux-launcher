@@ -1895,6 +1895,8 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                 return control.clamp(prefs.getFancierGlassSpecularPercent());
             case DISPERSION:
                 return control.clamp(prefs.getFancierGlassDispersionPercent());
+            case CLARITY:
+                return control.clamp(prefs.getFancierGlassClarityPercent());
             case CONTRAST:
             default:
                 return AppearanceLooks.legibilityIndex(prefs.getTerminalContrastLevel());
@@ -1930,6 +1932,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             case EDGE_LIGHT: return getString(R.string.appearance_editor_edge_light, value);
             case SPECULAR: return getString(R.string.appearance_editor_specular, value);
             case DISPERSION: return getString(R.string.appearance_editor_dispersion, value);
+            case CLARITY: return getString(R.string.appearance_editor_clarity, value);
             case CONTRAST:
             default:
                 if (!enabled)
@@ -2128,6 +2131,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             case EDGE_LIGHT:
             case SPECULAR:
             case DISPERSION:
+            case CLARITY:
                 writeGlassEdge(control, value);
                 break;
             default: break;
@@ -2150,6 +2154,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             case EDGE_LIGHT: prefs.setFancierGlassEdgeLightPercent(written); break;
             case SPECULAR: prefs.setFancierGlassSpecularPercent(written); break;
             case DISPERSION: prefs.setFancierGlassDispersionPercent(written); break;
+            case CLARITY: prefs.setFancierGlassClarityPercent(written); break;
             default: return;
         }
         requestPreview(SurfaceEditorProperties.PREVIEW_SURFACES);
