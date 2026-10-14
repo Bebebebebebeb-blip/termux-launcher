@@ -338,8 +338,12 @@ public final class WallpaperFrostPainter {
             ? mBlurCache.obtain(GlassRefraction.CLARITY_RADIUS_DP, wallpaperFrame) : null);
     }
 
-    /** True when a surface frosted at {@code blurRadiusDp} under {@code look} takes a clear frame. */
-    static boolean wantsClearFrame(@Nullable GlassRefraction.Look look, int blurRadiusDp) {
+    /**
+     * True when a surface frosted at {@code blurRadiusDp} under {@code look} takes a clear frame.
+     * The one rule for every surface that shows one: the frosts here, the keyboard host and the
+     * under-keyboard card, and the pane slabs.
+     */
+    public static boolean wantsClearFrame(@Nullable GlassRefraction.Look look, int blurRadiusDp) {
         return look != null && look.clarityPercent > 0
             && blurRadiusDp > GlassRefraction.CLARITY_RADIUS_DP;
     }
