@@ -2431,7 +2431,12 @@ public final class TerminalView extends View {
             mTouchReportsGesture = mRenderer != null && mEmulator.isTouchReportsMode()
                 && !event.isFromSource(InputDevice.SOURCE_MOUSE);
             mTouchReportPointers = 0;
-            if (mTouchReportsGesture && isSelectingText()) stopTextSelectionMode();
+            if (mTouchReportsGesture) {
+                if (isSelectingText()) stopTextSelectionMode();
+                // The program owns the whole gesture: a pane-wall page swipe or a parent's pinch
+                // must not take it over halfway and cancel it.
+                if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
+            }
         }
         if (!mTouchReportsGesture) return false;
         long time = event.getEventTime();
