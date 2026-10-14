@@ -14,6 +14,9 @@ under twenty items; past that, the oldest are re-judged first.
 
 ## Agent
 
+- 2026-10-14 · fix(icons) · Appearance editor › Icon pack: MBE Style → Done, switch "Pinned app
+  icons only" off then on, System → Done: dock, drawer and palette chips all show stock icons; MBE
+  with the switch on changes only the pinned icons · emulator.
 - 2026-10-14 · fix(tai) · Model centre shows KittenTTS Nano as about 90 MB (94 MB on disk) after a fresh
   download and after an export/import restore, not 32.3 MB · emulator.
 - 2026-10-12 · PR #64 · A contact chip with a photo set in Contacts: the initial swaps to the photo

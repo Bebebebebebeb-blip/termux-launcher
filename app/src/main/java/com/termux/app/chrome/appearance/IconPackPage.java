@@ -311,8 +311,14 @@ public final class IconPackPage {
     /** Stores {@link #selected} under the key the switch names and tells the host. */
     private void writeChoice() {
         writePending = false;
-        if (pinnedOnlyOn) {
+        // One pack, in one key: the switch says where it applies, and the other key is cleared so
+        // no pack stays behind it. System (or Default) clears both: stock icons everywhere.
+        if (selected.isEmpty()) {
+            backend.apply(IconPackChoices.KEY_GLOBAL, "");
+            backend.apply(IconPackChoices.KEY_PINNED, "");
+        } else if (pinnedOnlyOn) {
             backend.apply(IconPackChoices.KEY_PINNED, selected);
+            backend.apply(IconPackChoices.KEY_GLOBAL, "");
         } else {
             backend.apply(IconPackChoices.KEY_GLOBAL, selected);
             backend.apply(IconPackChoices.KEY_PINNED, "");
