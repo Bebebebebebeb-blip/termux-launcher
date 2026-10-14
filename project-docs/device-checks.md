@@ -114,6 +114,10 @@ under twenty items; past that, the oldest are re-judged first.
   for a clean dictation). Then a Spanish (or German) dictation with "eh"/"äh": the fillers go,
   the text stays in that language (`lang=es`), never English · pong with the go-ahead, Light and
   Polished.
+- 2026-10-14 · commit "feat(window-bar): terminal-browser wears its whole name and a globe" · A
+  window whose shell runs `terminal-browser open en.wikipedia.org` (tlstore's build): its chip reads
+  "terminal-browser" in full, not cut, with the globe glyph, and goes back to the directory after
+  Ctrl+Q; the windows beside it keep their usual widths · pong with the go-ahead.
 
 ## Developer
 
