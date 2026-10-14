@@ -57,7 +57,7 @@ ad -s emu runas com.termux 'launcherctl pane list'
 | AI models | Settings → Model centre; Export/Import use the system folder picker (USE THIS FOLDER, then ALLOW), export lands in `/sdcard/Documents/Termux Launcher models` | Get models goes stale after a `tai delete`: leave and re-enter the page |
 | Keyboard layouts | Settings → Keyboard → Layouts (list at about 487,1242) → Layouts (487,671); a tap on a catalogue row slides its strip open, `ad find` by description works ("Add Colemak to the cycle"); cycle to the next layout by swiping down on the space bar: `ad swipe 540 2200 540 2330 250` | — |
 | App drawer | tap the star at about 40,1625, then a slow swipe down on the dock's empty area: `ad swipe 900 1520 900 2000 600`; the dock's list glyph (about 975,1700) opens Sessions | a swipe on the dock's letters scrubs that letter's apps into the dock instead |
-| Pinned apps | long-press an empty dock spot (about 800,1531, not 540) (`ad swipe x y x y 1200`) → "Edit pinned apps": tap names under MOST USED, then Done; remove with "Remove from pinned apps" | a letter in the dock strip shows that letter's apps in the dock; the letters shift when an app is installed. The dock's grid glyph (about 810,1700) opens a split pane, not the drawer; a pane opened that way is not `launcherctl`'s to close (`exit` in it) |
+| Pinned apps | unpin one: long-press its dock icon → Unpin (about 160,1410; the popup is not in `ui`, screenshot it). Edit sheet: long-press an empty dock spot (about 800,1531, not 540) (`ad swipe x y x y 1200`) → "Edit pinned apps": tap names under MOST USED, then Done; remove with "Remove from pinned apps" | a letter in the dock strip shows that letter's apps in the dock; the letters shift when an app is installed. The dock's grid glyph (about 810,1700) opens a split pane, not the drawer; a pane opened that way is not `launcherctl`'s to close (`exit` in it) |
 | Split panes, window chips | `launcherctl pane open` / `window open -- CMD` (a command is required) is faster than the UI; `window close <id>` | window chips switch windows; on Docked, the grid glyph on the dock row opens a split |
 | Sessions sidebar (legacy) | tap the session indicator `terminal_sessions_indicator`, the number box left of the chips | after it closes, focus stays on the indicator: tap the terminal before typing |
 | Widgets page | not yet mapped | `WidgetPaneView` |
@@ -82,4 +82,6 @@ ad -s emu runas com.termux 'launcherctl pane list'
 - Dock zoom crop: `ad zoom 0,1455,1080,1650` (commas). Palette app rows need a typed name (`ad type cal`).
 - The F-Droid site can be blocked by a filter; `mirror.cyberbits.eu/fdroid/repo/` serves the same APKs.
 - Never `pkill -f` a pattern that appears in your own command line: it kills your shell.
+- `-s emulator-5554` does not resolve until the emulator is up: `ad -s emu emu start` first.
+- The Appearance editor reopens on its last page; the Icon pack page's switch is `icon_pack_pinned_only` (about 935,2030).
 - The only AVD is tl16 (API 36); there is none for API 29/30.
