@@ -111,6 +111,15 @@ public final class TerminalDrawerMetrics {
     }
 
     /**
+     * The radius the scrim over the whole terminal area draws with: the terminal frame's own, so its
+     * corners sit on the frame's arcs instead of poking past them, capped the way any pane of that
+     * size is capped.
+     */
+    public static float scrimRadiusPx(float terminalRadiusPx, int areaWidthPx, int areaHeightPx) {
+        return PaneShape.radiusForBounds(terminalRadiusPx, areaWidthPx, areaHeightPx);
+    }
+
+    /**
      * The eight radii a {@code GradientDrawable} wants, with the leading pair on whichever side the
      * layout's leading edge is.
      */
