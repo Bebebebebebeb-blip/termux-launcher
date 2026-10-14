@@ -19,7 +19,7 @@ Latest stable: v1.0.5.
 - Videos and animations that programs draw in the terminal with kitty graphics play smoothly, without flicker.
 - Starting a dictation no longer freezes the screen for a few seconds: when the cleanup model is not loaded yet, it loads after you stop speaking.
 - The Voice input pause and silence timeout you choose take effect again; some phones were using the defaults.
-- Choosing System for icon packs brings back stock icons everywhere, and large packs such as Arcticons now reach every app and stay applied after a restart.
+- Choosing System for icon packs brings back stock icons everywhere, and large packs such as Arcticons now reach every app and stay applied after a restart; Pinned app icons only stays as you set it.
 - The Model centre shows the full size of the KittenTTS voice.
 
 ## Experimental

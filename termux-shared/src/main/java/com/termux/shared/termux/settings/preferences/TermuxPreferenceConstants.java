@@ -693,6 +693,14 @@ public final class TermuxPreferenceConstants {
         public static final String DEFAULT_APP_LAUNCHER_PINNED_ICON_PACK_PACKAGE = "";
 
         /**
+         * Defines where the Appearance editor's "Pinned app icons only" switch was left; read only
+         * when no icon pack is stored in either key.
+         */
+        public static final String KEY_APP_LAUNCHER_ICON_PACK_PINNED_ONLY = "app_launcher_icon_pack_pinned_only";
+
+        public static final boolean DEFAULT_APP_LAUNCHER_ICON_PACK_PINNED_ONLY = true;
+
+        /**
          * Defines the key for typed pinned apps/folders launcher configuration.
          */
         public static final String KEY_APP_LAUNCHER_PINNED_ITEMS_V2 = "app_launcher_pinned_items_v2";
