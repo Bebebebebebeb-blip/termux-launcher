@@ -955,6 +955,25 @@ public final class SuggestionBarView extends GridLayout
         return false;
     }
 
+    /**
+     * Whether this point, in screen coordinates, lands on one of the row's icons: an app's button
+     * or a folder's shell, not a filler slot or the empty row's hint. The dock's touch light asks
+     * at {@code ACTION_DOWN}; the icon's own listeners are untouched.
+     */
+    public boolean isIconAt(float rawX, float rawY) {
+        for (SlotIcon icon : slotIcons) {
+            if (icon.slot.getParent() != this || icon.slot.getVisibility() != View.VISIBLE
+                || !icon.box.isShown()) continue;
+            icon.box.getLocationOnScreen(iconHitLocation);
+            if (rawX >= iconHitLocation[0] && rawX <= iconHitLocation[0] + icon.box.getWidth()
+                && rawY >= iconHitLocation[1]
+                && rawY <= iconHitLocation[1] + icon.box.getHeight()) return true;
+        }
+        return false;
+    }
+
+    private final int[] iconHitLocation = new int[2];
+
     public void setTextSize(float textSize) {
         this.textSize = textSize;
     }

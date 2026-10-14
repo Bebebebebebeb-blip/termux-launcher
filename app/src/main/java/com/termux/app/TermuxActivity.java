@@ -2150,6 +2150,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             if (mVoiceCardEdit != null)
                 mVoiceCardEdit.onWindowTouch(ev.getActionMasked(), ev.getRawX(), ev.getRawY());
             feedDockPlank(ev);
+            feedDockTouchLight(ev);
             if (!mAzTabTouch) feedTerminalPlank(ev);
             if (!mAzTabTouch && touchBeganOverTerminal(ev))
                 mKeybindHintPresenter.onTerminalTouch(ev);
@@ -4271,6 +4272,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             if (!navStrip && mKeyLensActive && mKeyLensIntensity > 0f) {
                 program.setLens(mKeyLensCx, mKeyLensCy, mKeyLensHx, mKeyLensHy, mKeyLensRadius,
                     mKeyLensIntensity);
+                // A held key's lens owns the dock's glass: an icon's touch light yields to it.
+                program.clearTouch();
             } else {
                 program.clearLens();
             }
@@ -4345,6 +4348,107 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (glass != null) {
             backdrop.setRenderEffect(glass);
         }
+    }
+
+    /** The dock icons' touch light; built on the first press that may light, see {@link #dockTouchFade}. */
+    @Nullable private com.termux.app.chrome.DockTouchFade mDockTouchFade;
+    /** The finger now down landed on a dock icon and lit it. */
+    private boolean mDockTouchLightDown;
+
+    /**
+     * Observes (never consumes) a press on a dock icon to light the glass under it
+     * ({@link com.termux.app.chrome.DockTouchFade}): on at once on the down, nothing on a move,
+     * a stepped fall on the lift. The click, the long-press and the drag are the icon's as before.
+     */
+    private void feedDockTouchLight(@NonNull MotionEvent ev) {
+        switch (ev.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN: {
+                mDockTouchLightDown = false;
+                float[] at = dockTouchLightPoint(ev.getRawX(), ev.getRawY());
+                if (at == null) return;
+                mDockTouchLightDown = true;
+                dockTouchFade().down(at[0], at[1]);
+                return;
+            }
+            case MotionEvent.ACTION_MOVE:
+                // The drawer's open drag starts on the dock and takes the gesture: let go as on a lift.
+                if (mDockTouchLightDown && isAppDrawerEngaged()) {
+                    mDockTouchLightDown = false;
+                    dockTouchFade().up();
+                }
+                return;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                if (!mDockTouchLightDown) return;
+                mDockTouchLightDown = false;
+                dockTouchFade().up();
+                return;
+            default:
+                break;
+        }
+    }
+
+    /**
+     * Where a press at this screen point lights the dock's glass, in the dock backdrop's effect
+     * coordinates (the key lens's mapping), or null when it is not on a dock icon over that
+     * backdrop: below API 33, with no refracting backdrop up, while a key's lens holds the glass,
+     * on the keys, or with the row off the dock (a rail or an off-dock plank has glass of its own).
+     */
+    @Nullable
+    private float[] dockTouchLightPoint(float rawX, float rawY) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || !mGlassParamsValid
+            || mDockRefraction == null || mKeyLensActive || isAppDrawerEngaged()) return null;
+        SuggestionBarView bar = mSuggestionBarView;
+        View container = hotView(R.id.accessory_stack_container);
+        View surfaceHost = hotView(R.id.accessory_surface_host);
+        View backdrop = hotView(R.id.accessory_blur_backdrop);
+        if (bar == null || container == null || surfaceHost == null || backdrop == null
+            || backdrop.getVisibility() != View.VISIBLE
+            || !viewContainsScreenPoint(surfaceHost, rawX, rawY)
+            || isOnDockPlankKeySurface(rawX, rawY)) return null;
+        boolean onDock = false;
+        for (android.view.ViewParent p = bar.getParent(); p != null; p = p.getParent()) {
+            if (p == container) {
+                onDock = true;
+                break;
+            }
+        }
+        if (!onDock || !bar.isIconAt(rawX, rawY)) return null;
+        int[] hostLoc = new int[2];
+        surfaceHost.getLocationOnScreen(hostLoc);
+        return new float[] {rawX - hostLoc[0] + mGlassOriginLeft, rawY - hostLoc[1] + mGlassOriginTop};
+    }
+
+    /**
+     * The fade, writing the light into the dock's program and rebuilding its effect once per step,
+     * as the key lens does; gated as every glass touch light is ({@link #isGlassTouchLightAllowed}).
+     */
+    @NonNull
+    private com.termux.app.chrome.DockTouchFade dockTouchFade() {
+        if (mDockTouchFade != null) return mDockTouchFade;
+        mDockTouchFade = new com.termux.app.chrome.DockTouchFade(this, getWindow().getDecorView(),
+            new com.termux.app.chrome.DockTouchFade.Sink() {
+                @Override public void light(float x, float y, float intensity) {
+                    com.termux.app.chrome.GlassRefraction.Program program = mDockRefraction;
+                    if (program == null) return;
+                    // A key's lens took the glass meanwhile: no light, and no rebuild of its effect.
+                    if (mKeyLensActive) {
+                        program.clearTouch();
+                        return;
+                    }
+                    program.setTouch(x, y, com.termux.app.chrome.GlassTouchLight.RADIUS_DP
+                        * getResources().getDisplayMetrics().density, intensity);
+                    rebuildBackdropGlassEffectForLens();
+                }
+
+                @Override public void clear() {
+                    com.termux.app.chrome.GlassRefraction.Program program = mDockRefraction;
+                    if (program == null) return;
+                    program.clearTouch();
+                    if (!mKeyLensActive) rebuildBackdropGlassEffectForLens();
+                }
+            }, this::isGlassTouchLightAllowed);
+        return mDockTouchFade;
     }
 
     /** Lazily wires the reactive glass-plank controller to the inflated dock views. */
