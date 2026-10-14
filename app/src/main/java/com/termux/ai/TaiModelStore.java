@@ -515,7 +515,7 @@ public final class TaiModelStore {
         String displayName = modelId;
         String roleHint = "Downloaded model";
         String license = "User accepted provider terms externally";
-        long sizeBytes = localModelSize(new File(path));
+        long sizeBytes = installedSize(modelId, new File(path));
         String backend = TaiModelSpec.inferBackend(path);
         String format = TaiModelSpec.inferFormat(path);
         String architecture = null;
@@ -680,7 +680,7 @@ public final class TaiModelStore {
                 spec.toolMode
             );
         }
-        long localSize = spec.localPath == null ? 0L : localModelSize(new File(spec.localPath));
+        long localSize = spec.localPath == null ? 0L : installedSize(migratedId, new File(spec.localPath));
         LinkedHashSet<String> endpointCapabilities = TaiModelSpec.endpointCapabilitiesFor(
             entry.modelId, entry.backend, entry.format, entry.sourceCapabilities, spec.localPath);
         return new TaiModelSpec(
@@ -706,6 +706,24 @@ public final class TaiModelStore {
             endpointCapabilities,
             TaiModelSpec.toolModeFor(entry.backend, endpointCapabilities)
         );
+    }
+
+    /**
+     * Bytes a model occupies: the file the spec names plus only the sidecars its catalog entry
+     * declares (KittenTTS's voices and graphs), so a fresh download and a restore read the same
+     * figure. Runtime caches the engines write beside a model are not counted, and a model
+     * without declared sidecars counts its own file alone.
+     */
+    long installedSize(@NonNull String modelId, @NonNull File path) {
+        long total = localModelSize(path);
+        TaiModelCatalog.CatalogEntry entry = TaiModelCatalog.get(modelId);
+        File parent = path.getParentFile();
+        if (entry == null || entry.sidecars.isEmpty() || !path.isFile() || parent == null) return total;
+        for (TaiModelCatalog.CatalogEntry.Sidecar sidecar : entry.sidecars) {
+            File file = new File(parent, sidecar.localName);
+            if (file.isFile() && !file.equals(path)) total += file.length();
+        }
+        return total;
     }
 
     private long localModelSize(@NonNull File file) {

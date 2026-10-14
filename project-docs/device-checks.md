@@ -14,6 +14,8 @@ under twenty items; past that, the oldest are re-judged first.
 
 ## Agent
 
+- 2026-10-14 · fix(tai) · Model centre shows KittenTTS Nano as about 90 MB (94 MB on disk) after a fresh
+  download and after an export/import restore, not 32.3 MB · emulator.
 - 2026-10-12 · PR #64 · A contact chip with a photo set in Contacts: the initial swaps to the photo
   with no shift (the reopened palette was seen showing the photo at once, 2026-10-14) · emulator;
   the device map has the adb route to a contact with a photo.
