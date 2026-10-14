@@ -1,8 +1,10 @@
 # Recommended set: publish checklist
 
-Build order item 5 (`project-docs/active/benchmark/SPEC.md` § "Which models are offered"). This is the
+Status: the recommended-set publish is not planned; this draft is kept as reference.
+
+Build order item 5 (`project-docs/reference/voice-ai/benchmark/SPEC.md` § "Which models are offered"). This is the
 draft prepared before signing and publishing — nothing here has been verified on pong, and nothing
-has been signed. The draft payload is `project-docs/active/benchmark/recommended-catalog-draft.json`, in
+has been signed. The draft payload is `project-docs/reference/voice-ai/benchmark/recommended-catalog-draft.json`, in
 the shape `TaiModelCatalog.applyRemotePayload` accepts (`{version, expiresAt, entries[...]}`).
 
 ## Can the catalogue express MNN models? (yes, already)

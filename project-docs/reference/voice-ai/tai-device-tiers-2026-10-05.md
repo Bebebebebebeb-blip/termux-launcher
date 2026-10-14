@@ -1,11 +1,11 @@
 # TAI device tiers: what each phone gets
 
 Status: build spec, 2026-10-05, against dev `8411d209c`. Decisions from the developer are folded in (§9). It
-rests on three research notes in this folder:
+rests on three research notes (two in this folder, the third since deleted):
 
 - `tai-device-classes-and-gates-2026-10-05.md`: memory per model, floors, gate design (cited as "research").
 - `tai-android-soc-support-2026-10-05.md`: Android versions, GPU families, CPU features, NPU (cited as "soc").
-- `local-ai-and-living-wallpaper-review-2026-10-04.md`: the current gate's faults (cited as "review").
+- the 2026-10-04 local-AI review: the gate's faults (cited as "review"; deleted with the living wallpapers).
 
 It also keeps the settled model choices: E2B cleanup Light/Polished, Silero VAD, KittenTTS with 4 voices, E4B
 director with E2B as the fallback, and no Gemma `-gpu` files.

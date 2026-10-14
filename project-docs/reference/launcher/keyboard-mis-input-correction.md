@@ -9,8 +9,8 @@ noting that the in-app keyboard has no autocorrect and no dictionary, and asking
 over the user's own typing history could get there instead.
 
 The module's own design record is
-[`inapp-keyboard-design.md`](../reference/launcher/inapp-keyboard-design.md); its deviations from the vendored
-upstream snapshot are in [`../../inapp-keyboard/UPSTREAM.md`](../../inapp-keyboard/UPSTREAM.md).
+[`inapp-keyboard-design.md`](inapp-keyboard-design.md); its deviations from the vendored
+upstream snapshot are in [`../../inapp-keyboard/UPSTREAM.md`](../../../inapp-keyboard/UPSTREAM.md).
 
 ## The short answer
 

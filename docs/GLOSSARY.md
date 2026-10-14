@@ -100,7 +100,7 @@ one of the user's rules. Settings calls the rules "Essential notifications"; in 
 notification, and whether it is on at all) and a card is a `PinnedNotification`. Messages from one
 conversation fold into one card with a count. Tap opens it, a sideways swipe dismisses it with a
 4 s undo, and a long press shows the whole message with Open, Dismiss and Mute this rule. See
-`project-docs/active/pinned-notification/SPEC.md`.
+`project-docs/reference/launcher/pinned-notification-SPEC.md`.
 _Avoid_: essential notification (that is the rule, not the card), heads-up, pin (alone)
 
 **Place**:
@@ -241,7 +241,7 @@ _Avoid_: bar (for the keyboard), widget, slot (the store's word for where an ele
 
 **Layout editor**:
 The editor for where the elements sit and how big they are: bars, dock, keyboard, widget grid,
-hidden or shown. It has no rows of controls (spec `project-docs/active/appearance-layout-editor`
+hidden or shown. It has no rows of controls (spec `project-docs/reference/launcher/appearance-layout-editor/SPEC.md`
 §3.5): a bar moves by pressing it anywhere and dragging, anything is put away by dropping it in the **restore tray** and
 brought back by its chip there, and a tap selects an element and shows its **handle** — the dock's
 height, the keyboard's height and chin, Home's grid cells — with a readout in real units while it

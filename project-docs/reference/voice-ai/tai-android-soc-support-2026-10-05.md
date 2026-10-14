@@ -189,12 +189,12 @@ on Linux"), but the Kotlin `Backend.GPU()` takes no options [L5 `kotlin/.../Conf
 
 - **AGSL `RuntimeShader` = API 33; `HardwareBufferRenderer` = API 34** [A1]. Why TAI gates live effects at 34:
   the renderer is `HardwareBufferRenderer` (API 34) and the spec chose one path: "**Decided (2026-09-30): API 34+
-  only, one path.** The `ImageReader` path is not built" (`project-docs/active/animated-wallpaper/SPEC.md:104-116`,
+  only, one path.** The `ImageReader` path is not built" (the animated-wallpaper spec, since deleted,
   §13 Q1 at `:435`). `LivingEffectsRenderer` is `@RequiresApi(34)` and holds `HardwareBufferRenderer`s
   (`LivingEffectsRenderer.java:38,52,102`). The lock live wallpaper also reads
   `WallpaperManager.getWallpaperInfo(int)`, API 34 [A1] (`WallpaperSlots.java:245-249`), and relies on the
   keyguard-going-away command "Android 14+ sends to wallpaper engines" (`LockLiveWallpaperService.java:39-50`).
-  Fancier Glass's own AGSL floor stays 33 (`generated-backgrounds-issue.md:188-195`).
+  Fancier Glass's own AGSL floor stays 33 (the generated-backgrounds issue, since deleted).
 - **`getFreeMemory` spot-check: confirmed.** `android_os_Process_getFreeMemory` sums `MemFree:` + `Cached:` at
   android-9.0.0_r1 (`core/jni/android_util_Process.cpp:652-656`) and `kMemFree` + `kMemCached` at
   android-15.0.0_r1 (`:657-662`); it reads `kMemAvailable` at android-16.0.0_r1 (`:659-662`) [A7].
@@ -268,7 +268,7 @@ Summary:
 10. NPU is not a tier input. Gemma 4 E2B NPU exists only for Tensor G5/G6 (+ SM8750 file); it needs API 31, a
     per-SoC file and vendor runtime libraries; E4B has none [D1, D2, H4].
 11. Below API 36 read `MemAvailable` from `/proc/meminfo`; apps may read it on 9–16 [A7, A8, A9].
-12. Keep live effects at API 34 (HardwareBufferRenderer, `getWallpaperInfo(int)`) [A1, SPEC.md:104-116].
+12. Keep live effects at API 34 (HardwareBufferRenderer, `getWallpaperInfo(int)`) [A1, animated-wallpaper spec, since deleted].
 13. FGS limits are target-gated and do not bind at target 28. When the target rises: downloads as UIDT (34+) or
     `dataSync` within 6 h/24 h (35+); loads stay in-process [D6, D7, D8].
 14. Only the S26 Ultra has published Gemma 4 GPU numbers; every other phone's GPU speed must come from TAI's own
