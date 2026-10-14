@@ -30,11 +30,21 @@ Preset format version 4; a look stored earlier reads clarity 0.
 
 - [x] Shader, `Look.clarityPercent`, pref key, `Program.setClarityInput/setTouch`, unit + instrumentation tests (fc28efa6f)
 - [x] `SharedFrameDrawable.setClearFrame/setTouch` (48c80eef7)
-- [ ] Clear-frame plumbing (frost painter, keyboard host, pane slabs), presets v4, Clarity slider — worker, in flight
-- [ ] Touch light driver and wiring (sheet card rows, dock icons) — worker, in flight
-- [ ] Emulator review: each Look at rest (dock, keyboard, sheet, panes, status band), the Edge sliders, a press on a sheet row and a dock icon; zoom crops; a fresh reviewer agent on the crops
-- [ ] Instrumentation test on the emulator: `GlassRefractionAgslInstrumentationTest`
-- [ ] Update SPEC.md §4 and the ADR; PR
+- [x] Clear-frame plumbing (frost painter, pane slab view), presets v4, Clarity slider (90c2c3a70)
+- [x] Touch light driver, GlassPress overload, terminal sheet card rows (6a69653d0)
+- [x] Clear frame on the keyboard host, the under-keyboard card and the pane slabs; dock touch light with a stepped fade (b7df86c02)
+- [x] Emulator (tl16, x86_64 debug): Clear, Mist and Tint apply without a crash; the Edge group shows six sliders with the Look's values; the corner bend and hairline are clean; clarity shows at the keyboard's top rim under Mist on a dark wallpaper (faint at 45%); the dock touch light is a soft glow behind the pressed icon that fades after release, the far side of the dock unchanged (frames in the session scratchpad, `fr-dock3-sheet.png`)
+- [ ] Not seen on the emulator: the touch light on a sheet card row (no centred card was reached in the time; the terminal action sheet's Kill process confirm is one), clarity on the panes under Floating, the Widgets and Display pages, RTL and large font
+- [ ] Instrumentation test on the emulator: `GlassRefractionAgslInstrumentationTest` (running at hand-off; result in the PR)
+- [x] SPEC.md §4.1
+- [ ] ADR amending 0005; pong look by the developer
+
+## Found on the way
+
+- Applying a second wallpaper reset the Look's blur and opacity to the install's first values
+  (Mist read as blur 4 / opacity 10 with Mist's tint). Cause: `ChromePolicy.applyWallpaperModePreferences(prefs, true)`
+  restored the "wallpaper enabled" snapshot although the mode was already on. Fixed on
+  `fix/wallpaper-reapply-keeps-look`, PR #74.
 
 ## Open questions for the developer
 

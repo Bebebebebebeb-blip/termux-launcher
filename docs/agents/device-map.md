@@ -42,6 +42,16 @@ ad -s emu runas com.termux 'launcherctl pane list'
   `ad runas com.termux 'cp /data/local/tmp/x.png $HOME/x.png; launcherctl wallpaper set $HOME/x.png'`
   (an `/sdcard` path is refused). There is no unset: the emulator keeps that wallpaper.
 - `launcherctl keyboard hide` can answer "inaccessible" right after the editor closes; retry.
+- A second `launcherctl wallpaper set` (or picker apply) used to drop the Look's blur and opacity
+  back to the install's first values (PR #74 fixes it). Until that lands, re-apply the Look after
+  a wallpaper change.
+- A long-press on the terminal's text starts selection; the terminal action sheet (with Kill
+  process, whose confirm is a centred glass card) is the terminal view's context menu, not a
+  `launcherctl` command. Other centred cards: the palette's confirm entries. The session browser's
+  Rename is inline in the drawer, not a card.
+- Pinned dock icons: long-press the dock's empty hint → the pin editor lists installed apps as
+  checkable buttons (Calendar, Camera, Chrome, Clock on the stock image) → Done. A letter tapped in
+  the A–Z row shows that letter's apps only until the next touch.
 - Prefs live in `shared_prefs/com.termux_preferences.xml`; edit them **before** a force-stop,
   never after (AGENTS.md, "It is the home screen").
 
