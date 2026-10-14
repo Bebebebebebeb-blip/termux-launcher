@@ -15,19 +15,13 @@ under twenty items; past that, the oldest are re-judged first.
 ## Agent
 
 - 2026-10-12 · PR #64 · A contact chip with a photo set in Contacts: the initial swaps to the photo
-  with no shift, and a reopened palette shows the photo at once · emulator; set the photo in the
-  Contacts app, open the contact twice from the palette.
-- 2026-10-12 · PR #64 · App chips on a light chip (light theme or a light Look): the icon's ring is
-  the dark one, not the white one · emulator, night mode off; needs pinned app chips (usage
-  history), which a fresh emulator install does not have.
+  with no shift (the reopened palette was seen showing the photo at once, 2026-10-14) · emulator;
+  the device map has the adb route to a contact with a photo.
 - 2026-10-12 · PR #65 · The widget picker opens without closing the launcher on Android 10 and 11
   (#62) · an API 29 or 30 emulator, or the reporter on the next drop.
-- 2026-10-12 · PR #67 · A restored model works and reads like a fresh download: `tai speak` with
-  KittenTTS after Import AI models, and its Model centre row shows the same size a fresh download
-  shows (Waydroid read "32.3 MB" after a restore; the catalog says 90 MB) · emulator.
 - 2026-10-12 · PR #67 · Export AI models with a model over 1 GB: leave Settings mid-copy, Cancel
   from the notification removes the half-written file and keeps finished models; Export again
-  skips them · emulator.
+  skips them · pong with the go-ahead (the emulator's smallest download is 2.4 GB).
 - 2026-10-12 · commit "feat(keyboard): paste a fresh screenshot from the paste key" · With the
   storage permission granted and text copied first: take a screenshot, open the keyboard; the "v"
   key's paste corner shows the photo where the paste glyph sat; paste types a path to a copy of
@@ -41,17 +35,16 @@ under twenty items; past that, the oldest are re-judged first.
   while "Cleaning up…" keeps the text as heard and the cleanup never lands. A finger scroll of 7
   lines and a sideways swipe do not open the editor. On the Display place ✓ types into the
   display afterwards. With the in-app keyboard off the phone's keyboard comes up and types; at
-  font scale 1.3 the caret sits on the line · emulator.
+  font scale 1.3 the caret sits on the line · pong with the go-ahead (the emulator has no speech model or microphone).
 - 2026-10-13 · commit "fix(voice): keep a Polished cleanup's line breaks to the card and the
   insert" · A Polished list or two paragraphs show on their own lines on the card; ✓ in a shell
   with bracketed paste keeps them, in a bare shell they arrive on one line and nothing runs ·
   emulator, Polished cleanup on.
-- 2026-10-13 · commit "fix(launcher): scale an icon pack as one, not icon by icon" · With a PNG
-  pack that leaves a margin: its icons in the dock, the drawer, a pinned override and a
-  notification look as big as stock icons beside them, not cropped and not blurry. With a line
-  or glyph pack (Whicons, Lines): glyphs keep their sizes and placement relative to one another.
-  A pack with no margin looks as it always did; an app the pack does not map keeps the pack's own
-  back plate · emulator, icon packs from F-Droid.
+- 2026-10-13 · commit "fix(launcher): scale an icon pack as one, not icon by icon" · A PNG pack
+  (MBE Style) was seen scaled and sharp on the palette chips, 2026-10-14. Still owed: the same in
+  the dock, the drawer, a pinned override and a notification; a line or glyph pack (Whicons,
+  Lines) keeps its glyphs' sizes and placement relative to one another; a pack with no margin
+  looks as it always did · emulator, icon packs from F-Droid.
 - 2026-10-13 · `eff06de21`, `c111b7ed5` · Dictation cleanup from context on the phone's E2B: the
   anchor dictation and the "translate this into French" case from
   `project-docs/reference/voice-ai/voice-cleanup-context-rework-2026-10-13.md`, Light and Polished;
@@ -117,41 +110,34 @@ under twenty items; past that, the oldest are re-judged first.
 - 2026-09-27 · voice panel · The grab handle under the card: dragging moves pill and panel inside
   the place (under the status bar, above the keyboard), a sideways swipe on it never discards; the
   next dictation starts where it was left, landscape keeps its own place, a double tap returns to
-  the top-right corner · emulator or pong.
+  the top-right corner · pong with the go-ahead (the emulator cannot put text on the card).
 - 2026-10-14 · commit "feat(keyboard): edit, reset and create layouts in Settings › Layouts" ·
-  Layouts screen: "Your layouts" with + on top; every row has an edit icon, an edited shipped
-  layout shows "Edited" and a reset icon, a user layout a delete icon; icons are 48dp and read
-  by TalkBack; the cycle rows (↑ ↓ ✕ ✎ ⟲) still leave the title readable at 360dp; add, remove,
-  reorder, search and the 16-layout cap work as before. The "Custom layout" row is gone from
+  Rows, edit/reset/delete icons and the Edited tag were seen on the emulator, 2026-10-14. Still
+  owed: TalkBack reads the 48dp icons; the cycle rows (↑ ↓ ✕ ✎ ⟲) leave the title readable at
+  360dp; add, remove, reorder, search and the 16-layout cap; the "Custom layout" row is gone from
   Keyboard › Layout · emulator.
-- 2026-10-14 · same commit · Editor: typing with the system keyboard (no suggestions), long-press
-  copy and paste, horizontal and vertical scrolling of the XML field, the field shrinks above the
-  IME; a broken tag shows "Line N, column M: …" under the field within half a second and Save
-  greys out; Save is off until something changes; Back with edits asks to discard; rotation keeps
-  the draft · emulator.
-- 2026-10-14 · same commit · Reset and delete: reset an edited Dvorak (confirm) and the shipped
-  one is back on the keyboard; + → name "Test" → Save → add it to the cycle → leave Settings: the
-  cycle key reaches it, the switch notice says "Test"; delete it (confirm): it leaves the cycle and
-  the keyboard · emulator.
-- 2026-10-14 · same commit · Files: `vim ~/.termux/keyboard/layouts/latn_dvorak.xml` (or a
-  user-*.xml) from the terminal is picked up on the next return to the launcher and shows
-  "Edited" in Settings; a broken hand edit shows the layout-error notice and keeps the last
-  working layout; an existing `~/.termux/keyboard/layout.xml` still applies as the launcher
-  layout and editing "Launcher layout" in Settings writes that same file · emulator.
-- 2026-10-14 · commit "feat(keyboard): slide a layout row's buttons open beneath it" · Settings ›
-  Keyboard › Layouts: rows show only name and second line ("Edited" tag kept), a full-width title
-  at 360dp; tapping a row slides a rounded tonal strip of its buttons open beneath it (~200 ms),
-  tapping again slides it shut; opening another row closes the first; ↑/↓ tapped repeatedly keep
-  the strip open on the moving row without re-animating; + on a catalogue row carries the strip to
-  the cycle; with animations off it snaps; TalkBack reads "name, second line, actions hidden" and
-  offers Show/Hide actions · emulator.
+- 2026-10-14 · same commit · Editor: the error line, Save greyed and off until a change, the
+  discard question and rotation were seen, 2026-10-14. Still owed: typing with the system keyboard
+  and the field shrinking above it (the emulator never drew the IME), horizontal and vertical
+  scrolling of the XML field · emulator, or pong with the go-ahead.
+- 2026-10-14 · same commit · Files: hand edits and a broken file were seen, 2026-10-14. Still
+  owed: an existing `~/.termux/keyboard/layout.xml` still applies as the launcher layout, and
+  editing "Launcher layout" in Settings writes that same file · emulator.
+- 2026-10-14 · commit "feat(keyboard): slide a layout row's buttons open beneath it" · The strip
+  opening, closing, and closing the first row when another opens were seen, 2026-10-14. Still owed:
+  about 200 ms; ↑/↓ tapped repeatedly keep the strip open on the moving row without re-animating;
+  + on a catalogue row carries the strip to the cycle; with animations off it snaps; TalkBack reads
+  "name, second line, actions hidden" and offers Show/Hide · emulator.
 - 2026-10-14 · commit "fix(keyboard): readable rebuilt layouts, no fallback flash on a first
-  swap" · Editing a shipped layout (e.g. Dvorak) opens XML with `c`/`nw`…`se` slot names under a
-  short header; right after creating a user layout and adding it to the cycle, the first swap to
-  it shows it at once with no launcher-layout flash · emulator.
+  swap" · Readable slot names were seen, 2026-10-14. Still owed: right after creating a user layout
+  that differs from the launcher layout and adding it to the cycle, the first swap shows it at once
+  with no launcher-layout flash · emulator.
 
 ## Developer
 
+- 2026-10-12 · PR #64 · App chips on a light chip (light theme or a light Look): the icon's ring is
+  the dark one, not the white one; on the emulator the light chip's ring was only faintly pale
+  (2026-10-14) · pong, by hand, night mode off.
 - 2026-09-27 · voice panel · Keyboard → Voice input → Mic sensitivity (Normal, High): soft speech at
   arm's length is picked up on both; High lets in more of a nearby voice or video, Normal fewer;
   keyboard clicks, a fan or air conditioning alone never open a phrase on either · pong, by hand.
