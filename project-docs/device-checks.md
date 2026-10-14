@@ -106,7 +106,9 @@ under twenty items; past that, the oldest are re-judged first.
   filler is left, the clean sentences come back word for word, and logcat `VoiceSessionCleanup`
   shows `lang=en sent=N/M` with N below M (0 for a part with nothing to fix, `fallback:unchanged`
   for a clean dictation). Then a Spanish (or German) dictation with "eh"/"äh": the fillers go,
-  the text stays in that language (`lang=es`), never English · pong with the go-ahead, Light and
+  the text stays in that language (`lang=es`), never English. No `VoiceCleanupGate` crash in the
+  first cleanup (2026-10-14: ICU rejected its `(?U)` regex, so every cleanup on pong crashed until
+  "fix(voice): a sentence split Android's regex engine accepts") · pong with the go-ahead, Light and
   Polished.
 - 2026-09-27 · voice panel (rounds 3 and 4) · With cleanup on, dictate a passage with an "um": while
   listening and cleaning the text is italic and dim, the cleaned text is upright with changed words

@@ -51,7 +51,7 @@ public final class VoiceCleanupGate {
     /** A sentence of a Polished part with a spoken list, sent with the list though it has no sign of its own. */
     static final String LIST_PART = "list_part";
 
-    private static final Pattern SENTENCE_BREAK = Pattern.compile("(?U)(?<=[.!?])\\s+");
+    private static final Pattern SENTENCE_BREAK = Pattern.compile("(?<=[.!?])[\\s\\p{Z}]+");
     private static final Pattern WHITESPACE = Pattern.compile("\\s+");
     private static final Pattern NOT_TOKEN = Pattern.compile("[^\\p{L}\\p{N}_']");
     private static final Pattern NON_SPACE = Pattern.compile("\\S+");
