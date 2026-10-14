@@ -12,7 +12,8 @@ import androidx.annotation.Nullable;
  * source into the same box: a pack icon came out smaller than the stock adaptive icon beside it,
  * whose mask reaches the edges of its box. The margin is measured over a sample of the pack and
  * the pack is scaled as one, about the centre of the box, so the glyphs inside it keep the sizes
- * and the placement its designer gave them relative to one another.
+ * and the placement its designer gave them relative to one another. An icon whose own drawing
+ * reaches further than the typical one is held to its box ({@link #iconScale}), so none is cut.
  */
 public final class ArtworkFootprint {
 
@@ -42,7 +43,8 @@ public final class ArtworkFootprint {
 
     /**
      * The visible box of {@code width} x {@code height} ARGB pixels as {@code {left, top, right,
-     * bottom}}, right and bottom exclusive, or null when nothing in it is visible.
+     * bottom}}, right and bottom exclusive, or null when nothing in it is visible. This is the
+     * artwork as it reads: a soft shadow and the faint antialiased fringe are left out.
      */
     @Nullable
     public static int[] visibleBounds(int[] argb, int width, int height) {
@@ -51,7 +53,22 @@ public final class ArtworkFootprint {
         for (int i = 0; i < width * height; i++) {
             maxAlpha = Math.max(maxAlpha, argb[i] >>> 24);
         }
-        int threshold = Math.max(MIN_VISIBLE_ALPHA, Math.round(maxAlpha * VISIBLE_ALPHA_FRACTION));
+        return boundsFrom(argb, width, height,
+            Math.max(MIN_VISIBLE_ALPHA, Math.round(maxAlpha * VISIBLE_ALPHA_FRACTION)));
+    }
+
+    /**
+     * The box of everything drawn at all, faint shadow and antialiased fringe included, in the
+     * form of {@link #visibleBounds}: what a box smaller than the artwork would visibly cut.
+     */
+    @Nullable
+    public static int[] drawnBounds(int[] argb, int width, int height) {
+        if (argb == null || width <= 0 || height <= 0 || argb.length < width * height) return null;
+        return boundsFrom(argb, width, height, MIN_VISIBLE_ALPHA);
+    }
+
+    @Nullable
+    private static int[] boundsFrom(int[] argb, int width, int height, int threshold) {
         int left = width;
         int top = height;
         int right = -1;
@@ -78,6 +95,21 @@ public final class ArtworkFootprint {
     public static float extent(@NonNull int[] bounds, int width, int height) {
         return Math.max((bounds[2] - bounds[0]) / (float) width,
             (bounds[3] - bounds[1]) / (float) height);
+    }
+
+    /**
+     * How far from the centre of its square the box reaches, as a share of the square: twice the
+     * longest distance from the centre to any of its edges. Artwork drawn {@code s} times larger
+     * about the centre ({@link #placementAboutCentre}) stays inside its square while
+     * {@code s * centredExtent <= 1}. Unlike {@link #extent} it counts a box that sits off centre
+     * by the side that reaches furthest.
+     */
+    public static float centredExtent(@NonNull int[] bounds, int width, int height) {
+        float halfWidth = width / 2f;
+        float halfHeight = height / 2f;
+        float reachX = Math.max(halfWidth - bounds[0], bounds[2] - halfWidth) / halfWidth;
+        float reachY = Math.max(halfHeight - bounds[1], bounds[3] - halfHeight) / halfHeight;
+        return Math.max(reachX, reachY);
     }
 
     /**
@@ -112,6 +144,22 @@ public final class ArtworkFootprint {
     public static float packScale(float stockExtent, float packExtent) {
         if (stockExtent <= 0f || packExtent <= 0f) return 1f;
         float scale = Math.min(MAX_PACK_SCALE, stockExtent / packExtent);
+        return scale - 1f < 1f / MEASURE_PX ? 1f : scale;
+    }
+
+    /**
+     * The scale one icon of a pack is drawn at: the pack's ({@link #packScale}), so its icons keep
+     * their sizes relative to one another, but never so large that this icon's own drawing
+     * ({@link #centredExtent} of its {@link #drawnBounds}) reaches past what a stock icon spans.
+     * The pack's scale is decided by its typical icon; one that reaches further than that (a
+     * circle where the sample's corners set the margin, a wide glyph) grows only until it touches
+     * the stock footprint, never past its box, so nothing is cut. Never below 1, exactly 1 under
+     * one measured pixel of growth, and 1 when the icon could not be measured.
+     */
+    public static float iconScale(float packScale, float stockExtent, float drawnCentredExtent) {
+        if (packScale <= 1f || drawnCentredExtent <= 0f) return 1f;
+        float reach = stockExtent > 0f ? Math.min(1f, stockExtent) : 1f;
+        float scale = Math.min(packScale, reach / drawnCentredExtent);
         return scale - 1f < 1f / MEASURE_PX ? 1f : scale;
     }
 

@@ -305,13 +305,20 @@ public final class LauncherIconResolver {
      * centre of its box. Every surface draws every source into the same box, and pack PNGs
      * usually carry a transparent margin, so a pack icon came out smaller than the stock one
      * beside it at every size. One scale for the whole pack keeps the sizes and the placement its
-     * designer gave its glyphs relative to one another. Done here, when the icon is resolved, so
-     * every surface showing it benefits and no frame pays for it.
+     * designer gave its glyphs relative to one another. That scale is set by the pack's typical
+     * icon, so an icon whose own drawing reaches further (a round icon in a pack whose sample
+     * was decided by squares) is held to its box ({@link ArtworkFootprint#iconScale}), measured
+     * from what it draws: it is never cut. Done here, when the icon is resolved, so every surface
+     * showing it benefits and no frame pays for it.
      */
     @Nullable
     private Drawable packArtwork(@Nullable IconPack pack, @Nullable Drawable drawable) {
         if (drawable == null || pack == null) return drawable;
-        return DrawablePixels.scaleAboutCentre(context.getResources(), drawable, packScale(pack));
+        float packScale = packScale(pack);
+        if (packScale <= 1f) return drawable;
+        float scale = ArtworkFootprint.iconScale(packScale, DrawablePixels.stockIconExtent(),
+            DrawablePixels.drawnCentredExtent(drawable));
+        return DrawablePixels.scaleAboutCentre(context.getResources(), drawable, scale);
     }
 
     /**

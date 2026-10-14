@@ -97,10 +97,27 @@ public final class DrawablePixels {
      * pixels), given back before it returns.
      */
     public static float visibleExtent(@NonNull Drawable drawable) {
+        int size = ArtworkFootprint.MEASURE_PX;
         try {
-            int[] bounds = measureVisibleBounds(drawable);
-            return bounds == null ? 0f : ArtworkFootprint.extent(bounds,
-                ArtworkFootprint.MEASURE_PX, ArtworkFootprint.MEASURE_PX);
+            int[] bounds = ArtworkFootprint.visibleBounds(measurePixels(drawable), size, size);
+            return bounds == null ? 0f : ArtworkFootprint.extent(bounds, size, size);
+        } catch (RuntimeException | OutOfMemoryError e) {
+            return 0f;
+        }
+    }
+
+    /**
+     * How far from the centre of its box anything {@code drawable} draws reaches
+     * ({@link ArtworkFootprint#centredExtent} of its {@link ArtworkFootprint#drawnBounds}), drawn
+     * square at {@link ArtworkFootprint#MEASURE_PX}; 0 when nothing in it is drawn or it cannot be
+     * drawn. What {@link ArtworkFootprint#iconScale} holds one icon to. The same 72 KB of scratch
+     * as {@link #visibleExtent}, given back before it returns.
+     */
+    public static float drawnCentredExtent(@NonNull Drawable drawable) {
+        int size = ArtworkFootprint.MEASURE_PX;
+        try {
+            int[] bounds = ArtworkFootprint.drawnBounds(measurePixels(drawable), size, size);
+            return bounds == null ? 0f : ArtworkFootprint.centredExtent(bounds, size, size);
         } catch (RuntimeException | OutOfMemoryError e) {
             return 0f;
         }
@@ -147,9 +164,9 @@ public final class DrawablePixels {
         }
     }
 
-    /** The visible box of {@code drawable} drawn square at the measuring size, or null. */
-    @Nullable
-    private static int[] measureVisibleBounds(@NonNull Drawable drawable) {
+    /** {@code drawable} drawn square at the measuring size, as ARGB pixels. */
+    @NonNull
+    private static int[] measurePixels(@NonNull Drawable drawable) {
         int size = ArtworkFootprint.MEASURE_PX;
         Bitmap scratch = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         Rect previousBounds = new Rect(drawable.getBounds());
@@ -158,7 +175,7 @@ public final class DrawablePixels {
             drawable.draw(new Canvas(scratch));
             int[] pixels = new int[size * size];
             scratch.getPixels(pixels, 0, size, 0, 0, size, size);
-            return ArtworkFootprint.visibleBounds(pixels, size, size);
+            return pixels;
         } finally {
             drawable.setBounds(previousBounds);
             scratch.recycle();
