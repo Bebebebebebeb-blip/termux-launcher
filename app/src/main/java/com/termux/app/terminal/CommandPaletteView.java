@@ -897,7 +897,24 @@ public final class CommandPaletteView extends View {
     }
 
     private float maxScroll() {
-        return Math.max(0f, listContentHeight() - (listBottom() - listTop()));
+        return Math.max(0f, scrollExtent() - (listBottom() - listTop()));
+    }
+
+    /**
+     * How far the list scrolls: its rows, plus room under the last one when they overflow, so
+     * scrolled to the end the last row clears the frame's rounded bottom instead of sitting in its
+     * corner arcs. Above the argument row the list does not end on the frame, so it owes nothing.
+     * The palette's own height is left alone: a list that fits is never scrolled to its end.
+     */
+    private float scrollExtent() {
+        float content = listContentHeight();
+        if (mArgumentMode || content <= listBottom() - listTop()) return content;
+        return content + PaneShape.contentInsetPx(mRadius);
+    }
+
+    /** The current scroll offset, for tests. */
+    float scrollOffset() {
+        return mScrollOffset;
     }
 
     /** The strip keycaps' fill, for tests. */
@@ -912,14 +929,11 @@ public final class CommandPaletteView extends View {
         mActionRects.clear();
         float viewportHeight = bottom - top;
         updateScrollOffset(viewportHeight);
-        float y = top - mScrollOffset;
-        for (int i = 0; i < mRows.size(); i++) {
-            float height = rowHeight(i);
-            if (y + height >= top && y <= bottom) drawRow(canvas, mRows.get(i), i, y, height, alpha);
-            y += height;
-        }
-        // Bottom fade so a clipped last row never cuts hard.
-        if (listContentHeight() > viewportHeight) {
+        // The bottom fade is the glass deepening toward the edge while more rows wait below, drawn
+        // behind the rows: painted over them it greyed the last visible row into the frame's
+        // bottom, so a row that was on screen read as disabled. Scrolled to the end there is
+        // nothing below to hint at.
+        if (mScrollOffset < maxScroll() - 0.5f) {
             mFill.setShader(new LinearGradient(0f, bottom - dp(BOTTOM_FADE_H), 0f, bottom,
                 Color.TRANSPARENT,
                 withBodyAlpha(ColorUtils.setAlphaComponent(mGlassBase, 230), alpha),
@@ -927,12 +941,18 @@ public final class CommandPaletteView extends View {
             canvas.drawRect(mFrame.left, bottom - dp(BOTTOM_FADE_H), mFrame.right, bottom, mFill);
             mFill.setShader(null);
         }
+        float y = top - mScrollOffset;
+        for (int i = 0; i < mRows.size(); i++) {
+            float height = rowHeight(i);
+            if (y + height >= top && y <= bottom) drawRow(canvas, mRows.get(i), i, y, height, alpha);
+            y += height;
+        }
         canvas.restoreToCount(save);
     }
 
     /** Keeps the focused row inside the clipped viewport, with the spec's bottom slack. */
     private void updateScrollOffset(float viewportHeight) {
-        float contentHeight = listContentHeight();
+        float contentHeight = scrollExtent();
         if (mUserScrolled) {
             // The finger owns the viewport; only re-clamp in case the content shrank under it.
             mScrollOffset = Math.max(0f, Math.min(mScrollOffset, contentHeight - viewportHeight));

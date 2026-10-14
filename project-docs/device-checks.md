@@ -167,6 +167,10 @@ under twenty items; past that, the oldest are re-judged first.
   the palette over a screen full of terminal text: the kbd / pick / split / font chips are solid,
   no terminal text shows through or collides with their labels; same size, shape and hairline as
   before; light, dark and black themes, and with the launcher's own scheme on · emulator.
+- 2026-10-14 · commit "fix(palette): keep the list's last row legible above the rounded bottom" ·
+  Type "se" in the palette and scroll the results to the end: the last row ("Rename session")
+  is full strength, not greyed, and sits clear of the panel's rounded bottom; mid-list, rows
+  passing the bottom edge stay legible over a soft darkening behind them · emulator.
 
 ## Developer
 
