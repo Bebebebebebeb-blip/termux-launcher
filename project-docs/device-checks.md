@@ -159,6 +159,10 @@ under twenty items; past that, the oldest are re-judged first.
   swap" · Editing a shipped layout (e.g. Dvorak) opens XML with `c`/`nw`…`se` slot names under a
   short header; right after creating a user layout and adding it to the cycle, the first swap to
   it shows it at once with no launcher-layout flash · pong with the go-ahead (no emulator).
+- 2026-10-14 · commit "fix(sessions): round the drawer's scrim to the terminal's corners" · Tap
+  the session number box: the dark overlay beside the Sessions drawer follows the terminal's
+  rounded corners, no square corner poking past the outline, in Docked and Floating, with the
+  keyboard up and down · emulator.
 
 ## Developer
 
