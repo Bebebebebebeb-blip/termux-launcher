@@ -14,9 +14,6 @@ under twenty items; past that, the oldest are re-judged first.
 
 ## Agent
 
-- 2026-10-14 · 34e1573d2 · A kitty video swapped frame by frame through Unicode placeholders
-  (show-your-work's player in Claude Code) plays without flicker in the launcher's terminal ·
-  pong or emulator; `/show-your-work tour` in a Claude Code session in a launcher tab.
 - 2026-10-12 · PR #64 · A contact chip with a photo set in Contacts: the initial swaps to the photo
   with no shift, and a reopened palette shows the photo at once · emulator; set the photo in the
   Contacts app, open the contact twice from the palette.
