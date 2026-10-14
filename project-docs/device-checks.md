@@ -162,6 +162,10 @@ under twenty items; past that, the oldest are re-judged first.
   the strip open on the moving row without re-animating; + on a catalogue row carries the strip to
   the cycle; with animations off it snaps; TalkBack reads "name, second line, actions hidden" and
   offers Show/Hide actions · pong with the go-ahead (no emulator).
+- 2026-10-14 · commit "fix(keyboard): readable rebuilt layouts, no fallback flash on a first
+  swap" · Editing a shipped layout (e.g. Dvorak) opens XML with `c`/`nw`…`se` slot names under a
+  short header; right after creating a user layout and adding it to the cycle, the first swap to
+  it shows it at once with no launcher-layout flash · pong with the go-ahead (no emulator).
 
 ## Developer
 
