@@ -48,9 +48,10 @@ public interface VoiceTextPolisher {
     }
 
     /**
-     * Gets ready ahead of the cleanup (loads a model, opens a connection): called once as the
-     * microphone opens, on the cleanup thread, before any {@link #polish}. Best effort; a failure
-     * here shows up as a fallback at the end, never as a session failure.
+     * Gets ready ahead of the cleanup (loads a model, opens a connection): called once, when the
+     * user first pauses or the session ends ({@link VoiceCleanupWarmUp}), on the cleanup thread,
+     * before any {@link #polish}. Best effort; a failure here shows up as a fallback at the end,
+     * never as a session failure.
      */
     void warm();
 

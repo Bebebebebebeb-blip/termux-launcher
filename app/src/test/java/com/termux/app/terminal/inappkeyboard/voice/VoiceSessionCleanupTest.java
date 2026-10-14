@@ -235,6 +235,69 @@ public class VoiceSessionCleanupTest {
     }
 
     @Test
+    public void aDeferredWarmUpLoadsAtTheFirstPauseAndThatPauseGetsItsEarlyPass() {
+        FakePolisher polisher = new FakePolisher();
+        polisher.whileListening = true;
+        VoiceSessionCleanup cleanup = new VoiceSessionCleanup(polisher, VoicePolishRules.LEVEL_LIGHT, new DirectExecutor(), Runnable::run);
+        boolean[] warmed = {false};
+        cleanup.warmAtFirstPause(() -> warmed[0] = true);
+        cleanup.onSpeechReady();
+        // The mic is open and a short phrase has landed: no early pass would start, so nothing loads.
+        cleanup.onPhrase("We are working on the branch.", false, false);
+        assertTrue(polisher.calls.isEmpty());
+        assertFalse(warmed[0]);
+        // A phrase still transcribing behind this one is not a pause either.
+        cleanup.onPhrase(SENTENCES, true, false);
+        assertTrue(polisher.calls.isEmpty());
+        cleanup.onPhrase(SENTENCES, false, false);
+        assertTrue(warmed[0]);
+        assertFalse(cleanup.isWarming());
+        assertEquals(Arrays.asList("warm", "polish:" + SENTENCES), polisher.calls);
+    }
+
+    @Test
+    public void aPauseWhileTheSpeechModelLoadsStartsTheWarmUpOnceItIsReady() {
+        FakePolisher polisher = new FakePolisher();
+        polisher.whileListening = true;
+        VoiceSessionCleanup cleanup = new VoiceSessionCleanup(polisher, VoicePolishRules.LEVEL_LIGHT, new DirectExecutor(), Runnable::run);
+        cleanup.warmAtFirstPause(() -> { });
+        cleanup.onPhrase(SENTENCES, false, false);
+        assertTrue(polisher.calls.isEmpty());
+        cleanup.onSpeechReady();
+        assertEquals(Arrays.asList("warm", "polish:" + SENTENCES), polisher.calls);
+    }
+
+    @Test
+    public void aDeferredWarmUpWithNoPauseLoadsAtTheEndAheadOfThePass() {
+        FakePolisher polisher = new FakePolisher();
+        polisher.whileListening = true;
+        QueuedExecutor worker = new QueuedExecutor();
+        VoiceSessionCleanup cleanup = new VoiceSessionCleanup(polisher, VoicePolishRules.LEVEL_LIGHT, worker, Runnable::run);
+        cleanup.warmAtFirstPause(() -> { });
+        cleanup.onSpeechReady();
+        String raw = "uh run the the failing tests again on the branch";
+        cleanup.onPhrase(raw, false, false);
+        assertTrue(worker.queue.isEmpty());
+        List<VoiceTextPolisher.Result> got = new ArrayList<>();
+        cleanup.run(raw, (cleanedRaw, result) -> got.add(result));
+        worker.runAll();
+        assertEquals(Arrays.asList("warm", "polish:run the the failing tests again on the branch"), polisher.calls);
+        assertEquals("Cleaned.", got.get(0).text);
+    }
+
+    @Test
+    public void aDictationTooShortToCleanNeverLoadsTheModel() {
+        FakePolisher polisher = new FakePolisher();
+        VoiceSessionCleanup cleanup = new VoiceSessionCleanup(polisher, VoicePolishRules.LEVEL_LIGHT, new DirectExecutor(), Runnable::run);
+        cleanup.warmAtFirstPause(() -> { });
+        cleanup.onSpeechReady();
+        List<VoiceTextPolisher.Result> got = new ArrayList<>();
+        cleanup.run("okay", (raw, result) -> got.add(result));
+        assertTrue(polisher.calls.isEmpty());
+        assertEquals(1, got.size());
+    }
+
+    @Test
     public void aCpuModelKeepsTheSinglePassAtTheEnd() {
         FakePolisher polisher = new FakePolisher();
         VoiceSessionCleanup cleanup = new VoiceSessionCleanup(polisher, VoicePolishRules.LEVEL_LIGHT, new DirectExecutor(), Runnable::run);

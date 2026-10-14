@@ -199,9 +199,41 @@ public final class VoiceCleanupPlan {
      */
     @Nullable
     public Pass nextEarlyPass(@NonNull String raw, boolean transcriptionPending, boolean byHand) {
-        if (!earlyPassesOn() || inFlight != null || transcriptionPending || byHand) return null;
+        if (!earlyPassesOn()) return null;
+        Cut cut = cut(raw, transcriptionPending, byHand);
+        if (cut == null) return null;
         if (!raw.startsWith(covered)) reset();
-        String fresh = raw.substring(covered.length());
+        inFlight = passFor(covered.length(), cut.through, true, false, cut.unpunctuated);
+        return inFlight;
+    }
+
+    /**
+     * Whether this phrase pause is one an early pass would start at, were early passes on: the
+     * moment the user is not mid-speech that a cleanup model still to load waits for
+     * ({@link VoiceSessionCleanup#warmAtFirstPause}). Changes nothing.
+     */
+    public boolean wouldStartEarlyPass(@NonNull String raw, boolean transcriptionPending, boolean byHand) {
+        return !earlyEnded && cut(raw, transcriptionPending, byHand) != null;
+    }
+
+    /** Where an early pass due at this phrase stops reading. */
+    private static final class Cut {
+        @NonNull final String through;
+        final boolean unpunctuated;
+
+        Cut(@NonNull String through, boolean unpunctuated) {
+            this.through = through;
+            this.unpunctuated = unpunctuated;
+        }
+    }
+
+    /** The early pass due now that a phrase has landed in {@code raw}, early passes aside, or {@code null}. Changes nothing. */
+    @Nullable
+    private Cut cut(@NonNull String raw, boolean transcriptionPending, boolean byHand) {
+        if (inFlight != null || transcriptionPending || byHand) return null;
+        // Text that no longer starts with what the parts cover starts the parts over.
+        int start = raw.startsWith(covered) ? covered.length() : 0;
+        String fresh = raw.substring(start);
         int sentenceEnds = 0;
         int lastEnd = -1;
         Matcher end = SENTENCE_END.matcher(fresh);
@@ -214,7 +246,7 @@ public final class VoiceCleanupPlan {
         if (lastEnd > 0 && (sentenceEnds >= EARLY_PASS_SENTENCES
                 || VoicePolishRules.wordCount(fresh.substring(0, lastEnd)) >= EARLY_PASS_MIN_WORDS)) {
             // Up to the last sentence end: the sentence being spoken is cleaned whole in the next part.
-            through = raw.substring(0, covered.length() + lastEnd);
+            through = raw.substring(0, start + lastEnd);
         } else if (VoicePolishRules.wordCount(fresh.substring(Math.max(0, lastEnd))) >= UNPUNCTUATED_WORDS) {
             through = raw;
             unpunctuated = true;
@@ -222,9 +254,8 @@ public final class VoiceCleanupPlan {
             return null;
         }
         if (VoiceCommandFormatter.isCommand(raw)) return null;
-        if (VoicePolishRules.skipReason(through.substring(covered.length())) != null) return null;
-        inFlight = passFor(covered.length(), through, true, false, unpunctuated);
-        return inFlight;
+        if (VoicePolishRules.skipReason(through.substring(start)) != null) return null;
+        return new Cut(through, unpunctuated);
     }
 
     /** Whether a pass is out. */

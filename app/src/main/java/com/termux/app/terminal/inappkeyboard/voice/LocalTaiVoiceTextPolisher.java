@@ -52,8 +52,8 @@ import java.util.Map;
  * <p><b>Load.</b> Requests name the feature, and TAI loads by the plan: its accelerator, its
  * speculative decoding and its 2048-token window. Nothing about the load is decided here.
  *
- * <p><b>Residency.</b> {@link #warm} loads the model as the microphone opens so the pass at the
- * end does not pay the load, unless the runtime is loading or generating with another model —
+ * <p><b>Residency.</b> {@link #warm} loads the model at the dictation's first pause (or its end,
+ * {@link VoiceCleanupWarmUp}) so the passes do not each pay the load, unless the runtime is loading or generating with another model —
  * then nothing is evicted and the request autoloads (or is refused) on its own. After the session
  * the model is <em>left resident</em> for the runtime's ordinary idle unload: dictation comes in
  * bursts, and reloading whatever was there before would thrash a multi-second load on every

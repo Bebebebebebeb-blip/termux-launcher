@@ -14,6 +14,11 @@ under twenty items; past that, the oldest are re-judged first.
 
 ## Agent
 
+- 2026-10-14 · commit "fix(voice): warm the cleanup model at the first pause, not when the mic
+  opens" · A cold dictation (cleanup model unloaded) keeps the waveform moving from the mic opening
+  on; logcat shows `cleanup warm start: at the first pause` and then `polish warm`, not at the mic
+  opening, and `cleanup early`/`cleanup final` still land · pong with the go-ahead.
+
 - 2026-10-12 · PR #64 · A contact chip with a photo set in Contacts: the initial swaps to the photo
   with no shift (the reopened palette was seen showing the photo at once, 2026-10-14) · emulator;
   the device map has the adb route to a contact with a photo.
