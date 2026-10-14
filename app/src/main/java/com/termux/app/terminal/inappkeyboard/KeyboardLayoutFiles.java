@@ -333,7 +333,8 @@ public final class KeyboardLayoutFiles {
 
     @NonNull
     static String serialize(@NonNull XmlPullParser parser) throws Exception {
-        StringBuilder out = new StringBuilder("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
+        StringBuilder out = new StringBuilder("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n")
+            .append(BUNDLED_HEADER);
         int depth = 0;
         boolean tagOpen = false;
         for (int event = parser.getEventType(); event != XmlPullParser.END_DOCUMENT;
@@ -342,10 +343,7 @@ public final class KeyboardLayoutFiles {
                 case XmlPullParser.START_TAG:
                     if (tagOpen) out.append(">\n");
                     indent(out, depth).append('<').append(parser.getName());
-                    for (int i = 0; i < parser.getAttributeCount(); i++) {
-                        out.append(' ').append(parser.getAttributeName(i)).append("=\"")
-                            .append(escape(parser.getAttributeValue(i))).append('"');
-                    }
+                    appendAttributes(out, parser);
                     tagOpen = true;
                     depth++;
                     break;
@@ -372,6 +370,52 @@ public final class KeyboardLayoutFiles {
             }
         }
         return out.toString();
+    }
+
+    /**
+     * Opens a rebuilt layout. The shipped source's own comments do not survive compilation, so
+     * this says what the slot names mean instead.
+     */
+    private static final String BUNDLED_HEADER = "<!--\n"
+        + "  Rebuilt from a layout that ships with Termux Launcher.\n\n"
+        + "  Each key: c is the tap; nw n ne / w e / sw s se are the swipes, laid out like the\n"
+        + "  key itself. A value starting with `loc ` is hidden but still reachable.\n\n"
+        + "  Guide: https://picklehik3.github.io/termux-launcher-site/docs/#wiki/keyboard-layout\n"
+        + "-->\n";
+
+    /** The compiled slot names in the order a key reads: tap, then the swipes row by row. */
+    private static final String[][] KEY_SLOTS = {
+        {"key0", "c"}, {"key1", "nw"}, {"key7", "n"}, {"key2", "ne"}, {"key5", "w"},
+        {"key6", "e"}, {"key3", "sw"}, {"key8", "s"}, {"key4", "se"}
+    };
+
+    /**
+     * A tag's attributes. On a key, the slots come first under their compass names, in the order
+     * the key is drawn, then everything else (width, shift, ...) as compiled.
+     */
+    private static void appendAttributes(@NonNull StringBuilder out,
+                                         @NonNull XmlPullParser parser) {
+        int count = parser.getAttributeCount();
+        boolean[] written = new boolean[count];
+        if ("key".equals(parser.getName())) {
+            for (String[] slot : KEY_SLOTS) {
+                for (int i = 0; i < count; i++) {
+                    String name = parser.getAttributeName(i);
+                    if (written[i] || !(slot[0].equals(name) || slot[1].equals(name))) continue;
+                    appendAttribute(out, slot[1], parser.getAttributeValue(i));
+                    written[i] = true;
+                }
+            }
+        }
+        for (int i = 0; i < count; i++) {
+            if (!written[i])
+                appendAttribute(out, parser.getAttributeName(i), parser.getAttributeValue(i));
+        }
+    }
+
+    private static void appendAttribute(@NonNull StringBuilder out, @NonNull String name,
+                                        @Nullable String value) {
+        out.append(' ').append(name).append("=\"").append(escape(value)).append('"');
     }
 
     @NonNull

@@ -1986,6 +1986,13 @@ public final class TermuxInAppKeyboard {
             default:
                 TermuxInAppKeyboardLayoutLoader loader = mFileLayoutLoaders.get(layoutId);
                 KeyboardData fromFile = loader == null ? null : loader.getLastKnownGood();
+                // Reached before its background parse landed: read the file now rather than
+                // flash the layout it falls back to.
+                if (fromFile == null && loader != null) {
+                    fromFile = loader.loadFileNow();
+                    if (fromFile != null && LauncherKeyboardLayouts.isUserLayout(layoutId))
+                        LauncherKeyboardLayouts.rememberUserLabel(layoutId, fromFile.name);
+                }
                 if (fromFile != null)
                     return fromFile;
                 return getBundledTextLayoutData(layoutId);
