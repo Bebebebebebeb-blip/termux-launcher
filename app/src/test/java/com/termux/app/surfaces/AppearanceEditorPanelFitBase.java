@@ -653,7 +653,7 @@ public abstract class AppearanceEditorPanelFitBase {
         }
         mPanel.setSliders(states);
         mPanel.setDoors(AppearanceLooks.doors(target));
-        mPanel.setTerminalLooks("default", "none");
+        mPanel.setTerminalLooks(true, "default", "none");
     }
 
     private View doorView(AppearanceLooks.Door door) {

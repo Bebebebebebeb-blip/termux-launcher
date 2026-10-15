@@ -75,7 +75,7 @@ Permissions & services**; until then they render flat.
 
 Both are on the Terminal element at Custom, and under **Settings → Terminal → Terminal display**:
 
-- **Cursor trail**: **Default**, **Motion blur**, **Railgun**, **Torpedo**, **Pixie dust**,
+- **Cursor trail**: **Off**, **Default**, **Motion blur**, **Railgun**, **Torpedo**, **Pixie dust**,
   **Comet**.
 - **Terminal effect**: **None**, **CRT**, **CRT (green)**, **CRT (amber)**, **TFT grid**. It covers
   the status bar, dock and keyboard too, with scanlines fixed to the screen.
