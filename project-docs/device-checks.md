@@ -59,10 +59,12 @@ under twenty items; past that, the oldest are re-judged first.
   window bar); Solid unchanged · emulator.
 - 2026-10-15 · commits "fix(terminal-view): resolve symbol_map and fallback faces inside scaled
   text" and "fix(terminal-view): spread a wide icon across the blanks after it in scaled text" ·
-  `/tmp/launcher-scaled-symbols-2026-10-15/glyph-test.sh`: line 2 (s=2) shows both Nerd Font
-  icons (U+F0C5, U+F0219) with no tofu, each about twice the size of the same icon on line 1 (an
-  icon followed by a space spreads over it, as at normal size), centred in the cells it covers;
-  lines 1 and 3 look as before; Latin in a scaled block is unchanged · emulator.
+  `/tmp/launcher-scaled-symbols-2026-10-15/scaled-icon-cases.sh` (run with `bash`): no tofu at
+  any scale; a default-width (w=0) scaled icon, e.g. `66;s=2;<icon> `, stays one scaled column
+  wide and centred in it (each character is its own block, so it does not spread); an explicit
+  `66;s=2:w=2;<icon><space>` block, the form dawn's ribbon uses, draws the icon spread over both
+  columns, centred, about letter height; plain-size icons and Latin in a scaled block are
+  unchanged · emulator.
 - 2026-10-15 · commit "feat(appearance-editor): Depth, Highlight and Clear edge replace the
   six edge sliders", "feat(appearance-editor): label the edge group Glass" and
   "feat(appearance-editor): keep a Depth or Highlight thumb where it was left" · Look › Custom shows a Surface | Glass toggle, and Glass shows three
