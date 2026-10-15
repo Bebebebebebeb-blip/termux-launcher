@@ -84,7 +84,9 @@ When the user wants a web page shown beside the shell, or wants you to drive a b
 `terminal-browser` if `command -v terminal-browser` finds it; otherwise offer
 `tlstore install terminal-browser`. It opens its own pane through the launcher's pane API, and
 places it beside you when `launcherctl pane list` lists `placement` under `"features"`. Run
-`terminal-browser --help` for its commands. Never draw a page into your own pane.
+`terminal-browser --help` for its commands. Never draw a page into your own pane. Driving it
+is in its own skill, which its first run links into `~/.claude/skills`, `~/.codex/skills` and
+`~/.agents/skills`; after a fresh install, run `terminal-browser` once so the skill is there.
 
 ## Panes in one breath
 
