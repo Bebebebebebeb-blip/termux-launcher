@@ -574,7 +574,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             mStop = AppearanceLooks.CUSTOM_STOP;
         mEntryStop = mStop;
         mTarget = null;
-        mGroup = Group.SURFACE;
+        mGroup = rememberedGroup();
         mRestoreTarget = restore == null ? null : targetNamed(restore.target);
         // The in-app keyboard is one of the things the frame offers; it is raised after the frame
         // has settled (the relayout and the terminal's resize would land on the animation).
@@ -1807,6 +1807,22 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     }
 
     /**
+     * The group the Look page last showed, so it reopens there; Surface when none is stored. Where
+     * the group is not offered (Edge without refraction), {@link #showCustomRow} falls back.
+     */
+    @NonNull
+    private Group rememberedGroup() {
+        TermuxAppSharedPreferences prefs = prefs();
+        if (prefs == null)
+            return Group.SURFACE;
+        try {
+            return Group.valueOf(prefs.getAppearanceEditorLastGroup());
+        } catch (IllegalArgumentException e) {
+            return Group.SURFACE;
+        }
+    }
+
+    /**
      * The Custom row: the heading, the buttons the selection has, and its vertical sliders at the
      * stored values. The set is {@link AppearanceLooks#controls}: the global one's group with
      * nothing tapped (the heading row's toggle switches it), or the element's own.
@@ -2092,6 +2108,8 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                 return;
             // The other half of the global set, swapped in the same way a tap swaps a set.
             mGroup = group;
+            TermuxAppSharedPreferences prefs = prefs();
+            if (prefs != null) prefs.setAppearanceEditorLastGroup(group.name());
             showCustomRow();
         }
     }

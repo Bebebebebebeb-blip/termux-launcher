@@ -57,6 +57,8 @@ under twenty items; past that, the oldest are re-judged first.
 
 ## Developer
 
+- 2026-10-15 · commit "feat(appearance): reopen the Look page on the last group" · Switch to Edge, tap Done, open the editor again: it opens on Edge, and on Surface after switching back · pong, Appearance editor.
+
 - 2026-10-15 · commit "feat(settings): make the Low-memory preset a switch" · Turning it on and off
   returns the look you had (material, opacity, effects, parallax), and Reduce idle activity follows
   the switch both ways without leaving the page · pong, Settings → App behavior.
