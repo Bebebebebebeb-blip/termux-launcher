@@ -71,7 +71,7 @@ under twenty items; past that, the oldest are re-judged first.
   matches its stored pair (`run-as` the prefs: `fancier_glass_bend`/`_edge_width` for Depth,
   `_edge_light`/`_specular` for Highlight, `_clarity` for Clear edge) and the other groups' keys
   are unchanged. Clear, Mist and Tint picked from the stops read Depth 85/79/65, Highlight
-  30/28/25, Clear edge 100/90/85, and a Depth nudge and back lands on the Look's stop again. Drag Depth to 87 on Clear, switch to
+  50/45/40, Clear edge 100/90/85, and a Depth nudge and back lands on the Look's stop again. Drag Depth to 87 on Clear, switch to
   Surface and back: it still reads 87; pick a Look and it reads that Look's position. A
   Custom saved with the old six values (e.g. 13/32/60/20/20/90) opens without changing any key
   until a slider moves · emulator, with a wallpaper set from the launcher.

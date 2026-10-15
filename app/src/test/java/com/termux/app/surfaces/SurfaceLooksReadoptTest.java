@@ -68,7 +68,7 @@ public class SurfaceLooksReadoptTest {
 
     @Test
     public void anInstallAlreadyOnGenerationOneTakesTheReworkedEdge() {
-        // Generation 1 brought it to 11/28/70/0/25/100; the lobe rework moves it once more.
+        // Generation 1 brought it to 11/28/70/0/25/100; the lobe rework and the lit band move it on.
         store.edit().putInt(SurfacePresets.KEY_LOOKS_GENERATION, 1).commit();
         SurfacePresets.apply(preferences,
             SurfacePresets.withEdges(preset("minimal"), new int[] {11, 28, 70, 0, 25, 100}));
@@ -76,7 +76,7 @@ public class SurfaceLooksReadoptTest {
         SurfacePresets.readoptMovedLooks(preferences);
 
         assertTrue(SurfacePresets.matches(preferences, preset("minimal")));
-        assertEquals(30, preferences.getFancierGlassEdgeLightPercent());
+        assertEquals(50, preferences.getFancierGlassEdgeLightPercent());
         assertEquals(SurfacePresets.LOOKS_GENERATION,
             store.getInt(SurfacePresets.KEY_LOOKS_GENERATION, 0));
     }
@@ -84,7 +84,8 @@ public class SurfaceLooksReadoptTest {
     @Test
     public void mistAndTintOnGenerationTwoTakeTheirEdgesOnTheDepthCurve() {
         // Generation 2 left Mist at 24/30 and Tint at 20/26; the Depth slider's curve takes their
-        // widths to 24 and 22, and nothing else about either Look moves.
+        // widths to 24 and 22, generation 4 lights them to 45 and 40, and nothing else about
+        // either Look moves.
         String[] ids = {"frost", "stock"};
         int[][] generationTwo = {{24, 30, 28, 0, 30, 90}, {20, 26, 25, 0, 0, 85}};
         int[] width = {24, 22};
@@ -99,7 +100,8 @@ public class SurfaceLooksReadoptTest {
 
             assertTrue(ids[look], SurfacePresets.matches(preferences, preset(ids[look])));
             assertEquals(ids[look], width[look], preferences.getFancierGlassEdgeWidthDp());
-            assertEquals(3, store.getInt(SurfacePresets.KEY_LOOKS_GENERATION, 0));
+            assertEquals(SurfacePresets.LOOKS_GENERATION,
+                store.getInt(SurfacePresets.KEY_LOOKS_GENERATION, 0));
         }
     }
 

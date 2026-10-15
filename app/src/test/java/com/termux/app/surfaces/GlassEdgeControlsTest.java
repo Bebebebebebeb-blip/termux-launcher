@@ -33,7 +33,7 @@ public class GlassEdgeControlsTest {
         String[] ids = {"minimal", "frost", "stock"};
         // The smallest position on each Look's plateau: Clear 85..88, Mist 79..81, Tint 65..68.
         int[] depth = {85, 79, 65};
-        int[] highlight = {30, 28, 25};
+        int[] highlight = {50, 45, 40};
         int[] clearEdge = {100, 90, 85};
         for (int i = 0; i < ids.length; i++) {
             GlassEdgeControls.Edge edge = edgeOf(preset(ids[i]));

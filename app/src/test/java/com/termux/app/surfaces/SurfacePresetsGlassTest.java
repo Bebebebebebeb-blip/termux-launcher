@@ -78,10 +78,10 @@ public class SurfacePresetsGlassTest {
 
     @Test
     public void clearTintAndSolidCarryTheRecipesOfTheSpec() {
-        assertRecipe(preset("minimal"), 4, 10, 4, 26, 26, 30, 35, 100); // re-tuned for the lobe and the deeper bend
-        assertRecipe(preset("stock"), 10, 46, 10, 20, 22, 25, 0, 85); // on the Depth slider's curve
+        assertRecipe(preset("minimal"), 4, 10, 4, 26, 26, 50, 35, 100); // the lit band, the deeper bend
+        assertRecipe(preset("stock"), 10, 46, 10, 20, 22, 40, 0, 85); // on the Depth slider's curve
         assertRecipe(preset("solid"), 0, 92, 0, 0, 1, 0, 0, 0);
-        assertRecipe(preset("frost"), 25, 60, 8, 24, 24, 28, 30, 90); // on the Depth slider's curve
+        assertRecipe(preset("frost"), 25, 60, 8, 24, 24, 45, 30, 90); // on the Depth slider's curve
         assertEquals(TERMUX_APP.GLASS_TINT_MATERIAL,
             preset("stock").values.get(TERMUX_APP.KEY_SURFACE_GLASS_TINT));
 
