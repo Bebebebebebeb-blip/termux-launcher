@@ -59,6 +59,7 @@ measuring on pong; AGENTS.md's rule on touching a real phone applies.
 | At rest, lazy mode on | 1.2 fps, about 2% of a core | `ac27b88a9` | `dumpsys gfxinfo <pkg>` over a minute, plus `top` |
 | At rest, lazy mode off | about 21 fps, from the seconds flip (an open item; any change should lower it) | `project-docs/active/perf-home-terminal-idle-handoff-2026-09-27.md` | as above |
 | Scripted gestures (`pong.txt` x 3) | 2.4% janky; p50 16 ms, p90 22 ms, p99 44 ms; about 71 frames/s | `scripts/perf-frametime.sh`, 1.1.0-pre.1, 2026-10-12 | `scripts/perf-frametime.sh` |
+| Terminal scroll (`pong-scroll.txt` x 3, drags and flings through a 4000-line transcript) | 0.1% janky; p50 8 ms, p90 11–12 ms, p95 13–14 ms, p99 17 ms; about 90 frames/s. Before the row-recording shift (adbf9dd4b): p50 9–11 ms, p90 13–16 ms, p95 14–17 ms, p99 17–19 ms | `scripts/perf-frametime.sh`, 1.1.0-pre.4+dev.c5e1ecccf, 2026-10-15, two runs each | `scripts/perf-frametime.sh scripts/perf-scenarios/pong-scroll.txt` |
 | Sliding between places | median 15–16 ms; worst page-change frame 47 ms | `707920f71`, `c6223ec76` | perfetto, `Wall.*` trace sections |
 | Pre-roll and settle frames | 30–77 ms now. Target: none above 16.7 ms | `project-docs/active/fancier-glass/SPEC.md` | perfetto |
 | Cold start | 1.33–1.54 s from force-stop to first frame, relaunched as home (about 2 s of main thread in an older trace) | `scripts/perf-baseline.sh start`, 1.1.0-pre.1, 2026-10-12 | logcat `Displayed` after `am force-stop`, three runs |
