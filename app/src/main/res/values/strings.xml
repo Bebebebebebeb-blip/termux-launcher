@@ -2111,6 +2111,8 @@
     <string name="tool_wall_display">Go to Display</string>
     <string name="tool_wall_go">Go to place</string>
     <string name="tool_mouse_toggle">Mouse mode</string>
+    <string name="extra_key_readout_mouse_mode_on">Mouse mode on</string>
+    <string name="extra_key_readout_mouse_mode_off">Mouse mode off</string>
     <string name="tool_pane_next_layout">Next pane layout</string>
     <string name="tool_pane_toggle_float">Float / dock pane</string>
     <string name="tool_terminal_toggle_scratchpad">Toggle scratchpad</string>
