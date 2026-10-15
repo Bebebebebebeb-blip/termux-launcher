@@ -619,17 +619,11 @@ public abstract class AppearanceEditorPanelFitBase {
             case KEY_SPACING: return context.getString(R.string.appearance_editor_key_spacing, "8.0");
             case ICON_SIZE: return context.getString(R.string.appearance_editor_icon_size, 48);
             case APP_ICONS: return context.getString(R.string.appearance_editor_app_icons, 10);
-            case BEND: return context.getString(R.string.appearance_editor_bend, control.max);
-            case EDGE_WIDTH:
-                return context.getString(R.string.appearance_editor_edge_width, control.max);
-            case EDGE_LIGHT:
-                return context.getString(R.string.appearance_editor_edge_light, control.max);
-            case SPECULAR:
-                return context.getString(R.string.appearance_editor_specular, control.max);
-            case DISPERSION:
-                return context.getString(R.string.appearance_editor_dispersion, control.max);
-            case CLARITY:
-                return context.getString(R.string.appearance_editor_clarity, control.max);
+            case DEPTH: return context.getString(R.string.appearance_editor_depth, control.max);
+            case HIGHLIGHT:
+                return context.getString(R.string.appearance_editor_highlight, control.max);
+            case CLEAR_EDGE:
+                return context.getString(R.string.appearance_editor_clear_edge, control.max);
             default: return context.getString(R.string.appearance_editor_legibility_unavailable);
         }
     }

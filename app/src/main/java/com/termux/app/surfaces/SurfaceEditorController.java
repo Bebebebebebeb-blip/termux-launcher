@@ -1902,18 +1902,12 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                     mHost.isAppsRowAlone(), dockHeightScale(prefs), density());
             case APP_ICONS:
                 return AppearanceLooks.appIconsValueFor(prefs.getAppLauncherButtonCount());
-            case BEND:
-                return control.clamp(prefs.getFancierGlassBendDp());
-            case EDGE_WIDTH:
-                return control.clamp(prefs.getFancierGlassEdgeWidthDp());
-            case EDGE_LIGHT:
-                return control.clamp(prefs.getFancierGlassEdgeLightPercent());
-            case SPECULAR:
-                return control.clamp(prefs.getFancierGlassSpecularPercent());
-            case DISPERSION:
-                return control.clamp(prefs.getFancierGlassDispersionPercent());
-            case CLARITY:
-                return control.clamp(prefs.getFancierGlassClarityPercent());
+            case DEPTH:
+                return glassEdgeOf(prefs).depth();
+            case HIGHLIGHT:
+                return glassEdgeOf(prefs).highlight();
+            case CLEAR_EDGE:
+                return glassEdgeOf(prefs).clearEdge();
             case CONTRAST:
             default:
                 return AppearanceLooks.legibilityIndex(prefs.getTerminalContrastLevel());
@@ -1944,12 +1938,9 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                     String.format(Locale.getDefault(), "%.1f", value / 10f));
             case ICON_SIZE: return getString(R.string.appearance_editor_icon_size, value);
             case APP_ICONS: return getString(R.string.appearance_editor_app_icons, value);
-            case BEND: return getString(R.string.appearance_editor_bend, value);
-            case EDGE_WIDTH: return getString(R.string.appearance_editor_edge_width, value);
-            case EDGE_LIGHT: return getString(R.string.appearance_editor_edge_light, value);
-            case SPECULAR: return getString(R.string.appearance_editor_specular, value);
-            case DISPERSION: return getString(R.string.appearance_editor_dispersion, value);
-            case CLARITY: return getString(R.string.appearance_editor_clarity, value);
+            case DEPTH: return getString(R.string.appearance_editor_depth, value);
+            case HIGHLIGHT: return getString(R.string.appearance_editor_highlight, value);
+            case CLEAR_EDGE: return getString(R.string.appearance_editor_clear_edge, value);
             case CONTRAST:
             default:
                 if (!enabled)
@@ -2117,8 +2108,8 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     /**
      * One of the Custom row's sliders moved. Blur, Grain and Opacity are the shared glass with
      * nothing tapped and the element's own values with one tapped; Margin and Corner radius are
-     * Layout mode's own writes; Bend through Dispersion are the glass edge's, global; the rest are
-     * the element's.
+     * Layout mode's own writes; Depth, Highlight and Clear edge are the glass edge's, global; the
+     * rest are the element's.
      */
     private void writeControl(@NonNull Control control, int value) {
         switch (control) {
@@ -2145,12 +2136,9 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             case ICON_SIZE: writeIconSize(value); break;
             case APP_ICONS: writeAppIcons(value); break;
             case CONTRAST: writeLegibility(value); break;
-            case BEND:
-            case EDGE_WIDTH:
-            case EDGE_LIGHT:
-            case SPECULAR:
-            case DISPERSION:
-            case CLARITY:
+            case DEPTH:
+            case HIGHLIGHT:
+            case CLEAR_EDGE:
                 writeGlassEdge(control, value);
                 break;
             default: break;
@@ -2158,25 +2146,45 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     }
 
     /**
-     * One of the glass edge's knobs: one value for every glass surface. The panes' pass re-reads
-     * the edge at its head and re-dresses them when it moved; the glass pass then re-dresses the
-     * dock, the keyboard, the strip and the status band with it.
+     * One of the glass edge's sliders: one value for every glass surface. Each writes only the
+     * keys it owns ({@link GlassEdgeControls}), so the others keep what they hold. The panes'
+     * pass re-reads the edge at its head and re-dresses them when it moved; the glass pass then
+     * re-dresses the dock, the keyboard, the strip and the status band with it.
      */
     private void writeGlassEdge(@NonNull Control control, int value) {
         TermuxAppSharedPreferences prefs = prefs();
         if (prefs == null)
             return;
+        GlassEdgeControls.Edge edge = glassEdgeOf(prefs);
         int written = control.clamp(value);
         switch (control) {
-            case BEND: prefs.setFancierGlassBendDp(written); break;
-            case EDGE_WIDTH: prefs.setFancierGlassEdgeWidthDp(written); break;
-            case EDGE_LIGHT: prefs.setFancierGlassEdgeLightPercent(written); break;
-            case SPECULAR: prefs.setFancierGlassSpecularPercent(written); break;
-            case DISPERSION: prefs.setFancierGlassDispersionPercent(written); break;
-            case CLARITY: prefs.setFancierGlassClarityPercent(written); break;
+            case DEPTH: {
+                GlassEdgeControls.Edge next = edge.withDepth(written);
+                prefs.setFancierGlassBendDp(next.bend);
+                prefs.setFancierGlassEdgeWidthDp(next.width);
+                break;
+            }
+            case HIGHLIGHT: {
+                GlassEdgeControls.Edge next = edge.withHighlight(written);
+                prefs.setFancierGlassEdgeLightPercent(next.light);
+                prefs.setFancierGlassSpecularPercent(next.specular);
+                break;
+            }
+            case CLEAR_EDGE:
+                prefs.setFancierGlassClarityPercent(edge.withClearEdge(written).clarity);
+                break;
             default: return;
         }
         requestPreview(SurfaceEditorProperties.PREVIEW_SURFACES);
+    }
+
+    /** The six stored glass edge values. */
+    @NonNull
+    private static GlassEdgeControls.Edge glassEdgeOf(@NonNull TermuxAppSharedPreferences prefs) {
+        return new GlassEdgeControls.Edge(prefs.getFancierGlassBendDp(),
+            prefs.getFancierGlassEdgeWidthDp(), prefs.getFancierGlassEdgeLightPercent(),
+            prefs.getFancierGlassSpecularPercent(), prefs.getFancierGlassDispersionPercent(),
+            prefs.getFancierGlassClarityPercent());
     }
 
     // ------------------------------------------------------------------------------ the slider

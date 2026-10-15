@@ -104,15 +104,14 @@ public class AppearanceLooksTest {
     }
 
     /**
-     * The global set is two groups, Surface (today's six) and Edge (the glass edge's five); an
+     * The global set is two groups, Surface (today's six) and Edge (the glass edge's three); an
      * element's set ignores the group, and the one-argument form is the Surface group.
      */
     @Test
     public void theGlobalSetIsSurfaceAndEdge() {
         assertEquals(Arrays.asList(Control.BLUR, Control.GRAIN, Control.OPACITY, Control.TINT,
             Control.MARGIN, Control.CORNER_RADIUS), AppearanceLooks.controls(null, Group.SURFACE));
-        assertEquals(Arrays.asList(Control.BEND, Control.EDGE_WIDTH, Control.EDGE_LIGHT,
-            Control.SPECULAR, Control.DISPERSION, Control.CLARITY),
+        assertEquals(Arrays.asList(Control.DEPTH, Control.HIGHLIGHT, Control.CLEAR_EDGE),
             AppearanceLooks.controls(null, Group.EDGE));
         assertTrue(AppearanceLooks.controls(null, Group.EDGE).size()
             <= AppearanceLooks.MAX_CONTROLS);
@@ -144,23 +143,14 @@ public class AppearanceLooksTest {
         }
     }
 
-    /** The edge's knobs run over the ranges their preferences store. */
+    /** The Edge sliders each run 0 to 100 over their own keys (GlassEdgeControls). */
     @Test
-    public void theEdgesRangesAreTheStoredRanges() {
-        assertEquals(TERMUX_APP.MIN_FANCIER_GLASS_BEND, Control.BEND.min);
-        assertEquals(TERMUX_APP.MAX_FANCIER_GLASS_BEND, Control.BEND.max);
-        assertEquals(TERMUX_APP.MIN_FANCIER_GLASS_EDGE_WIDTH, Control.EDGE_WIDTH.min);
-        assertEquals(TERMUX_APP.MAX_FANCIER_GLASS_EDGE_WIDTH, Control.EDGE_WIDTH.max);
-        assertEquals(0, Control.EDGE_LIGHT.min);
-        assertEquals(TERMUX_APP.MAX_FANCIER_GLASS_EDGE_LIGHT, Control.EDGE_LIGHT.max);
-        assertEquals(0, Control.SPECULAR.min);
-        assertEquals(TERMUX_APP.MAX_FANCIER_GLASS_SPECULAR, Control.SPECULAR.max);
-        assertEquals(0, Control.DISPERSION.min);
-        assertEquals(TERMUX_APP.MAX_FANCIER_GLASS_DISPERSION, Control.DISPERSION.max);
-        assertEquals(TERMUX_APP.MIN_FANCIER_GLASS_CLARITY, Control.CLARITY.min);
-        assertEquals(TERMUX_APP.MAX_FANCIER_GLASS_CLARITY, Control.CLARITY.max);
-        for (Control control : AppearanceLooks.controls(null, Group.EDGE))
+    public void theEdgeSlidersRunZeroToAHundred() {
+        for (Control control : AppearanceLooks.controls(null, Group.EDGE)) {
+            assertEquals(control.name(), 0, control.min);
+            assertEquals(control.name(), 100, control.max);
             assertEquals(control.name(), 1, control.step);
+        }
     }
 
     /** The buttons above the sliders: Keyboard theme, Trail and Effect, Clock; none elsewhere. */

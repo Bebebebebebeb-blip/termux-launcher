@@ -21,7 +21,8 @@ import java.util.List;
  * tapped element's own, with the buttons above them ({@link #doors}). Blur, Grain and Opacity are
  * the shared glass on the global set and the element's own values on an element. The global set
  * is two {@link Group}s the heading row switches between ({@link #groups}): Surface, the shared
- * glass and shape, and Edge, the glass edge's knobs, which are global and never an element's.</p>
+ * glass and shape, and Edge, the glass edge's three sliders (Depth, Highlight, Clear edge), which
+ * are global and never an element's.</p>
  *
  * <p>Layout mode's Corners and Margin (SPEC §3.5) are here too: the global shape, which no Look
  * sets (2026-10-01); the Custom row's Margin and Corner radius write the same keys.</p>
@@ -124,8 +125,8 @@ public final class AppearanceLooks {
      * Icon size is the pinned icon in dp, and its slider runs over the range the dock gives under
      * the Style ({@link #iconSizeRangeDp}); the bounds here are only the ones no dock passes, the
      * icon's floor and the deepest row. Key spacing is the key margin scale in tenths; the others
-     * are their own units (dp, percent, a count, a stop). Bend through Clarity are the glass
-     * edge's knobs over their stored ranges: Bend and Edge width in dp, the rest in percent.
+     * are their own units (dp, percent, a count, a stop). Depth, Highlight and Clear edge are the
+     * glass edge's, each 0 to 100 over its own group of stored keys ({@link GlassEdgeControls}).
      */
     public enum Control {
         BLUR(0, BLUR_MAX_DP, 1),
@@ -140,15 +141,9 @@ public final class AppearanceLooks {
             DockLayoutPolicy.maxRowBandPx(1f), 1),
         APP_ICONS(APP_ICONS_MIN, APP_ICONS_MAX, 1),
         CONTRAST(0, 2, 1),
-        BEND(TERMUX_APP.MIN_FANCIER_GLASS_BEND, TERMUX_APP.MAX_FANCIER_GLASS_BEND, 1),
-        EDGE_WIDTH(TERMUX_APP.MIN_FANCIER_GLASS_EDGE_WIDTH,
-            TERMUX_APP.MAX_FANCIER_GLASS_EDGE_WIDTH, 1),
-        EDGE_LIGHT(TERMUX_APP.MIN_FANCIER_GLASS_EDGE_LIGHT,
-            TERMUX_APP.MAX_FANCIER_GLASS_EDGE_LIGHT, 1),
-        SPECULAR(TERMUX_APP.MIN_FANCIER_GLASS_SPECULAR, TERMUX_APP.MAX_FANCIER_GLASS_SPECULAR, 1),
-        DISPERSION(TERMUX_APP.MIN_FANCIER_GLASS_DISPERSION,
-            TERMUX_APP.MAX_FANCIER_GLASS_DISPERSION, 1),
-        CLARITY(TERMUX_APP.MIN_FANCIER_GLASS_CLARITY, TERMUX_APP.MAX_FANCIER_GLASS_CLARITY, 1);
+        DEPTH(GlassEdgeControls.MIN, GlassEdgeControls.MAX, 1),
+        HIGHLIGHT(GlassEdgeControls.MIN, GlassEdgeControls.MAX, 1),
+        CLEAR_EDGE(GlassEdgeControls.MIN, GlassEdgeControls.MAX, 1);
 
         public final int min;
         public final int max;
@@ -186,7 +181,7 @@ public final class AppearanceLooks {
 
     /**
      * The global set's two halves: Surface, the shared glass and shape, and Edge, the glass
-     * edge's knobs. Only the global set has them; an element's set is one.
+     * edge's sliders. Only the global set has them; an element's set is one.
      */
     public enum Group {
         SURFACE,
@@ -208,8 +203,7 @@ public final class AppearanceLooks {
     @NonNull
     public static List<Control> controls(@Nullable Target target, @NonNull Group group) {
         if (target == null && group == Group.EDGE)
-            return Arrays.asList(Control.BEND, Control.EDGE_WIDTH, Control.EDGE_LIGHT,
-                Control.SPECULAR, Control.DISPERSION, Control.CLARITY);
+            return Arrays.asList(Control.DEPTH, Control.HIGHLIGHT, Control.CLEAR_EDGE);
         if (target == null)
             return Arrays.asList(Control.BLUR, Control.GRAIN, Control.OPACITY, Control.TINT,
                 Control.MARGIN, Control.CORNER_RADIUS);
