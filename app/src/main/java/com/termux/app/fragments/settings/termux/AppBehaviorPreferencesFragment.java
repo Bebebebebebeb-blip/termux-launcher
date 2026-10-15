@@ -6,7 +6,15 @@ import android.os.Bundle;
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.preference.Preference;
 import androidx.preference.PreferenceDataStore;
+import androidx.preference.SwitchPreferenceCompat;
+import android.widget.Toast;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.termux.app.TermuxActivity;
+import com.termux.app.settings.LowMemoryPreset;
+import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 
 import com.termux.R;
 import com.termux.app.fragments.settings.MaterialPreferenceFragment;
@@ -28,6 +36,31 @@ public class AppBehaviorPreferencesFragment extends MaterialPreferenceFragment {
         getPreferenceManager().setPreferenceDataStore(new BehaviorDataStore(context));
         setPreferencesFromResource(R.xml.app_behavior_preferences, rootKey);
         SettingsLayoutUtils.applyScreenLayout(this);
+        Preference preset = findPreference("low_memory_preset");
+        if (preset != null) {
+            preset.setOnPreferenceClickListener(row -> {
+                confirmLowMemoryPreset(context);
+                return true;
+            });
+        }
+    }
+
+    private void confirmLowMemoryPreset(@NonNull Context context) {
+        new MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.settings_behavior_low_memory_confirm_title)
+            .setMessage(R.string.settings_behavior_low_memory_confirm_body)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.settings_behavior_low_memory_apply, (dialog, which) -> {
+                TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(context, false);
+                if (prefs == null) return;
+                LowMemoryPreset.apply(prefs);
+                SwitchPreferenceCompat lazy = findPreference("lazy_mode");
+                if (lazy != null) lazy.setChecked(true);
+                // The launcher restyles itself when the user returns to it.
+                TermuxActivity.requestTermuxActivityStylingOnNextResume(context, false);
+                Toast.makeText(context, R.string.settings_behavior_low_memory_applied,
+                    Toast.LENGTH_SHORT).show();
+            }).show();
     }
 
     @Override

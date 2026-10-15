@@ -52,6 +52,7 @@ under twenty items; past that, the oldest are re-judged first.
 
 ## Developer
 
+- 2026-10-15 · Low-memory preset · Settings → App behavior → Low-memory preset, Apply: back on the launcher it is the Solid look with an opaque terminal, no cursor trail, no effect, and the Reduce idle activity switch is on; picking another look in Appearance brings the old look back · pong, by hand.
 - 2026-10-15 · Cursor trail Off · Appearance editor → Terminal → Cursor trail: Off stops the trail at once, a style turns it back on, Cancel restores the earlier state, and Settings shows the same on/off · pong, by hand.
 - 2026-10-12 · PR #64 · App chips on a light chip (light theme or a light Look): the icon's ring is
   the dark one, not the white one; on the emulator the light chip's ring was only faintly pale
