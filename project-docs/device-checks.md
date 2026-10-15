@@ -47,16 +47,15 @@ under twenty items; past that, the oldest are re-judged first.
   (`debug.force_rtl` did not mirror the app; use the developer option or an RTL locale): the bent
   edge shows a clearer wallpaper, the frost inside is unchanged, corners and hairlines clean. The
   pane slab under Floating at Clear passed, also at font scale 1.3 · emulator.
-- 2026-10-15 · commit "feat(glass): a deep folding bend, a lit glint over a dark edge, a corner
-  fringe" · Clear and Mist at their shipped values (an install on the old Looks re-adopts them on
-  launch), once on the high-contrast synthetic wallpaper and once on a photo: crop a pane corner
-  (one pane and split), the dock's top edge (Docked and Floating, keyboard up and down) and the
-  status pane's bottom edge. Passes when the wallpaper visibly bends and folds under the rim
-  without zooming while the face stays flat; the top edge carries a soft light along its length that fades round the
-  corners, the sides and bottom carry none, and no edge is outlined in white; every edge is a little darker; a red/blue glint sits at the corners
-  and none along the middle of a straight edge; a small pane shows no picture from its opposite
-  edge; no image jump or line on a seam (keyboard over the strip under the pill, status over the
-  window bar); Solid unchanged · emulator.
+- 2026-10-15 · commit "feat(glass): draw the rim as a hairline and bend on Haze's edge profile" ·
+  Clear, Mist and Tint at their shipped values (an install on the old Looks re-adopts them on
+  launch) on the `glass-city` and `glass-flowers` wallpapers: crop a pane corner (one pane and
+  split) and the dock's top edge (Docked and Floating, keyboard up and down). Passes when the rim
+  is a faint hairline, lit along the top edge and fading round the corners; the picture is
+  continuous with the wallpaper outside at the outline; the bend is a narrow ring and the face
+  inside it stays flat; no milky band anywhere; Clear shows a faint red/blue glint at the corners
+  only; a small pane shows no picture from its opposite edge; no line on a seam (keyboard over
+  the strip under the pill, status over the window bar); Solid unchanged · emulator.
 - 2026-10-15 · commits "fix(terminal-view): resolve symbol_map and fallback faces inside scaled
   text" and "fix(terminal-view): spread a wide icon across the blanks after it in scaled text" ·
   `/tmp/launcher-scaled-symbols-2026-10-15/scaled-icon-cases.sh` (run with `bash`): no tofu at
@@ -65,18 +64,15 @@ under twenty items; past that, the oldest are re-judged first.
   `66;s=2:w=2;<icon><space>` block, the form dawn's ribbon uses, draws the icon spread over both
   columns, centred, about letter height; plain-size icons and Latin in a scaled block are
   unchanged · emulator.
-- 2026-10-15 · commit "feat(appearance-editor): Depth, Highlight and Clear edge replace the
-  six edge sliders", "feat(appearance-editor): label the edge group Glass" and
-  "feat(appearance-editor): keep a Depth or Highlight thumb where it was left" · Look › Custom shows a Surface | Glass toggle, and Glass shows three
-  sliders, Depth, Highlight and Clear edge, each legend and both toggle words whole (also at
-  font scale 1.3 on a 360dp screen). After a drag, each readout
-  matches its stored pair (`run-as` the prefs: `fancier_glass_bend`/`_edge_width` for Depth,
-  `_edge_light`/`_specular` for Highlight, `_clarity` for Clear edge) and the other groups' keys
-  are unchanged. Clear, Mist and Tint picked from the stops read Depth 85/79/65, Highlight
-  50/45/40, Clear edge 100/90/85, and a Depth nudge and back lands on the Look's stop again. Drag Depth to 87 on Clear, switch to
-  Surface and back: it still reads 87; pick a Look and it reads that Look's position. A
-  Custom saved with the old six values (e.g. 13/32/60/20/20/90) opens without changing any key
-  until a slider moves · emulator, with a wallpaper set from the launcher.
+- 2026-10-15 · commit "feat(appearance-editor): Depth alone in the Glass group, Looks on the
+  hairline" · Look › Custom shows a Surface | Glass toggle, and Glass shows one slider, Depth, its
+  legend and both toggle words whole (also at font scale 1.3 on a 360dp screen). After a drag the
+  readout matches `fancier_glass_bend`/`_edge_width` (`run-as` the prefs) and no other key moves.
+  Clear, Mist and Tint picked from the stops read Depth 90/80/70, and a Depth nudge and back lands
+  on the Look's stop again. Drag Depth to 92 on Clear, switch to Surface and back: it still reads
+  92; pick a Look and it reads that Look's position. A Custom saved with the old six values (e.g.
+  13/32/60/20/20/90) opens without changing any key until Depth moves · emulator, with a
+  wallpaper set from the launcher.
 
 ## Developer
 

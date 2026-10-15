@@ -162,7 +162,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         void applyGlassPreview();
         /**
          * Whether the glass edge is drawn now (Android 13, a wallpaper set from inside the
-         * launcher, Lazy mode off): the Edge group's knobs only change anything while it is.
+         * launcher, Lazy mode off): the Edge group's Depth only changes anything while it is.
          */
         boolean isGlassRefractionActive();
         /**
@@ -276,13 +276,11 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     /** The Custom values of this session, kept while a Look is showing. */
     @NonNull private final SessionCustom mSessionCustom = new SessionCustom();
     /**
-     * The last Depth and Highlight positions the user set this session, so a thumb left on a
-     * flat stretch of the curve reads back where it was left
-     * ({@link GlassEdgeControls.Edge#depth(int)}). Not stored: cleared at open, when a Look is
-     * picked, and by Undo or Discard.
+     * The last Depth position the user set this session, so a thumb left on a flat stretch of
+     * the curve reads back where it was left ({@link GlassEdgeControls.Edge#depth(int)}). Not
+     * stored: cleared at open, when a Look is picked, and by Undo or Discard.
      */
     private int mDepthSet = GlassEdgeControls.NONE;
-    private int mHighlightSet = GlassEdgeControls.NONE;
     private int mEntryStop = AppearanceLooks.CUSTOM_STOP;
     /** The Look slider's stop. */
     private int mStop = AppearanceLooks.CUSTOM_STOP;
@@ -1913,10 +1911,6 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                 return AppearanceLooks.appIconsValueFor(prefs.getAppLauncherButtonCount());
             case DEPTH:
                 return glassEdgeOf(prefs).depth(mDepthSet);
-            case HIGHLIGHT:
-                return glassEdgeOf(prefs).highlight(mHighlightSet);
-            case CLEAR_EDGE:
-                return glassEdgeOf(prefs).clearEdge();
             case CONTRAST:
             default:
                 return AppearanceLooks.legibilityIndex(prefs.getTerminalContrastLevel());
@@ -1948,8 +1942,6 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             case ICON_SIZE: return getString(R.string.appearance_editor_icon_size, value);
             case APP_ICONS: return getString(R.string.appearance_editor_app_icons, value);
             case DEPTH: return getString(R.string.appearance_editor_depth, value);
-            case HIGHLIGHT: return getString(R.string.appearance_editor_highlight, value);
-            case CLEAR_EDGE: return getString(R.string.appearance_editor_clear_edge, value);
             case CONTRAST:
             default:
                 if (!enabled)
@@ -2117,7 +2109,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     /**
      * One of the Custom row's sliders moved. Blur, Grain and Opacity are the shared glass with
      * nothing tapped and the element's own values with one tapped; Margin and Corner radius are
-     * Layout mode's own writes; Depth, Highlight and Clear edge are the glass edge's, global; the
+     * Layout mode's own writes; Depth is the glass edge's, global; the
      * rest are the element's.
      */
     private void writeControl(@NonNull Control control, int value) {
@@ -2146,52 +2138,32 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             case APP_ICONS: writeAppIcons(value); break;
             case CONTRAST: writeLegibility(value); break;
             case DEPTH:
-            case HIGHLIGHT:
-            case CLEAR_EDGE:
-                writeGlassEdge(control, value);
+                writeGlassDepth(value);
                 break;
             default: break;
         }
     }
 
     /**
-     * One of the glass edge's sliders: one value for every glass surface. Each writes only the
-     * keys it owns ({@link GlassEdgeControls}), so the others keep what they hold. The panes'
-     * pass re-reads the edge at its head and re-dresses them when it moved; the glass pass then
-     * re-dresses the dock, the keyboard, the strip and the status band with it.
+     * The glass's Depth: one value for every glass surface. It writes only the bend and the edge
+     * width ({@link GlassEdgeControls}), so the other stored edge keys keep what they hold. The
+     * panes' pass re-reads the edge at its head and re-dresses them when it moved; the glass pass
+     * then re-dresses the dock, the keyboard, the strip and the status band with it.
      */
-    private void writeGlassEdge(@NonNull Control control, int value) {
+    private void writeGlassDepth(int value) {
         TermuxAppSharedPreferences prefs = prefs();
         if (prefs == null)
             return;
-        GlassEdgeControls.Edge edge = glassEdgeOf(prefs);
-        int written = control.clamp(value);
-        switch (control) {
-            case DEPTH: {
-                GlassEdgeControls.Edge next = edge.withDepth(written);
-                prefs.setFancierGlassBendDp(next.bend);
-                prefs.setFancierGlassEdgeWidthDp(next.width);
-                mDepthSet = written;
-                break;
-            }
-            case HIGHLIGHT: {
-                GlassEdgeControls.Edge next = edge.withHighlight(written);
-                prefs.setFancierGlassEdgeLightPercent(next.light);
-                prefs.setFancierGlassSpecularPercent(next.specular);
-                mHighlightSet = written;
-                break;
-            }
-            case CLEAR_EDGE:
-                prefs.setFancierGlassClarityPercent(edge.withClearEdge(written).clarity);
-                break;
-            default: return;
-        }
+        int written = Control.DEPTH.clamp(value);
+        GlassEdgeControls.Edge next = glassEdgeOf(prefs).withDepth(written);
+        prefs.setFancierGlassBendDp(next.bend);
+        prefs.setFancierGlassEdgeWidthDp(next.width);
+        mDepthSet = written;
         requestPreview(SurfaceEditorProperties.PREVIEW_SURFACES);
     }
 
     private void forgetGlassEdgePositions() {
         mDepthSet = GlassEdgeControls.NONE;
-        mHighlightSet = GlassEdgeControls.NONE;
     }
 
     /** The six stored glass edge values. */

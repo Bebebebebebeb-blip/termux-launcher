@@ -104,14 +104,14 @@ public class AppearanceLooksTest {
     }
 
     /**
-     * The global set is two groups, Surface (today's six) and Edge (the glass edge's three); an
+     * The global set is two groups, Surface (today's six) and Edge (the glass's one, Depth); an
      * element's set ignores the group, and the one-argument form is the Surface group.
      */
     @Test
     public void theGlobalSetIsSurfaceAndEdge() {
         assertEquals(Arrays.asList(Control.BLUR, Control.GRAIN, Control.OPACITY, Control.TINT,
             Control.MARGIN, Control.CORNER_RADIUS), AppearanceLooks.controls(null, Group.SURFACE));
-        assertEquals(Arrays.asList(Control.DEPTH, Control.HIGHLIGHT, Control.CLEAR_EDGE),
+        assertEquals(Collections.singletonList(Control.DEPTH),
             AppearanceLooks.controls(null, Group.EDGE));
         assertTrue(AppearanceLooks.controls(null, Group.EDGE).size()
             <= AppearanceLooks.MAX_CONTROLS);
@@ -143,7 +143,7 @@ public class AppearanceLooksTest {
         }
     }
 
-    /** The Edge sliders each run 0 to 100 over their own keys (GlassEdgeControls). */
+    /** The Edge group's slider runs 0 to 100 over its own keys (GlassEdgeControls). */
     @Test
     public void theEdgeSlidersRunZeroToAHundred() {
         for (Control control : AppearanceLooks.controls(null, Group.EDGE)) {

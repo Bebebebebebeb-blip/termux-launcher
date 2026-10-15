@@ -2965,11 +2965,11 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
     private static final int FRESH_INSTALL_BASE_BLUR = 4;
     private static final int FRESH_INSTALL_BASE_OPACITY = 10;
     private static final int FRESH_INSTALL_BASE_GRAIN = 4;
-    private static final int FRESH_INSTALL_GLASS_BEND = 26;
-    private static final int FRESH_INSTALL_GLASS_EDGE_WIDTH = 26;
-    private static final int FRESH_INSTALL_GLASS_EDGE_LIGHT = 50;
-    private static final int FRESH_INSTALL_GLASS_DISPERSION = 35;
-    private static final int FRESH_INSTALL_GLASS_CLARITY = 100;
+    private static final int FRESH_INSTALL_GLASS_BEND = 27;
+    private static final int FRESH_INSTALL_GLASS_EDGE_WIDTH = 18;
+    private static final int FRESH_INSTALL_GLASS_EDGE_LIGHT = 10;
+    private static final int FRESH_INSTALL_GLASS_DISPERSION = 40;
+    private static final int FRESH_INSTALL_GLASS_CLARITY = 76;
     private static final int FRESH_INSTALL_MARGIN = 8;
 
     /**

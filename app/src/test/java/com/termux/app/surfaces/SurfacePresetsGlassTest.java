@@ -78,10 +78,12 @@ public class SurfacePresetsGlassTest {
 
     @Test
     public void clearTintAndSolidCarryTheRecipesOfTheSpec() {
-        assertRecipe(preset("minimal"), 4, 10, 4, 26, 26, 50, 35, 100); // the lit band, the deeper bend
-        assertRecipe(preset("stock"), 10, 46, 10, 20, 22, 40, 0, 85); // on the Depth slider's curve
+        // Clear, Mist and Tint sit on the Depth curve at 90, 80 and 70, each bend one and a half
+        // bands; light 10 is stored for older builds only, the hairline is fixed in the program.
+        assertRecipe(preset("minimal"), 4, 10, 4, 27, 18, 10, 40, 76);
+        assertRecipe(preset("stock"), 10, 46, 10, 21, 14, 10, 0, 0);
         assertRecipe(preset("solid"), 0, 92, 0, 0, 1, 0, 0, 0);
-        assertRecipe(preset("frost"), 25, 60, 8, 24, 24, 45, 30, 90); // on the Depth slider's curve
+        assertRecipe(preset("frost"), 25, 60, 8, 24, 16, 10, 0, 0);
         assertEquals(TERMUX_APP.GLASS_TINT_MATERIAL,
             preset("stock").values.get(TERMUX_APP.KEY_SURFACE_GLASS_TINT));
 
@@ -91,8 +93,8 @@ public class SurfacePresetsGlassTest {
         assertEquals(TERMUX_APP.GLASS_TINT_MATERIAL, preferences.getSurfaceGlassTint());
         assertEquals(TERMUX_APP.GLASS_RIM_HAIRLINE, preferences.getSurfaceGlassRim());
         assertEquals(TERMUX_APP.GLASS_MOTION_CLASSIC, preferences.getSurfaceGlassMotion());
-        assertEquals(22, preferences.getFancierGlassEdgeWidthDp());
-        assertEquals(85, preferences.getFancierGlassClarityPercent());
+        assertEquals(14, preferences.getFancierGlassEdgeWidthDp());
+        assertEquals(0, preferences.getFancierGlassClarityPercent());
         assertTrue(SurfacePresets.matches(preferences, preset("stock")));
     }
 
@@ -100,7 +102,7 @@ public class SurfacePresetsGlassTest {
     public void clearIsTheMostTransparentGlassWithNoDetachedTerminalOpacity() {
         SurfacePresets.Preset clear = preset("minimal");
         assertEquals("one hairline, no second line inside it", 0, clear.values.get(TERMUX_APP.KEY_FANCIER_GLASS_SPECULAR));
-        assertEquals("a colour glint at the corners", 35, clear.values.get(TERMUX_APP.KEY_FANCIER_GLASS_DISPERSION));
+        assertEquals("Haze Clear's corner glint", 40, clear.values.get(TERMUX_APP.KEY_FANCIER_GLASS_DISPERSION));
         assertEquals("a sharp, even hairline, no gradient wash into the pane",
             TERMUX_APP.GLASS_RIM_HAIRLINE, clear.values.get(TERMUX_APP.KEY_SURFACE_GLASS_RIM));
         assertEquals(TERMUX_APP.GLASS_TINT_SCHEME, clear.values.get(TERMUX_APP.KEY_SURFACE_GLASS_TINT));
@@ -111,16 +113,16 @@ public class SurfacePresetsGlassTest {
         SurfacePresets.apply(preferences, clear);
         assertEquals(10, preferences.getSurfaceBaseValue(SurfaceProperty.OPACITY));
         assertEquals(0, preferences.getFancierGlassSpecularPercent());
-        assertEquals(35, preferences.getFancierGlassDispersionPercent()); // the corner glint needs more now it scales with the pull
+        assertEquals(40, preferences.getFancierGlassDispersionPercent());
         assertTrue(SurfacePresets.matches(preferences, clear));
     }
 
     @Test
-    public void onlyClearAndMistCarryAFringeAndNoLookAnySpecular() {
+    public void onlyClearCarriesAFringeAndNoLookAnySpecular() {
         assertEquals(0, preset("stock").values.get(TERMUX_APP.KEY_FANCIER_GLASS_SPECULAR));
         assertEquals(0, preset("solid").values.get(TERMUX_APP.KEY_FANCIER_GLASS_SPECULAR));
         assertEquals(0, preset("frost").values.get(TERMUX_APP.KEY_FANCIER_GLASS_SPECULAR));
-        assertEquals(30, preset("frost").values.get(TERMUX_APP.KEY_FANCIER_GLASS_DISPERSION)); // re-tuned with Clear
+        assertEquals(0, preset("frost").values.get(TERMUX_APP.KEY_FANCIER_GLASS_DISPERSION));
         assertEquals(0, preset("stock").values.get(TERMUX_APP.KEY_FANCIER_GLASS_DISPERSION));
         assertEquals(0, preset("solid").values.get(TERMUX_APP.KEY_FANCIER_GLASS_DISPERSION));
         assertEquals(TERMUX_APP.DEFAULT_VALUE_FANCIER_GLASS_SPECULAR,
@@ -149,16 +151,17 @@ public class SurfacePresetsGlassTest {
         // Applied over Clear, it hands the edge back to the frost.
         preferences.setSurfaceCustomPreset("{\"format_version\":3,\"surface_base_blur\":21}");
         SurfacePresets.apply(preferences, preset("minimal"));
-        assertEquals(100, preferences.getFancierGlassClarityPercent());
+        assertEquals(76, preferences.getFancierGlassClarityPercent());
         SurfacePresets.apply(preferences, SurfacePresets.custom(preferences));
         assertEquals(0, preferences.getFancierGlassClarityPercent());
     }
 
     @Test
-    public void clearMistAndTintCarryTheirClarityAndSolidNone() {
-        assertEquals(100, preset("minimal").values.get(TERMUX_APP.KEY_FANCIER_GLASS_CLARITY));
-        assertEquals(90, preset("frost").values.get(TERMUX_APP.KEY_FANCIER_GLASS_CLARITY));
-        assertEquals(85, preset("stock").values.get(TERMUX_APP.KEY_FANCIER_GLASS_CLARITY));
+    public void onlyClearCarriesClarity() {
+        // Haze's sharp edge is a per-style constant: Clear 0.76, Regular 0.
+        assertEquals(76, preset("minimal").values.get(TERMUX_APP.KEY_FANCIER_GLASS_CLARITY));
+        assertEquals(0, preset("frost").values.get(TERMUX_APP.KEY_FANCIER_GLASS_CLARITY));
+        assertEquals(0, preset("stock").values.get(TERMUX_APP.KEY_FANCIER_GLASS_CLARITY));
         assertEquals(0, preset("solid").values.get(TERMUX_APP.KEY_FANCIER_GLASS_CLARITY));
 
         for (String id : new String[] {"minimal", "frost", "stock", "solid"}) {
@@ -174,11 +177,11 @@ public class SurfacePresetsGlassTest {
         }
 
         // A saved Custom keeps it.
-        SurfacePresets.apply(preferences, preset("frost"));
+        SurfacePresets.apply(preferences, preset("minimal"));
         SurfacePresets.saveCustom(preferences);
         SurfacePresets.apply(preferences, preset("solid"));
         SurfacePresets.apply(preferences, SurfacePresets.custom(preferences));
-        assertEquals(90, preferences.getFancierGlassClarityPercent());
+        assertEquals(76, preferences.getFancierGlassClarityPercent());
     }
 
     private static void assertRecipe(SurfacePresets.Preset preset, int blur, int opacity,

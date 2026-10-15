@@ -47,12 +47,12 @@ At **Custom**, vertical sliders appear:
   sets for every surface:
   - **Surface**: **Blur**, **Grain**, **Opacity**, **Tint**, **Margin** and **Corner radius**, the
     glass and the shape.
-  - **Glass**: **Depth** (how thick the glass edge looks), **Highlight** (how brightly the top
-    edge catches the light; past the middle the light also runs round the corners and down the
-    sides) and **Clear edge** (how sharply the wallpaper shows through the edge). Picking a Look
-    puts all three where that Look has them. The edge needs Android 13 and a wallpaper set
-    from the Wallpaper tab (see [Glass](#glass)); without it these sliders stay greyed out, and
-    below Android 13 the toggle is not shown.
+  - **Glass**: **Depth**, how thick the glass edge looks. Picking a Look puts it where that Look
+    has it. The rest of the edge comes with the Look: Clear shows the wallpaper sharply through
+    its edge with a touch of colour at the corners, Mist and Tint bend it through their frost, and
+    every glass edge carries the same faint line of light along its top. The edge needs Android 13
+    and a wallpaper set from the Wallpaper tab (see [Glass](#glass)); without it the slider stays
+    greyed out, and below Android 13 the toggle is not shown.
 - Tap an element in the frame to tune it on its own:
   - **Status bar**: the four glass sliders, plus a **Clock** button for the face and alignment
     (see [Status bar](Status_Bar.md#clock)).
