@@ -38,7 +38,7 @@ Where a feature was ported from or inspired by another project, that project is 
 **The terminal**
 
 - Kitty graphics (`timg -pk foo.jpg`, animations included) and Sixel images in the terminal
-- The [kitty](https://github.com/kovidgoyal/kitty) protocols, adapted from kitty's code: the kitty keyboard protocol, text sizing (OSC 66), hyperlinks (OSC 8), notifications and progress (OSC 99, OSC 9;4), clipboard read and write from programs (OSC 52 and the extended OSC 5522, pictures included), colour queries and multiple cursors; `kitten icat` and kitty's other tools just work
+- The [kitty](https://github.com/kovidgoyal/kitty) protocols, adapted from kitty's code: the kitty keyboard protocol, text sizing (OSC 66), hyperlinks (OSC 8), notifications and progress (OSC 99, OSC 9;4), clipboard read and write from programs (OSC 52 and the extended OSC 5522, pictures included), colour queries and multiple cursors; `kitten icat` and `kitten clipboard` work (kitty's remote control does not, there is no kitty to talk to)
 - Fonts the kitty way: an in-app font picker installs Nerd Fonts and writes a kitty-style `fonts.conf`, with fallback fonts, ligatures, variable axes and clean box drawing
 - Native sessions, windows, recursive split and floating panes, layouts and workspace restore (**Ctrl + Alt** is the default keybind); tiling after [Hyprland](https://github.com/hyprwm/Hyprland), the focused pane after [focus.nvim](https://github.com/nvim-focus/focus.nvim), terminal padding after [Ghostty](https://github.com/ghostty-org/ghostty)
 - Touch that reaches desktop TUIs. Drags scroll mouse-aware programs and taps click, as in Termux; the difference is a short press-and-hold that hands the finger to the program as a held mouse button, so programs written for a desktop mouse work by touch: select in vim, click around lazygit, drag a pane edge. Mouse mode turns the whole screen into a mouse for programs that take one
@@ -62,17 +62,18 @@ The models run in the launcher's own runtime, on Google's [LiteRT-LM](https://gi
 - Read aloud: text to speech from the terminal and `tai speak`, with the [KittenTTS](https://huggingface.co/litert-community/kitten-tts-nano-0.8) voice
 - Local OpenAI- and Ollama-compatible endpoints on localhost, plus the `tai` command, so aichat and other clients can talk to the phone's own models
 - The app drawer sorts itself into categories
-- Dawn notes integration: automatic titles, AI-assisted writing, and note search by meaning indexed with EmbeddingGemma 2 (dawn is work in progress)
+- Dawn notes integration: automatic titles, an assistant that can edit the note, read aloud and dictation, and note search by meaning indexed with EmbeddingGemma 2 (dawn is work in progress)
 
 **Extras**
 
 - `tlstore`, a small package store made for Termux Launcher. It ships companion apps that only work here, and a few things that are just easier from it:
-  - **dawn** (a fork of [andrewmd5/dawn](https://github.com/andrewmd5/dawn)): a writing pad for the terminal, wired to the launcher's AI
+  - **dawn** (a fork of [andrewmd5/dawn](https://github.com/andrewmd5/dawn)): a writing pad for the terminal, wired to the launcher's AI, voice and wallpaper colours
   - **fastfetch** with **animated GIF logos** drawn through kitty graphics
   - **btop** that sees the whole phone, run as the shell user through Shizuku
   - **terminal-browser** (a fork of [zenbu-labs/terminal-browser](https://github.com/zenbu-labs/terminal-browser)): a real browser in a pane beside your shell, with touch, and an agent CLI (`terminal-browser action`) that lets a coding agent open pages, read them and click through them
   - The **termux-launcher agent skill**: Claude Code, Codex, OpenCode or pi learn to run their work in a pane or window beside you, split and arrange panes, notify you and show progress, show images, open terminal-browser, answer questions about the launcher, and read their answers aloud with the on-device voice
-  - Native builds of **Claude Code**, **Codex** and **opencode**, a shell setup (fish, a wallpaper-coloured prompt, eza, zoxide), [sigye](https://github.com/am2rican5/sigye), kitten, and the Termux:API commands without the Termux:API app
+  - **Claude Code**, **opencode v2** and **Codex** made to run on Android (the first two through a patched musl loader, Codex as the [codex-termux](https://github.com/DioNanos/codex-termux) port by DioNanos), and [herdr](https://github.com/herdrdev/herdr), a workspace that keeps agents running after you close the terminal
+  - A fish shell setup with the store's own prompt (Pure's layout, Nerd Font icons, your wallpaper's colours), eza and zoxide; [sigye](https://github.com/am2rican5/sigye), kitten, and the Termux:API commands without the Termux:API app
 - Optional Shizuku integration: screen lock, CPU usage in the status bar, and a privileged lane for tools such as btop
 
 ## Editions
@@ -136,7 +137,7 @@ The built-in terminal keyboard is enabled on fresh installs; an external keyboar
 
 ### Quick start script
 
-`tlstore`, the launcher's own tool store, is already on your phone. One line installs my personal shell setup (fish, Oh My Posh with wallpaper Material colours, zoxide, eza and a couple of fish plugins) and a Neovim colour scheme that follows your wallpaper; the second opens a picker for everything else in the store (dawn, fastfetch, btop, terminal-browser, the agent skills, Claude Code, Codex, opencode, sigye, kitten). A config file of yours is never replaced without showing you the change and asking first, and whatever it does replace gets a timestamped `.bak`.
+`tlstore`, the launcher's own tool store, is already on your phone. The first line installs the fish shell with the store's own prompt (Pure's two-line layout with Nerd Font icons, in your wallpaper's colours), eza, zoxide and two fish plugins; the second opens a picker for everything else in the store (dawn, fastfetch, btop, terminal-browser, herdr, the agent skills, Claude Code, Codex, opencode, sigye, kitten). A config file of yours is never replaced without showing you the change and asking first, and whatever it does replace gets a timestamped `.bak`. The wallpaper-matching Neovim colour scheme is not a store item: it lives under **Settings › Appearance › Tools that follow the terminal colours**.
 
 ```sh
 tlstore shell
