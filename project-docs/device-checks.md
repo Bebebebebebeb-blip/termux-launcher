@@ -49,9 +49,20 @@ under twenty items; past that, the oldest are re-judged first.
   (`debug.force_rtl` did not mirror the app; use the developer option or an RTL locale): the bent
   edge shows a clearer wallpaper, the frost inside is unchanged, corners and hairlines clean. The
   pane slab under Floating at Clear passed, also at font scale 1.3 · emulator.
+- 2026-10-15 · commits "feat(glass): a slab-lens edge …" and "feat(looks): stronger edges …" ·
+  Clear, Mist and Tint at their shipped values, the high-contrast test wallpaper: zoom the dock's
+  top edge (Docked and Floating), a key cap's area along the keyboard's top edge (keyboard up), and
+  a pane corner (one pane and split). Passes when the refraction reads without zooming: lines
+  crossing an edge kink there, a bright 1.5 dp hairline with a faint dark line just inside it, a
+  colour fringe on Clear and Mist; no image jump where the keyboard meets the strip under the
+  pill, no hairline on any seam, Solid unchanged · emulator.
 
 ## Developer
 
+- 2026-10-15 · stronger glass edges · The same three Looks on pong with a photo wallpaper: the
+  edge reads at a glance on the dock, the keyboard and the panes, and is not too strong (no
+  smeared or mirrored band that distracts, no glare on a pressed key or under a finger) · pong, by
+  eye.
 - 2026-10-15 · voice edit keeps the cleanup's marks · Dictate a sentence the cleanup changes, tap the text to edit: the changed and added words stay in the accent colour and the struck removed words are gone. Type inside a marked word, before it and after it, delete across a mark's edge, press ✓: the marks moved with the text (typing inside grows the mark, at its edges stays plain) and the committed text is exactly what was shown · pong, by voice.
 - 2026-10-15 · Low-memory preset · Settings → App behavior → Low-memory preset, Apply: back on the launcher it is the Solid look with an opaque terminal, no cursor trail, no effect, and the Reduce idle activity switch is on; picking another look in Appearance brings the old look back · pong, by hand.
 - 2026-10-15 · Cursor trail Off · Appearance editor → Terminal → Cursor trail: Off stops the trail at once, a style turns it back on, Cancel restores the earlier state, and Settings shows the same on/off · pong, by hand.
