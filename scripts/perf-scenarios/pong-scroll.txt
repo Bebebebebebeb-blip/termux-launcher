@@ -1,0 +1,15 @@
+# Pong's terminal place, keyboard down, Floating style (1080x2412). Coordinates are thousandths
+# of the screen; re-measure from a screenshot when the layout changes.
+# Only the terminal's scrollback: drag down and up through the transcript, then fling both ways,
+# so the frames are the grid's own render and nothing else.
+repeat 4
+swipe 500 600 500 250 300
+swipe 500 250 500 600 300
+end
+sleep 1
+repeat 2
+swipe 500 700 500 300 80
+sleep 1
+swipe 500 300 500 700 80
+sleep 1
+end
