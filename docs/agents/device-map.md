@@ -42,6 +42,16 @@ ad -s emu runas com.termux 'launcherctl pane list'
   `ad runas com.termux 'cp /data/local/tmp/x.png $HOME/x.png; launcherctl wallpaper set $HOME/x.png'`
   (an `/sdcard` path is refused). There is no unset: the emulator keeps that wallpaper.
 - `launcherctl keyboard hide` can answer "inaccessible" right after the editor closes; retry.
+- A second `launcherctl wallpaper set` (or picker apply) used to drop the Look's blur and opacity
+  back to the install's first values (PR #74 fixes it). Until that lands, re-apply the Look after
+  a wallpaper change.
+- A long-press on the terminal's text starts selection; the terminal action sheet (with Kill
+  process, whose confirm is a centred glass card) is the terminal view's context menu, not a
+  `launcherctl` command. Other centred cards: the palette's confirm entries. The session browser's
+  Rename is inline in the drawer, not a card.
+- Pinned dock icons: long-press the dock's empty hint → the pin editor lists installed apps as
+  checkable buttons (Calendar, Camera, Chrome, Clock on the stock image) → Done. A letter tapped in
+  the A–Z row shows that letter's apps only until the next touch.
 - Prefs live in `shared_prefs/com.termux_preferences.xml`; edit them **before** a force-stop,
   never after (AGENTS.md, "It is the home screen").
 
@@ -71,6 +81,7 @@ ad -s emu runas com.termux 'launcherctl pane list'
 - `ad ui` truncates the terminal's text: read the terminal from a `zoom` crop, or run the command
   through `ad runas` instead.
 - Force-stop the app after a density or font-scale change.
+- `./gradlew :app:connectedDebugAndroidTest` installs its own copy of the app and **uninstalls it when the run ends**: the launcher's data (prefs, managed wallpaper, pins, tour) is gone and the next `ad install` is a first run. Run device checks before the instrumentation tests, or set the state up again after.
 - Settings reopens on the page it was left on: Back to the root before searching (`settings_search_input`).
 - Voice: with no speech model the dictate action opens Google's dictation dialog, not the card, and
   the emulator has no microphone; the card's checks run on pong.

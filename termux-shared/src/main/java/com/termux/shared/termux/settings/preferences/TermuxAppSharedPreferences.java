@@ -732,6 +732,19 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
                 TERMUX_APP.MAX_FANCIER_GLASS_DISPERSION), false);
     }
 
+    /** See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_FANCIER_GLASS_CLARITY}. Clamped, a percentage. */
+    public int getFancierGlassClarityPercent() {
+        return DataUtils.clamp(SharedPreferenceUtils.getInt(mSharedPreferences,
+                TERMUX_APP.KEY_FANCIER_GLASS_CLARITY, TERMUX_APP.DEFAULT_VALUE_FANCIER_GLASS_CLARITY),
+            TERMUX_APP.MIN_FANCIER_GLASS_CLARITY, TERMUX_APP.MAX_FANCIER_GLASS_CLARITY);
+    }
+
+    public void setFancierGlassClarityPercent(int value) {
+        SharedPreferenceUtils.setInt(mSharedPreferences, TERMUX_APP.KEY_FANCIER_GLASS_CLARITY,
+            DataUtils.clamp(value, TERMUX_APP.MIN_FANCIER_GLASS_CLARITY,
+                TERMUX_APP.MAX_FANCIER_GLASS_CLARITY), false);
+    }
+
     /** See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_SHOW_KEY_HINTS}. */
     public boolean isShowKeyHintsEnabled() {
         return SharedPreferenceUtils.getBoolean(mSharedPreferences,

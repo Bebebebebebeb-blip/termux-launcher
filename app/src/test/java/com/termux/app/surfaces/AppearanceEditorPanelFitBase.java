@@ -628,6 +628,8 @@ public abstract class AppearanceEditorPanelFitBase {
                 return context.getString(R.string.appearance_editor_specular, control.max);
             case DISPERSION:
                 return context.getString(R.string.appearance_editor_dispersion, control.max);
+            case CLARITY:
+                return context.getString(R.string.appearance_editor_clarity, control.max);
             default: return context.getString(R.string.appearance_editor_legibility_unavailable);
         }
     }

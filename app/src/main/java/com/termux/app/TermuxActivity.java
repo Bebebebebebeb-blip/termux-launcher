@@ -1239,6 +1239,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private boolean mTerminalGlassActive = false;
     /** The blur frame the panes are painting from; kept out of the cache's recycler. */
     @Nullable private Bitmap mPaneGlassFrame;
+    /** The clear frame the panes' bent edges show (edge clarity); kept out of the recycler too. */
+    @Nullable private Bitmap mPaneGlassClearFrame;
     /** The unblurred wallpaper frame the Display page's corner mask paints; held so no eviction recycles it under a draw. */
     @Nullable private Bitmap mWallBehindFrame;
     /** The self-drawn wallpaper behind everything; see {@link WallpaperBackdropPolicy}. */
@@ -1619,6 +1621,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         @Override public void onCacheCleared() {
             mPaneGlassFrame = null;
+            mPaneGlassClearFrame = null;
             mWallBehindFrame = null;
         }
 
@@ -2147,6 +2150,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             if (mVoiceCardEdit != null)
                 mVoiceCardEdit.onWindowTouch(ev.getActionMasked(), ev.getRawX(), ev.getRawY());
             feedDockPlank(ev);
+            feedDockTouchLight(ev);
             if (!mAzTabTouch) feedTerminalPlank(ev);
             if (!mAzTabTouch && touchBeganOverTerminal(ev))
                 mKeybindHintPresenter.onTerminalTouch(ev);
@@ -3568,6 +3572,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 return mFancierGlassLook;
             }
 
+            @Override @Nullable public Bitmap paneGlassClearFrame() {
+                // Asked of the look the slabs actually draw: the joined frame's insert keeps no
+                // bend and so no clarity, and holds no clear frame for it.
+                return obtainTerminalPaneGlassClearFrame(paneGlassRefraction());
+            }
+
             @Override @Nullable public ColorFilter paneGlassFrostFilter() {
                 return com.termux.app.chrome.GlassFilters.frost(mPreferences != null ? mPreferences.getTerminalBackgroundOpacity() : 100);
             }
@@ -3688,6 +3698,30 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         Bitmap frame = mChrome.blurCache().obtain(radiusDp, wallpaperFrame);
         mPaneGlassFrame = frame != null && !frame.isRecycled() ? frame : null;
         return mPaneGlassFrame;
+    }
+
+    /**
+     * The clearer frame the panes' bent edges show (Fancier Glass's edge clarity), at
+     * {@link com.termux.app.chrome.GlassRefraction#CLARITY_RADIUS_DP} from the same cache and the
+     * same wallpaper frame as {@link #obtainTerminalPaneGlassFrame}, under the same gate, or null
+     * when the look asks for none or that blur is still in flight. Remembered for the cache's
+     * in-use scan as the frame is; its landing changes the panes' style key, so the pass the
+     * cache's ready callback runs re-dresses them.
+     */
+    @Nullable
+    private Bitmap obtainTerminalPaneGlassClearFrame(
+            @Nullable com.termux.app.chrome.GlassRefraction.Look look) {
+        int radiusDp = mPreferences != null ? mPreferences.getTerminalGlassBlurRadius() : 0;
+        View wallpaperFrame = findViewById(R.id.activity_termux_root_view);
+        if (wallpaperFrame == null || !isTerminalPaneGlassActive() || !wallpaperPicture().blurs()
+                || !com.termux.app.chrome.WallpaperFrostPainter.wantsClearFrame(look, radiusDp)) {
+            mPaneGlassClearFrame = null;
+            return null;
+        }
+        Bitmap clear = mChrome.blurCache().obtain(
+            com.termux.app.chrome.GlassRefraction.CLARITY_RADIUS_DP, wallpaperFrame);
+        mPaneGlassClearFrame = clear != null && !clear.isRecycled() ? clear : null;
+        return mPaneGlassClearFrame;
     }
 
     /**
@@ -4238,6 +4272,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             if (!navStrip && mKeyLensActive && mKeyLensIntensity > 0f) {
                 program.setLens(mKeyLensCx, mKeyLensCy, mKeyLensHx, mKeyLensHy, mKeyLensRadius,
                     mKeyLensIntensity);
+                // A held key's lens owns the dock's glass: an icon's touch light yields to it.
+                program.clearTouch();
             } else {
                 program.clearLens();
             }
@@ -4312,6 +4348,107 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (glass != null) {
             backdrop.setRenderEffect(glass);
         }
+    }
+
+    /** The dock icons' touch light; built on the first press that may light, see {@link #dockTouchFade}. */
+    @Nullable private com.termux.app.chrome.DockTouchFade mDockTouchFade;
+    /** The finger now down landed on a dock icon and lit it. */
+    private boolean mDockTouchLightDown;
+
+    /**
+     * Observes (never consumes) a press on a dock icon to light the glass under it
+     * ({@link com.termux.app.chrome.DockTouchFade}): on at once on the down, nothing on a move,
+     * a stepped fall on the lift. The click, the long-press and the drag are the icon's as before.
+     */
+    private void feedDockTouchLight(@NonNull MotionEvent ev) {
+        switch (ev.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN: {
+                mDockTouchLightDown = false;
+                float[] at = dockTouchLightPoint(ev.getRawX(), ev.getRawY());
+                if (at == null) return;
+                mDockTouchLightDown = true;
+                dockTouchFade().down(at[0], at[1]);
+                return;
+            }
+            case MotionEvent.ACTION_MOVE:
+                // The drawer's open drag starts on the dock and takes the gesture: let go as on a lift.
+                if (mDockTouchLightDown && isAppDrawerEngaged()) {
+                    mDockTouchLightDown = false;
+                    dockTouchFade().up();
+                }
+                return;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                if (!mDockTouchLightDown) return;
+                mDockTouchLightDown = false;
+                dockTouchFade().up();
+                return;
+            default:
+                break;
+        }
+    }
+
+    /**
+     * Where a press at this screen point lights the dock's glass, in the dock backdrop's effect
+     * coordinates (the key lens's mapping), or null when it is not on a dock icon over that
+     * backdrop: below API 33, with no refracting backdrop up, while a key's lens holds the glass,
+     * on the keys, or with the row off the dock (a rail or an off-dock plank has glass of its own).
+     */
+    @Nullable
+    private float[] dockTouchLightPoint(float rawX, float rawY) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || !mGlassParamsValid
+            || mDockRefraction == null || mKeyLensActive || isAppDrawerEngaged()) return null;
+        SuggestionBarView bar = mSuggestionBarView;
+        View container = hotView(R.id.accessory_stack_container);
+        View surfaceHost = hotView(R.id.accessory_surface_host);
+        View backdrop = hotView(R.id.accessory_blur_backdrop);
+        if (bar == null || container == null || surfaceHost == null || backdrop == null
+            || backdrop.getVisibility() != View.VISIBLE
+            || !viewContainsScreenPoint(surfaceHost, rawX, rawY)
+            || isOnDockPlankKeySurface(rawX, rawY)) return null;
+        boolean onDock = false;
+        for (android.view.ViewParent p = bar.getParent(); p != null; p = p.getParent()) {
+            if (p == container) {
+                onDock = true;
+                break;
+            }
+        }
+        if (!onDock || !bar.isIconAt(rawX, rawY)) return null;
+        int[] hostLoc = new int[2];
+        surfaceHost.getLocationOnScreen(hostLoc);
+        return new float[] {rawX - hostLoc[0] + mGlassOriginLeft, rawY - hostLoc[1] + mGlassOriginTop};
+    }
+
+    /**
+     * The fade, writing the light into the dock's program and rebuilding its effect once per step,
+     * as the key lens does; gated as every glass touch light is ({@link #isGlassTouchLightAllowed}).
+     */
+    @NonNull
+    private com.termux.app.chrome.DockTouchFade dockTouchFade() {
+        if (mDockTouchFade != null) return mDockTouchFade;
+        mDockTouchFade = new com.termux.app.chrome.DockTouchFade(this, getWindow().getDecorView(),
+            new com.termux.app.chrome.DockTouchFade.Sink() {
+                @Override public void light(float x, float y, float intensity) {
+                    com.termux.app.chrome.GlassRefraction.Program program = mDockRefraction;
+                    if (program == null) return;
+                    // A key's lens took the glass meanwhile: no light, and no rebuild of its effect.
+                    if (mKeyLensActive) {
+                        program.clearTouch();
+                        return;
+                    }
+                    program.setTouch(x, y, com.termux.app.chrome.GlassTouchLight.RADIUS_DP
+                        * getResources().getDisplayMetrics().density, intensity);
+                    rebuildBackdropGlassEffectForLens();
+                }
+
+                @Override public void clear() {
+                    com.termux.app.chrome.GlassRefraction.Program program = mDockRefraction;
+                    if (program == null) return;
+                    program.clearTouch();
+                    if (!mKeyLensActive) rebuildBackdropGlassEffectForLens();
+                }
+            }, this::isGlassTouchLightAllowed);
+        return mDockTouchFade;
     }
 
     /** Lazily wires the reactive glass-plank controller to the inflated dock views. */
@@ -4773,6 +4910,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     new Rect(mChrome.blurCache().frameRectRef()), mWallpaperParallax,
                     com.termux.app.chrome.GlassAnchor.layout(under,
                         () -> mAccessoryStackLift.px() + under.getTranslationY()));
+                backdrop.setClearFrame(glassClearFrame(state.blurRadiusDp));
             }
         }
         com.termux.app.chrome.GlassStack.Spec spec = com.termux.app.chrome.GlassStack.Spec.of(
@@ -4794,6 +4932,25 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     /** The shared frame the under-keyboard card is drawing, for the blur cache's in-use scan. */
     @Nullable private Bitmap mUnderKeyboardBackdropBitmap;
+
+    /**
+     * Fancier Glass's edge clarity for a surface frosted at {@code blurRadiusDp}: the blur cache's
+     * clear frame ({@link com.termux.app.chrome.GlassRefraction#CLARITY_RADIUS_DP}, the same rect
+     * as the frost's), or null while the look asks for none or that blur is still in flight. The
+     * frame lands through the cache's ready pass, which rebuilds these surfaces. Read on every
+     * build, so a radius, look or wallpaper change and a cache clear restate it with the frame.
+     * The in-use scan finds it through the drawable ({@code SharedFrameDrawable.shows}).
+     */
+    @Nullable
+    private Bitmap glassClearFrame(int blurRadiusDp) {
+        if (!com.termux.app.chrome.WallpaperFrostPainter.wantsClearFrame(mFancierGlassLook,
+                blurRadiusDp)) return null;
+        View wallpaperFrame = findViewById(R.id.activity_termux_root_view);
+        if (wallpaperFrame == null) return null;
+        Bitmap clear = mChrome.blurCache().obtain(
+            com.termux.app.chrome.GlassRefraction.CLARITY_RADIUS_DP, wallpaperFrame);
+        return clear != null && !clear.isRecycled() ? clear : null;
+    }
 
     /**
      * The dock's glass, started below a bottom status bar that kept a sheet of its own. Without
@@ -6586,6 +6743,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 backdrop = new com.termux.app.chrome.SharedFrameDrawable(frame,
                     mInAppKeyboardBackdropFrameRect, mWallpaperParallax,
                     com.termux.app.chrome.GlassAnchor.layout(surfaceHost, mAccessoryStackLift));
+                backdrop.setClearFrame(glassClearFrame(blurRadiusDp));
             }
         }
         // The drawable reports no intrinsic size. This background is installed on a wrap-content
@@ -7339,7 +7497,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (frame == null) {
             return false;
         }
-        if (frame == mPaneGlassFrame || frame == mWallBehindFrame) {
+        if (frame == mPaneGlassFrame || frame == mPaneGlassClearFrame || frame == mWallBehindFrame) {
             return true;   // a pane is drawing it right now; recycling it would crash its next draw
         }
         if (mWallpaperBackdropView != null && (mWallpaperBackdropView.heldFrame() == frame
@@ -14782,6 +14940,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return com.termux.app.chrome.GlassMotion.of(mPreferences);
         }
 
+        @Override public boolean glassTouchLightAllowed() {
+            return isGlassTouchLightAllowed();
+        }
+
         @NonNull @Override public Context context() {
             return TermuxActivity.this;
         }
@@ -14835,6 +14997,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         @Override public boolean isReducedMotionEnabled() {
             return TermuxActivity.this.isReducedMotionEnabled();
         }
+    }
+
+    /**
+     * Whether a finger on glass may light it ({@link com.termux.app.chrome.GlassTouchLight}): a
+     * Fancier Glass motion, so only while the look is on, and stopped by lazy mode and battery
+     * saver as every other one is (SPEC §3). Reduced motion and the system's animator setting are
+     * the light's own to ask.
+     */
+    private boolean isGlassTouchLightAllowed() {
+        if (mFancierGlassLook == null || isLazyModeEnabled()) return false;
+        android.os.PowerManager power = getSystemService(android.os.PowerManager.class);
+        return power == null || !power.isPowerSaveMode();
     }
 
     /** Guarded on the field, not the lazy accessor: asking must not build a plane. */

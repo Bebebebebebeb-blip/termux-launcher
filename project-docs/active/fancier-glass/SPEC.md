@@ -106,6 +106,41 @@ Known, left as they are: the live-blur fallbacks of the palette, the sheet, the 
     Dispersion are off in all of them.
 - **Idle cost stays at zero.** Nothing redraws at rest, and uniforms change only while something moves.
 
+### 4.1 Natural glass (2026-10-14)
+
+Four terms were added to the one program so the glass reads as a lit slab rather than a frosted
+polymer with a stroke. Working note: `natural-glass-2026-10-14.md`.
+
+- **Lit rim.** The hairline is lit from above and a little to the left (`kLightUp`, unit
+  (-0.33, -0.944)) with a weaker light answering from below: the top edge takes the full Edge
+  light, the bottom 0.6 of it, and the sides a floor of 0.40, never none, since the hairline is
+  what reads as the edge. Same knob, new distribution.
+- **Thickness.** Across the bend band the picture brightens toward the lit rim (up to +12%) and
+  dims toward the shaded one (up to −6%), multiplicative, fading to nothing at the band's inner
+  edge. Not a knob: it scales with Bend and is full from 8 dp (`Look.thickness`).
+- **Clarity** (`uClarity`, `fancier_glass_clarity`, the sixth Edge slider). A second input,
+  `sharp`, is a clearer frame of the same wallpaper rect, obtained from the blur cache at
+  `GlassRefraction.CLARITY_RADIUS_DP` (2 dp, full size, about 15.5 MB on a 1.5×-wide frame). In
+  the band the bent edge shows it in place of the frost on x² (near the frost over the inner
+  half, half way at the band's middle, the knob's share at the rim): one extra sample, only in the band, only when the Look asks.
+  A surface frosted at 2 dp or less takes none. Until a surface binds one the frost is its own
+  clear picture and the term is zero, so a RenderEffect surface (the dock, the under-pill strip)
+  never reads an unbound shader and has no clarity. Reaches: the painter's frosts (status band,
+  window bar, palette, sheet, drawer, off-dock plank, A–Z capsule), the keyboard host and the
+  under-keyboard card, the pane slabs. Not the corner tabs.
+- **Touch light** (`uTouch*`). A finger resting on glass: the rim nearest it catches 1.5× more of
+  the Edge light, a faint glow (0.045) scatters under the fingertip, and the picture is drawn a
+  tenth of the way toward it (`TOUCH_LENS`). Light, not motion. `chrome/GlassTouchLight` drives
+  it (rise 110 ms, fall 240 ms, follows the finger) on the terminal sheet's centred card rows
+  through `GlassPress`; the dock, whose refraction is a RenderEffect that copies uniforms when
+  built, lights at once on a dock icon's down and fades in four steps 60 ms apart
+  (`chrome/DockTouchFade`), five rebuilds per tap at most. Off under reduced motion, lazy mode,
+  battery saver, and while an extra key's lens is up.
+
+Looks (bend / edge width / edge light / shine / dispersion / clarity): Clear 6/14/40/0/0/70,
+Mist 9/20/30/0/0/60, Tint 6/14/36/0/0/55, Solid unchanged with clarity 0. Preset format 4; a
+look stored earlier reads clarity 0.
+
 ## 5. Wallpapers (Fancier Glass only)
 
 **Parallax** is a user toggle for both still and video wallpapers. A video that is not 1.5× wide plays with parallax off.
