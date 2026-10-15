@@ -154,8 +154,10 @@ public class KeyboardLayoutsFragment extends Fragment {
         mAvailableList.setOrientation(LinearLayout.VERTICAL);
         root.addView(mAvailableList);
 
+        // The user list waits for the disk read; so does the cycle while a user layout in it
+        // has no name yet (a cold start), or the page opens on "zed" and redraws as "Zed".
         renderUser();
-        renderCycle();
+        if (LauncherKeyboardLayouts.userLabelsKnown(mSelection)) renderCycle();
         renderAvailable();
 
         ScrollView scroller = new ScrollView(context);

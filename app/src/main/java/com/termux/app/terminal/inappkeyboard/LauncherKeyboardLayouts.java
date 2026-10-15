@@ -9,6 +9,7 @@ import androidx.annotation.Nullable;
 import com.termux.R;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -90,6 +91,17 @@ public final class LauncherKeyboardLayouts {
         if (!isUserLayout(id)) return;
         if (label == null || label.trim().isEmpty()) sUserLabels.remove(id);
         else sUserLabels.put(id, label.trim());
+    }
+
+    /**
+     * Whether every user layout among {@code ids} has a remembered name, so a list drawn from
+     * them now shows no id-shaped stand-in that a later redraw replaces.
+     */
+    public static boolean userLabelsKnown(@NonNull Collection<String> ids) {
+        for (String id : ids) {
+            if (isUserLayout(id) && !sUserLabels.containsKey(id)) return false;
+        }
+        return true;
     }
 
     /** What a user layout is called before its file has been read: its id, made readable. */
