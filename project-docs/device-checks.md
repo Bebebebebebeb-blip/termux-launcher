@@ -57,10 +57,12 @@ under twenty items; past that, the oldest are re-judged first.
   and none along the middle of a straight edge; a small pane shows no picture from its opposite
   edge; no image jump or line on a seam (keyboard over the strip under the pill, status over the
   window bar); Solid unchanged · emulator.
-- 2026-10-15 · commit "fix(terminal-view): resolve symbol_map and fallback faces inside scaled
-  text" · `/tmp/launcher-scaled-symbols-2026-10-15/glyph-test.sh`: line 2 (s=2) shows both Nerd
-  Font icons (U+F0C5, U+F0219) at double size, centred in their 2×2 cells, no tofu; lines 1 and 3
-  look as before; Latin in a scaled block is unchanged · emulator.
+- 2026-10-15 · commits "fix(terminal-view): resolve symbol_map and fallback faces inside scaled
+  text" and "fix(terminal-view): spread a wide icon across the blanks after it in scaled text" ·
+  `/tmp/launcher-scaled-symbols-2026-10-15/glyph-test.sh`: line 2 (s=2) shows both Nerd Font
+  icons (U+F0C5, U+F0219) with no tofu, each about twice the size of the same icon on line 1 (an
+  icon followed by a space spreads over it, as at normal size), centred in the cells it covers;
+  lines 1 and 3 look as before; Latin in a scaled block is unchanged · emulator.
 
 ## Developer
 
