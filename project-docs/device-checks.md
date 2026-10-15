@@ -13,135 +13,42 @@ over; an item two releases old is re-judged and dropped if nothing rides on it. 
 under twenty items; past that, the oldest are re-judged first.
 
 ## Agent
-
-- 2026-10-12 · PR #64 · A contact chip with a photo set in Contacts: the initial swaps to the photo
-  with no shift (the reopened palette was seen showing the photo at once, 2026-10-14) · emulator;
-  the device map has the adb route to a contact with a photo.
 - 2026-10-12 · PR #65 · The widget picker opens without closing the launcher on Android 10 and 11
   (#62) · an API 29 or 30 emulator, or the reporter on the next drop.
-- 2026-10-12 · PR #67 · Export AI models with a model over 1 GB: leave Settings mid-copy, Cancel
-  from the notification removes the half-written file and keeps finished models; Export again
-  skips them · pong with the go-ahead (the emulator's smallest download is 2.4 GB).
-- 2026-10-12 · commit "feat(keyboard): paste a fresh screenshot from the paste key" · With the
-  storage permission granted and text copied first: take a screenshot, open the keyboard; the "v"
-  key's paste corner shows the photo where the paste glyph sat; paste types a path to a copy of
-  the screenshot under `$PREFIX/tmp/clipboard`; paste again gives the clipboard text and the glyph
-  is back to paste; take another screenshot and paste with a modifier: the clipboard text, while
-  the photo still shows · pong with the go-ahead.
-- 2026-10-13 · commit "feat(voice): edit the dictation card's text in place" · Tap the waiting
-  text: a blinking caret where tapped, the keyboard up under the card and the card above it
-  (docked and floating); type, backspace, arrows; ✓ inserts the edit into the shell, never into
-  the card; Undo shows the text before the edit, Redo the edit. Tap while listening pauses; tap
-  while "Cleaning up…" keeps the text as heard and the cleanup never lands. A finger scroll of 7
-  lines and a sideways swipe do not open the editor. On the Display place ✓ types into the
-  display afterwards. With the in-app keyboard off the phone's keyboard comes up and types; at
-  font scale 1.3 the caret sits on the line · pong with the go-ahead (the emulator has no speech model or microphone).
-- 2026-10-13 · commit "fix(voice): keep a Polished cleanup's line breaks to the card and the
-  insert" · A Polished list or two paragraphs show on their own lines on the card; ✓ in a shell
-  with bracketed paste keeps them, in a bare shell they arrive on one line and nothing runs ·
-  emulator, Polished cleanup on.
-- 2026-10-13 · commit "fix(launcher): scale an icon pack as one, not icon by icon" · Seen right
-  on the palette, dock, drawer and a pinned override, 2026-10-14. Still owed: an app's notification
-  icon with a pack (needs a real app posting one; `cmd notification post` shows a system icon); a
-  pack with no margin looks as it always did · emulator, icon packs from F-Droid
-  (`me.iacn.mbestyle_27.apk`; Arcticons from `https://mirror.cyberbits.eu/fdroid/repo/com.donnnno.arcticons_1570.apk`).
-- 2026-10-13 · `eff06de21`, `c111b7ed5` · Dictation cleanup from context on the phone's E2B: the
-  anchor dictation and the "translate this into French" case from
-  `project-docs/reference/voice-ai/voice-cleanup-context-rework-2026-10-13.md`, Light and Polished;
-  no "pinned app console" or "100%", the French request stays English, nothing falls back as
-  `refusal_or_answer`; cleanup's feature check passes its 500-word dictation; first-token time
-  within about 0.2 s of the old prompt's · pong with the go-ahead, the same request through
-  `/v1/chat/completions`.
-- 2026-10-13 · commit "feat(voice): clean dictation at phrase pauses while the user speaks" · A
-  90-second dictation with E2B on the GPU, Polished then Light: logcat `VoiceSessionCleanup` shows
-  `cleanup early` lines while listening and a `cleanup session` line with `cleanupMs` about 1–2 s
-  after Pause (was about 8 s); phrases keep transcribing at their usual speed while a pass runs; the
-  card shows the text as heard until it swaps once to the cleaned text with marks; the joined text
-  reads as one passage (no repeated sentence at a part boundary, a counted list on its own lines);
-  no `fallback:context_echo`. Then: edit the text mid-dictation (no cleanup lands), Pause and resume
-  (only the new speech is cleaned), and a CPU-only cleanup model (no `cleanup early` lines) · pong
-  with the go-ahead.
+- 2026-10-12 · commit "feat(keyboard): paste a fresh screenshot from the paste key" · **Failed on
+  the emulator 2026-10-15:** with a fresh screenshot waiting, paste with a latched or held Ctrl or
+  Alt still typed the screenshot's path; plain paste should give the clipboard text while the photo
+  keeps showing (`~/reports/devcheck-2026-10-15/k2g_row.png`, `k2h_term.png`). The glyph swap,
+  the path paste and the return to the paste glyph passed · emulator.
+- 2026-10-13 · commit "fix(launcher): scale an icon pack as one, not icon by icon" · Still owed:
+  an app's notification icon with a pack (needs a real app posting one; `cmd notification post`
+  shows a system icon); a pack with no margin looks as it always did · emulator, Arcticons from
+  `https://mirror.cyberbits.eu/fdroid/repo/com.donnnno.arcticons_1570.apk`.
 - 2026-10-13 · commit "feat(tai): plan a load on the typical measured drop, not the largest" · E4B
-  dictation cleanup on the GPU at 2048 is admitted with about 3.8–4 GB free (`tai logs`: a
-  `load_ok … gpu ctx=2048`, no `load refused`), both with this version's own samples and right
-  after an install that cleared them (the prior); any refusal reads `needs X MB + 768 MB floor = Y
-  MB free, Z MB available` with the GPU's figure, not the CPU seed · pong with the go-ahead.
-- 2026-10-13 · commit "feat(tai): stop a model that runs the phone under 448 MB free" · Start an
-  E4B GPU load at about 3.7 GB free with a memory hog opened beside it: `tai logs` shows an
-  `oom_guard … stopped the model to keep the phone responsive` line, the runtime goes away, the
-  launcher keeps answering throughout, and dictation keeps the text as heard; the same while a
-  long chat answer generates (cancelled and unloaded, the runtime stays) · pong with the go-ahead,
-  `adb logcat -s TaiMemory`.
-- 2026-10-13 · commit "fix(tai): book a memory stop as a stop, not a crash" · After the guard ends
-  an E4B GPU load mid-dictation: the card keeps the phrases already heard and says "Voice input
-  stopped: the speech model closed", the pill settles; within 2 min the next dictation's cleanup
-  logs `load held back on gpu` and keeps the text, `tai load gemma-4-e4b` goes ahead at its window;
-  after 2 min cleanup loads E4B on the GPU at 2048 again (no half window) · pong with the go-ahead.
-- 2026-10-13 · commit "feat(voice): detect the spoken language with Voice language on Auto" ·
-  Multilingual Whisper (Base, then Small), Voice language Auto-detect, an English keyboard layout:
-  dictate a Spanish clip through the fake mic; the strip reads "Listening… · Spanish" (or
-  "Transcribing… · Spanish") and the text is Spanish, not English; `logcat -s VoiceInputSession`
-  shows `language=es/detected heard=es@…` on the first kept phrase and `language=es/forced` after.
-  A fresh dictation of an English clip: no language on the strip, `language=en/detected`. Note each
-  phrase's `detectMs` against its `decodeMs`/`decodeSteps`, and the probability a one-word command
-  scores (the 0.8 bar) · pong; the emulator has no working microphone.
-- 2026-10-13 · commit "feat(voice): send only the sentences that need it to the cleanup model" ·
-  A real English dictation with "uh"/"um" in clean sentences and one stutter or "no wait": no
-  filler is left, the clean sentences come back word for word, and logcat `VoiceSessionCleanup`
-  shows `lang=en sent=N/M` with N below M (0 for a part with nothing to fix, `fallback:unchanged`
-  for a clean dictation). Then a Spanish (or German) dictation with "eh"/"äh": the fillers go,
-  the text stays in that language (`lang=es`), never English. No `VoiceCleanupGate` crash in the
-  first cleanup (2026-10-14: ICU rejected its `(?U)` regex, so every cleanup on pong crashed until
-  "fix(voice): a sentence split Android's regex engine accepts") · pong with the go-ahead, Light and
-  Polished.
-- 2026-09-27 · voice panel (rounds 3 and 4) · With cleanup on, dictate a passage with an "um": while
-  listening and cleaning the text is italic and dim, the cleaned text is upright with changed words
-  in the accent and removed words struck through, and the marks stay until the panel closes; Undo
-  gives the italic as-heard text, Redo the marks; ✓ inserts the plain cleaned text. Readable on the
-  light, dark and glass looks · pong with the go-ahead (the emulator has no microphone).
-- 2026-09-27 · voice panel · The screen stays on while listening, cleaning and while text waits, and
-  sleeps after about 3 minutes untouched (a touch on the pill restarts them); ×, ✓, Copy, a swipe
-  and leaving the app let it time out at once · pong, screen timeout 30 s.
-- 2026-09-27 · voice panel · The grab handle under the card: dragging moves pill and panel inside
-  the place (under the status bar, above the keyboard), a sideways swipe on it never discards; the
-  next dictation starts where it was left, landscape keeps its own place, a double tap returns to
-  the top-right corner · pong with the go-ahead (the emulator cannot put text on the card).
+  GPU cleanup is admitted with about 3.8–4 GB free (`tai logs`: `load_ok … gpu ctx=2048`, no
+  `load refused`), and any refusal reads `needs X MB + 768 MB floor = Y MB free, Z MB available`
+  with the GPU's figure. Seen loading from 6.4 GB free on 2026-10-15 (`ctx=4096`); the low-memory
+  case is still unseen · pong with the go-ahead, a 0.25 s MemAvailable watchdog that unloads
+  below 2 GB.
 - 2026-10-14 · commit "feat(keyboard): edit, reset and create layouts in Settings › Layouts" ·
-  Rows, icons, add/remove/reorder, search and the removed "Custom layout" row were seen on the
-  emulator, 2026-10-14. Still owed: TalkBack reads the 48dp icons; the cycle rows leave the title
-  readable at 360dp; the 16-layout cap · emulator.
-- 2026-10-14 · same commit · Editor: the error line, Save greyed and off until a change, the
-  discard question and rotation were seen, 2026-10-14. Still owed: typing with the system keyboard
-  and the field shrinking above it (the emulator never drew the IME), horizontal and vertical
-  scrolling of the XML field · emulator, or pong with the go-ahead.
-- 2026-10-14 · commit "feat(keyboard): slide a layout row's buttons open beneath it" · Opening,
-  closing, repeated ↑ and + on a catalogue row were seen, 2026-10-14. Still owed: about 200 ms and
-  a snap with animations off (judge on pong, the emulator renders on the CPU); TalkBack reads
-  "name, second line, actions hidden" and offers Show/Hide · pong with the go-ahead.
+  Still owed: TalkBack reads the 48dp icons (force-stop TalkBack's tutorial first, then relaunch
+  the app). Opening Layouts right after a density or font change briefly shows a user layout as
+  lowercase "zed" with an empty Your layouts before it corrects itself
+  (`~/reports/devcheck-2026-10-15/d1.png`) · emulator.
 - 2026-10-14 · commit "fix(keyboard): readable rebuilt layouts, no fallback flash on a first
-  swap" · Readable slot names were seen, 2026-10-14. Still owed: right after creating a user layout
-  that differs from the launcher layout and adding it to the cycle, the first swap shows it at once
-  with no launcher-layout flash · emulator.
-- 2026-10-14 · commit "feat(terminal): touch reports, private mode 5523" · In a pane run
-  `stty raw -echo; printf '\033[?5523h'; timeout 20 cat -v; stty sane`. A one-finger drag prints
-  `^[[<0;0;X;Y;Tt` then `<1;0;…` moves and one `<2;0;…` up, pixels growing the way the finger went
-  and times rising; a two-finger pinch adds `<0;1;…` and both ids move; nothing scrolls, selects,
-  clicks or zooms the font. A finger in the padding outside the grid prints nothing. With
-  `printf '\033[?1000h\033[?1006h'` also set, a real mouse click still prints `^[[<0;…M` and
-  `…m`, not a touch report · emulator (pinch through the emulator's multi-touch), or pong with the
-  go-ahead.
-- 2026-10-14 · commit "feat(window-bar): terminal-browser wears its whole name and a globe" · A
-  window whose shell runs `terminal-browser open en.wikipedia.org` (tlstore's build): its chip reads
-  "terminal-browser" in full, not cut, with the globe glyph, and goes back to the directory after
-  Ctrl+Q; the windows beside it keep their usual widths · pong with the go-ahead.
-- 2026-10-15 · PR #75 · Touch light on a sheet card row: open the terminal action sheet and hold
-  Kill process; the rim nearest the finger lights, a faint glow sits under the fingertip, and both
-  fade within a quarter second of lifting. Nothing lights under Reduce motion, lazy mode or battery
-  saver · emulator, tl16.
-- 2026-10-15 · PR #75 · Edge clarity on the pane slabs under Floating, on the Widgets page and on
-  the Display page under Clear and Mist: the bent edge shows a clearer wallpaper, the frost inside
-  is unchanged, corners and hairlines clean; the same with RTL layout on and font scale 1.3 ·
-  emulator, tl16.
+  swap" · A later swap to a new user layout showed it at once, 2026-10-15; still owed: the very
+  first swap right after creating the layout and adding it to the cycle, captured from the tap ·
+  emulator.
+- 2026-10-15 · PR #75 · Touch light on a sheet card row. The terminal action sheet's Kill process
+  row is a flat light list with a grey press highlight, no rim light or glow (2026-10-15,
+  `~/reports/devcheck-2026-10-15/a9holdcrop.png`); find a sheet whose rows are centred glass
+  cards (the `GlassPress` overload's callers) and hold one: the nearest rim lights, a faint glow
+  sits under the finger, both fade within a quarter second. Nothing lights under Reduce motion,
+  lazy mode or battery saver · emulator.
+- 2026-10-15 · PR #75 · Edge clarity on the Widgets and Display pages under Mist, and with RTL on
+  (`debug.force_rtl` did not mirror the app; use the developer option or an RTL locale): the bent
+  edge shows a clearer wallpaper, the frost inside is unchanged, corners and hairlines clean. The
+  pane slab under Floating at Clear passed, also at font scale 1.3 · emulator.
 
 ## Developer
 
@@ -199,3 +106,26 @@ under twenty items; past that, the oldest are re-judged first.
   more clearly than the frost; it should read as real glass, not a double line or a halo. Frame
   timing with the Looks' values: page slides, keyboard up/down and a dock tap at 90 Hz, no frame
   over 11 ms · `scripts/perf-baseline.sh`, pong, by hand.
+- 2026-10-15 · voice, by voice only (nothing over adb can start a dictation; the agent routes
+  through the API passed on 2026-10-15) · In one sitting on pong: tap the waiting text on the
+  dictation card to edit it (caret where tapped, keyboard under the card, ✓ inserts the edit, Undo
+  and Redo, a 7-line scroll does not open the editor); a Polished list shows on its own lines and
+  pastes whole in a shell with bracketed paste; a 90-second dictation with E2B on the GPU shows
+  `cleanup early` lines in logcat while listening and the cleaned text lands 1–2 s after Pause,
+  with `lang=en sent=N/M` lines and no `fallback:context_echo`; with a multilingual Whisper model
+  Voice language Auto-detect names a non-English language on the card; an "um" is struck through
+  and changed words are in the accent, Undo gives the as-heard text; the screen stays on while
+  listening and sleeps after about 3 minutes untouched (timeout 30 s); the grab handle moves pill
+  and panel, a sideways swipe never discards, a double tap returns it to the top-right · pong, by
+  hand.
+- 2026-10-13 · commit "feat(tai): stop a model that runs the phone under 448 MB free" and "fix(tai):
+  book a memory stop as a stop, not a crash" · Start an E4B GPU load at about 3.7 GB free with a
+  memory hog beside it: `tai logs` shows `oom_guard … stopped the model to keep the phone
+  responsive`, the runtime goes away, the launcher and Shizuku stay up, and the Model centre and
+  `tai logs` book it as a stop, not a crash. Not run by the agent: the 2 GB watchdog would unload
+  first and a load like this froze the phone once · pong, by hand, with everything saved.
+- 2026-10-14 · commit "feat(keyboard): slide a layout row's buttons open beneath it" · On pong the
+  row opened in about 0.3 s with animations on, ripple included (`~/reports/devcheck-2026-10-15-pong/03-row-open-anim1.mp4`);
+  judge whether that reads as the intended ~200 ms. TalkBack reads "name, second line, actions
+  hidden" and offers Show/Hide. Typing in the layout editor with the phone's keyboard shrinks the
+  XML field above it · pong, by hand.
