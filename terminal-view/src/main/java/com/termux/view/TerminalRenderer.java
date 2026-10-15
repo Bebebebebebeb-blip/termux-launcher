@@ -1105,9 +1105,10 @@ public final class TerminalRenderer {
      * <p>The three passes are kept apart exactly as the direct path keeps them: every row's
      * backgrounds and cursor block first, then every row's glyphs, then every row's images, so
      * overhanging ink is never covered by the next row's fill and an image still lands over the
-     * cells it covers. Each node spans the whole view and is recorded in the same
-     * coordinates the direct path draws in, so nothing about where a row lands, how its cell edges
-     * snap, or how far its glyphs may reach depends on which path drew it.
+     * cells it covers. Each node spans the whole view and is recorded as the first row would be,
+     * then moved down to its own row by a whole number of line heights, so it lands on exactly the
+     * pixels the direct path draws it on: nothing about where a row lands, how its cell edges snap,
+     * or how far its glyphs may reach depends on which path drew it.
      */
     private boolean drawRowsThroughNodes(TerminalEmulator mEmulator, Canvas canvas,
                                          TerminalBuffer screen, int[] palette, int topRow,
@@ -1156,8 +1157,10 @@ public final class TerminalRenderer {
         mRowCache.beginFrame(mEmulator, mEmulator.mRows, columns, topRow, extraRows,
             horizontalOffset, transparentBackground, transparentOverlayColor, reverseVideo,
             boldWithBright, palette, viewWidth, viewHeight, visibleRows);
-        // Sizing the nodes after the cache, so a pane that lost rows drops their recordings here.
+        // Sizing the nodes after the cache, so a pane that lost rows drops their recordings here,
+        // and moving them as the cache moved the rows' states, so a scrolled row keeps its own.
         nodes.resize(visibleRows);
+        nodes.shift(mRowCache.lastShift());
         final int cursorColor = palette[TextStyle.COLOR_INDEX_CURSOR];
         final long placementGeneration = mEmulator.getKittyPlacementGeneration();
         mImageGenerationSource = mEmulator;
@@ -1221,7 +1224,13 @@ public final class TerminalRenderer {
             background.setClipToBounds(false);
             glyphs.setClipToBounds(false);
             images.setClipToBounds(false);
-            final float heightOffset = mFontLineSpacingAndAscent + (index + 1) * mFontLineSpacing;
+            // Each row is recorded as if it were the first and moved to its index when drawn, so
+            // after a scroll a row still on screen replays its recording at its new place.
+            final float rowTop = index * (float) mFontLineSpacing;
+            background.setTranslationY(rowTop);
+            glyphs.setTranslationY(rowTop);
+            images.setTranslationY(rowTop);
+            final float heightOffset = mFontLineSpacingAndAscent + mFontLineSpacing;
             if (carriesAnImage) {
                 // The pixels a placeholder or a bitmap cell draws from are replaced without any
                 // input the cache compares moving, so this node is re-recorded whenever the
@@ -1261,9 +1270,9 @@ public final class TerminalRenderer {
                 drawRowGlyphs(mEmulator, into, lineObject, palette, heightOffset, columns, cursorX,
                     span.columns, cursorVisible, cursorShape, selx1, selx2, boldWithBright,
                     reverseVideo, horizontalOffset, true, mUrlUnderlines.segmentsFor(index));
-                // The block a row heads reaches down over the rows beneath it. Nodes are recorded
-                // in the view's own coordinates and never clipped to their row, so the tall layer
-                // D4 asks for is this one node — which is why the whole group was dirtied above.
+                // The block a row heads reaches down over the rows beneath it. Nodes are never
+                // clipped to their row and are moved whole to it, so the tall layer D4 asks for is
+                // this one node — which is why the whole group was dirtied above.
                 drawRowTextBlocks(into, screen, lineObject, palette, heightOffset, row, topRow,
                     columns, cursorX, span.columns, cursorShape, selection, boldWithBright,
                     reverseVideo, horizontalOffset);
