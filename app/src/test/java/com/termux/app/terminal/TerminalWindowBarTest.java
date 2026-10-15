@@ -475,6 +475,17 @@ public class TerminalWindowBarTest {
         assertEquals(ProcessGlyphs.DEFAULT, TerminalWindowBar.glyphOf(unknown.label));
     }
 
+    /** "termi…ser" names nothing: terminal-browser keeps its whole name, under a globe. */
+    @Test
+    public void terminalBrowserWearsItsWholeNameAndTheGlobe() {
+        TerminalWindowBar.WindowItem browser =
+            TerminalWindowBar.itemForForegroundProcess("terminal-browser", null);
+        assertEquals(new String(Character.toChars(0xF059F)), TerminalWindowBar.glyphOf(browser.label));
+        assertEquals("terminal-browser", TerminalWindowBar.titleOf(browser.label));
+        // Every other long name is still cut to nine.
+        assertEquals("some-…ool", TerminalWindowBar.truncateProcess("some-long-tool"));
+    }
+
     /**
      * A shell that reports a percentage gets a filling ring rather than a turning one, so nothing
      * needs frames — and the number is spoken, since the ring cannot be.

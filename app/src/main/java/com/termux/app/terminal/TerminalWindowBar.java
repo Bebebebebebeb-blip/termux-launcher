@@ -42,8 +42,10 @@ import com.termux.terminal.TerminalSession;
 import com.termux.view.TerminalRenderer;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /** One compact app-owned row for the current tmux-style window list. */
 public final class TerminalWindowBar extends HorizontalScrollView {
@@ -871,7 +873,7 @@ public final class TerminalWindowBar extends HorizontalScrollView {
             if (!force && shown instanceof WindowItem && ((WindowItem) shown).sameActivity(item)
                 && ((WindowItem) shown).label.equals(item.label)) continue;
             if (!(shown instanceof WindowItem) || !((WindowItem) shown).label.equals(item.label)) {
-                ((TextView) child).setText(tabText(item));
+                setTitle((TextView) child, item);
             }
             applyChipWatermark((TextView) child, item, i == mSelectedIndex ? 1f : 0f);
             child.setTag(R.id.terminal_window_tab_state, item);
@@ -893,6 +895,12 @@ public final class TerminalWindowBar extends HorizontalScrollView {
         String title = titleOf(item.label);
         return TerminalLabelSymbolSpans.apply(
             com.termux.shared.termux.font.NerdFontSpans.span(getContext(), title), mSymbolMaps);
+    }
+
+    /** The pill's text, and the width that text may take. */
+    private void setTitle(@NonNull TextView tab, @NonNull WindowItem item) {
+        tab.setMaxWidth(dp(WHOLE_NAMES.contains(titleOf(item.label)) ? WIDE_CHIP_MAX_DP : 104));
+        tab.setText(tabText(item));
     }
 
     /** The label without the process glyph the factories put in front of it. */
@@ -1229,7 +1237,6 @@ public final class TerminalWindowBar extends HorizontalScrollView {
         TextView tab = new TextView(context);
         tab.setGravity(Gravity.CENTER);
         tab.setMinWidth(0);
-        tab.setMaxWidth(dp(104));
         // A half-dp on each side is visible at modern phone densities without making the compact
         // window row feel loose; the leading side carries the title's nudge past the glyph too.
         tab.setPaddingRelative(dp(3.5f) + dp(ChipWatermarkGeometry.TITLE_NUDGE_DP), 0,
@@ -1241,7 +1248,7 @@ public final class TerminalWindowBar extends HorizontalScrollView {
         // Bundled symbols face first, symbol_map faces second: both spans land on a shared PUA
         // run, and the later-applied user-configured face wins at draw time — the bundled Nerd
         // Font glyphs only ever fill runs no symbol_map claims.
-        tab.setText(tabText(item));
+        setTitle(tab, item);
         tab.setTag(R.id.terminal_window_tab_state, item);
         tab.setTextColor(selected ? mSelectedTextColor : mUnselectedTextColor);
         tab.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
@@ -2095,8 +2102,18 @@ public final class TerminalWindowBar extends HorizontalScrollView {
      */
     static final int LABEL_MAX_CHARS = 9;
 
+    /**
+     * Programs whose name only reads as itself whole: cut to nine characters, terminal-browser is
+     * "termi…ser", which names nothing. Their chips get {@link #WIDE_CHIP_MAX_DP} to hold it.
+     */
+    private static final Set<String> WHOLE_NAMES = Collections.singleton("terminal-browser");
+
+    /** The widest chip, for a {@link #WHOLE_NAMES} label: sixteen characters at 10.5sp. */
+    private static final int WIDE_CHIP_MAX_DP = 124;
+
     @NonNull
     public static String truncateProcess(@NonNull String process) {
+        if (WHOLE_NAMES.contains(process)) return process;
         return middleEllipsize(process, LABEL_MAX_CHARS);
     }
 
