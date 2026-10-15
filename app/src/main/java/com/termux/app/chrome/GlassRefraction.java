@@ -29,8 +29,8 @@ import java.util.Arrays;
  * way at its middle, all of it at the rim. The bend does two things at once. It pulls the sample
  * inward along the rim's own normal, so the picture compresses toward the edge, and it magnifies
  * the picture under the band toward the surface's centre in both axes, the way a thick slab's
- * rounded edge acts as a lens: a line that crosses an edge kinks there instead of only smearing
- * along it, and on a large surface the picture at the very rim folds back on itself. The face
+ * rounded edge acts as a lens, by no more than the pull itself, so a large surface and a small one
+ * kink alike: a line that crosses an edge kinks there instead of only smearing along it. The face
  * inside the band samples exactly where it is. It then lays a hairline of light about 1.5 dp
  * wide where the edge catches it, lit from above and a little to the left with a weaker light
  * answering from below, so the top edge is bright, the bottom edge softer and the sides faint, as
@@ -120,8 +120,9 @@ public final class GlassRefraction {
 
         /**
          * The slab lens at the bend slider's maximum: under the rim the picture is drawn this
-         * share of the way toward the surface's centre. It scales with the bend, so the Bend
-         * slider drives both the pull along the normal and the lens.
+         * share of the way toward the surface's centre, but never further than the pull along the
+         * normal at that pixel, so it does not grow with the surface. It scales with the bend, so
+         * the Bend slider drives both the pull and the lens.
          */
         static final float MAX_SLAB_LENS = 0.25f;
 
@@ -419,6 +420,16 @@ public final class GlassRefraction {
         "    float3 h = float3(dot(uLocalX, p), dot(uLocalY, p), dot(uLocalW, p));\n" +
         "    return (h.xy / h.z - uFrameOffset) / uFrameScale;\n" +
         "}\n" +
+        // The slab lens's offset for a sample already pulled along the normal to `bent`: toward the
+        // surface's centre by uSlab * e of the way, but never further than the pull itself
+        // (e * uStrength), so a full-width dock and a small pane kink a line by the same few dp at
+        // the rim. Zero at e 0. slabOffset in Java is the same arithmetic.
+        "float2 slabOffset(float2 bent, float2 center, float e) {\n" +
+        "    float2 d = (bent - center) * (uSlab * e);\n" +
+        "    float cap = e * uStrength;\n" +
+        "    float len = length(d);\n" +
+        "    return len > cap ? d * (cap / len) : d;\n" +
+        "}\n" +
         "half4 main(float2 fragCoord) {\n" +
         "    float2 center = (uRectMin + uRectMax) * 0.5;\n" +
         "    float2 b = (uRectMax - uRectMin) * 0.5;\n" +
@@ -433,12 +444,13 @@ public final class GlassRefraction {
         "    float x = clamp(1.0 - inside / uBand, 0.0, 1.0);\n" +
         "    float e = x * x;\n" +
         // The slab: the sample is pulled inward along the rim's normal by e * uStrength, and the
-        // picture under the band is magnified toward the surface's centre by uSlab * e in both axes,
-        // so a line crossing an edge kinks there rather than only smearing along the normal. Both
-        // are offsets from fragCoord that vanish at e 0: a face pixel samples exactly where it is.
-        // A seam edge lies past the band (rimRect), so neither reaches it.
+        // picture under the band is magnified toward the surface's centre in both axes
+        // (slabOffset, no longer than the pull), so a line crossing an edge kinks there rather than
+        // only smearing along the normal. Both are offsets from fragCoord that vanish at e 0: a face
+        // pixel samples exactly where it is. A seam edge lies past the band (rimRect), so neither
+        // reaches it.
         "    float2 bent = fragCoord - n * (e * uStrength);\n" +
-        "    float2 sampleCoord = bent - (bent - center) * (uSlab * e);\n" +
+        "    float2 sampleCoord = bent - slabOffset(bent, center, e);\n" +
         // A finger on the glass: its reach, 1 under the fingertip and 0 at uTouchRadius. The
         // picture is drawn a little toward the touch (a shallow lens, uTouchLens of the distance
         // at most), and the glow and the rim light below reuse the same reach.
@@ -461,7 +473,7 @@ public final class GlassRefraction {
         "            float fade = smoothstep(0.0, max(uLensFeather, 1.0), ld) * uLensActive;\n" +
         "            float2 lensCoord = uLensCenter + lp * k;\n" +
         "            float2 lensBent = lensCoord - n * (e * uStrength);\n" +
-        "            lensBent = lensBent - (lensBent - center) * (uSlab * e);\n" +
+        "            lensBent = lensBent - slabOffset(lensBent, center, e);\n" +
         "            sampleCoord = mix(sampleCoord, lensBent, fade);\n" +
         "            lensGlow = fade * (1.0 - rr);\n" +
         "        }\n" +
@@ -563,6 +575,23 @@ public final class GlassRefraction {
         float hw = local[6] * x + local[7] * y + local[8];
         out[0] = (hx / hw - offsetX) / Math.max(1e-4f, scaleX);
         out[1] = (hy / hw - offsetY) / Math.max(1e-4f, scaleY);
+    }
+
+    /**
+     * The program's slab lens offset, into {@code out}: for a sample pulled along the normal to
+     * {@code (bentX, bentY)} on a surface centred at {@code (centerX, centerY)}, the offset toward
+     * the centre, {@code slab * e} of the way there but never longer than {@code e * strengthPx}.
+     * The AGSL's {@code slabOffset}, for tests.
+     */
+    static void slabOffset(float bentX, float bentY, float centerX, float centerY, float slab,
+                           float e, float strengthPx, @NonNull float[] out) {
+        float dx = (bentX - centerX) * (slab * e);
+        float dy = (bentY - centerY) * (slab * e);
+        float cap = e * strengthPx;
+        float len = (float) Math.hypot(dx, dy);
+        float k = len > cap ? cap / len : 1f;
+        out[0] = dx * k;
+        out[1] = dy * k;
     }
 
     /** The key lens's own strength and feather, which no knob reaches: the press reads the same in both modes. */

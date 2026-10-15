@@ -199,7 +199,41 @@ public class GlassRefractionTest {
         // exactly fragCoord rather than a rounding of centre + (fragCoord - centre).
         assertTrue(GlassRefraction.AGSL.contains("float2 bent = fragCoord - n * (e * uStrength);"));
         assertTrue(GlassRefraction.AGSL.contains(
-            "float2 sampleCoord = bent - (bent - center) * (uSlab * e);"));
+            "float2 sampleCoord = bent - slabOffset(bent, center, e);"));
+    }
+
+    @Test
+    public void theSlabLensNeverReachesFurtherThanThePull() {
+        // The program caps the lens at the pull: the same expression the Java mirror runs.
+        assertTrue(GlassRefraction.AGSL.contains("float cap = e * uStrength;"));
+        assertTrue(GlassRefraction.AGSL.contains("return len > cap ? d * (cap / len) : d;"));
+        GlassRefraction.Look clear = new GlassRefraction.Look(14, 28, 70);
+        float slab = clear.slabLens();
+        float pull = clear.strengthPx(DENSITY);
+        float[] out = new float[2];
+
+        // A full-width dock's top band near its left end, at the rim (e 1): uncapped this is
+        // 0.117 of 540 px, about 63 px; capped it is the 14 dp pull, in the same direction.
+        GlassRefraction.slabOffset(0f, 0f, 540f, 60f, slab, 1f, pull, out);
+        assertEquals(pull, (float) Math.hypot(out[0], out[1]), 1e-3f);
+        assertEquals(540f / 60f, out[0] / out[1], 1e-3f);
+
+        // A small pane's rim, 40 px from its centre: the uncapped offset is already under the pull.
+        GlassRefraction.slabOffset(0f, 0f, 40f, 0f, slab, 1f, pull, out);
+        assertEquals(-40f * slab, out[0], 1e-4f);
+        assertEquals(0f, out[1], 0f);
+
+        // Two surfaces of very different size kink by the same amount once both are capped.
+        float[] wide = new float[2];
+        GlassRefraction.slabOffset(0f, 0f, 2000f, 0f, slab, 0.5f, pull, wide);
+        GlassRefraction.slabOffset(0f, 0f, 800f, 0f, slab, 0.5f, pull, out);
+        assertEquals(wide[0], out[0], 1e-4f);
+        assertEquals(-0.5f * pull, out[0], 1e-4f);
+
+        // The face (e 0) takes none.
+        GlassRefraction.slabOffset(0f, 0f, 540f, 60f, slab, 0f, pull, out);
+        assertEquals(0f, out[0], 0f);
+        assertEquals(0f, out[1], 0f);
     }
 
     @Test
