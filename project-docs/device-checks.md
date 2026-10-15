@@ -160,3 +160,17 @@ under twenty items; past that, the oldest are re-judged first.
   never touch; an A–Z scrub's matches in that row are the same size; the Icon size slider reads
   the bigger icon, and adding an A–Z row in Layout shrinks the icons back to today's size · pong,
   by hand.
+- 2026-10-15 · commit "perf(terminal): replay the grid between row crossings of a smooth scroll"
+  · Drag, fling and let settle a long transcript in the normal buffer, one pane and split, with a
+  transparent frame and an opaque one, keyboard up and down: every frame looks as before (no
+  blank or stale grid, the row coming in at the bottom and leaving at the top is whole, the find
+  overlay and the padding fill track the text); output arriving and the cursor blinking mid-scroll
+  show at once; a pane snapshot (split reveal) mid-fling is whole; on Android 10 the
+  `Terminal.scrollCache.draw` frames in a trace cost one node draw, not a render · pong, by hand.
+- 2026-10-15 · commit "perf(terminal): keep a scrolled row's recording, record only the rows that
+  came in" · Fill the transcript with mixed content (bold, 256 colours, a URL with underlines on,
+  a kitty image if easy, and a few text sizing blocks: `printf '\e]66;s=2;Big\a\n'`, no probe
+  exists in project-docs/verification), then drag and fling through it, one pane and split: every
+  row lands where it did before, rows under a text block and the block itself stay whole and in
+  place (also with the block's anchor just above the top edge), the cursor row looks right when it
+  scrolls back in, and the row entering at the bottom is whole · pong, by hand.
