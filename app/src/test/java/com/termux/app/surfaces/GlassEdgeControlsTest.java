@@ -149,6 +149,28 @@ public class GlassEdgeControlsTest {
     }
 
     @Test
+    public void aRememberedPositionOnTheSameStretchReadsBackWhereItWasLeft() {
+        // 87 writes Clear's 26/26, as 85 (the stretch's first position) does.
+        GlassEdgeControls.Edge clear = new GlassEdgeControls.Edge(26, 26, 30, 0, 35, 100)
+            .withDepth(87);
+        assertEquals(85, clear.depth());
+        assertEquals(87, clear.depth(87));
+        assertEquals(85, clear.depth(GlassEdgeControls.NONE));
+        // A remembered position that no longer writes the stored edge (a Look, an Undo, another
+        // writer) is ignored: the nearest position reads as before.
+        assertEquals(85, clear.depth(84));
+        assertEquals(85, clear.depth(150));
+        assertEquals(GlassEdgeControls.depthFor(24, 30),
+            new GlassEdgeControls.Edge(24, 30, 28, 0, 30, 90).depth(80));
+
+        // Highlight is one to one below the middle, so only an equal position is kept.
+        GlassEdgeControls.Edge lit = clear.withHighlight(70);
+        assertEquals(70, lit.highlight(70));
+        assertEquals(70, lit.highlight(69));
+        assertEquals(70, lit.highlight(GlassEdgeControls.NONE));
+    }
+
+    @Test
     public void readingAnOldCustomChangesNothing() {
         GlassEdgeControls.Edge custom = new GlassEdgeControls.Edge(13, 32, 60, 20, 20, 90);
         custom.depth();

@@ -275,6 +275,14 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     @Nullable private String mEntrySignature;
     /** The Custom values of this session, kept while a Look is showing. */
     @NonNull private final SessionCustom mSessionCustom = new SessionCustom();
+    /**
+     * The last Depth and Highlight positions the user set this session, so a thumb left on a
+     * flat stretch of the curve reads back where it was left
+     * ({@link GlassEdgeControls.Edge#depth(int)}). Not stored: cleared at open, when a Look is
+     * picked, and by Undo or Discard.
+     */
+    private int mDepthSet = GlassEdgeControls.NONE;
+    private int mHighlightSet = GlassEdgeControls.NONE;
     private int mEntryStop = AppearanceLooks.CUSTOM_STOP;
     /** The Look slider's stop. */
     private int mStop = AppearanceLooks.CUSTOM_STOP;
@@ -567,6 +575,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         mEntry = AppearanceSnapshot.capture(prefs);
         mEntrySignature = mEntry.signature();
         mSessionCustom.clear();
+        forgetGlassEdgePositions();
         mStop = matchingStop();
         // At the Custom stop as it was left: the slider moves there without writing anything,
         // as a tap on an element at a Look stop does; Undo comes back to it.
@@ -1903,9 +1912,9 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             case APP_ICONS:
                 return AppearanceLooks.appIconsValueFor(prefs.getAppLauncherButtonCount());
             case DEPTH:
-                return glassEdgeOf(prefs).depth();
+                return glassEdgeOf(prefs).depth(mDepthSet);
             case HIGHLIGHT:
-                return glassEdgeOf(prefs).highlight();
+                return glassEdgeOf(prefs).highlight(mHighlightSet);
             case CLEAR_EDGE:
                 return glassEdgeOf(prefs).clearEdge();
             case CONTRAST:
@@ -2162,12 +2171,14 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                 GlassEdgeControls.Edge next = edge.withDepth(written);
                 prefs.setFancierGlassBendDp(next.bend);
                 prefs.setFancierGlassEdgeWidthDp(next.width);
+                mDepthSet = written;
                 break;
             }
             case HIGHLIGHT: {
                 GlassEdgeControls.Edge next = edge.withHighlight(written);
                 prefs.setFancierGlassEdgeLightPercent(next.light);
                 prefs.setFancierGlassSpecularPercent(next.specular);
+                mHighlightSet = written;
                 break;
             }
             case CLEAR_EDGE:
@@ -2176,6 +2187,11 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             default: return;
         }
         requestPreview(SurfaceEditorProperties.PREVIEW_SURFACES);
+    }
+
+    private void forgetGlassEdgePositions() {
+        mDepthSet = GlassEdgeControls.NONE;
+        mHighlightSet = GlassEdgeControls.NONE;
     }
 
     /** The six stored glass edge values. */
@@ -2207,6 +2223,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             if (leavingCustom)
                 mSessionCustom.leave(into);
             SurfacePresets.apply(into, look);
+            forgetGlassEdgePositions();
             mStop = stop;
             return true;
         }
@@ -3322,6 +3339,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             return;
         mEntry.restore(prefs);
         mSessionCustom.clear();
+        forgetGlassEdgePositions();
         mStop = mEntryStop;
         mTarget = null;
         syncAfterBulkWrite();

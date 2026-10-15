@@ -33,6 +33,9 @@ public final class GlassEdgeControls {
     public static final int MIN = 0;
     public static final int MAX = 100;
 
+    /** No remembered position: the slider reads where its stored values put it. */
+    public static final int NONE = -1;
+
     private static final int BEND_RANGE =
         TERMUX_APP.MAX_FANCIER_GLASS_BEND - TERMUX_APP.MIN_FANCIER_GLASS_BEND;
     private static final int WIDTH_RANGE =
@@ -152,6 +155,22 @@ public final class GlassEdgeControls {
 
         public int highlight() {
             return highlightFor(light, specular);
+        }
+
+        /**
+         * Where Depth stands, keeping a {@code remembered} position the user set while it still
+         * writes exactly this edge: a flat stretch of the curve then reads back where the thumb
+         * was left, not at the stretch's first position. {@link #NONE} reads as {@link #depth()}.
+         */
+        public int depth(int remembered) {
+            return remembered >= MIN && remembered <= MAX && equals(withDepth(remembered))
+                ? remembered : depth();
+        }
+
+        /** Where Highlight stands, keeping a {@code remembered} position as {@link #depth(int)}. */
+        public int highlight(int remembered) {
+            return remembered >= MIN && remembered <= MAX && equals(withHighlight(remembered))
+                ? remembered : highlight();
         }
 
         public int clearEdge() {
