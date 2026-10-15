@@ -63,7 +63,7 @@ pane. Output is JSON; a refusal prints its JSON and exits 1, a command-line mist
 | Put text on the clipboard | `launcherctl.md` | `launcherctl clipboard copy "text"` / `cmd \| launcherctl clipboard copy` |
 | Show an image | `terminal.md` | `sh "<skill dir>/scripts/show.sh" out.png` |
 | Use kitty graphics/text-sizing/links directly | `terminal.md` | — |
-| Open a browser or Linux app on the display | `display.md` | `launcherctl launch firefox` |
+| Open a Linux app on the display | `display.md` | `launcherctl launch <app>` |
 | Show or drive a web page beside the user | *terminal-browser* below | `terminal-browser --help` |
 | Answer how the launcher works or how to set it up | `help.md` | — |
 
@@ -106,7 +106,7 @@ OSC 99 / OSC 9;4 / OSC 52 escapes run, just reachable over HTTP.
 - Never `write` secrets into a pane — it's visible on screen.
 - Name panes by id. Never rely on whichever pane the user has focused.
 - Clear a progress ring when you're actually done; don't leave it spinning.
-- No screenshot exists anywhere in this stack — if you open a browser for the user, say plainly
-  that you can't see what it renders.
+- No screenshot exists anywhere in this stack. A web page you can read and drive only through
+  terminal-browser; anything on the X11 display you cannot see, so say so plainly.
 - If `launcherctl agent install-hooks` has already wired Claude Code's hooks, your working/idle/
   blocked status reports itself — don't also spam `launcherctl agent` calls by hand.
