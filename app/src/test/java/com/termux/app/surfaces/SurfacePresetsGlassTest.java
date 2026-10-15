@@ -79,9 +79,9 @@ public class SurfacePresetsGlassTest {
     @Test
     public void clearTintAndSolidCarryTheRecipesOfTheSpec() {
         assertRecipe(preset("minimal"), 4, 10, 4, 26, 26, 30, 35, 100); // re-tuned for the lobe and the deeper bend
-        assertRecipe(preset("stock"), 10, 46, 10, 20, 26, 25, 0, 85); // re-tuned for the lobe and the deeper bend
+        assertRecipe(preset("stock"), 10, 46, 10, 20, 22, 25, 0, 85); // on the Depth slider's curve
         assertRecipe(preset("solid"), 0, 92, 0, 0, 1, 0, 0, 0);
-        assertRecipe(preset("frost"), 25, 60, 8, 24, 30, 28, 30, 90); // re-tuned for the lobe and the deeper bend
+        assertRecipe(preset("frost"), 25, 60, 8, 24, 24, 28, 30, 90); // on the Depth slider's curve
         assertEquals(TERMUX_APP.GLASS_TINT_MATERIAL,
             preset("stock").values.get(TERMUX_APP.KEY_SURFACE_GLASS_TINT));
 
@@ -91,7 +91,7 @@ public class SurfacePresetsGlassTest {
         assertEquals(TERMUX_APP.GLASS_TINT_MATERIAL, preferences.getSurfaceGlassTint());
         assertEquals(TERMUX_APP.GLASS_RIM_HAIRLINE, preferences.getSurfaceGlassRim());
         assertEquals(TERMUX_APP.GLASS_MOTION_CLASSIC, preferences.getSurfaceGlassMotion());
-        assertEquals(26, preferences.getFancierGlassEdgeWidthDp());
+        assertEquals(22, preferences.getFancierGlassEdgeWidthDp());
         assertEquals(85, preferences.getFancierGlassClarityPercent());
         assertTrue(SurfacePresets.matches(preferences, preset("stock")));
     }
