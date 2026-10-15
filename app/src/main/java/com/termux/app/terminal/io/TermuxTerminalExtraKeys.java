@@ -121,11 +121,7 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
             if (terminalView != null && terminalView.mEmulator != null)
                 terminalView.mEmulator.toggleAutoScrollDisabled();
         } else if (key != null && key.startsWith(LAUNCHER_TOOL_KEY_PREFIX)) {
-            org.json.JSONObject result = runLauncherToolKey(key.substring(LAUNCHER_TOOL_KEY_PREFIX.length()));
-            // Mouse mode's readout is the state it landed in, not the key's name.
-            if (result.has("mouseMode"))
-                mActivity.showExtraKeyPressReadout(mActivity.getString(result.optBoolean("mouseMode")
-                    ? com.termux.R.string.extra_key_readout_mouse_mode_on : com.termux.R.string.extra_key_readout_mouse_mode_off));
+            runLauncherToolKey(key.substring(LAUNCHER_TOOL_KEY_PREFIX.length()));
         } else {
             // The column stands beside the display too: Esc, Tab, the arrows and the rest go
             // wherever the keyboard's keys go, and only an unclaimed key types into the terminal.
@@ -191,10 +187,7 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
         return label.append(key).toString();
     }
 
-    /**
-     * Tools whose effect is its own readout: the wall's places, mouse mode (which chips itself and
-     * reads out the state it landed in), and dictation's pill.
-     */
+    /** Tools whose effect is its own readout: the wall's places, mouse mode, which chips itself, and dictation's pill. */
     private static boolean announcesItself(@NonNull String key) {
         if (!key.startsWith(LAUNCHER_TOOL_KEY_PREFIX)) return false;
         String spec = key.substring(LAUNCHER_TOOL_KEY_PREFIX.length());
@@ -210,11 +203,9 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
      * {@code <tool>[:<arg>=<value>[,<arg>=<value>...]]} so parameterized tools work from the
      * row — e.g. {@code tool:pane.move_to_edge:edge=left}. Failures only log: an extra key
      * whose tool is momentarily unavailable (no session yet, splits off) should stay silent
-     * like a dead keystroke, not toast. Returns the tool's result for the few keys whose
-     * readout is in it.
+     * like a dead keystroke, not toast.
      */
-    @NonNull
-    private org.json.JSONObject runLauncherToolKey(@NonNull String spec) {
+    private void runLauncherToolKey(@NonNull String spec) {
         String toolName = spec;
         org.json.JSONObject arguments = new org.json.JSONObject();
         int colon = spec.indexOf(':');
@@ -236,6 +227,5 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
             Logger.logWarn(LOG_TAG, "Extra key tool '" + toolName + "' failed: "
                 + result.optString("message", result.toString()));
         }
-        return result;
     }
 }

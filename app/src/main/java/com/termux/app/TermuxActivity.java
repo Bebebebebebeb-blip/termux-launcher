@@ -4129,6 +4129,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     void showTerminalActionHint(@NonNull String toolName) {
         LauncherToolRegistry.ToolMetadata tool = LauncherToolRegistry.getInstance().getTool(toolName);
         if (tool == null || tool.titleRes == 0 || tool.selfEvident) return;
+        // A toggle's name says nothing about where it left things; the hint runs after the
+        // action, so the state it reads is the one the tap produced.
+        if (LauncherToolRegistry.TOOL_MOUSE_TOGGLE.equals(toolName)) {
+            com.termux.app.notice.AppNotice.readout(this, getString(isMouseMode()
+                ? R.string.extra_key_readout_mouse_mode_on : R.string.extra_key_readout_mouse_mode_off));
+            return;
+        }
         // A place change names its destination for as long as the page is on its way there: the
         // read-out comes up as the wall commits and is taken down by the settle
         // (onWallPageSettled), so it reads as one motion with the page rather than a clock of its
