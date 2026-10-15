@@ -425,6 +425,47 @@ public class TextSizingRenderTest {
         assertEquals("0-2 2-3", expandedRuns(PUA + PUA + " ", 34f, 20f, Integer.MAX_VALUE));
     }
 
+    /**
+     * The contract dawn's ribbon relies on: {@code ESC ] 66 ; s=2:w=2 ; <icon><space> BEL} is one
+     * block, and its icon spreads over both columns, centred, as tall as a letter of the block.
+     * With w=0 every character is a block of its own, so only an explicit width gets this.
+     */
+    @Test
+    public void anExplicitWidthBlockOfIconAndSpaceDrawsTheIconFullSize() {
+        final String text = ICON + " ";
+        // A wide symbol face at the drawn size: 30 wide against 20-wide cells, line box 60.
+        float advance = 30f;
+        float ascent = -48f;
+        float descent = 12f;
+        // The icon absorbs the space: one run of two columns, a 40 x 48 box at s=2.
+        assertEquals("0-3", expandedRuns(text, advance, FONT_WIDTH * 2f, Integer.MAX_VALUE));
+        final float boxWidth = TextBlockGeometry.symbolBoxWidth(
+            TerminalRenderer.blockRunColumns(text, 0, 3), FONT_WIDTH, 2f);
+        final float boxHeight = TextBlockGeometry.boxHeight(LINE_SPACING, 2f);
+        assertEquals(40f, boxWidth, EPSILON);
+        // Fit by height now, not width: the icon's line box fills both rows, a letter's height.
+        final float fit = TextBlockGeometry.symbolFitScale(advance, descent - ascent, boxWidth,
+            boxHeight);
+        assertEquals(0.8f, fit, EPSILON);
+        advance *= fit;
+        ascent *= fit;
+        descent *= fit;
+        assertEquals(2f * LINE_SPACING, descent - ascent, EPSILON);
+        // Wider than the same icon alone in one column, which is held to 20 by its width.
+        final float aloneFit = TextBlockGeometry.symbolFitScale(30f, 60f,
+            TextBlockGeometry.symbolBoxWidth(1, FONT_WIDTH, 2f), boxHeight);
+        assertTrue(advance > 30f * aloneFit + 1f);
+        // Centred over both columns and both rows.
+        final float left = 30f;
+        final float boxTop = 76f;
+        final float glyphLeft = TextBlockGeometry.centredLeft(left, boxWidth, advance);
+        final float baseline = TextBlockGeometry.centredBaseline(boxTop, boxHeight,
+            descent - ascent, ascent);
+        assertEquals(left + boxWidth / 2f, glyphLeft + advance / 2f, EPSILON);
+        assertEquals(boxTop + boxHeight / 2f, ((baseline + ascent) + (baseline + descent)) / 2f,
+            EPSILON);
+    }
+
     @Test
     public void noSelectionCoversNothing() {
         final TerminalRow[] rows = blockRows();
