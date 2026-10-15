@@ -348,6 +348,83 @@ public class TextSizingRenderTest {
         assertEquals(1f, TextBlockGeometry.symbolFitScale(0f, 0f, boxWidth, boxHeight), EPSILON);
     }
 
+    // --- Private-use expansion inside a block: an icon spreads across the blanks after it ---
+
+    private static final String ICON = new String(Character.toChars(0xF0219));
+    private static final String PUA = "\uE0B0";
+
+    /**
+     * The block text split into its face runs as the renderer splits it, with a symbol run spread
+     * across the blanks after it, as {@code start-end} pairs. Every icon measures {@code advance}
+     * at the drawn size, against cells {@code cellWidth} wide at that size.
+     */
+    private static String expandedRuns(String text, float advance, float cellWidth, int cap) {
+        StringBuilder out = new StringBuilder();
+        for (int start = 0, end; start < text.length(); start = end) {
+            end = TerminalRenderer.blockRunEnd(text, start, false, false, FACES);
+            if (FACES.faceOf(text.codePointAt(start), false, false) == SYMBOLS)
+                end = TerminalRenderer.blockExpansionEnd(text, start, end, advance, cellWidth,
+                    cap);
+            if (out.length() > 0) out.append(' ');
+            out.append(start).append('-').append(end);
+        }
+        return out.toString();
+    }
+
+    @Test
+    public void aWideIconInABlockAbsorbsTheBlankAfterItAndOwnsTwoColumns() {
+        // s=2: a cell is 20 wide at the drawn size, the icon's own glyph is 34 wide, so it wants
+        // two cells, as it does at normal size (17 against 10). The space after it is absorbed.
+        final String text = ICON + " " + ICON;
+        assertEquals("0-3 3-5", expandedRuns(text, 34f, FONT_WIDTH * 2f, Integer.MAX_VALUE));
+        assertEquals(2, TerminalRenderer.blockRunColumns(text, 0, 3));
+        // So its box is twice the one-column box, four cells of the terminal wide at s=2.
+        assertEquals(40f, TextBlockGeometry.symbolBoxWidth(
+            TerminalRenderer.blockRunColumns(text, 0, 3), FONT_WIDTH, 2f), EPSILON);
+        // The last icon has no blank after it and keeps its one column.
+        assertEquals(1, TerminalRenderer.blockRunColumns(text, 3, 5));
+    }
+
+    @Test
+    public void anIconTakesNoMoreBlanksThanItWants() {
+        // Two cells wanted, three blanks offered: one is absorbed, the other two stay text.
+        assertEquals("0-2 2-4", expandedRuns(PUA + "   ", 30f, 20f, Integer.MAX_VALUE));
+        // Three cells wanted: two blanks are absorbed.
+        assertEquals("0-3 3-4", expandedRuns(PUA + "   ", 50f, 20f, Integer.MAX_VALUE));
+        // An en space is a blank too.
+        assertEquals("0-2", expandedRuns(PUA + "\u2002", 30f, 20f, Integer.MAX_VALUE));
+    }
+
+    @Test
+    public void anIconFollowedByALetterDoesNotExpand() {
+        assertEquals("0-1 1-2", expandedRuns(PUA + "B", 34f, 20f, Integer.MAX_VALUE));
+    }
+
+    @Test
+    public void aNarrowIconDoesNotExpand() {
+        // Its glyph fits one cell at the drawn size, so the blank stays a blank.
+        assertEquals("0-1 1-2", expandedRuns(PUA + " ", 18f, 20f, Integer.MAX_VALUE));
+        assertEquals("0-1 1-2", expandedRuns(PUA + " ", 20f, 20f, Integer.MAX_VALUE));
+    }
+
+    @Test
+    public void aNarrowSymbolCapLimitsTheExpansion() {
+        final TerminalRenderer.SymbolExpansion caps = new TerminalRenderer.SymbolExpansion(
+            new int[] {0xE000}, new int[] {0xF8FF}, new int[] {1});
+        final int cap = caps.maxColumnsFor(0xE0B0);
+        assertEquals("0-1 1-2", expandedRuns(PUA + " ", 34f, 20f, cap));
+        // A cap of two holds an icon that wants three to one absorbed blank.
+        final int two = new TerminalRenderer.SymbolExpansion(
+            new int[] {0xE000}, new int[] {0xF8FF}, new int[] {2}).maxColumnsFor(0xE0B0);
+        assertEquals("0-2 2-3", expandedRuns(PUA + "  ", 50f, 20f, two));
+    }
+
+    @Test
+    public void iconsSideBySideKeepTheirOwnColumns() {
+        // A run of two icons is not one code point, so it is not spread, even with a blank after.
+        assertEquals("0-2 2-3", expandedRuns(PUA + PUA + " ", 34f, 20f, Integer.MAX_VALUE));
+    }
+
     @Test
     public void noSelectionCoversNothing() {
         final TerminalRow[] rows = blockRows();
