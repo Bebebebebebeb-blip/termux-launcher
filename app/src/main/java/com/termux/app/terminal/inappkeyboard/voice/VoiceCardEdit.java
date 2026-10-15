@@ -11,6 +11,9 @@ import com.termux.R;
 import com.termux.app.terminal.ClipboardText;
 import com.termux.app.terminal.inappkeyboard.TerminalKeyEventHandler;
 
+import java.util.Collections;
+import java.util.List;
+
 /**
  * Editing the dictation card's text by hand: a tap on the text opens it with the caret where the
  * finger was, and the in-app keyboard (or the phone's, or a hardware one) types into it without
@@ -66,7 +69,7 @@ public final class VoiceCardEdit implements VoiceEditController.Host {
         /** Whether a raw screen point is on the card's text. */
         boolean isOnText(float rawX, float rawY);
 
-        /** The editor has opened, or its draft or caret changed: the text plain, with the caret. */
+        /** The editor has opened, or its draft or caret changed: the text with the caret and the cleanup's marks. */
         void showDraft(@NonNull VoiceEditModel model);
 
         /**
@@ -127,7 +130,11 @@ public final class VoiceCardEdit implements VoiceEditController.Host {
         host.stopListening();
         host.dropCleanup();
         String text = dictation.editText();
-        controller.begin(text, shownOffset < 0 ? text.length() : shownOffset, this);
+        // A cleanup on screen keeps its changed and added words marked while the user edits it.
+        String cleanedFrom = dictation.cleanedFrom();
+        List<VoiceEditModel.Mark> marks = cleanedFrom == null
+            ? Collections.emptyList() : VoiceEditModel.cleanupMarks(cleanedFrom, text);
+        controller.begin(text, shownOffset < 0 ? text.length() : shownOffset, marks, this);
         host.claimTyping(controller);
         showKeyboard();
     }

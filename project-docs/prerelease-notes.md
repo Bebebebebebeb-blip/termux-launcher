@@ -26,6 +26,7 @@ Latest stable: v1.0.5.
 - Removing a pinned app in Edit pinned apps unticks it in the list too, so it cannot slip back in.
 - The Appearance editor's Cursor trail menu has an Off entry, so you can turn the trail off without going to Settings.
 - The Mouse mode key reads out the state it switched to: Mouse mode on, Mouse mode off.
+- Editing a cleaned-up dictation keeps the words the cleanup fixed or added highlighted while you type.
 
 ## Experimental
 <!-- What is on pre and not yet in a stable, one line each; name the pull request or branch it came from,

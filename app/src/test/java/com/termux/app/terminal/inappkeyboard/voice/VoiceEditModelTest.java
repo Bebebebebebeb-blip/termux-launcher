@@ -1,12 +1,19 @@
 package com.termux.app.terminal.inappkeyboard.voice;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
-/** The card editor's draft: caret moves and edits, line breaks, late phrases, and where a tap lands. */
+/**
+ * The card editor's draft: caret moves and edits, line breaks, late phrases, where a tap lands,
+ * and the cleanup's marks moving with the text.
+ */
 public class VoiceEditModelTest {
 
     @Test
@@ -107,6 +114,142 @@ public class VoiceEditModelTest {
         String displayed = displayed(ops);
         int inEggs = displayed.lastIndexOf("eggs") + 2;
         assertEquals(cleaned.lastIndexOf("eggs") + 2, VoiceEditModel.shownOffset(ops, cleaned, inEggs));
+    }
+
+    // ------------------------------------------------------------------ the cleanup's marks
+
+    private static VoiceEditModel.Mark mark(int start, int end, VoiceWordDiff.Kind kind) {
+        return new VoiceEditModel.Mark(start, end, kind);
+    }
+
+    private static final VoiceWordDiff.Kind CHANGED = VoiceWordDiff.Kind.CHANGED;
+    private static final VoiceWordDiff.Kind ADDED = VoiceWordDiff.Kind.ADDED;
+
+    @Test
+    public void aCorrectedWordIsMarkedAndTheRemovedOnesAreNot() {
+        // wrold and there are removed, world added: only world is in the cleaned text to mark.
+        assertEquals(Collections.singletonList(mark(6, 11, ADDED)),
+            VoiceEditModel.cleanupMarks("hello wrold there", "hello world"));
+        assertEquals(Arrays.asList(mark(0, 6, CHANGED), mark(21, 28, CHANGED)),
+            VoiceEditModel.cleanupMarks("please summarise the readme", "Please summarise the README."));
+    }
+
+    @Test
+    public void marksAcrossLineBreaksLandOnTheCleanedText() {
+        String cleaned = "Shopping list:\n- milk\n- eggs";
+        List<VoiceEditModel.Mark> marks = VoiceEditModel.cleanupMarks("shopping list milk eggs", cleaned);
+        assertEquals(Arrays.asList(mark(0, 8, CHANGED), mark(9, 14, CHANGED), mark(15, 16, ADDED),
+            mark(22, 23, ADDED)), marks);
+        assertEquals("list:", cleaned.substring(9, 14));
+    }
+
+    @Test
+    public void marksFollowTheCleanedTextsOwnWhitespaceNotThePanelsLayout() {
+        // The panel would lay these out with one space and two breaks; the editor has the text itself.
+        String cleaned = "Hello  world.\n\n\nBye";
+        assertEquals(Arrays.asList(mark(0, 5, CHANGED), mark(7, 13, CHANGED), mark(16, 19, CHANGED)),
+            VoiceEditModel.cleanupMarks("hello world bye", cleaned));
+    }
+
+    @Test
+    public void anAddedWordAtTheEndIsMarkedAndNoCleanupMarksNothing() {
+        assertEquals(Arrays.asList(mark(0, 4, CHANGED), mark(14, 21, ADDED)),
+            VoiceEditModel.cleanupMarks("open the page", "Open the page please."));
+        assertTrue(VoiceEditModel.cleanupMarks("run the tests", "run the tests").isEmpty());
+        assertTrue(VoiceEditModel.cleanupMarks("", "").isEmpty());
+    }
+
+    @Test
+    public void typingInsideAMarkGrowsItAndAtItsEdgesDoesNot() {
+        VoiceEditModel model = new VoiceEditModel("hello world", 8,
+            Collections.singletonList(mark(6, 11, ADDED)));
+        model.insert("x");
+        assertEquals("hello woxrld", model.text());
+        assertEquals(Collections.singletonList(mark(6, 12, ADDED)), model.marks());
+        // At its start: the mark moves on, it does not take the typing in.
+        model.setCaretUtf16(6);
+        model.insert("big ");
+        assertEquals(Collections.singletonList(mark(10, 16, ADDED)), model.marks());
+        // At its end: nothing changes.
+        model.setCaretUtf16(16);
+        model.insert("!");
+        assertEquals("hello big woxrld!", model.text());
+        assertEquals(Collections.singletonList(mark(10, 16, ADDED)), model.marks());
+        // Before it: it shifts.
+        model.setCaretUtf16(0);
+        model.insert("oh ");
+        assertEquals(Collections.singletonList(mark(13, 19, ADDED)), model.marks());
+        assertEquals("woxrld", model.text().substring(13, 19));
+    }
+
+    @Test
+    public void deletingAcrossAMarksEdgeTakesOnlyItsPartAndAnEmptyMarkGoes() {
+        VoiceEditModel model = new VoiceEditModel("hello world now", 7,
+            Arrays.asList(mark(0, 5, CHANGED), mark(6, 11, ADDED)));
+        model.backspace(); // the w
+        assertEquals(Arrays.asList(mark(0, 5, CHANGED), mark(6, 10, ADDED)), model.marks());
+        model.backspace(); // the space between the marks
+        assertEquals("helloorld now", model.text());
+        assertEquals(Arrays.asList(mark(0, 5, CHANGED), mark(5, 9, ADDED)), model.marks());
+        model.backspace(); // the last o of hello
+        assertEquals(Arrays.asList(mark(0, 4, CHANGED), mark(4, 8, ADDED)), model.marks());
+        // Forward delete through the whole of the second mark: it goes, the first stays.
+        for (int k = 0; k < 4; k++) model.delete();
+        assertEquals("hell now", model.text());
+        assertEquals(Collections.singletonList(mark(0, 4, CHANGED)), model.marks());
+        model.setCaretUtf16(4);
+        for (int k = 0; k < 4; k++) model.backspace();
+        assertTrue(model.marks().isEmpty());
+        assertEquals(" now", model.text());
+    }
+
+    @Test
+    public void aLatePhraseJoinsUnmarkedAfterAMarkAtTheEnd() {
+        VoiceEditModel model = new VoiceEditModel("hello world", 0,
+            Collections.singletonList(mark(6, 11, ADDED)));
+        model.appendPhrase(" again");
+        assertEquals("hello world again", model.text());
+        assertEquals(Collections.singletonList(mark(6, 11, ADDED)), model.marks());
+        assertEquals(0, model.caretUtf16());
+    }
+
+    @Test
+    public void marksSurviveCarriageReturnsAndSurrogatePairs() {
+        VoiceEditModel model = new VoiceEditModel("ab\r\ncd", 0, Collections.singletonList(mark(4, 6, CHANGED)));
+        assertEquals("ab\ncd", model.text());
+        assertEquals(Collections.singletonList(mark(3, 5, CHANGED)), model.marks());
+
+        String emoji = new String(Character.toChars(0x1F600));
+        VoiceEditModel pair = new VoiceEditModel("a" + emoji + "b", 3, Collections.singletonList(mark(0, 4, ADDED)));
+        pair.backspace();
+        assertEquals("ab", pair.text());
+        assertEquals(Collections.singletonList(mark(0, 2, ADDED)), pair.marks());
+
+        // Out of range is clamped, empty is dropped.
+        VoiceEditModel clamped = new VoiceEditModel("abc", 0, Arrays.asList(mark(1, 9, ADDED), mark(2, 2, CHANGED)));
+        assertEquals(Collections.singletonList(mark(1, 3, ADDED)), clamped.marks());
+    }
+
+    @Test
+    public void theEditorOpensMarkedOnlyOnTheCleanupItself() {
+        VoiceDictation dictation = new VoiceDictation();
+        dictation.start("");
+        dictation.append("hello wrold there");
+        dictation.onStopped();
+        assertNull(dictation.cleanedFrom());
+        dictation.onCleaned("hello world");
+        assertEquals(dictation.raw(), dictation.cleanedFrom());
+        assertEquals(Collections.singletonList(mark(6, 11, ADDED)),
+            VoiceEditModel.cleanupMarks(dictation.cleanedFrom(), dictation.editText()));
+        // Undone: the text is as heard, nothing to mark; redo brings the cleanup back.
+        dictation.toggleUndo();
+        assertNull(dictation.cleanedFrom());
+        dictation.toggleUndo();
+        assertEquals(dictation.raw(), dictation.cleanedFrom());
+        // Once edited, the text is the user's.
+        dictation.beginEdit();
+        dictation.commitEdit("hello world!");
+        assertNull(dictation.cleanedFrom());
     }
 
     /** The marked text as the panel lays it out (VoiceTranscriptPanel#renderCleaned). */

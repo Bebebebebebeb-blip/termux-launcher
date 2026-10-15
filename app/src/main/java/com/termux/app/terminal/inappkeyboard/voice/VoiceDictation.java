@@ -258,6 +258,17 @@ public final class VoiceDictation {
     }
 
     /**
+     * What the cleanup took in, while the text the editor opens on ({@link #editText}) is that
+     * cleanup's answer, so the editor can keep its marks; {@code null} when the text is anything
+     * else: as heard, undone, or an edit.
+     */
+    @Nullable
+    public String cleanedFrom() {
+        if (handText != null || pairIsEdit || undone || before == null || after == null) return null;
+        return after.equals(result) ? before : null;
+    }
+
+    /**
      * ✓ or Copy was pressed.
      *
      * @return true when it is to be carried out now on {@link #result()}; false when it has been

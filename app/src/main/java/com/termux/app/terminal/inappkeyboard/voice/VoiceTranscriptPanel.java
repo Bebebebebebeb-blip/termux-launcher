@@ -83,7 +83,8 @@ import java.util.List;
  * <p>A tap on the text (not a scroll, not the card's sideways swipe) is reported as the place in
  * {@link #shownText()} under the finger ({@link Actions#onTextTapped}); the host may then open
  * the text for editing ({@link VoiceCardEdit}). While it is open the panel only draws what it is
- * handed ({@link #showDraft}): the draft plain, the marks gone, and a blinking caret kept in view.
+ * handed ({@link #showDraft}): the draft, its changed and added words still in the accent but the
+ * removed ones gone (they are not in the text being edited), and a blinking caret kept in view.
  * An edit that changed the text shows plain afterwards, with undo back to the text before it
  * ({@link #showEditPair}).
  */
@@ -510,11 +511,12 @@ final class VoiceTranscriptPanel extends LinearLayout {
     // ------------------------------------------------------------------ editing
 
     /**
-     * The editor is open on {@code draft}, the caret at UTF-16 {@code caret}: the draft plain,
-     * no marks and no ghost, the caret blinking and its line kept in view. Text is set only when
-     * it changed, so a caret move does not lay the text out again.
+     * The editor is open on {@code draft}, the caret at UTF-16 {@code caret}: the draft with the
+     * cleanup's {@code marks} painted as {@link #renderCleaned} paints them, no ghost, the caret
+     * blinking and its line kept in view. Text is set only when it changed, so a caret move does
+     * not lay the text out again; the marks only move when the text does.
      */
-    void showDraft(@NonNull String draft, int caret) {
+    void showDraft(@NonNull String draft, int caret, @NonNull List<VoiceEditModel.Mark> marks) {
         boolean opening = !editing;
         if (opening) {
             finishTyping();
@@ -524,9 +526,14 @@ final class VoiceTranscriptPanel extends LinearLayout {
             following = false;
             if (text.getVisibility() != VISIBLE) text.setVisibility(VISIBLE);
         }
-        // Opening always sets the text, to drop the marks, the ghost and the typing span.
+        // Opening always sets the text, to drop the removed words, the ghost and the typing span.
         if (opening || !TextUtils.equals(text.getText(), draft)) {
-            text.setText(draft, TextView.BufferType.SPANNABLE);
+            SpannableStringBuilder builder = new SpannableStringBuilder(draft);
+            for (VoiceEditModel.Mark mark : marks) {
+                int end = Math.min(mark.end, builder.length());
+                if (mark.start < end) markWord(builder, mark.start, end, mark.kind);
+            }
+            text.setText(builder, TextView.BufferType.SPANNABLE);
         }
         int at = Math.max(0, Math.min(caret, text.length()));
         // A selection at the caret makes the text view's own bring-into-view follow the caret
@@ -742,7 +749,6 @@ final class VoiceTranscriptPanel extends LinearLayout {
     private void renderCleaned() {
         List<VoiceWordDiff.Op> current = ops;
         if (current == null) return;
-        int removedColor = (onSurface & 0x00FFFFFF) | (0x73 << 24);
         SpannableStringBuilder builder = new SpannableStringBuilder();
         for (VoiceWordDiff.Op op : current) {
             if (builder.length() > 0) {
@@ -754,24 +760,32 @@ final class VoiceTranscriptPanel extends LinearLayout {
             }
             int start = builder.length();
             builder.append(op.word);
-            int end = builder.length();
-            int color;
-            switch (op.kind) {
-                case CHANGED:
-                case ADDED:
-                    color = accent;
-                    break;
-                case REMOVED:
-                    color = removedColor;
-                    builder.setSpan(new StrikethroughSpan(), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                    break;
-                default:
-                    color = onSurface;
-                    break;
-            }
-            builder.setSpan(new ForegroundColorSpan(color), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            markWord(builder, start, builder.length(), op.kind);
         }
         show(builder);
+    }
+
+    /**
+     * Paints the word at {@code [start, end)} of {@code builder} for what the cleanup did to it:
+     * changed and added in the accent, removed struck through and dimmed, kept in the primary
+     * colour. The marked cleanup and the editor's draft both paint with this.
+     */
+    private void markWord(@NonNull SpannableStringBuilder builder, int start, int end, @NonNull VoiceWordDiff.Kind kind) {
+        int color;
+        switch (kind) {
+            case CHANGED:
+            case ADDED:
+                color = accent;
+                break;
+            case REMOVED:
+                color = (onSurface & 0x00FFFFFF) | (0x73 << 24);
+                builder.setSpan(new StrikethroughSpan(), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                break;
+            default:
+                color = onSurface;
+                break;
+        }
+        builder.setSpan(new ForegroundColorSpan(color), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
     }
 
     // ------------------------------------------------------------------ layout
