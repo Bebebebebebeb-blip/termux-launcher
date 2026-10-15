@@ -134,6 +134,14 @@ under twenty items; past that, the oldest are re-judged first.
   window whose shell runs `terminal-browser open en.wikipedia.org` (tlstore's build): its chip reads
   "terminal-browser" in full, not cut, with the globe glyph, and goes back to the directory after
   Ctrl+Q; the windows beside it keep their usual widths · pong with the go-ahead.
+- 2026-10-15 · PR #75 · Touch light on a sheet card row: open the terminal action sheet and hold
+  Kill process; the rim nearest the finger lights, a faint glow sits under the fingertip, and both
+  fade within a quarter second of lifting. Nothing lights under Reduce motion, lazy mode or battery
+  saver · emulator, tl16.
+- 2026-10-15 · PR #75 · Edge clarity on the pane slabs under Floating, on the Widgets page and on
+  the Display page under Clear and Mist: the bent edge shows a clearer wallpaper, the frost inside
+  is unchanged, corners and hairlines clean; the same with RTL layout on and font scale 1.3 ·
+  emulator, tl16.
 
 ## Developer
 
@@ -186,3 +194,8 @@ under twenty items; past that, the oldest are re-judged first.
   row lands where it did before, rows under a text block and the block itself stay whole and in
   place (also with the block's anchor just above the top edge), the cursor row looks right when it
   scrolls back in, and the row entering at the bottom is whole · pong, by hand.
+- 2026-10-15 · PR #75 · The natural glass on pong at Clear, Mist and Tint: the rim reads lit from
+  above and softer below, the band brightens toward the lit rim and the edge shows the wallpaper
+  more clearly than the frost; it should read as real glass, not a double line or a halo. Frame
+  timing with the Looks' values: page slides, keyboard up/down and a dock tap at 90 Hz, no frame
+  over 11 ms · `scripts/perf-baseline.sh`, pong, by hand.
