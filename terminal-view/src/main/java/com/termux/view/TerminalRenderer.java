@@ -1763,19 +1763,22 @@ public final class TerminalRenderer {
                 // fallback chain, or the primary face — exactly as plain cells resolve, so an icon
                 // in a block draws from the face it would draw from at normal size. The first pass
                 // measures each run with its own face, for the h alignment; the second draws them
-                // left to right from where that alignment puts the first.
+                // left to right from where that alignment puts the first. Both passes split the
+                // text the same way, a wide icon's run reaching over the blanks it spreads into.
                 float advance = 0f;
-                for (int start = 0, end; start < text.length(); start = end) {
-                    end = blockRunEnd(text, start, bold, italic, mBlockFaces);
-                    advance += blockRun(canvas, false, text, start, end, bold, italic, sizeScale,
-                        0f, boxTop, boxHeight, baseline);
+                for (int start = 0, glyphEnd, end; start < text.length(); start = end) {
+                    glyphEnd = blockRunEnd(text, start, bold, italic, mBlockFaces);
+                    end = blockSymbolExpansionEnd(text, start, glyphEnd, bold, italic, sizeScale);
+                    advance += blockRun(canvas, false, text, start, glyphEnd, end, bold, italic,
+                        sizeScale, 0f, boxTop, boxHeight, baseline);
                 }
                 float x = TextBlockGeometry.alignedLeft(blockLeft, blockWidth, advance,
                     block.horizontalAlign);
-                for (int start = 0, end; start < text.length(); start = end) {
-                    end = blockRunEnd(text, start, bold, italic, mBlockFaces);
-                    x += blockRun(canvas, true, text, start, end, bold, italic, sizeScale, x,
-                        boxTop, boxHeight, baseline);
+                for (int start = 0, glyphEnd, end; start < text.length(); start = end) {
+                    glyphEnd = blockRunEnd(text, start, bold, italic, mBlockFaces);
+                    end = blockSymbolExpansionEnd(text, start, glyphEnd, bold, italic, sizeScale);
+                    x += blockRun(canvas, true, text, start, glyphEnd, end, bold, italic,
+                        sizeScale, x, boxTop, boxHeight, baseline);
                 }
             } finally {
                 mTextPaint.setTextSize(mTextSize);
@@ -1840,6 +1843,58 @@ public final class TerminalRenderer {
         return index;
     }
 
+    /**
+     * Where a block's symbol run {@code [start, end)} ends once it spreads across the blanks
+     * after it, as a plain cell's private-use icon does (kitty's fonts.c): a run that is one
+     * private-use code point of one wcwidth column, whose own glyph is wider than one cell at the
+     * block's drawn size, takes up to {@link #symbolExpansionColumns} minus one of the expansion
+     * blanks right after it. Any other run, or an icon with no blank after it, ends where it did.
+     * The caller decides the run draws from a symbol map before asking.
+     *
+     * @param advance   the icon's own advance at the block's drawn size
+     * @param cellWidth one cell at the block's drawn size
+     * @param cap       the {@code narrow_symbols} ceiling for the icon's code point
+     */
+    static int blockExpansionEnd(String text, int start, int end, float advance,
+                                 float cellWidth, int cap) {
+        if (!isExpandableBlockSymbol(text, start, end)) return end;
+        final int wanted = symbolExpansionColumns(advance, cellWidth, cap);
+        int index = end;
+        for (int columns = 1; columns < wanted && index < text.length()
+            && isExpansionBlank(text.charAt(index)); columns++) {
+            index++;
+        }
+        return index;
+    }
+
+    /** Whether {@code [start, end)} is one private-use code point of one wcwidth column. */
+    static boolean isExpandableBlockSymbol(String text, int start, int end) {
+        final int codePoint = text.codePointAt(start);
+        return start + Character.charCount(codePoint) == end && isPrivateUse(codePoint)
+            && WcWidth.width(codePoint) == 1;
+    }
+
+    /**
+     * {@link #blockExpansionEnd} for a face run of a block, measuring the icon on its symbol face
+     * at the block's drawn size against a cell at that size. A run that is not a lone symbol-mapped
+     * private-use icon is returned unchanged without measuring anything.
+     */
+    private int blockSymbolExpansionEnd(String text, int start, int end, boolean bold,
+                                        boolean italic, float sizeScale) {
+        if (!isExpandableBlockSymbol(text, start, end) || end >= text.length()
+            || !isExpansionBlank(text.charAt(end))) return end;
+        final int codePoint = text.codePointAt(start);
+        final SymbolMap symbolMap = symbolMapWithGlyphFor(codePoint);
+        if (symbolMap == null || symbolMap.typeface == null) return end;
+        configureFont(bold, italic, symbolMap.typeface, null, symbolVariationsOf(symbolMap));
+        final String runFeatures = symbolFeaturesOf(symbolMap);
+        if (!sameString(mTextPaint.getFontFeatureSettings(), runFeatures))
+            mTextPaint.setFontFeatureSettings(runFeatures);
+        mTextPaint.setTextSize(mTextSize * sizeScale);
+        return blockExpansionEnd(text, start, end, mTextPaint.measureText(text, start, end),
+            mFontWidth * sizeScale, mSymbolExpansion.maxColumnsFor(codePoint));
+    }
+
     /** How many wcwidth columns the code points in {@code [start, end)} of a block take. */
     static int blockRunColumns(String text, int start, int end) {
         int columns = 0;
@@ -1860,10 +1915,15 @@ public final class TerminalRenderer {
      * fit its columns at the drawn size and the box's height, and centred in both, so an icon sits
      * in its {@code s} by {@code s} cells the way a letter of the block does. It advances by the
      * cells it owns, not by its own glyph advance.
+     *
+     * <p>A symbol run spread by {@link #blockExpansionEnd} owns the blanks in
+     * {@code [glyphEnd, end)} as well: they widen its box by a column each and are not drawn, and
+     * the icon is measured, fitted and centred from {@code [start, glyphEnd)} alone. Every other
+     * run has {@code glyphEnd == end}.
      */
-    private float blockRun(Canvas canvas, boolean draw, String text, int start, int end,
-                           boolean bold, boolean italic, float sizeScale, float x, float boxTop,
-                           float boxHeight, float baseline) {
+    private float blockRun(Canvas canvas, boolean draw, String text, int start, int glyphEnd,
+                           int end, boolean bold, boolean italic, float sizeScale, float x,
+                           float boxTop, float boxHeight, float baseline) {
         final int codePoint = text.codePointAt(start);
         final SymbolMap symbolMap = symbolMapWithGlyphFor(codePoint);
         final Typeface symbolTypeface = symbolMap == null ? null : symbolMap.typeface;
@@ -1880,9 +1940,9 @@ public final class TerminalRenderer {
             mTextPaint.setFontFeatureSettings(runFeatures);
         final float textSize = mTextSize * sizeScale;
         mTextPaint.setTextSize(textSize);
-        float advance = mTextPaint.measureText(text, start, end);
+        float advance = mTextPaint.measureText(text, start, glyphEnd);
         if (symbolTypeface == null) {
-            if (draw) canvas.drawText(text, start, end, x, baseline, mTextPaint);
+            if (draw) canvas.drawText(text, start, glyphEnd, x, baseline, mTextPaint);
             return advance;
         }
         final float boxWidth = TextBlockGeometry.symbolBoxWidth(
@@ -1897,7 +1957,7 @@ public final class TerminalRenderer {
             lineBox *= fit;
             ascent *= fit;
         }
-        canvas.drawText(text, start, end, TextBlockGeometry.centredLeft(x, boxWidth, advance),
+        canvas.drawText(text, start, glyphEnd, TextBlockGeometry.centredLeft(x, boxWidth, advance),
             TextBlockGeometry.centredBaseline(boxTop, boxHeight, lineBox, ascent), mTextPaint);
         return boxWidth;
     }
