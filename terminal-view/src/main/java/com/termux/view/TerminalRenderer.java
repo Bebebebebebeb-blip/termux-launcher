@@ -18,6 +18,7 @@ import com.termux.terminal.TerminalBuffer;
 import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalRow;
 import com.termux.terminal.TextStyle;
+import com.termux.terminal.WcWidth;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -377,6 +378,19 @@ public final class TerminalRenderer {
      * {@link #sharesFacesWith}.
      */
     private final FallbackFontResolver mFallbackResolver;
+
+    /**
+     * What a code point inside a text sizing block draws from, as {@link #blockRunEnd} compares it:
+     * the same resolution a plain cell gets, as one instance so the block path allocates nothing.
+     */
+    private final BlockFaces mBlockFaces = new BlockFaces() {
+        @Nullable
+        @Override
+        public Object faceOf(int codePoint, boolean bold, boolean italic) {
+            final SymbolMap map = symbolMapWithGlyphFor(codePoint);
+            return map != null ? map : fallbackTypefaceFor(codePoint, bold, italic);
+        }
+    };
 
     /** Scratch paint for coverage probes, so they cannot disturb the drawing paint's state. */
     private final Paint mCoveragePaint = new Paint();
@@ -1743,29 +1757,39 @@ public final class TerminalRenderer {
             block.fractionDenominator, block.demoted);
         canvas.save();
         final String previousFeatures = mTextPaint.getFontFeatureSettings();
-        final String runFeatures = mFontFeatures.forRun(bold, italic, false);
-        final boolean changedFeatures = !sameString(previousFeatures, runFeatures);
         try {
             canvas.clipRect(blockLeft, blockTop, blockLeft + blockWidth, blockBottom);
-            configureFont(bold, italic, null, null, null);
-            if (changedFeatures) mTextPaint.setFontFeatureSettings(runFeatures);
-            mTextPaint.setTextSize(mTextSize * sizeScale);
             try {
-                final float advance = mTextPaint.measureText(text);
                 final float boxHeight = TextBlockGeometry.boxHeight(mFontLineSpacing, sizeScale);
                 final float boxTop = TextBlockGeometry.alignedTop(blockTop, blockHeight, boxHeight,
                     block.verticalAlign);
+                final float baseline = TextBlockGeometry.baseline(boxTop, mFontLineSpacing,
+                    mFontBaselineDescent, sizeScale);
                 mTextPaint.setUnderlineText(false);
                 mTextPaint.setStrikeThruText(false);
                 mTextPaint.setColor(foreColor);
-                canvas.drawText(text,
-                    TextBlockGeometry.alignedLeft(blockLeft, blockWidth, advance,
-                        block.horizontalAlign),
-                    TextBlockGeometry.baseline(boxTop, mFontLineSpacing, mFontBaselineDescent,
-                        sizeScale), mTextPaint);
+                // The text is split into runs that resolve to one face each — symbol_map, the
+                // fallback chain, or the primary face — exactly as plain cells resolve, so an icon
+                // in a block draws from the face it would draw from at normal size. The first pass
+                // measures each run with its own face, for the h alignment; the second draws them
+                // left to right from where that alignment puts the first.
+                float advance = 0f;
+                for (int start = 0, end; start < text.length(); start = end) {
+                    end = blockRunEnd(text, start, bold, italic, mBlockFaces);
+                    advance += blockRun(canvas, false, text, start, end, bold, italic, sizeScale,
+                        0f, boxTop, boxHeight, baseline);
+                }
+                float x = TextBlockGeometry.alignedLeft(blockLeft, blockWidth, advance,
+                    block.horizontalAlign);
+                for (int start = 0, end; start < text.length(); start = end) {
+                    end = blockRunEnd(text, start, bold, italic, mBlockFaces);
+                    x += blockRun(canvas, true, text, start, end, bold, italic, sizeScale, x,
+                        boxTop, boxHeight, baseline);
+                }
             } finally {
                 mTextPaint.setTextSize(mTextSize);
-                if (changedFeatures) mTextPaint.setFontFeatureSettings(previousFeatures);
+                if (!sameString(mTextPaint.getFontFeatureSettings(), previousFeatures))
+                    mTextPaint.setFontFeatureSettings(previousFeatures);
             }
             // Decorations run along the block's own bottom edge rather than the anchor row's, so a
             // link or an underlined heading is marked once, under all of it.
@@ -1793,6 +1817,98 @@ public final class TerminalRenderer {
         } finally {
             canvas.restore();
         }
+    }
+
+    /**
+     * What a code point of a text sizing block draws from: a {@link SymbolMap}, a fallback
+     * {@link Typeface}, or null for the primary face. Two code points share a run only when the
+     * answers are the same object.
+     */
+    interface BlockFaces {
+        @Nullable
+        Object faceOf(int codePoint, boolean bold, boolean italic);
+    }
+
+    /**
+     * Where the face run of a block's text that starts at {@code start} ends (exclusive). A
+     * zero-width code point — a combining mark, a joiner, a variation selector — stays with the
+     * code point before it, which is the rule plain cells follow: resolution is on the base code
+     * point, never on a continuation of its cluster.
+     */
+    static int blockRunEnd(String text, int start, boolean bold, boolean italic,
+                           BlockFaces faces) {
+        final int first = text.codePointAt(start);
+        final Object face = faces.faceOf(first, bold, italic);
+        int index = start + Character.charCount(first);
+        while (index < text.length()) {
+            final int codePoint = text.codePointAt(index);
+            if (WcWidth.width(codePoint) > 0 && faces.faceOf(codePoint, bold, italic) != face)
+                break;
+            index += Character.charCount(codePoint);
+        }
+        return index;
+    }
+
+    /** How many wcwidth columns the code points in {@code [start, end)} of a block take. */
+    static int blockRunColumns(String text, int start, int end) {
+        int columns = 0;
+        for (int index = start; index < end; ) {
+            final int codePoint = text.codePointAt(index);
+            columns += Math.max(0, WcWidth.width(codePoint));
+            index += Character.charCount(codePoint);
+        }
+        return columns;
+    }
+
+    /**
+     * Measure, or draw at {@code x}, one face run of a block, and return how far it advances.
+     *
+     * <p>Primary and fallback runs draw at the block's size on its baseline, as the whole block
+     * used to. A symbol run mirrors the plain-cell fit (see {@link #drawTextRunConfigured}) against
+     * the block's scaled cells instead of one cell: scaled uniformly until its advance and line box
+     * fit its columns at the drawn size and the box's height, and centred in both, so an icon sits
+     * in its {@code s} by {@code s} cells the way a letter of the block does. It advances by the
+     * cells it owns, not by its own glyph advance.
+     */
+    private float blockRun(Canvas canvas, boolean draw, String text, int start, int end,
+                           boolean bold, boolean italic, float sizeScale, float x, float boxTop,
+                           float boxHeight, float baseline) {
+        final int codePoint = text.codePointAt(start);
+        final SymbolMap symbolMap = symbolMapWithGlyphFor(codePoint);
+        final Typeface symbolTypeface = symbolMap == null ? null : symbolMap.typeface;
+        if (symbolTypeface != null && !draw)
+            return TextBlockGeometry.symbolBoxWidth(blockRunColumns(text, start, end),
+                mFontWidth, sizeScale);
+        final Typeface fallbackTypeface = symbolTypeface == null
+            ? fallbackTypefaceFor(codePoint, bold, italic) : null;
+        configureFont(bold, italic, symbolTypeface, fallbackTypeface,
+            symbolVariationsOf(symbolMap));
+        final String runFeatures = symbolTypeface != null ? symbolFeaturesOf(symbolMap)
+            : mFontFeatures.forRun(bold, italic, false);
+        if (!sameString(mTextPaint.getFontFeatureSettings(), runFeatures))
+            mTextPaint.setFontFeatureSettings(runFeatures);
+        final float textSize = mTextSize * sizeScale;
+        mTextPaint.setTextSize(textSize);
+        float advance = mTextPaint.measureText(text, start, end);
+        if (symbolTypeface == null) {
+            if (draw) canvas.drawText(text, start, end, x, baseline, mTextPaint);
+            return advance;
+        }
+        final float boxWidth = TextBlockGeometry.symbolBoxWidth(
+            blockRunColumns(text, start, end), mFontWidth, sizeScale);
+        mTextPaint.getFontMetrics(mSymbolFontMetrics);
+        float ascent = mSymbolFontMetrics.ascent;
+        float lineBox = mSymbolFontMetrics.descent - ascent;
+        final float fit = TextBlockGeometry.symbolFitScale(advance, lineBox, boxWidth, boxHeight);
+        if (fit != 1f) {
+            mTextPaint.setTextSize(textSize * fit);
+            advance *= fit;
+            lineBox *= fit;
+            ascent *= fit;
+        }
+        canvas.drawText(text, start, end, TextBlockGeometry.centredLeft(x, boxWidth, advance),
+            TextBlockGeometry.centredBaseline(boxTop, boxHeight, lineBox, ascent), mTextPaint);
+        return boxWidth;
     }
 
     /**
