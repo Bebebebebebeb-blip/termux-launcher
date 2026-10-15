@@ -13,7 +13,7 @@ Latest stable: v1.0.5.
 ## New in this drop
 <!-- Only what this drop adds over the one before it; replace the whole list at every drop. -->
 
-- Settings → App behavior has a Low-memory preset that switches a weak phone to the Solid look, an opaque terminal and less idle activity in one tap.
+- Settings → App behavior has a Low-memory preset switch that puts a weak phone on the Solid look, an opaque terminal and less idle activity, and turning it off brings your look back.
 - With the status bar hidden on a phone with a camera cutout, the app drawer no longer shows a dark band with square corners behind it (#69).
 - The welcome sheet has a Contacts in search switch, so the command palette can find people from the start.
 - The command palette's contact search, shortcuts for actions and contacts, and its most-used chips have shipped in v1.0.5, so they leave the list below.

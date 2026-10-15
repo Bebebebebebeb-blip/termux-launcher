@@ -57,6 +57,10 @@ under twenty items; past that, the oldest are re-judged first.
 
 ## Developer
 
+- 2026-10-15 · commit "feat(settings): make the Low-memory preset a switch" · Turning it on and off
+  returns the look you had (material, opacity, effects, parallax), and Reduce idle activity follows
+  the switch both ways without leaving the page · pong, Settings → App behavior.
+
 - 2026-10-15 · stronger glass edges · The same three Looks on pong with a photo wallpaper: the
   edge reads at a glance on the dock, the keyboard and the panes, and is not too strong (no
   smeared or mirrored band that distracts, no glare on a pressed key or under a finger) · pong, by
