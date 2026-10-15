@@ -302,6 +302,14 @@ picture), takes seconds for a large image, and is limited to 6 a minute; only ch
 when the user asks. If the launcher is not running the wallpaper is still set and the launcher
 catches up on next open (`launcher_refresh: on_next_open`).
 
+The `termux-*` commands that Termux:API scripts call (`termux-clipboard-get`/`-set`,
+`termux-notification`, `-remove`, `-list`, `termux-toast`, `termux-vibrate`, `termux-torch`,
+`termux-battery-status`, `termux-volume`, `termux-wallpaper`) work here without the Termux:API
+app once `tlstore install termux-api-shims` has put them in `~/.local/bin`: each one calls
+these routes. So a user's script that uses them needs the shims, not Termux:API; for your own
+calls, use `launcherctl` directly. The shims refuse to install beside the `termux-api`
+package, which provides the same names.
+
 ## Keyboard
 
 ```sh
