@@ -59,7 +59,7 @@ public class SurfaceLooksReadoptTest {
         SurfacePresets.readoptMovedLooks(preferences);
 
         assertTrue(SurfacePresets.matches(preferences, preset("minimal")));
-        assertEquals(14, preferences.getFancierGlassBendDp());
+        assertEquals(11, preferences.getFancierGlassBendDp());
         assertEquals(100, preferences.getFancierGlassClarityPercent());
         assertEquals(SurfacePresets.LOOKS_GENERATION,
             store.getInt(SurfacePresets.KEY_LOOKS_GENERATION, 0));

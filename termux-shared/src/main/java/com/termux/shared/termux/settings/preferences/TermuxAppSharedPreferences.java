@@ -2882,8 +2882,9 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
             // by moving the DEFAULT_* constants: an install that went through this branch under an
             // earlier build never stored these keys, and a changed constant would restyle it.
             // Every surface stays linked to Base, so the editor shows Clear selected; the material,
-            // tint, rim, motion and specular are already Clear's defaults. The edge is written whole:
-            // its defaults are what an install that never stored the keys has always read, and stay.
+            // tint, rim, motion and specular are already Clear's defaults. The edge (11/28/70/0/25/100)
+            // is written whole: its defaults are what an install that never stored the keys has
+            // always read, and stay.
             setSurfaceBaseValue(SurfaceProperty.BLUR, FRESH_INSTALL_BASE_BLUR);
             setSurfaceBaseValue(SurfaceProperty.OPACITY, FRESH_INSTALL_BASE_OPACITY);
             setSurfaceBaseValue(SurfaceProperty.GRAIN, FRESH_INSTALL_BASE_GRAIN);
@@ -2925,7 +2926,7 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
     private static final int FRESH_INSTALL_BASE_BLUR = 4;
     private static final int FRESH_INSTALL_BASE_OPACITY = 10;
     private static final int FRESH_INSTALL_BASE_GRAIN = 4;
-    private static final int FRESH_INSTALL_GLASS_BEND = 14;
+    private static final int FRESH_INSTALL_GLASS_BEND = 11;
     private static final int FRESH_INSTALL_GLASS_EDGE_WIDTH = 28;
     private static final int FRESH_INSTALL_GLASS_EDGE_LIGHT = 70;
     private static final int FRESH_INSTALL_GLASS_DISPERSION = 25;

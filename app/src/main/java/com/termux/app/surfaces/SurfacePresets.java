@@ -81,33 +81,34 @@ public final class SurfacePresets {
         // Clear (id minimal): the most transparent glass, wallpaper forward. Blur 4, opacity 10 on
         // every surface (the terminal follows Base, no detached override), grain 4. Its face is
         // nearly the wallpaper itself, so the edge has to carry the glass: a thick, bright edge
-        // (bend 14, edge 28, light 70) that reads at a glance, the wallpaper at full clarity under
-        // it (clarity 100) and a faint colour fringe (dispersion 25); no specular. Bend is half the
-        // edge width, so the pull compresses the picture to nothing at the rim without folding it.
+        // (bend 11, edge 28, light 70) that reads at a glance, the wallpaper at full clarity under
+        // it (clarity 100) and a faint colour fringe (dispersion 25); no specular. Every Look's
+        // bend is about 0.4 of its edge width, under the pull's 0.45 hold, so the picture
+        // compresses toward the rim and keeps some of itself there.
         // Scheme tint, hairline rim, classic motion.
         preset("minimal", R.string.termux_surface_preset_minimal,
-            TERMUX_APP.SURFACE_MATERIAL_GLASS, 50, 4, 10, 4, 14, 28, 70, 0, 25, 100,
+            TERMUX_APP.SURFACE_MATERIAL_GLASS, 50, 4, 10, 4, 11, 28, 70, 0, 25, 100,
             look -> { }),
         // Mist: Obsidian-Music's glass and motion (Apache-2.0; see
         // project-docs/reference/launcher/mist-preset-obsidian-values.md). Blur 25
         // and opacity 60 are Obsidian's own numbers. Grain 8 is not its 0.08 noise carried over:
         // Haze lays a soft noise tile at 0.08 alpha, ours is full-contrast random alpha at up to
         // 60/255 of the percentage, so a literal match (about 68) would read as sand. 8 is the
-        // same faint tooth. The edge is the deepest (bend 16, edge 32, light 60), clears the heavy
+        // same faint tooth. The edge is the deepest (bend 13, edge 32, light 60), clears the heavy
         // frost toward the rim a little less than Clear does (clarity 90), with a fainter fringe
         // (dispersion 20).
         preset("frost", R.string.termux_surface_preset_frost,
-            TERMUX_APP.SURFACE_MATERIAL_FROST, 50, 25, 60, 8, 16, 32, 60, 0, 20, 90,
+            TERMUX_APP.SURFACE_MATERIAL_FROST, 50, 25, 60, 8, 13, 32, 60, 0, 20, 90,
             look -> {
                 look.put(TERMUX_APP.KEY_SURFACE_GLASS_TINT, TERMUX_APP.GLASS_TINT_OBSIDIAN);
                 look.put(TERMUX_APP.KEY_SURFACE_GLASS_RIM, TERMUX_APP.GLASS_RIM_GRADIENT);
                 look.put(TERMUX_APP.KEY_SURFACE_GLASS_MOTION, TERMUX_APP.GLASS_MOTION_MIST);
             }),
         // Tint (id stock): glass in Material colours (surface tint toward primary container), with
-        // an edge a little shallower than Clear's (bend 12, edge 26), a little less lit (light 60)
+        // an edge a little shallower than Clear's (bend 10, edge 26), a little less lit (light 60)
         // and clear (clarity 85), and no fringe.
         preset("stock", R.string.termux_surface_preset_stock,
-            TERMUX_APP.SURFACE_MATERIAL_GLASS, 50, 10, 46, 10, 12, 26, 60, 0, 0, 85,
+            TERMUX_APP.SURFACE_MATERIAL_GLASS, 50, 10, 46, 10, 10, 26, 60, 0, 0, 85,
             look -> look.put(TERMUX_APP.KEY_SURFACE_GLASS_TINT, TERMUX_APP.GLASS_TINT_MATERIAL)),
         // Solid: opaque, no blur cost, and no edge to clear.
         preset("solid", R.string.termux_surface_preset_solid,

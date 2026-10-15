@@ -28,9 +28,10 @@ import java.util.Arrays;
  * across the whole band on a squared profile: nothing at the band's inner edge, a quarter of the
  * way at its middle, all of it at the rim. The bend does two things at once. It pulls the sample
  * inward along the rim's own normal, so the picture compresses toward the edge, and it magnifies
- * the picture under the band toward the surface's centre in both axes, the way a thick slab's
+ * the picture under the band along the edge, toward the surface's centre, the way a thick slab's
  * rounded edge acts as a lens, by no more than the pull itself, so a large surface and a small one
- * kink alike: a line that crosses an edge kinks there instead of only smearing along it. The face
+ * kink alike: a line that crosses an edge kinks there instead of only smearing along it. The pull
+ * never reaches 0.45 of the band, so the picture compresses toward the rim without folding. The face
  * inside the band samples exactly where it is. It then lays a hairline of light about 1.5 dp
  * wide where the edge catches it, lit from above and a little to the left with a weaker light
  * answering from below, so the top edge is bright, the bottom edge softer and the sides faint, as
@@ -120,11 +121,19 @@ public final class GlassRefraction {
 
         /**
          * The slab lens at the bend slider's maximum: under the rim the picture is drawn this
-         * share of the way toward the surface's centre, but never further than the pull along the
-         * normal at that pixel, so it does not grow with the surface. It scales with the bend, so
-         * the Bend slider drives both the pull and the lens.
+         * share of the way toward the surface's centre along the edge (the pull alone moves it
+         * along the normal), but never further than the pull at that pixel, so it does not grow
+         * with the surface. It scales with the bend, so the Bend slider drives both the pull and
+         * the lens.
          */
         static final float MAX_SLAB_LENS = 0.25f;
+
+        /**
+         * The deepest the pull may reach, as a share of the band. The pull's slope at the rim is
+         * 1 - 2 * pull / band, so at half the band the rim collapses to a line and past it folds;
+         * held here, the rim always keeps some picture whatever the Bend slider says.
+         */
+        static final float MAX_PULL_SHARE = 0.45f;
 
         /** The brightest the bevel's lit side can be; 100% lands here. */
         static final float MAX_SPEC = 0.6f;
@@ -193,9 +202,12 @@ public final class GlassRefraction {
                 preferences.getFancierGlassClarityPercent());
         }
 
-        /** {@code uStrength}: how far a rim pixel's sample is pulled inward, in px. */
+        /**
+         * {@code uStrength}: how far a rim pixel's sample is pulled inward, in px: the bend, held
+         * under {@link #MAX_PULL_SHARE} of the band.
+         */
         public float strengthPx(float density) {
-            return bendDp * density;
+            return Math.min(bendDp * density, MAX_PULL_SHARE * bandPx(density));
         }
 
         /** {@code uBand}: how far in from the rim the pull reaches, in px; never under a pixel. */
@@ -420,12 +432,14 @@ public final class GlassRefraction {
         "    float3 h = float3(dot(uLocalX, p), dot(uLocalY, p), dot(uLocalW, p));\n" +
         "    return (h.xy / h.z - uFrameOffset) / uFrameScale;\n" +
         "}\n" +
-        // The slab lens's offset for a sample already pulled along the normal to `bent`: toward the
-        // surface's centre by uSlab * e of the way, but never further than the pull itself
+        // The slab lens's offset for a sample already pulled along the normal n to `bent`: toward
+        // the surface's centre by uSlab * e of the way, along the edge only (the normal part is
+        // the pull's, and adding to it would fold the rim), and never further than the pull itself
         // (e * uStrength), so a full-width dock and a small pane kink a line by the same few dp at
         // the rim. Zero at e 0. slabOffset in Java is the same arithmetic.
-        "float2 slabOffset(float2 bent, float2 center, float e) {\n" +
+        "float2 slabOffset(float2 bent, float2 center, float2 n, float e) {\n" +
         "    float2 d = (bent - center) * (uSlab * e);\n" +
+        "    d = d - n * dot(d, n);\n" +
         "    float cap = e * uStrength;\n" +
         "    float len = length(d);\n" +
         "    return len > cap ? d * (cap / len) : d;\n" +
@@ -444,13 +458,13 @@ public final class GlassRefraction {
         "    float x = clamp(1.0 - inside / uBand, 0.0, 1.0);\n" +
         "    float e = x * x;\n" +
         // The slab: the sample is pulled inward along the rim's normal by e * uStrength, and the
-        // picture under the band is magnified toward the surface's centre in both axes
+        // picture under the band is magnified along the edge toward the surface's centre
         // (slabOffset, no longer than the pull), so a line crossing an edge kinks there rather than
         // only smearing along the normal. Both are offsets from fragCoord that vanish at e 0: a face
         // pixel samples exactly where it is. A seam edge lies past the band (rimRect), so neither
         // reaches it.
         "    float2 bent = fragCoord - n * (e * uStrength);\n" +
-        "    float2 sampleCoord = bent - slabOffset(bent, center, e);\n" +
+        "    float2 sampleCoord = bent - slabOffset(bent, center, n, e);\n" +
         // A finger on the glass: its reach, 1 under the fingertip and 0 at uTouchRadius. The
         // picture is drawn a little toward the touch (a shallow lens, uTouchLens of the distance
         // at most), and the glow and the rim light below reuse the same reach.
@@ -473,7 +487,7 @@ public final class GlassRefraction {
         "            float fade = smoothstep(0.0, max(uLensFeather, 1.0), ld) * uLensActive;\n" +
         "            float2 lensCoord = uLensCenter + lp * k;\n" +
         "            float2 lensBent = lensCoord - n * (e * uStrength);\n" +
-        "            lensBent = lensBent - slabOffset(lensBent, center, e);\n" +
+        "            lensBent = lensBent - slabOffset(lensBent, center, n, e);\n" +
         "            sampleCoord = mix(sampleCoord, lensBent, fade);\n" +
         "            lensGlow = fade * (1.0 - rr);\n" +
         "        }\n" +
@@ -579,14 +593,18 @@ public final class GlassRefraction {
 
     /**
      * The program's slab lens offset, into {@code out}: for a sample pulled along the normal to
-     * {@code (bentX, bentY)} on a surface centred at {@code (centerX, centerY)}, the offset toward
-     * the centre, {@code slab * e} of the way there but never longer than {@code e * strengthPx}.
+     * {@code (bentX, bentY)} on a surface centred at {@code (centerX, centerY)}, whose rim's unit
+     * normal there is {@code (nx, ny)}: the offset toward the centre, {@code slab * e} of the way
+     * there, its part along the normal dropped, and never longer than {@code e * strengthPx}.
      * The AGSL's {@code slabOffset}, for tests.
      */
-    static void slabOffset(float bentX, float bentY, float centerX, float centerY, float slab,
-                           float e, float strengthPx, @NonNull float[] out) {
+    static void slabOffset(float bentX, float bentY, float centerX, float centerY, float nx,
+                           float ny, float slab, float e, float strengthPx, @NonNull float[] out) {
         float dx = (bentX - centerX) * (slab * e);
         float dy = (bentY - centerY) * (slab * e);
+        float along = dx * nx + dy * ny;
+        dx -= nx * along;
+        dy -= ny * along;
         float cap = e * strengthPx;
         float len = (float) Math.hypot(dx, dy);
         float k = len > cap ? cap / len : 1f;

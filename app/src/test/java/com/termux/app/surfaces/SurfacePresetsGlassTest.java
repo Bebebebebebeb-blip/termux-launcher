@@ -78,10 +78,10 @@ public class SurfacePresetsGlassTest {
 
     @Test
     public void clearTintAndSolidCarryTheRecipesOfTheSpec() {
-        assertRecipe(preset("minimal"), 4, 10, 4, 14, 28, 70, 25, 100);
-        assertRecipe(preset("stock"), 10, 46, 10, 12, 26, 60, 0, 85);
+        assertRecipe(preset("minimal"), 4, 10, 4, 11, 28, 70, 25, 100);
+        assertRecipe(preset("stock"), 10, 46, 10, 10, 26, 60, 0, 85);
         assertRecipe(preset("solid"), 0, 92, 0, 0, 1, 0, 0, 0);
-        assertRecipe(preset("frost"), 25, 60, 8, 16, 32, 60, 20, 90);
+        assertRecipe(preset("frost"), 25, 60, 8, 13, 32, 60, 20, 90);
         assertEquals(TERMUX_APP.GLASS_TINT_MATERIAL,
             preset("stock").values.get(TERMUX_APP.KEY_SURFACE_GLASS_TINT));
 
