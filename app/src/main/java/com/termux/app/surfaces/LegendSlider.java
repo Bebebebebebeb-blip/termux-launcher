@@ -69,6 +69,13 @@ public final class LegendSlider extends View {
      * for everyone else.
      */
     private static final float MIN_TEXT_SCALE = 0.8f;
+    /**
+     * Glyph advances do not scale exactly with the text size, so a legend shrunk in proportion
+     * can still overrun by a fraction of a pixel; it steps down by at least this much, a few
+     * times, until the measured width fits.
+     */
+    private static final float SHRINK_STEP_PX = 0.25f;
+    private static final int SHRINK_PASSES = 8;
     private static final int DISABLED_ALPHA = 97;
     private static final int DISABLED_TRACK_ALPHA = 31;
 
@@ -393,8 +400,18 @@ public final class LegendSlider extends View {
         mFitRoomPx = room;
         mTextPaint.setTextSize(mBaseTextSizePx);
         float natural = mTextPaint.measureText(legend, 0, legend.length());
-        if (natural > room)
-            mTextPaint.setTextSize(Math.max(mMinTextSizePx, mBaseTextSizePx * room / natural));
+        if (natural > room) {
+            float size = Math.max(mMinTextSizePx, mBaseTextSizePx * room / natural);
+            mTextPaint.setTextSize(size);
+            for (int pass = 0; pass < SHRINK_PASSES && size > mMinTextSizePx; pass++) {
+                float measured = mTextPaint.measureText(legend, 0, legend.length());
+                if (measured <= room)
+                    break;
+                size = Math.max(mMinTextSizePx,
+                    Math.min(size * room / measured, size - SHRINK_STEP_PX));
+                mTextPaint.setTextSize(size);
+            }
+        }
         mShown = fit(legend, room);
         float textWidth = mTextPaint.measureText(mShown, 0, mShown.length());
         Paint.FontMetrics metrics = mTextPaint.getFontMetrics();
