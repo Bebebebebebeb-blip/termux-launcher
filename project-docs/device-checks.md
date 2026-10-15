@@ -52,8 +52,8 @@ under twenty items; past that, the oldest are re-judged first.
   launch), once on the high-contrast synthetic wallpaper and once on a photo: crop a pane corner
   (one pane and split), the dock's top edge (Docked and Floating, keyboard up and down) and the
   status pane's bottom edge. Passes when the wallpaper visibly bends and folds under the rim
-  without zooming while the face stays flat; the top-left corner arcs carry a white glint and no
-  edge is outlined in white; every edge is a little darker; a red/blue glint sits at the corners
+  without zooming while the face stays flat; the top edge carries a soft light along its length that fades round the
+  corners, the sides and bottom carry none, and no edge is outlined in white; every edge is a little darker; a red/blue glint sits at the corners
   and none along the middle of a straight edge; a small pane shows no picture from its opposite
   edge; no image jump or line on a seam (keyboard over the strip under the pill, status over the
   window bar); Solid unchanged · emulator.

@@ -107,11 +107,12 @@ public class GlassRefractionTest {
             new GlassRefraction.Look(9, 20, 50, 50, 0).lightAlpha(), 1e-4f);
         assertEquals(GlassRefraction.Look.MAX_LIGHT_ALPHA,
             new GlassRefraction.Look(9, 20, 100, 100, 0).lightAlpha(), 1e-4f);
-        // Specular widens the glint along the straight top edge (normal straight up).
-        float narrow = GlassRefraction.lobe(0f, -1f, new GlassRefraction.Look(9, 20, 30, 0, 0).lobeExponent());
-        float wide = GlassRefraction.lobe(0f, -1f, new GlassRefraction.Look(9, 20, 30, 100, 0).lobeExponent());
-        assertTrue(narrow < 0.01f);
-        assertEquals("at k 4 the top edge keeps a quarter", 0.25f, wide, 1e-3f);
+        // Specular widens the light round the corner (the normal 45 degrees from straight up).
+        float d = (float) Math.sqrt(0.5);
+        float narrow = GlassRefraction.lobe(-d, -d, new GlassRefraction.Look(9, 20, 30, 0, 0).lobeExponent());
+        float wide = GlassRefraction.lobe(-d, -d, new GlassRefraction.Look(9, 20, 30, 100, 0).lobeExponent());
+        assertEquals("at k 6 the corner keeps an eighth", 0.125f, narrow, 1e-3f);
+        assertEquals("at k 2 the corner keeps half", 0.5f, wide, 1e-3f);
     }
 
     @Test
@@ -314,20 +315,20 @@ public class GlassRefractionTest {
     public void theRimLightPeaksTowardTheLightAndIsDarkOppositeIt() {
         float k = GlassRefraction.Look.LOBE_K;
         float d = (float) Math.sqrt(0.5);
-        assertEquals("full on the arc facing the top-left light", 1f, GlassRefraction.lobe(-d, -d, k), 1e-4f);
-        assertEquals("nothing on the arc facing away", 0f, GlassRefraction.lobe(d, d, k), 0f);
+        assertEquals("full along the top edge, which faces the light", 1f, GlassRefraction.lobe(0f, -1f, k), 1e-4f);
+        assertEquals("an eighth round the corner", 0.125f, GlassRefraction.lobe(-d, -d, k), 1e-3f);
         assertEquals("nothing on the bottom edge", 0f, GlassRefraction.lobe(0f, 1f, k), 0f);
         assertEquals("nothing on the right edge", 0f, GlassRefraction.lobe(1f, 0f, k), 0f);
-        assertTrue("a glint, not a line along the top edge", GlassRefraction.lobe(0f, -1f, k) < 0.01f);
-        // Falling off round the corner arc from its peak.
+        assertEquals("nothing on the left edge", 0f, GlassRefraction.lobe(-1f, 0f, k), 0f);
+        // Falling off from the top edge round the corner arc to the side.
         float last = 2f;
         for (int deg = 0; deg <= 90; deg += 5) {
-            double a = Math.toRadians(225 + deg);
+            double a = Math.toRadians(270 + deg);
             float l = GlassRefraction.lobe((float) Math.cos(a), (float) Math.sin(a), k);
             assertTrue("falls off at " + deg, l <= last);
             last = l;
         }
-        assertTrue(GlassRefraction.AGSL.contains("const float2 kLight = float2(-0.70710678, -0.70710678);"));
+        assertTrue(GlassRefraction.AGSL.contains("const float2 kLight = float2(0.0, -1.0);"));
         assertTrue(GlassRefraction.AGSL.contains("return c > 0.0 ? pow(c, k) : 0.0;"));
     }
 

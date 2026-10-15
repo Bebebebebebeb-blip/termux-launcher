@@ -34,9 +34,10 @@ import java.util.Arrays;
  * toward the surface's centre, the way a thick slab's rounded edge acts as a lens, by no more
  * than the pull itself, so a line that crosses an edge kinks there instead of only smearing along
  * it. The face inside the band samples exactly where it is. Along the rim, about 1.5 dp wide, the
- * edge is a little darker, and over that dark edge the arc that faces the room's one light (top
- * left, 45 degrees) catches a glint, mixed toward white so it can never outline the whole surface
- * or push a pixel past white; Specular widens the glint along the edges either side. Across the
+ * edge is a little darker, and over that dark edge the top edge, which faces the room's one light
+ * straight above, catches the light along its length, fading round the corners and gone down the
+ * sides, mixed toward white so it can never outline the whole surface or push a pixel past white;
+ * Specular carries the light further round the corners and down the sides. Across the
  * band the bend carries the slab's thickness: the picture brightens a little toward the lit rim
  * and dims a little toward the one in shadow, in step with how far it is bent. Where a clearer
  * picture of the wallpaper is handed in ({@link Program#setClarityInput}), the band shows it
@@ -111,12 +112,14 @@ public final class GlassRefraction {
         static final float MAX_SHADE = 0.32f;
 
         /**
-         * The light's falloff round the rim, the exponent on how squarely the rim faces it: at
-         * Specular 0 a glint on the arc that faces the light (Haze runs 16 to 24), at 100 a broad
-         * sweep that reaches a quarter of the way along the two edges either side of it.
+         * The light's falloff round the rim, the exponent on how squarely the rim faces it. The
+         * light is straight above, so at Specular 0 the top edge is lit along its length and the
+         * glint has faded to an eighth by the corner's 45 degrees and to nothing down the sides
+         * (Haze runs 16 to 24 for a point light; a ceiling light wants a softer lobe); at 100 the
+         * corner keeps half and the light runs well down the sides.
          */
-        static final float LOBE_K = 20f;
-        static final float MIN_LOBE_K = 4f;
+        static final float LOBE_K = 6f;
+        static final float MIN_LOBE_K = 2f;
 
         /**
          * The rim light's width: 1.5 dp, a twentieth of the edge width once that is wider, and
@@ -409,9 +412,9 @@ public final class GlassRefraction {
         "uniform float uLensRadius;\n" +
         "uniform float uLensStrength;\n" +
         "uniform float uLensFeather;\n" +
-        // The room's one light: from the top left at 45 degrees. A unit vector toward it; LIGHT_X
-        // and LIGHT_Y in Java.
-        "const float2 kLight = float2(-0.70710678, -0.70710678);\n" +
+        // The room's one light: straight above, so the top edge is lit along its length and the
+        // sides fade. A unit vector toward it; LIGHT_X and LIGHT_Y in Java.
+        "const float2 kLight = float2(0.0, -1.0);\n" +
         // Where the pull's soft clamp starts giving way, as a share of the room it has; PULL_KNEE.
         "const float kKnee = 0.75;\n" +
         "float sdRoundRect(float2 p, float2 b, float r) {\n" +
@@ -461,8 +464,8 @@ public final class GlassRefraction {
         "float cornerWeight(float2 p, float2 b) {\n" +
         "    return min(abs(p.x * p.y) / max(b.x * b.y, 1.0), 1.0);\n" +
         "}\n" +
-        // How squarely the rim with outward normal n faces the light, to the power k: 1 on the arc
-        // that faces it, a few hundredths 45 degrees round at the default k, nothing facing away.
+        // How squarely the rim with outward normal n faces the light, to the power k: 1 along the
+        // top edge, an eighth 45 degrees round at the default k, nothing facing away.
         // lobe in Java.
         "float lobe(float2 n, float k) {\n" +
         "    float c = max(dot(n, kLight), 0.0);\n" +
@@ -623,9 +626,9 @@ public final class GlassRefraction {
         out[1] = dy * k;
     }
 
-    /** The program's light direction, {@code kLight}: a unit vector toward the top left at 45 degrees. */
-    static final float LIGHT_X = -0.70710678f;
-    static final float LIGHT_Y = -0.70710678f;
+    /** The program's light direction, {@code kLight}: a unit vector straight up. */
+    static final float LIGHT_X = 0f;
+    static final float LIGHT_Y = -1f;
 
     /** The program's {@code kKnee}: where the pull's soft clamp starts giving way, as a share of its room. */
     static final float PULL_KNEE = 0.75f;
