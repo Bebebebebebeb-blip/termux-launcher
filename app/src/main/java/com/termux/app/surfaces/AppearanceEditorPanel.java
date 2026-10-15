@@ -94,7 +94,7 @@ final class AppearanceEditorPanel {
         void onSliderReleased();
         /** A button of the heading row: Keyboard theme, or Clock (with the button to anchor to). */
         void onDoor(@NonNull Door door, @NonNull View anchor);
-        /** The terminal's Trail menu: the cursor-trail style id the user chose. */
+        /** The terminal's Trail menu: the id the user chose, a style or {@link CursorTrailChoice#OFF}. */
         void onTrailStyle(@NonNull String id);
         /** The terminal's Effect menu: the retro effect id the user chose. */
         void onRetroEffect(@NonNull String id);
@@ -768,8 +768,8 @@ final class AppearanceEditorPanel {
             }
         });
         mTrail.setOnClickListener(view -> showChoiceMenu(mTrail,
-            R.array.settings_terminal_cursor_trail_style_entries,
-            R.array.settings_terminal_cursor_trail_style_values, mTrailId, id -> {
+            R.array.appearance_editor_cursor_trail_entries,
+            R.array.appearance_editor_cursor_trail_values, mTrailId, id -> {
                 mTrailId = id;
                 restateTrail();
                 if (mListener != null) mListener.onTrailStyle(id);
@@ -823,16 +823,16 @@ final class AppearanceEditorPanel {
      * The terminal's Trail and Effect at the stored ids. An id this build does not know reads as
      * the first option, as the preference's own getter does.
      */
-    void setTerminalLooks(@NonNull String trailId, @NonNull String effectId) {
-        mTrailId = trailId;
+    void setTerminalLooks(boolean trailEnabled, @NonNull String trailId, @NonNull String effectId) {
+        mTrailId = CursorTrailChoice.menuId(trailEnabled, trailId);
         mEffectId = effectId;
         restateTrail();
         restateEffect();
     }
 
     private void restateTrail() {
-        String label = optionLabel(R.array.settings_terminal_cursor_trail_style_entries,
-            R.array.settings_terminal_cursor_trail_style_values, mTrailId);
+        String label = optionLabel(R.array.appearance_editor_cursor_trail_entries,
+            R.array.appearance_editor_cursor_trail_values, mTrailId);
         mTrailValue.setText(label);
         mTrail.setContentDescription(
             mContext.getString(R.string.appearance_editor_trail_description, label));

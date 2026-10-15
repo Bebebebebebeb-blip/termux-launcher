@@ -60,6 +60,7 @@ final class AppearanceSnapshot {
     private final boolean mSoft;
     private final String mContrast;
     private final String mTrailStyle;
+    private final boolean mTrailEnabled;
     private final String mRetroEffect;
     private final String mClockStyle;
     private final String mClockAlignment;
@@ -103,6 +104,7 @@ final class AppearanceSnapshot {
         mSoft = SoftWallpaper.isOn(prefs);
         mContrast = prefs.getTerminalContrastLevel().value;
         mTrailStyle = prefs.getTerminalCursorTrailStyle();
+        mTrailEnabled = prefs.isTerminalCursorTrailEnabled();
         mRetroEffect = prefs.getTerminalRetroEffect();
         mClockStyle = prefs.getTopPaneClockStyle();
         mClockAlignment = prefs.getTopPaneClockAlignment();
@@ -151,6 +153,7 @@ final class AppearanceSnapshot {
         SoftWallpaper.set(prefs, mSoft);
         prefs.setTerminalContrastLevel(mContrast);
         prefs.setTerminalCursorTrailStyle(mTrailStyle);
+        prefs.setTerminalCursorTrailEnabled(mTrailEnabled);
         prefs.setTerminalRetroEffect(mRetroEffect);
         prefs.setTopPaneClockStyle(mClockStyle);
         prefs.setTopPaneClockAlignment(mClockAlignment);
@@ -173,7 +176,7 @@ final class AppearanceSnapshot {
             .append('|').append(mKeyboardBlurRaw).append('|').append(mKeyOpacity)
             .append('|').append(mKeyRadiusRaw).append('|').append(mKeySpacingRaw)
             .append('|').append(mDockButtonCount).append('|').append(mDim).append('|').append(mSoft)
-            .append('|').append(mContrast).append('|').append(mTrailStyle)
+            .append('|').append(mContrast).append('|').append(mTrailStyle).append('|').append(mTrailEnabled)
             .append('|').append(mRetroEffect).append('|').append(mClockStyle)
             .append('|').append(mClockAlignment)
             .toString();

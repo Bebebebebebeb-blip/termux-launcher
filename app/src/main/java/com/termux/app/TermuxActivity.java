@@ -11566,6 +11566,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         @Override public void applyTerminalMotionLook() {
             TermuxActivity.this.applyTrailStyleAndRetroEffect();
+            TermuxActivity.this.applyCursorTrailEnabledToPanes();
         }
 
         @Override public void refreshTerminalPalette() {
@@ -18015,6 +18016,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     boolean toggleCursorTrail() {
         boolean enabled = !mPreferences.isTerminalCursorTrailEnabled();
         mPreferences.setTerminalCursorTrailEnabled(enabled);
+        applyCursorTrailEnabledToPanes();
+        return enabled;
+    }
+
+    /** Re-reads the cursor trail on/off preference into every live pane view. */
+    private void applyCursorTrailEnabledToPanes() {
         if (mTermuxTerminalViewClient != null) {
             if (mPaneController != null) {
                 for (TerminalView view : mPaneController.getVisiblePaneViews()) {
@@ -18025,7 +18032,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mTermuxTerminalViewClient.applyCursorTrailPolicy(getTerminalView());
             mTermuxTerminalViewClient.applyUrlUnderlinePolicy(getTerminalView());
         }
-        return enabled;
     }
 
     /** Whether the cursor trail preference is on, regardless of power save state. */

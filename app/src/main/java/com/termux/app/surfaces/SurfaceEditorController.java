@@ -152,7 +152,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         /** Rebuilds the terminal palette if the contrast level moved (Legibility drives both). */
         void refreshTerminalPalette();
         /**
-         * Pushes the cursor-trail style and retro terminal effect preferences into the panes
+         * Pushes the cursor-trail on/off and style and retro terminal effect preferences into the panes
          * (the Trail and Effect menus drive both).
          */
         void applyTerminalMotionLook();
@@ -1846,7 +1846,8 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             doors.remove(Door.EFFECT);
         panel.setDoors(doors);
         if (mTarget == Target.TERMINAL)
-            panel.setTerminalLooks(prefs.getTerminalCursorTrailStyle(),
+            panel.setTerminalLooks(prefs.isTerminalCursorTrailEnabled(),
+                prefs.getTerminalCursorTrailStyle(),
                 prefs.getTerminalRetroEffect());
     }
 
@@ -2511,12 +2512,22 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         requestPreview(SurfaceEditorProperties.PREVIEW_SURFACES);
     }
 
-    /** Trail: the cursor-trail style, the same preference Settings writes, applied on the tap. */
+    /**
+     * Trail: Off or a cursor-trail style, the same preferences Settings writes, applied on the tap.
+     * Off only clears the on/off preference and keeps the style; a style also turns the trail on.
+     */
     private void writeTrailStyle(@NonNull String id) {
         TermuxAppSharedPreferences prefs = prefs();
-        if (prefs == null || id.equals(prefs.getTerminalCursorTrailStyle()))
+        if (prefs == null)
             return;
-        prefs.setTerminalCursorTrailStyle(id);
+        CursorTrailChoice.Resolved choice = CursorTrailChoice.resolve(id);
+        boolean styleSame = choice.style == null
+            || choice.style.equals(prefs.getTerminalCursorTrailStyle());
+        if (choice.enabled == prefs.isTerminalCursorTrailEnabled() && styleSame)
+            return;
+        if (choice.style != null)
+            prefs.setTerminalCursorTrailStyle(choice.style);
+        prefs.setTerminalCursorTrailEnabled(choice.enabled);
         mHost.applyTerminalMotionLook();
     }
 
