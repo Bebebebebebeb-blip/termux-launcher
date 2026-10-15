@@ -58,9 +58,8 @@ import java.util.Map;
  *
  * <p>The layout is one ConstraintLayout: each
  * mode's rows are a {@link Group}, and a mode switch shows one and hides the other. Row B at
- * Appearance is the Custom row: a heading row with the selection's buttons over up to six
- * vertical {@link LegendSlider}s (for the terminal, two pills in the heading's place; for the
- * global set, the Surface | Edge toggle after its name). It is GONE at a Look stop, so the sheet's height follows its
+ * Appearance is the Custom row: a heading row with the selection's buttons over up to seven
+ * vertical {@link LegendSlider}s (for the terminal, two pills in the heading's place). It is GONE at a Look stop, so the sheet's height follows its
  * content: {@link #measureFor} is the height for what shows now, and {@link #measureTallest} the
  * height with Row B up, which the frame stands above. Row B is one height whatever is selected.</p>
  *
@@ -98,8 +97,6 @@ final class AppearanceEditorPanel {
         void onTrailStyle(@NonNull String id);
         /** The terminal's Effect menu: the retro effect id the user chose. */
         void onRetroEffect(@NonNull String id);
-        /** The global set's toggle: the group whose sliders the user chose to see. */
-        void onGroup(@NonNull AppearanceLooks.Group group);
     }
 
     /**
@@ -183,9 +180,6 @@ final class AppearanceEditorPanel {
     private final View mEffect;
     private final TextView mTrailValue;
     private final TextView mEffectValue;
-    /** The global set's Surface | Edge toggle in the heading row; GONE for an element. */
-    private final MaterialButtonToggleGroup mGroupToggle;
-
     private final MaterialButtonToggleGroup mOrientation;
     private final MaterialButtonToggleGroup mStyle;
     private final MaterialButton mHidden;
@@ -245,7 +239,8 @@ final class AppearanceEditorPanel {
         mSliderRow = root.findViewById(R.id.appearance_editor_sliders);
         int[] sliderIds = {R.id.appearance_editor_slider_0, R.id.appearance_editor_slider_1,
             R.id.appearance_editor_slider_2, R.id.appearance_editor_slider_3,
-            R.id.appearance_editor_slider_4, R.id.appearance_editor_slider_5};
+            R.id.appearance_editor_slider_4, R.id.appearance_editor_slider_5,
+            R.id.appearance_editor_slider_6};
         for (int i = 0; i < mSliders.length; i++)
             mSliders[i] = root.findViewById(sliderIds[i]);
         mKeyboardTheme = root.findViewById(R.id.appearance_editor_door_keyboard_theme);
@@ -254,7 +249,6 @@ final class AppearanceEditorPanel {
         mEffect = root.findViewById(R.id.appearance_editor_effect);
         mTrailValue = root.findViewById(R.id.appearance_editor_trail_value);
         mEffectValue = root.findViewById(R.id.appearance_editor_effect_value);
-        mGroupToggle = root.findViewById(R.id.appearance_editor_group);
         mOrientation = root.findViewById(R.id.layout_editor_orientation);
         mStyle = root.findViewById(R.id.appearance_editor_style);
         mHidden = root.findViewById(R.id.layout_editor_hidden);
@@ -282,7 +276,6 @@ final class AppearanceEditorPanel {
         paintSheet();
         paintSelectedSegments(mOrientation);
         paintSelectedSegments(mStyle);
-        paintSelectedSegments(mGroupToggle);
         buildLookLabels();
         bind();
     }
@@ -706,12 +699,6 @@ final class AppearanceEditorPanel {
                 return;
             mListener.onStyle(checkedId == R.id.appearance_editor_style_floating);
         });
-        mGroupToggle.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
-            if (mRestating || !isChecked || mListener == null)
-                return;
-            mListener.onGroup(checkedId == R.id.appearance_editor_group_edge
-                ? AppearanceLooks.Group.EDGE : AppearanceLooks.Group.SURFACE);
-        });
         for (int i = 0; i < mSliders.length; i++) {
             final int column = i;
             mSliders[i].addOnChangeListener((slider, value, fromUser) -> {
@@ -1093,7 +1080,7 @@ final class AppearanceEditorPanel {
             : View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
         for (int i = 0; i < mSliders.length; i++)
             mSliders[i].setEnabled(shown && mSliderEnabled[i]);
-        for (View button : new View[] {mKeyboardTheme, mClock, mTrail, mEffect, mGroupToggle})
+        for (View button : new View[] {mKeyboardTheme, mClock, mTrail, mEffect})
             button.setEnabled(shown);
         mRow2.setVisibility(shown && mMode == EditorMode.LOOK ? View.VISIBLE : View.GONE);
         // Where Row B scrolls inside the sheet, it comes up at its heading.
@@ -1200,41 +1187,6 @@ final class AppearanceEditorPanel {
             return;
         params.setMarginStart(marginPx);
         view.setLayoutParams(params);
-    }
-
-    /**
-     * The global set's toggle in the heading row: a segment for each of {@code groups}, with
-     * {@code selected} checked, without reporting it. GONE with no groups (an element, or the
-     * global set where Edge is not offered).
-     */
-    void setGroups(@NonNull List<AppearanceLooks.Group> groups,
-                   @NonNull AppearanceLooks.Group selected) {
-        int visibility = groups.isEmpty() ? View.GONE : View.VISIBLE;
-        if (mGroupToggle.getVisibility() != visibility)
-            mGroupToggle.setVisibility(visibility);
-        View surface = mGroupToggle.findViewById(R.id.appearance_editor_group_surface);
-        View edge = mGroupToggle.findViewById(R.id.appearance_editor_group_edge);
-        int surfaceVisibility = groups.contains(AppearanceLooks.Group.SURFACE)
-            ? View.VISIBLE : View.GONE;
-        int edgeVisibility = groups.contains(AppearanceLooks.Group.EDGE) ? View.VISIBLE : View.GONE;
-        if (surface.getVisibility() != surfaceVisibility)
-            surface.setVisibility(surfaceVisibility);
-        if (edge.getVisibility() != edgeVisibility)
-            edge.setVisibility(edgeVisibility);
-        checkSegment(mGroupToggle, selected == AppearanceLooks.Group.EDGE ? 1 : 0);
-    }
-
-    /** The groups the heading row's toggle offers now, in order, for a test to read. */
-    @NonNull
-    List<AppearanceLooks.Group> shownGroups() {
-        java.util.ArrayList<AppearanceLooks.Group> out = new java.util.ArrayList<>();
-        if (mGroupToggle.getVisibility() != View.VISIBLE)
-            return out;
-        if (mGroupToggle.findViewById(R.id.appearance_editor_group_surface).getVisibility()
-            == View.VISIBLE) out.add(AppearanceLooks.Group.SURFACE);
-        if (mGroupToggle.findViewById(R.id.appearance_editor_group_edge).getVisibility()
-            == View.VISIBLE) out.add(AppearanceLooks.Group.EDGE);
-        return out;
     }
 
     /** Whether Row B's heading (the selection's name) shows; not for the terminal, whose pills own the row. */

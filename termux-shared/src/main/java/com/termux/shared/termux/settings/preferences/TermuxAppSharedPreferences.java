@@ -682,19 +682,6 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
             snapshot == null ? "" : snapshot, false);
     }
 
-    /** See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_APPEARANCE_EDITOR_LAST_GROUP}. */
-    @NonNull
-    public String getAppearanceEditorLastGroup() {
-        return SharedPreferenceUtils.getString(mSharedPreferences,
-            TermuxPreferenceConstants.TERMUX_APP.KEY_APPEARANCE_EDITOR_LAST_GROUP,
-            TermuxPreferenceConstants.TERMUX_APP.DEFAULT_VALUE_APPEARANCE_EDITOR_LAST_GROUP, true);
-    }
-
-    public void setAppearanceEditorLastGroup(@NonNull String group) {
-        SharedPreferenceUtils.setString(mSharedPreferences,
-            TermuxPreferenceConstants.TERMUX_APP.KEY_APPEARANCE_EDITOR_LAST_GROUP, group, false);
-    }
-
     /** See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_FANCIER_GLASS}. The switch alone; whether it takes effect is the chrome's call. */
     public boolean isFancierGlassEnabled() {
         return SharedPreferenceUtils.getBoolean(mSharedPreferences,
