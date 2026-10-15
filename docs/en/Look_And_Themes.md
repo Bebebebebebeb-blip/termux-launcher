@@ -43,16 +43,14 @@ on screen, so you tune what you see; **Undo** puts back what you opened with.
 
 At **Custom**, vertical sliders appear:
 
-- With nothing tapped, a **Surface** | **Glass** toggle beside **All surfaces** switches between two
-  sets for every surface:
-  - **Surface**: **Blur**, **Grain**, **Opacity**, **Tint**, **Margin** and **Corner radius**, the
-    glass and the shape.
-  - **Glass**: **Depth**, how thick the glass edge looks. Picking a Look puts it where that Look
-    has it. The rest of the edge comes with the Look: Clear shows the wallpaper sharply through
-    its edge with a touch of colour at the corners, Mist and Tint bend it through their frost, and
-    every glass edge carries the same faint line of light along its top. The edge needs Android 13
-    and a wallpaper set from the Wallpaper tab (see [Glass](#glass)); without it the slider stays
-    greyed out, and below Android 13 the toggle is not shown.
+- With nothing tapped (**All surfaces**), the sliders apply to every surface: **Blur**, **Grain**,
+  **Opacity**, **Tint**, **Margin** and **Corner radius**, the glass and the shape, then
+  **Depth**, how thick the glass edge looks. Picking a Look puts Depth where that Look has it. The
+  rest of the edge comes with the Look: Clear shows the wallpaper sharply through its edge with a
+  touch of colour at the corners, Mist and Tint bend it through their frost, and every glass edge
+  carries the same faint line of light along its top. Depth shows only while the glass edge is
+  drawn: Android 13 or newer, **Fancier Glass** on, Lazy mode off, and a wallpaper set from the
+  Wallpaper tab (see [Glass](#glass)).
 - Tap an element in the frame to tune it on its own:
   - **Status bar**: the four glass sliders, plus a **Clock** button for the face and alignment
     (see [Status bar](Status_Bar.md#clock)).
