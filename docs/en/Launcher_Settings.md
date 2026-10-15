@@ -88,9 +88,9 @@ benchmark and the local server. See [On-device AI](On_Device_AI.md).
 
 Under **App**. "Battery use and vibration": **Reduce idle activity** (lazy mode), the vibration
 switches, and **Show in Recents when not the default launcher**. See
-[Look and themes](Look_And_Themes.md#reduce-idle-activity). **Low-memory preset** sets the Solid look,
-an opaque terminal, no cursor trail or terminal effect, no wallpaper parallax and Reduce idle activity
-in one tap; pick another look in Appearance to undo the look.
+[Look and themes](Look_And_Themes.md#reduce-idle-activity). **Low-memory preset** is a switch: on, it sets the Solid look,
+an opaque terminal, no cursor trail or terminal effect, no wallpaper parallax and Reduce idle activity;
+off, it puts back what it replaced.
 
 ## Backup & restore
 
