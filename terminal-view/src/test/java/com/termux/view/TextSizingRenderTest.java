@@ -246,6 +246,108 @@ public class TextSizingRenderTest {
         assertFalse(TextBlockGeometry.cellSelected(plain, 5, 0, 2, 4, 5, 3));
     }
 
+    // --- Faces inside a block: symbol_map and fallback resolve per code point, as in plain cells ---
+
+    /** Stands in for the renderer's resolution: a symbol map over the private-use area. */
+    private static final Object SYMBOLS = new Object();
+    private static final Object FALLBACK = new Object();
+    private static final TerminalRenderer.BlockFaces FACES = (codePoint, bold, italic) -> {
+        if (TerminalRenderer.isPrivateUse(codePoint)) return SYMBOLS;
+        if (codePoint == 0x4E2D) return FALLBACK;
+        return null;
+    };
+
+    /** The block text split into its face runs, as {@code start-end} pairs. */
+    private static String runs(String text) {
+        StringBuilder out = new StringBuilder();
+        for (int start = 0, end; start < text.length(); start = end) {
+            end = TerminalRenderer.blockRunEnd(text, start, false, false, FACES);
+            if (out.length() > 0) out.append(' ');
+            out.append(start).append('-').append(end);
+        }
+        return out.toString();
+    }
+
+    @Test
+    public void latinTextInABlockIsOneRunOnThePrimaryFace() {
+        assertEquals("0-5", runs("Hello"));
+        assertEquals(null, FACES.faceOf('H', false, false));
+    }
+
+    @Test
+    public void aPrivateUseIconInABlockGetsARunOfItsOwnOnTheSymbolFace() {
+        // "A<U+F0C5>B": the Latin parts keep the primary face, the icon is split out for the map.
+        assertEquals("0-1 1-2 2-3", runs("AB"));
+        assertEquals(SYMBOLS, FACES.faceOf("AB".codePointAt(1), false, false));
+        // A supplementary-plane icon (U+F0219) is one code point, two chars, one run.
+        final String supplementary = "A" + new String(Character.toChars(0xF0219)) + "B";
+        assertEquals("0-1 1-3 3-4", runs(supplementary));
+        // Two icons side by side share the face, so they share the run.
+        assertEquals("0-2", runs(""));
+    }
+
+    @Test
+    public void aFallbackCodePointInABlockGetsARunOfItsOwn() {
+        assertEquals("0-1 1-2 2-3", runs("A中B"));
+    }
+
+    @Test
+    public void aCombiningMarkStaysWithTheCodePointBeforeIt() {
+        // U+0301 resolves to the primary face on its own; inside the icon's run it is not a break.
+        assertEquals("0-2 2-3", runs("́B"));
+        assertEquals("0-3", runs("Aé"));
+    }
+
+    @Test
+    public void aSymbolRunCoversItsCellsAtTheBlocksScale() {
+        assertEquals(20f, TextBlockGeometry.symbolBoxWidth(1, FONT_WIDTH, 2f), EPSILON);
+        assertEquals(40f, TextBlockGeometry.symbolBoxWidth(2, FONT_WIDTH, 2f), EPSILON);
+        assertEquals(10f, TextBlockGeometry.symbolBoxWidth(1, FONT_WIDTH, 1f), EPSILON);
+        assertEquals(3, TerminalRenderer.blockRunColumns("A́B", 0, 4));
+    }
+
+    @Test
+    public void anIconInADoubleSizeBlockIsCentredInItsTwoByTwoCells() {
+        // s=2, one wcwidth column: the icon owns a 20 x 48 box (two cells by two rows).
+        final float left = 30f;
+        final float boxTop = 76f;
+        final float boxWidth = TextBlockGeometry.symbolBoxWidth(1, FONT_WIDTH, 2f);
+        final float boxHeight = TextBlockGeometry.boxHeight(LINE_SPACING, 2f);
+        // A wide symbol face at the drawn size: 30 wide, line box 60 (ascent -48, descent 12).
+        float advance = 30f;
+        float ascent = -48f;
+        float descent = 12f;
+        final float fit = TextBlockGeometry.symbolFitScale(advance, descent - ascent, boxWidth,
+            boxHeight);
+        assertEquals(20f / 30f, fit, EPSILON);
+        advance *= fit;
+        ascent *= fit;
+        descent *= fit;
+        final float glyphLeft = TextBlockGeometry.centredLeft(left, boxWidth, advance);
+        final float baseline = TextBlockGeometry.centredBaseline(boxTop, boxHeight,
+            descent - ascent, ascent);
+        // Centred horizontally in the two cells and vertically in the two rows.
+        assertEquals(left + boxWidth / 2f, glyphLeft + advance / 2f, EPSILON);
+        assertEquals(boxTop + boxHeight / 2f, ((baseline + ascent) + (baseline + descent)) / 2f,
+            EPSILON);
+        // And it stays inside them.
+        assertTrue(glyphLeft >= left - EPSILON);
+        assertTrue(glyphLeft + advance <= left + boxWidth + EPSILON);
+        assertTrue(baseline + ascent >= boxTop - EPSILON);
+        assertTrue(baseline + descent <= boxTop + boxHeight + EPSILON);
+    }
+
+    @Test
+    public void aTallIconIsFitByHeightAndStillCentredAcross() {
+        final float boxWidth = TextBlockGeometry.symbolBoxWidth(1, FONT_WIDTH, 2f);
+        final float boxHeight = TextBlockGeometry.boxHeight(LINE_SPACING, 2f);
+        final float fit = TextBlockGeometry.symbolFitScale(10f, 60f, boxWidth, boxHeight);
+        assertEquals(0.8f, fit, EPSILON);
+        assertEquals(36f, TextBlockGeometry.centredLeft(30f, boxWidth, 10f * fit), EPSILON);
+        // A face that measured nothing keeps its size rather than dividing by zero.
+        assertEquals(1f, TextBlockGeometry.symbolFitScale(0f, 0f, boxWidth, boxHeight), EPSILON);
+    }
+
     @Test
     public void noSelectionCoversNothing() {
         final TerminalRow[] rows = blockRows();

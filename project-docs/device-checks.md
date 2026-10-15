@@ -54,6 +54,10 @@ under twenty items; past that, the oldest are re-judged first.
   crossing an edge kink there, a bright 1.5 dp hairline with a faint dark line just inside it, a
   colour fringe on Clear and Mist; no image jump where the keyboard meets the strip under the
   pill, no hairline on any seam, Solid unchanged · emulator.
+- 2026-10-15 · commit "fix(terminal-view): resolve symbol_map and fallback faces inside scaled
+  text" · `/tmp/launcher-scaled-symbols-2026-10-15/glyph-test.sh`: line 2 (s=2) shows both Nerd
+  Font icons (U+F0C5, U+F0219) at double size, centred in their 2×2 cells, no tofu; lines 1 and 3
+  look as before; Latin in a scaled block is unchanged · emulator.
 
 ## Developer
 
