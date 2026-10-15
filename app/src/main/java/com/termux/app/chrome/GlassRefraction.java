@@ -25,29 +25,25 @@ import java.util.Arrays;
  * <p>What separates real glass from frosted polymer is that glass <em>bends</em> light at its
  * edges and catches a crisp highlight there, instead of only diffusing it. The program samples
  * the blurred wallpaper and, within a band along the surface's rounded-rect rim, pulls the sample
- * inward along the rim's own normal on a circle profile, as Kyant's and Haze's glass do: nothing
- * at the band's inner edge and barely anything across its inner half, then steeply more toward
- * the rim, where the pull reaches up to one and a half bands. Past half a band the rim folds and
- * shows the picture from further in, compressed and mirrored, which is how a thick glass edge
- * reads; a soft clamp keeps the sample short of the surface's middle, so a small pane never shows
- * the opposite edge's picture. Under the band the picture is also magnified along the edge
- * toward the surface's centre, the way a thick slab's rounded edge acts as a lens, by no more
- * than the pull itself, so a line that crosses an edge kinks there instead of only smearing along
- * it. The face inside the band samples exactly where it is. Along the rim, about 4 dp wide, the
- * edge is a little darker, and over that dark edge the top edge, which faces the room's one light
- * straight above, catches the light along its length, fading round the corners and gone down the
- * sides, mixed toward white so it can never outline the whole surface or push a pixel past white;
- * Specular carries the light further round the corners and down the sides. Across the
- * band the bend carries the slab's thickness: the picture brightens a little toward the lit rim
- * and dims a little toward the one in shadow, in step with how far it is bent. Where a clearer
- * picture of the wallpaper is handed in ({@link Program#setClarityInput}), the band shows it
- * through the bend in place of the frost, growing clearer toward the rim, which is what a thick
- * glass edge does to what is behind it. Dispersion splits the bent picture into red and blue at
- * the corners, in step with how far it is bent there, the way a prism fans out white light; the
- * middle of a straight edge takes none. A pressed extra key adds a lens that magnifies toward
- * the key's centre and eases to nothing at its pill rim, and a finger resting on the glass
- * ({@link Program#setTouch}) lights the rim nearest it, scatters a faint glow under it and draws
- * the picture very slightly toward it.</p>
+ * inward along the rim's own normal on Haze's edge profile: the whole bend at the rim, under a
+ * third of it a quarter of the way in, under a tenth half way and nothing at the band's inner
+ * edge, so the bend reads as a narrow ring round a face that samples exactly where it is. How far
+ * the rim reaches in for its picture is held at half the surface's short side, Haze's plain cap,
+ * so a small pane never shows the other edge's picture. Across the outermost dp the pull eases
+ * back to nothing, as Haze's edge softness does, so the outline's own pixel shows the picture just
+ * outside it and the glass is continuous with the wallpaper there.</p>
+ * <p>Along that same dp the rim is a hairline, about as wide and as bright as Haze's and Kyant's:
+ * a little darker all round, so the edge reads on a light wallpaper, and over that mixed toward
+ * white where it faces the room's one light straight above, fading round the corners and gone
+ * down the sides, so it can never outline the whole surface or push a pixel past white. The
+ * hairline is fixed material, not a knob. Where a clearer picture of the wallpaper is handed in
+ * ({@link Program#setClarityInput}), the band shows it through the bend in place of the frost,
+ * growing clearer toward the rim, which is what a thick glass edge does to what is behind it.
+ * Dispersion splits the bent picture into red and blue at the corners, in step with how far it is
+ * bent there, the way a prism fans out white light; the middle of a straight edge takes none. A
+ * pressed extra key adds a lens that magnifies toward the key's centre and eases to nothing at its
+ * pill rim, and a finger resting on the glass ({@link Program#setTouch}) lights the rim nearest
+ * it, scatters a faint glow under it and draws the picture very slightly toward it.</p>
  * <p>It used to live in the activity as the dock's own effect. It is one program now, with two
  * ways in: as a {@code RenderEffect} over a view's finished pixels, which is what the dock and
  * the under-pill strip still do (the content is the view, so the aim is identity), and as the
@@ -81,12 +77,12 @@ public final class GlassRefraction {
     // ------------------------------------------------------------------------------ the look
 
     /**
-     * The knobs the Appearance editor offers, as one value: how far the picture is bent
-     * under the rim, how far in from the rim the bend reaches, how bright the light the rim catches
-     * is (and how dark the edge under it), how wide that light spreads round the rim, how far the
-     * colours part at the corners, and how clear the wallpaper shows through the bent edge.
-     * Stored in dp and percent so two reads compare equal whatever the screen's density; the
-     * program converts when it is handed one.
+     * A surface's glass as stored, as one value: how far the picture is bent under the rim, how
+     * far in from the rim the bend reaches, how far the colours part at the corners, and how clear
+     * the wallpaper shows through the bent edge. It also carries the stored edge light and
+     * specular, which the program no longer reads: the rim's hairline is fixed material. Stored in
+     * dp and percent so two reads compare equal whatever the screen's density; the program
+     * converts when it is handed one.
      */
     public static final class Look {
 
@@ -97,81 +93,63 @@ public final class GlassRefraction {
             TERMUX_APP.DEFAULT_VALUE_FANCIER_GLASS_EDGE_LIGHT);
 
         /**
-         * The most white the rim's light lays over the picture where the rim faces the light
-         * squarely, as an alpha: Edge light 100 lands here (Haze's rim light runs 0.38 to 0.55).
-         * The light is mixed toward white, never added, so a lit pixel moves at most this share of
-         * the way from its own colour to white.
+         * The most white the rim's hairline lays over the picture where it faces the light
+         * squarely, as an alpha (Haze's rim light runs 0.38 to 0.55, Kyant's 0.38 to 0.5). The
+         * light is mixed toward white, never added, so a lit pixel moves at most this share of
+         * the way from its own colour to white. The program's {@code kRim}.
          */
-        static final float MAX_LIGHT_ALPHA = 0.55f;
+        static final float LIGHT_ALPHA = 0.45f;
 
         /**
-         * How much the dark edge under the light takes off the picture at Edge light 100: it is
-         * multiplied by 1 minus this (Haze's edge shadow runs 10 to 32% black). It follows the
-         * light, so a Look with no light has no dark edge either.
+         * How much the hairline takes off the picture all round: it is multiplied by 1 minus
+         * this at the outline (Haze's edge shadow runs 10 to 14% black on light glass). The
+         * program's {@code kShade}.
          */
-        static final float MAX_SHADE = 0.32f;
+        static final float SHADE = 0.12f;
 
         /**
          * The light's falloff round the rim, the exponent on how squarely the rim faces it. The
-         * light is straight above, so at Specular 0 the top edge is lit along its length and the
-         * glint has faded to an eighth by the corner's 45 degrees and to nothing down the sides
-         * (Haze runs 16 to 24 for a point light; a ceiling light wants a softer lobe); at 100 the
-         * corner keeps half and the light runs well down the sides.
+         * light is straight above, so the top edge is lit along its length, the corner's 45
+         * degrees keeps a sixteenth and the sides none: the arc Haze's 3D lobe at k 16 to 24
+         * draws. The program's {@code kLobeK}.
          */
-        static final float LOBE_K = 6f;
-        static final float MIN_LOBE_K = 2f;
+        static final float LOBE_K = 8f;
 
         /**
-         * The rim light's width: 4 dp, a sixth of the edge width once that is wider, and never
-         * under 2 px. Full brightness for half of it, gone at one and a half times it. A 1.5 dp
-         * hairline lit at a 16% mix was invisible beside the dark edge; the references light a
-         * soft band, not a line.
+         * The hairline's width: 1 dp and never under 2 px (Haze's edge softness and its sample
+         * step). Full at the outline, gone this far in. The pull eases in across the same width.
+         * The program's {@code kRimDp} and {@code kMinRimPx}.
          */
-        static final float RIM_WIDTH_DP = 4f;
-        static final float RIM_WIDTH_SHARE = 0.15f;
+        static final float RIM_WIDTH_DP = 1f;
         static final float MIN_RIM_WIDTH_PX = 2f;
-
-        /** How far past the light the dark edge reaches, in dp. */
-        static final float SHADE_DP = 1f;
-
-        /**
-         * The slab lens at the bend slider's maximum: under the rim the picture is drawn this
-         * share of the way toward the surface's centre along the edge (the pull alone moves it
-         * along the normal), but never further than the pull at that pixel, so it does not grow
-         * with the surface. It scales with the bend, so the Bend slider drives both the pull and
-         * the lens.
-         */
-        static final float MAX_SLAB_LENS = 0.25f;
 
         /**
          * The deepest the pull may reach at the rim, as a share of the band: one and a half times
-         * it, as deep as the references bend. Past about half the band the rim folds: it shows the
-         * picture from further in, compressed and mirrored, which is what a thick glass edge does.
-         * {@link GlassRefraction#softClamp} keeps the sample short of the surface's middle
-         * whatever its size.
+         * it. Every Look the editor writes sits under it; it only holds an odd stored pair.
          */
         static final float MAX_PULL_SHARE = 1.5f;
 
         /**
          * How far red and blue part from green at 100%, as a share of the local pull, at a corner;
-         * nothing at the middle of a straight edge ({@link GlassRefraction#cornerWeight}). A quarter
-         * of the pull is a glint at the corners, not a rainbow (Haze's Clear runs 0.02).
+         * nothing at the middle of a straight edge ({@link GlassRefraction#cornerWeight}). Clear's
+         * 40% is Haze Clear's 0.02, a glint at the corners, not a rainbow.
          */
-        static final float MAX_DISPERSION_SHARE = 0.25f;
+        static final float MAX_DISPERSION_SHARE = 0.05f;
 
         /** How much of the clearer picture the band shows at the rim at 100%: all of it. */
         static final float MAX_CLARITY = 1f;
 
-        /**
-         * The bend at which the thickness shading is at full strength, in dp: a bend of a few dp
-         * is a thin pane and shades little; from here on the slab reads as thick.
-         */
-        static final float THICKNESS_FULL_BEND_DP = 8f;
-
         public final int bendDp;
         public final int edgeWidthDp;
+        /**
+         * The stored edge light, a percentage. Kept so a saved look loads and compares as it
+         * was; the program ignores it ({@link #LIGHT_ALPHA}).
+         */
         public final int edgeLightPercent;
-        /** How far the rim's light spreads from the arc that faces it, a percentage; 0 is a glint. */
+        /**
+         * The stored specular, a percentage. Kept so a saved look loads and compares as it was;
+         * the program ignores it ({@link #LOBE_K}).
+         */
         public final int specularPercent;
         /** The chromatic split at the corners, a percentage; 0 samples r, g and b alike. */
         public final int dispersionPercent;
@@ -215,7 +193,8 @@ public final class GlassRefraction {
 
         /**
          * {@code uStrength}: how far a rim pixel's sample is pulled inward, in px: the bend, held
-         * under {@link #MAX_PULL_SHARE} of the band.
+         * under {@link #MAX_PULL_SHARE} of the band. The program holds it again under half the
+         * surface's short side.
          */
         public float strengthPx(float density) {
             return Math.max(0f, Math.min(bendDp * density, MAX_PULL_SHARE * bandPx(density)));
@@ -224,54 +203,6 @@ public final class GlassRefraction {
         /** {@code uBand}: how far in from the rim the pull reaches, in px; never under a pixel. */
         public float bandPx(float density) {
             return Math.max(1f, edgeWidthDp * density);
-        }
-
-        /**
-         * {@code uRim}: the white the rim's light lays over the picture where it faces the light,
-         * 0..{@link #MAX_LIGHT_ALPHA}. Edge light sets it and Specular fills what Edge light leaves
-         * ({@code 1 - (1 - light)(1 - specular)}), so either alone lights the rim and neither
-         * pushes it past the ceiling.
-         */
-        public float lightAlpha() {
-            float light = share(edgeLightPercent);
-            float spec = share(specularPercent);
-            return (1f - (1f - light) * (1f - spec)) * MAX_LIGHT_ALPHA;
-        }
-
-        /**
-         * {@code uLobeK}: the light's falloff round the rim, {@link #LOBE_K} at Specular 0 down to
-         * {@link #MIN_LOBE_K} at 100, so Specular widens the lit arc as well as lighting it.
-         */
-        public float lobeExponent() {
-            return LOBE_K - share(specularPercent) * (LOBE_K - MIN_LOBE_K);
-        }
-
-        /** {@code uShade}: how much the dark edge takes off at the rim, 0..{@link #MAX_SHADE}, in step with Edge light. */
-        public float shade() {
-            return share(edgeLightPercent) * MAX_SHADE;
-        }
-
-        /** {@code uRimW}: the rim light's width in px; see {@link #RIM_WIDTH_DP}. */
-        public float rimWidthPx(float density) {
-            return Math.max(MIN_RIM_WIDTH_PX,
-                Math.max(RIM_WIDTH_DP * density, RIM_WIDTH_SHARE * bandPx(density)));
-        }
-
-        /**
-         * How far in from the rim the light and the dark edge reach, in px: what a seam edge must
-         * be pushed past for neither to show along it.
-         */
-        public float rimReachPx(float density) {
-            return 1.5f * rimWidthPx(density) + SHADE_DP * density;
-        }
-
-        /**
-         * {@code uSlab}: how far toward the surface's centre the picture under the rim is drawn,
-         * 0..{@link #MAX_SLAB_LENS}, linear in the bend up to the slider's maximum. No bend, no lens.
-         */
-        public float slabLens() {
-            float share = bendDp / (float) TERMUX_APP.MAX_FANCIER_GLASS_BEND;
-            return Math.max(0f, Math.min(1f, share)) * MAX_SLAB_LENS;
         }
 
         /**
@@ -287,13 +218,17 @@ public final class GlassRefraction {
             return share(clarityPercent) * MAX_CLARITY;
         }
 
+        /** The hairline's width in px at {@code density}, as the program computes it; see {@link #RIM_WIDTH_DP}. */
+        public static float rimWidthPx(float density) {
+            return Math.max(MIN_RIM_WIDTH_PX, RIM_WIDTH_DP * density);
+        }
+
         /**
-         * {@code uThick}: how strongly the band carries the slab's thickness shading, 0..1: none
-         * with no bend, full from {@link #THICKNESS_FULL_BEND_DP} on. Not a knob: a thin pane
-         * shades thinly, a thick slab fully, and the bend already says which this is.
+         * How far in from the rim the hairline and the eased pull reach, in px: what a seam edge
+         * must be pushed past for neither to show along it.
          */
-        public float thickness() {
-            return Math.max(0f, Math.min(1f, bendDp / THICKNESS_FULL_BEND_DP));
+        public static float rimReachPx(float density) {
+            return rimWidthPx(density);
         }
 
         @Override
@@ -353,12 +288,11 @@ public final class GlassRefraction {
     }
 
     /**
-     * How far a seam edge is pushed out: past the band (or the rim light and its dark edge, where a
-     * narrow band ends inside them), the pull and the corner arc, with a little to spare. The slab
-     * lens needs nothing more: it acts only inside the band and draws toward the centre.
+     * How far a seam edge is pushed out: past the band (or the hairline, where a narrow band ends
+     * inside it), the pull and the corner arc, with a little to spare.
      */
     public static float seamReachPx(@NonNull Look look, float density, float cornerRadiusPx) {
-        return Math.max(look.bandPx(density), look.rimReachPx(density)) + look.strengthPx(density)
+        return Math.max(look.bandPx(density), Look.rimReachPx(density)) + look.strengthPx(density)
             + Math.max(0f, cornerRadiusPx) + 2f * density;
     }
 
@@ -390,14 +324,8 @@ public final class GlassRefraction {
         "uniform float uRadius;\n" +
         "uniform float uBand;\n" +
         "uniform float uStrength;\n" +
-        "uniform float uRim;\n" +
-        "uniform float uLobeK;\n" +
-        "uniform float uShade;\n" +
         "uniform float uDisp;\n" +
         "uniform float uClarity;\n" +
-        "uniform float uThick;\n" +
-        "uniform float uSlab;\n" +
-        "uniform float uRimW;\n" +
         "uniform float uDensity;\n" +
         // A finger on the glass: where it rests, how far its light reaches, and its 0..1 fade.
         "uniform float uTouchActive;\n" +
@@ -417,8 +345,18 @@ public final class GlassRefraction {
         // The room's one light: straight above, so the top edge is lit along its length and the
         // sides fade. A unit vector toward it; LIGHT_X and LIGHT_Y in Java.
         "const float2 kLight = float2(0.0, -1.0);\n" +
-        // Where the pull's soft clamp starts giving way, as a share of the room it has; PULL_KNEE.
-        "const float kKnee = 0.75;\n" +
+        // The hairline, fixed material: its most white where it faces the light, how much darker
+        // it is all round, the light's falloff, and its width, a dp never under two px.
+        // Look.LIGHT_ALPHA, SHADE, LOBE_K, RIM_WIDTH_DP and MIN_RIM_WIDTH_PX in Java.
+        "const float kRim = 0.45;\n" +
+        "const float kShade = 0.12;\n" +
+        "const float kLobeK = 8.0;\n" +
+        "const float kRimDp = 1.0;\n" +
+        "const float kMinRimPx = 2.0;\n" +
+        // How fast Haze's edge profile decays into the band; EDGE_DECAY in Java.
+        "const float kDecay = 0.225;\n" +
+        // The pressed key's added glow at its centre; KEY_GLOW in Java.
+        "const float kKeyGlow = 0.15;\n" +
         "float sdRoundRect(float2 p, float2 b, float r) {\n" +
         "    float2 q = abs(p) - b + float2(r, r);\n" +
         "    return min(max(q.x, q.y), 0.0) + length(max(q, float2(0.0, 0.0))) - r;\n" +
@@ -443,22 +381,12 @@ public final class GlassRefraction {
         "    float3 h = float3(dot(uLocalX, p), dot(uLocalY, p), dot(uLocalW, p));\n" +
         "    return (h.xy / h.z - uFrameOffset) / uFrameScale;\n" +
         "}\n" +
-        // The bend's profile across the band, x 0 at its inner edge to 1 at the rim: a circle
-        // (Kyant's lens), flat where it meets the face and steepest at the rim, so the bend lives
-        // under the rim and the band's inner half barely moves. profile in Java.
-        "float profile(float x) {\n" +
-        "    return 1.0 - sqrt(max(1.0 - x * x, 0.0));\n" +
-        "}\n" +
-        // The pull p held short of `room`: itself up to kKnee of the room, then easing toward the
-        // room and never reaching it, with no kink where it starts to give. softClamp in Java.
-        "float softClamp(float p, float room) {\n" +
-        "    float knee = kKnee * room;\n" +
-        "    if (p <= knee) {\n" +
-        "        return p;\n" +
-        "    }\n" +
-        "    float over = p - knee;\n" +
-        "    float span = room - knee;\n" +
-        "    return knee + over * span / (span + over);\n" +
+        // The bend's share across the band, t 0 at the rim to 1 at the band's inner edge: Haze's
+        // edge profile, 1 at the rim, falling off steeply and exactly 0 at t 1, so the bend is a
+        // narrow ring and the face beyond it is untouched. edgeProfile in Java.
+        "float edgeProfile(float t) {\n" +
+        "    float u = 1.0 - t * t;\n" +
+        "    return exp(-t / kDecay) * u * u;\n" +
         "}\n" +
         // How much of the colour split a pixel at p (from the centre) of a surface of half size b
         // takes: nothing on the two axes, so nothing at the middle of a straight edge, all of it
@@ -467,23 +395,10 @@ public final class GlassRefraction {
         "    return min(abs(p.x * p.y) / max(b.x * b.y, 1.0), 1.0);\n" +
         "}\n" +
         // How squarely the rim with outward normal n faces the light, to the power k: 1 along the
-        // top edge, an eighth 45 degrees round at the default k, nothing facing away.
-        // lobe in Java.
+        // top edge, a sixteenth 45 degrees round, nothing facing away. lobe in Java.
         "float lobe(float2 n, float k) {\n" +
         "    float c = max(dot(n, kLight), 0.0);\n" +
         "    return c > 0.0 ? pow(c, k) : 0.0;\n" +
-        "}\n" +
-        // The slab lens's offset for a sample already pulled along the normal n to `bent`: toward
-        // the surface's centre by uSlab * e of the way, along the edge only (the normal part is
-        // the pull's, and adding to it would fold the rim), and never further than e * uStrength,
-        // so a full-width dock and a small pane kink a line by the same few dp at the rim. Zero at
-        // e 0. slabOffset in Java is the same arithmetic.
-        "float2 slabOffset(float2 bent, float2 center, float2 n, float e) {\n" +
-        "    float2 d = (bent - center) * (uSlab * e);\n" +
-        "    d = d - n * dot(d, n);\n" +
-        "    float cap = e * uStrength;\n" +
-        "    float len = length(d);\n" +
-        "    return len > cap ? d * (cap / len) : d;\n" +
         "}\n" +
         "half4 main(float2 fragCoord) {\n" +
         "    float2 center = (uRectMin + uRectMax) * 0.5;\n" +
@@ -493,22 +408,20 @@ public final class GlassRefraction {
         // The normal eases round the corner on an arc wider than the drawn one (1.5x, held under the
         // half size), so the bend never snaps where two edges meet.
         "    float2 n = rectNormal(p, b, min(uRadius * 1.5, min(b.x, b.y)));\n" +
-        // x runs 0 at the band's inner edge to 1 at the rim; the bend follows the circle profile.
-        "    float x = clamp(1.0 - inside / uBand, 0.0, 1.0);\n" +
-        "    float e = profile(x);\n" +
-        // The pull: inward along the rim's normal by e * uStrength, up to one and a half bands at the
-        // rim, so the rim folds and shows the picture from further in, as the references do. Held
-        // short of the surface's middle line (half its short side, less how far in this pixel
-        // already is), so on a small pane it never reaches across to the other edge's picture and
-        // never leaves the surface. pullPx in Java is the same arithmetic.
-        "    float pull = softClamp(e * uStrength, max(min(b.x, b.y) - inside, 0.0));\n" +
-        // The slab: the picture under the band is also magnified along the edge toward the
-        // surface's centre (slabOffset, no longer than the pull), so a line crossing an edge kinks
-        // there rather than only smearing along the normal. Both are offsets from fragCoord that
-        // vanish at e 0: a face pixel samples exactly where it is. A seam edge lies past the band
-        // (rimRect), so neither reaches it.
-        "    float2 bent = fragCoord - n * pull;\n" +
-        "    float2 sampleCoord = bent - slabOffset(bent, center, n, e);\n" +
+        // t runs 0 at the rim to 1 at the band's inner edge, and stays 1 across the face.
+        "    float t = clamp(inside / uBand, 0.0, 1.0);\n" +
+        // The hairline's width, and how far in from the outline this pixel is across it: 0 at the
+        // outline, 1 from a hairline in.
+        "    float rimW = max(kMinRimPx, kRimDp * uDensity);\n" +
+        "    float edge = smoothstep(0.0, rimW, inside);\n" +
+        // The pull: inward along the rim's normal by the profile's share of the bend, the bend held
+        // at half the surface's short side (Haze's plain cap) so a small pane never reaches across
+        // to the other edge's picture, and eased to nothing across the outermost hairline (Haze's
+        // edge softness) so the outline's pixel shows the picture just outside it. An offset that
+        // vanishes at t 1: a face pixel samples exactly where it is. A seam edge lies past the band
+        // (rimRect), so it takes none. pullPx in Java is the same arithmetic.
+        "    float pull = edgeProfile(t) * min(uStrength, min(b.x, b.y)) * edge;\n" +
+        "    float2 sampleCoord = fragCoord - n * pull;\n" +
         // A finger on the glass: its reach, 1 under the fingertip and 0 at uTouchRadius. The
         // picture is drawn a little toward the touch (a shallow lens, uTouchLens of the distance
         // at most), and the glow and the rim light below reuse the same reach.
@@ -531,13 +444,13 @@ public final class GlassRefraction {
         "            float fade = smoothstep(0.0, max(uLensFeather, 1.0), ld) * uLensActive;\n" +
         "            float2 lensCoord = uLensCenter + lp * k;\n" +
         "            float2 lensBent = lensCoord - n * pull;\n" +
-        "            lensBent = lensBent - slabOffset(lensBent, center, n, e);\n" +
         "            sampleCoord = mix(sampleCoord, lensBent, fade);\n" +
         "            lensGlow = fade * (1.0 - rr);\n" +
         "        }\n" +
         "    }\n" +
         // How far the clearer picture takes over: easing in from the frost at the band's inner
         // edge, half way at the band's middle, uClarity under the rim. Zero on the face.
+        "    float x = 1.0 - t;\n" +
         "    float clarityK = uClarity > 0.0 && x > 0.0 ? x * x * (3.0 - 2.0 * x) * uClarity : 0.0;\n" +
         // The colour split, at the corners only and in step with the pull there: red reads the
         // picture bent a little less, blue a little more, green as bent (three taps, Haze's
@@ -564,28 +477,16 @@ public final class GlassRefraction {
         "            col = mix(col, sharp.eval(f), half(clarityK));\n" +
         "        }\n" +
         "    }\n" +
-        // How squarely this bit of rim faces the light, signed: toward it is positive.
-        "    float facing = dot(n, kLight);\n" +
-        // The slab's thickness, carried by the band: the picture brightens toward the rim that
-        // faces the light and dims toward the one in shadow, both fading to nothing at the band's
-        // inner edge, on the bend's own profile. Multiplicative, so it reads the same on a dark and
-        // a light wallpaper, and small: a hint of a bevel.
-        "    float thick = e * uThick;\n" +
-        "    col.rgb = col.rgb * half3(1.0 + thick * (0.12 * max(facing, 0.0) - 0.06 * max(-facing, 0.0)));\n" +
-        // The dark edge: the whole rim, a dp past the light, darker by uShade, so the edge reads
-        // on a light wallpaper and the light reads over it. Multiplicative and in step with the
-        // light, so a Look with no light has none. edgeLit in Java.
-        "    float shadeMask = 1.0 - smoothstep(0.5 * uRimW, 1.5 * uRimW + uDensity, inside);\n" +
-        "    col.rgb = col.rgb * half(1.0 - shadeMask * uShade);\n" +
-        // The light the rim catches, uRimW wide (full for half of it, gone at one and a half times
-        // it): a lobe on the arc that faces the light, mixed toward white by at most uRim, so it
-        // can never outline the whole surface or push a pixel past white. A finger lights the rim
-        // nearest it the same way.
-        "    float rim = 1.0 - smoothstep(0.5 * uRimW, 1.5 * uRimW, inside);\n" +
-        "    float light = rim * uRim * (lobe(n, uLobeK) + 1.5 * touchG);\n" +
+        // The hairline: full at the outline, gone a hairline in. Darker all round by kShade, so the
+        // edge reads on a light wallpaper, then lit where it faces the light: mixed toward white by
+        // at most kRim on the lobe, so it can never outline the whole surface or push a pixel past
+        // white. A finger lights the rim nearest it the same way. edgeLit in Java.
+        "    float rim = 1.0 - edge;\n" +
+        "    col.rgb = col.rgb * half(1.0 - rim * kShade);\n" +
+        "    float light = rim * kRim * (lobe(n, kLobeK) + 1.5 * touchG);\n" +
         "    col.rgb = mix(col.rgb, half3(1.0), half(clamp(light, 0.0, 1.0)));\n" +
         // The pressed key's glow and the faint scatter under a finger stay small additive light.
-        "    col.rgb = col.rgb + half3(lensGlow * uRim * 0.6 + 0.045 * touchG * touchG);\n" +
+        "    col.rgb = col.rgb + half3(lensGlow * kKeyGlow + 0.045 * touchG * touchG);\n" +
         "    return col;\n" +
         "}\n";
 
@@ -607,56 +508,39 @@ public final class GlassRefraction {
         out[1] = (hy / hw - offsetY) / Math.max(1e-4f, scaleY);
     }
 
-    /**
-     * The program's slab lens offset, into {@code out}: for a sample pulled along the normal to
-     * {@code (bentX, bentY)} on a surface centred at {@code (centerX, centerY)}, whose rim's unit
-     * normal there is {@code (nx, ny)}: the offset toward the centre, {@code slab * e} of the way
-     * there, its part along the normal dropped, and never longer than {@code e * strengthPx}.
-     * The AGSL's {@code slabOffset}, for tests.
-     */
-    static void slabOffset(float bentX, float bentY, float centerX, float centerY, float nx,
-                           float ny, float slab, float e, float strengthPx, @NonNull float[] out) {
-        float dx = (bentX - centerX) * (slab * e);
-        float dy = (bentY - centerY) * (slab * e);
-        float along = dx * nx + dy * ny;
-        dx -= nx * along;
-        dy -= ny * along;
-        float cap = e * strengthPx;
-        float len = (float) Math.hypot(dx, dy);
-        float k = len > cap ? cap / len : 1f;
-        out[0] = dx * k;
-        out[1] = dy * k;
-    }
-
     /** The program's light direction, {@code kLight}: a unit vector straight up. */
     static final float LIGHT_X = 0f;
     static final float LIGHT_Y = -1f;
 
-    /** The program's {@code kKnee}: where the pull's soft clamp starts giving way, as a share of its room. */
-    static final float PULL_KNEE = 0.75f;
+    /** The program's {@code kDecay}: Haze's edge profile's decay length, as a share of the band. */
+    static final float EDGE_DECAY = 0.225f;
 
-    /** The program's {@code profile}: the bend's share across the band, {@code x} 0 at its inner edge to 1 at the rim. */
-    static float profile(float x) {
-        return 1f - (float) Math.sqrt(Math.max(1f - x * x, 0f));
+    /** The program's {@code kKeyGlow}: the white a pressed key adds at its centre. */
+    static final float KEY_GLOW = 0.15f;
+
+    /** AGSL's {@code smoothstep}. */
+    static float smoothstep(float edge0, float edge1, float x) {
+        float t = Math.max(0f, Math.min(1f, (x - edge0) / (edge1 - edge0)));
+        return t * t * (3f - 2f * t);
     }
 
-    /** The program's {@code softClamp}: {@code p} up to {@link #PULL_KNEE} of {@code room}, then easing toward it. */
-    static float softClamp(float p, float room) {
-        float knee = PULL_KNEE * room;
-        if (p <= knee) return p;
-        float over = p - knee;
-        float span = room - knee;
-        return knee + over * span / (span + over);
+    /**
+     * The program's {@code edgeProfile}: the bend's share across the band, {@code t} 0 at the rim
+     * to 1 at the band's inner edge, Haze's {@code exp(-t / 0.225) (1 - t²)²}.
+     */
+    static float edgeProfile(float t) {
+        float u = 1f - t * t;
+        return (float) Math.exp(-t / EDGE_DECAY) * u * u;
     }
 
     /**
      * The program's pull, in px, for a pixel {@code insidePx} in from the rim of a surface whose
-     * half size is at least {@code halfShortPx} on both axes: the circle profile across the band
-     * times the strength, held short of the surface's middle line.
+     * half short side is {@code halfShortPx}: the profile across the band times the strength held
+     * at that half side, eased to nothing across the outermost {@code rimWidthPx}.
      */
-    static float pullPx(float insidePx, float bandPx, float strengthPx, float halfShortPx) {
-        float x = Math.max(0f, Math.min(1f, 1f - insidePx / bandPx));
-        return softClamp(profile(x) * strengthPx, Math.max(halfShortPx - insidePx, 0f));
+    static float pullPx(float insidePx, float bandPx, float strengthPx, float halfShortPx, float rimWidthPx) {
+        float t = Math.max(0f, Math.min(1f, insidePx / bandPx));
+        return edgeProfile(t) * Math.min(strengthPx, halfShortPx) * smoothstep(0f, rimWidthPx, insidePx);
     }
 
     /** The program's {@code cornerWeight}, for a pixel at {@code (px, py)} from the centre of a surface of half size {@code (bx, by)}. */
@@ -671,13 +555,15 @@ public final class GlassRefraction {
     }
 
     /**
-     * The program's dark edge and rim light on one colour channel {@code face} (0..1), with no
-     * finger on the glass: darker by {@code shadeMask * shade}, then mixed toward white by
-     * {@code rim * lightAlpha * lobe}.
+     * The program's hairline on one colour channel {@code face} (0..1), with no finger on the
+     * glass, for a pixel {@code insidePx} in from the outline whose rim faces the light by
+     * {@code lobe}: darker by {@link Look#SHADE} at the outline, then mixed toward white by
+     * {@link Look#LIGHT_ALPHA} times the lobe, both gone a hairline in.
      */
-    static float edgeLit(float face, float shadeMask, float shade, float rim, float lightAlpha, float lobe) {
-        float shaded = face * (1f - shadeMask * shade);
-        float light = Math.max(0f, Math.min(1f, rim * lightAlpha * lobe));
+    static float edgeLit(float face, float insidePx, float rimWidthPx, float lobe) {
+        float rim = 1f - smoothstep(0f, rimWidthPx, insidePx);
+        float shaded = face * (1f - rim * Look.SHADE);
+        float light = Math.max(0f, Math.min(1f, rim * Look.LIGHT_ALPHA * lobe));
         return shaded + (1f - shaded) * light;
     }
 
@@ -871,19 +757,13 @@ public final class GlassRefraction {
             mShader.setFloatUniform("uRadius", Math.max(0f, cornerRadiusPx));
         }
 
-        /** The knobs, converted at this program's density. */
+        /** The knobs, converted at this program's density. The hairline is fixed and takes none. */
         public void setLook(@NonNull Look look) {
             if (look.equals(mLook)) return;
             mLook = look;
             mShader.setFloatUniform("uBand", look.bandPx(mDensity));
             mShader.setFloatUniform("uStrength", look.strengthPx(mDensity));
-            mShader.setFloatUniform("uRim", look.lightAlpha());
-            mShader.setFloatUniform("uLobeK", look.lobeExponent());
-            mShader.setFloatUniform("uShade", look.shade());
             mShader.setFloatUniform("uDisp", look.dispersion());
-            mShader.setFloatUniform("uThick", look.thickness());
-            mShader.setFloatUniform("uSlab", look.slabLens());
-            mShader.setFloatUniform("uRimW", look.rimWidthPx(mDensity));
             syncClarity();
         }
 
