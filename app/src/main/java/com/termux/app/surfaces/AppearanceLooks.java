@@ -20,9 +20,8 @@ import java.util.List;
  * whose set follows the selection ({@link #controls}): the global set with nothing tapped, or the
  * tapped element's own, with the buttons above them ({@link #doors}). Blur, Grain and Opacity are
  * the shared glass on the global set and the element's own values on an element. The global set
- * is two {@link Group}s the heading row switches between ({@link #groups}): Surface, the shared
- * glass and shape, and Edge (labelled Glass), the glass edge's one slider, Depth, which is global
- * and never an element's.</p>
+ * ends in Depth, the glass edge's one slider, where the edge is drawn at all; Depth is global and
+ * never an element's.</p>
  *
  * <p>Layout mode's Corners and Margin (SPEC §3.5) are here too: the global shape, which no Look
  * sets (2026-10-01); the Custom row's Margin and Corner radius write the same keys.</p>
@@ -177,35 +176,27 @@ public final class AppearanceLooks {
     public static final int APP_ICONS_MIN = 3;
     public static final int APP_ICONS_MAX = 10;
 
-    /**
-     * The global set's two halves: Surface, the shared glass and shape, and Edge (labelled
-     * Glass), the glass edge's Depth. The names are what the last group is remembered by. Only
-     * the global set has them; an element's set is one.
-     */
-    public enum Group {
-        SURFACE,
-        EDGE
-    }
-
-    /** The Custom row's sliders for a selection, with the global set at its Surface group. */
+    /** The Custom row's sliders for a selection, the global set without Depth. */
     @NonNull
     public static List<Control> controls(@Nullable Target target) {
-        return controls(target, Group.SURFACE);
+        return controls(target, false);
     }
 
     /**
      * The sliders of the Custom row for a selection, in legend order (left to right): the global
-     * set's {@code group} for nothing tapped (null), or the element's own, which ignores the
-     * group. Blur, Grain, Opacity and Tint come first for everything but Edge, so the same four
-     * columns stay under the user's thumb as the selection changes.
+     * set for nothing tapped (null), or the element's own. Blur, Grain, Opacity and Tint come
+     * first, so the same four columns stay under the user's thumb as the selection changes. The
+     * global set ends in Depth while the glass edge is drawn ({@code glassEdge}): the knob would
+     * change nothing otherwise, so it is not offered. An element never has it.
      */
     @NonNull
-    public static List<Control> controls(@Nullable Target target, @NonNull Group group) {
-        if (target == null && group == Group.EDGE)
-            return Collections.singletonList(Control.DEPTH);
+    public static List<Control> controls(@Nullable Target target, boolean glassEdge) {
         if (target == null)
-            return Arrays.asList(Control.BLUR, Control.GRAIN, Control.OPACITY, Control.TINT,
-                Control.MARGIN, Control.CORNER_RADIUS);
+            return glassEdge
+                ? Arrays.asList(Control.BLUR, Control.GRAIN, Control.OPACITY, Control.TINT,
+                    Control.MARGIN, Control.CORNER_RADIUS, Control.DEPTH)
+                : Arrays.asList(Control.BLUR, Control.GRAIN, Control.OPACITY, Control.TINT,
+                    Control.MARGIN, Control.CORNER_RADIUS);
         switch (target) {
             case KEYBOARD:
                 return Arrays.asList(Control.BLUR, Control.GRAIN, Control.OPACITY,
@@ -241,20 +232,8 @@ public final class AppearanceLooks {
         }
     }
 
-    /**
-     * The groups the heading row switches between for a selection: Surface and Edge for the
-     * global set, none for an element. Edge is offered only where the glass edge can be drawn at
-     * all ({@code refractionAvailable}); without it there is nothing to switch between.
-     */
-    @NonNull
-    public static List<Group> groups(@Nullable Target target, boolean refractionAvailable) {
-        if (target != null || !refractionAvailable)
-            return Collections.emptyList();
-        return Arrays.asList(Group.SURFACE, Group.EDGE);
-    }
-
-    /** The most sliders any selection has: the columns the sheet is built for. */
-    public static final int MAX_CONTROLS = 6;
+    /** The most sliders any selection has (the global set with Depth): the sheet's columns. */
+    public static final int MAX_CONTROLS = 7;
 
     /** The name in a legend such as "Blur · 12 dp": the part before the separator. */
     @NonNull

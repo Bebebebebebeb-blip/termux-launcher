@@ -64,19 +64,20 @@ under twenty items; past that, the oldest are re-judged first.
   `66;s=2:w=2;<icon><space>` block, the form dawn's ribbon uses, draws the icon spread over both
   columns, centred, about letter height; plain-size icons and Latin in a scaled block are
   unchanged · emulator.
-- 2026-10-15 · commit "feat(appearance-editor): Depth alone in the Glass group, Looks on the
-  hairline" · Look › Custom shows a Surface | Glass toggle, and Glass shows one slider, Depth, its
-  legend and both toggle words whole (also at font scale 1.3 on a 360dp screen). After a drag the
+- 2026-10-15 · commits "feat(appearance-editor): Depth alone in the Glass group, Looks on the
+  hairline" and "feat(appearance-editor): Depth as the global set's last slider, no Surface |
+  Glass toggle" · Look › Custom with nothing tapped has no toggle in its heading row; Depth is the
+  seventh, last slider after Corner radius, its legend whole and every column whole (also at font
+  scale 1.3 on a 360dp screen). Depth is absent from every element's set, and absent from All
+  surfaces in Lazy mode or with no wallpaper set from the launcher. After a drag the
   readout matches `fancier_glass_bend`/`_edge_width` (`run-as` the prefs) and no other key moves.
   Clear, Mist and Tint picked from the stops read Depth 90/80/70, and a Depth nudge and back lands
-  on the Look's stop again. Drag Depth to 92 on Clear, switch to Surface and back: it still reads
-  92; pick a Look and it reads that Look's position. A Custom saved with the old six values (e.g.
+  on the Look's stop again. Drag Depth to 92 on Clear, tap an element and back to All surfaces: it
+  still reads 92; pick a Look and it reads that Look's position. A Custom saved with the old six values (e.g.
   13/32/60/20/20/90) opens without changing any key until Depth moves · emulator, with a
   wallpaper set from the launcher.
 
 ## Developer
-
-- 2026-10-15 · commit "feat(appearance): reopen the Look page on the last group" · Switch to Glass, tap Done, open the editor again: it opens on Glass, and on Surface after switching back · pong, Appearance editor.
 
 - 2026-10-15 · commit "feat(settings): make the Low-memory preset a switch" · Turning it on and off
   returns the look you had (material, opacity, effects, parallax), and Reduce idle activity follows

@@ -5,7 +5,7 @@ import androidx.annotation.NonNull;
 import com.termux.shared.termux.settings.preferences.TermuxPreferenceConstants.TERMUX_APP;
 
 /**
- * The Glass group's one slider, Depth, over the six stored glass edge keys, as pure functions.
+ * The global set's Depth slider over the six stored glass edge keys, as pure functions.
  *
  * <p>Depth runs 0 to 100 and owns the bend and the edge width: how thick the glass edge looks.
  * Bend is {@code floor(0.30 t)} and the width follows it, {@code R(2 bend / 3)}, so the bend is

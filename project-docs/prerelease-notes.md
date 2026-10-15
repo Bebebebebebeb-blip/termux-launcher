@@ -28,7 +28,7 @@ Latest stable: v1.0.5.
 - The Mouse mode key reads out the state it switched to: Mouse mode on, Mouse mode off.
 - Editing a cleaned-up dictation keeps the words the cleanup fixed or added highlighted while you type.
 - Glass edges bend the wallpaper in a narrow ring right at the edge, meet the wallpaper outside without a seam, and carry a faint line of light along the top instead of a milky band; the Looks were re-tuned to match.
-- Look › Custom's Glass group is one slider, Depth, and each Look sits exactly on it; the rest of the edge comes with the Look.
+- Look › Custom's Depth slider is the last of the shared sliders, and each Look sits exactly on it; the rest of the edge comes with the Look.
 
 ## Experimental
 <!-- What is on pre and not yet in a stable, one line each; name the pull request or branch it came from,
@@ -38,7 +38,7 @@ These may change or be dropped before they reach a stable release.
 
 - Settings › About & help has an Ask on Discord row, Documentation opens the website guide, and the help panel's support link goes to Discord (#58).
 - Settings › Backup & restore saves your launcher settings and config files to one file, and your downloaded AI models to a folder, and restores both on this phone or a new one (#40).
-- Look › Custom now has Surface and Glass groups: Glass tunes how thick the glass edge looks. Corners is now called Corner radius (#63).
+- Look › Custom now has a Depth slider after the shared sliders, shown where glass edges are drawn: it tunes how thick the glass edge looks. Corners is now called Corner radius (#63).
 - Scripts and agents in a pane can place, size, inspect, wait on and close panes and windows through launcherctl: `pane open --from --direction --size`, `pane resize`, `pane wait`, `window list|focus|close`, and `launcherctl <group> --help` (#66).
 - Pictures travel through the terminal clipboard: programs that speak kitty's clipboard protocol (OSC 5522) can read a picture from Android's clipboard and copy one to it, pasting a picture into a shell or an agent pastes it as a file path under `$PREFIX/tmp/clipboard`, and pictures inserted from the keyboard land the same way (#61).
 - A screenshot you just took can be pasted from the keyboard's paste key, which shows a photo while it or a copied picture is waiting; plain paste (paste with a modifier) keeps the clipboard. Screenshots need the storage permission (Settings › Permissions & services › Files and media, or `termux-setup-storage`).

@@ -1250,10 +1250,6 @@ public final class TermuxPreferenceConstants {
         /** What the preset overwrote, as JSON, so turning it off brings the previous look back. */
         public static final String KEY_LOW_MEMORY_PRESET_SNAPSHOT = "low_memory_preset_snapshot";
 
-        /** The Look page's last Surface/Edge group, by enum name; Surface until the user picks. */
-        public static final String KEY_APPEARANCE_EDITOR_LAST_GROUP = "appearance_editor_last_group";
-        public static final String DEFAULT_VALUE_APPEARANCE_EDITOR_LAST_GROUP = "SURFACE";
-
         /**
          * Fancier Glass: every glass surface bends the wallpaper at its rim and catches a light
          * along its edge, on top of the frost it already wears. On by default wherever it can run (every Look sets its depth). Needs Android 13

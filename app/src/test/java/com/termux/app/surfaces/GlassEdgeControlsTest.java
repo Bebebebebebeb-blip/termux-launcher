@@ -9,7 +9,7 @@ import java.util.Map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-/** The Glass group's Depth over the six stored edge keys. */
+/** The global set's Depth over the six stored edge keys. */
 public class GlassEdgeControlsTest {
 
     private static SurfacePresets.Preset preset(String id) {

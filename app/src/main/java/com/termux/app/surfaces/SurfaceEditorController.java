@@ -41,7 +41,6 @@ import com.termux.app.ReducedMotion;
 import com.termux.app.activities.SettingsActivity;
 import com.termux.app.fragments.settings.termux.KeyboardColorSchemeFragment;
 import com.termux.app.chrome.GlassMotion;
-import com.termux.app.chrome.GlassRefraction;
 import com.termux.app.fragments.settings.LayoutCanvasView;
 import com.termux.app.layouteditor.EditorM3;
 import com.termux.app.layouteditor.LayoutEditorController;
@@ -49,7 +48,6 @@ import com.termux.app.place.PlaceLayout;
 import com.termux.app.statusbar.TopPaneClockForm;
 import com.termux.app.surfaces.AppearanceLooks.Control;
 import com.termux.app.surfaces.AppearanceLooks.Door;
-import com.termux.app.surfaces.AppearanceLooks.Group;
 import com.termux.app.surfaces.AppearanceLooks.Target;
 import com.termux.app.terminal.Motion;
 import com.termux.app.terminal.PaneRetroEffect;
@@ -162,7 +160,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         void applyGlassPreview();
         /**
          * Whether the glass edge is drawn now (Android 13, a wallpaper set from inside the
-         * launcher, Lazy mode off): the Edge group's Depth only changes anything while it is.
+         * launcher, Lazy mode off): the global set offers Depth only while it is.
          */
         boolean isGlassRefractionActive();
         /**
@@ -286,11 +284,6 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     private int mStop = AppearanceLooks.CUSTOM_STOP;
     /** What a tap in the frame selected, or null; only ever set at the Custom stop. */
     @Nullable private Target mTarget;
-    /**
-     * The global set's group the heading row's toggle shows: Surface from each open, kept while
-     * an element is tapped, so coming back to "All surfaces" finds the group the user was on.
-     */
-    @NonNull private Group mGroup = Group.SURFACE;
     /** Whether the editor raised the in-app keyboard itself, and so owes taking it down. */
     private boolean mRaisedKeyboard;
     /**
@@ -581,7 +574,6 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             mStop = AppearanceLooks.CUSTOM_STOP;
         mEntryStop = mStop;
         mTarget = null;
-        mGroup = rememberedGroup();
         mRestoreTarget = restore == null ? null : targetNamed(restore.target);
         // The in-app keyboard is one of the things the frame offers; it is raised after the frame
         // has settled (the relayout and the terminal's resize would land on the animation).
@@ -1814,25 +1806,9 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     }
 
     /**
-     * The group the Look page last showed, so it reopens there; Surface when none is stored. Where
-     * the group is not offered (Edge without refraction), {@link #showCustomRow} falls back.
-     */
-    @NonNull
-    private Group rememberedGroup() {
-        TermuxAppSharedPreferences prefs = prefs();
-        if (prefs == null)
-            return Group.SURFACE;
-        try {
-            return Group.valueOf(prefs.getAppearanceEditorLastGroup());
-        } catch (IllegalArgumentException e) {
-            return Group.SURFACE;
-        }
-    }
-
-    /**
      * The Custom row: the heading, the buttons the selection has, and its vertical sliders at the
-     * stored values. The set is {@link AppearanceLooks#controls}: the global one's group with
-     * nothing tapped (the heading row's toggle switches it), or the element's own.
+     * stored values. The set is {@link AppearanceLooks#controls}: the global one with nothing
+     * tapped, ending in Depth while the glass edge is drawn, or the element's own.
      */
     private void showCustomRow() {
         AppearanceEditorPanel panel = mPanel;
@@ -1840,18 +1816,15 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         if (panel == null || prefs == null)
             return;
         panel.showRow2(mTarget == null ? R.string.appearance_editor_target_all : nameOf(mTarget));
-        List<Group> groups = AppearanceLooks.groups(mTarget, GlassRefraction.available());
-        Group group = groups.contains(mGroup) ? mGroup : Group.SURFACE;
-        panel.setGroups(groups, group);
         // The palette Contrast changes is the Material one; with wallpaper colours off the
         // terminal wears a scheme file, which no contrast level moves (as in Settings).
         boolean palette = prefs.isTerminalDynamicColorsEnabled();
-        // The edge's knobs draw nothing while the glass edge is off (no wallpaper set from the
-        // launcher, Lazy mode): they show where they stand, but do not move.
-        boolean edge = group != Group.EDGE || mHost.isGlassRefractionActive();
+        // Depth draws nothing while the glass edge is off (below Android 13, no wallpaper set
+        // from the launcher, Lazy mode), so the global set only has it while the edge is drawn.
+        boolean glassEdge = mTarget == null && mHost.isGlassRefractionActive();
         List<AppearanceEditorPanel.SliderState> states = new ArrayList<>();
-        for (Control control : AppearanceLooks.controls(mTarget, group)) {
-            boolean enabled = control == Control.CONTRAST ? palette : edge;
+        for (Control control : AppearanceLooks.controls(mTarget, glassEdge)) {
+            boolean enabled = control != Control.CONTRAST || palette;
             if (control == Control.ICON_SIZE) {
                 // The icons the dock can give under this Style on this screen, end to end.
                 int[] range = AppearanceLooks.iconSizeRangeDp(mHost.isFloatingDock(),
@@ -2093,16 +2066,6 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
 
         @Override public void onSliderReleased() {
             endDrag();
-        }
-
-        @Override public void onGroup(@NonNull Group group) {
-            if (mTarget != null || group == mGroup)
-                return;
-            // The other half of the global set, swapped in the same way a tap swaps a set.
-            mGroup = group;
-            TermuxAppSharedPreferences prefs = prefs();
-            if (prefs != null) prefs.setAppearanceEditorLastGroup(group.name());
-            showCustomRow();
         }
     }
 

@@ -9,7 +9,6 @@ import static org.junit.Assert.assertTrue;
 import com.termux.app.dock.DockLayoutPolicy;
 import com.termux.app.surfaces.AppearanceLooks.Control;
 import com.termux.app.surfaces.AppearanceLooks.Door;
-import com.termux.app.surfaces.AppearanceLooks.Group;
 import com.termux.app.surfaces.AppearanceLooks.Target;
 import com.termux.shared.termux.settings.preferences.TerminalContrastLevel;
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences.SurfaceSlot;
@@ -100,57 +99,41 @@ public class AppearanceLooksTest {
             assertEquals("glass first, so the same columns stay under the thumb", Control.BLUR,
                 AppearanceLooks.controls(target).get(0));
         }
-        assertEquals(AppearanceLooks.MAX_CONTROLS, AppearanceLooks.controls(null).size());
+        assertEquals(AppearanceLooks.MAX_CONTROLS, AppearanceLooks.controls(null, true).size());
     }
 
     /**
-     * The global set is two groups, Surface (today's six) and Edge (the glass's one, Depth); an
-     * element's set ignores the group, and the one-argument form is the Surface group.
+     * Depth is the global set's last slider while the glass edge is drawn, and absent otherwise;
+     * the one-argument form is the set without it.
      */
     @Test
-    public void theGlobalSetIsSurfaceAndEdge() {
+    public void depthEndsTheGlobalSetOnlyWithTheGlassEdge() {
         assertEquals(Arrays.asList(Control.BLUR, Control.GRAIN, Control.OPACITY, Control.TINT,
-            Control.MARGIN, Control.CORNER_RADIUS), AppearanceLooks.controls(null, Group.SURFACE));
-        assertEquals(Collections.singletonList(Control.DEPTH),
-            AppearanceLooks.controls(null, Group.EDGE));
-        assertTrue(AppearanceLooks.controls(null, Group.EDGE).size()
-            <= AppearanceLooks.MAX_CONTROLS);
-        assertEquals(AppearanceLooks.controls(null, Group.SURFACE), AppearanceLooks.controls(null));
+            Control.MARGIN, Control.CORNER_RADIUS, Control.DEPTH),
+            AppearanceLooks.controls(null, true));
+        assertEquals(Arrays.asList(Control.BLUR, Control.GRAIN, Control.OPACITY, Control.TINT,
+            Control.MARGIN, Control.CORNER_RADIUS), AppearanceLooks.controls(null, false));
+        assertEquals(AppearanceLooks.controls(null, false), AppearanceLooks.controls(null));
+    }
+
+    /** Depth is global: no element's set holds it, with the glass edge drawn or not. */
+    @Test
+    public void noElementHoldsDepth() {
         for (Target target : Target.values()) {
-            for (Group group : Group.values())
-                assertEquals(target + " ignores " + group, AppearanceLooks.controls(target),
-                    AppearanceLooks.controls(target, group));
-            assertEquals(target + " is the Surface overload",
-                AppearanceLooks.controls(target, Group.SURFACE), AppearanceLooks.controls(target));
+            assertEquals(target + " ignores the glass edge", AppearanceLooks.controls(target),
+                AppearanceLooks.controls(target, true));
+            assertEquals(AppearanceLooks.controls(target), AppearanceLooks.controls(target, false));
+            assertFalse(target + " never holds Depth",
+                AppearanceLooks.controls(target, true).contains(Control.DEPTH));
         }
     }
 
-    /**
-     * Only the global set has groups, and only where the glass edge can be drawn at all: an
-     * element never offers the edge's knobs, which are global.
-     */
+    /** Depth runs 0 to 100 over its own keys (GlassEdgeControls). */
     @Test
-    public void onlyTheGlobalSetHasGroupsAndEdgeNeedsRefraction() {
-        assertEquals(Arrays.asList(Group.SURFACE, Group.EDGE), AppearanceLooks.groups(null, true));
-        assertTrue("nothing to switch between without the edge",
-            AppearanceLooks.groups(null, false).isEmpty());
-        for (Target target : Target.values()) {
-            assertTrue(target.name(), AppearanceLooks.groups(target, true).isEmpty());
-            assertTrue(target.name(), AppearanceLooks.groups(target, false).isEmpty());
-            for (Control control : AppearanceLooks.controls(target))
-                assertFalse(target + " never holds the edge's " + control,
-                    AppearanceLooks.controls(null, Group.EDGE).contains(control));
-        }
-    }
-
-    /** The Edge group's slider runs 0 to 100 over its own keys (GlassEdgeControls). */
-    @Test
-    public void theEdgeSlidersRunZeroToAHundred() {
-        for (Control control : AppearanceLooks.controls(null, Group.EDGE)) {
-            assertEquals(control.name(), 0, control.min);
-            assertEquals(control.name(), 100, control.max);
-            assertEquals(control.name(), 1, control.step);
-        }
+    public void depthRunsZeroToAHundred() {
+        assertEquals(0, Control.DEPTH.min);
+        assertEquals(100, Control.DEPTH.max);
+        assertEquals(1, Control.DEPTH.step);
     }
 
     /** The buttons above the sliders: Keyboard theme, Trail and Effect, Clock; none elsewhere. */
