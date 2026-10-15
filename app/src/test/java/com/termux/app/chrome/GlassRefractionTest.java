@@ -362,11 +362,11 @@ public class GlassRefractionTest {
 
     @Test
     public void theHairlineWidensWithDensityAndTheEdgeWidth() {
-        assertEquals(1.5f * DENSITY, new GlassRefraction.Look(14, 28, 70).rimWidthPx(DENSITY), 1e-4f);
-        assertEquals("a wide edge widens it", 0.05f * 60f * DENSITY,
+        assertEquals(4f * DENSITY, new GlassRefraction.Look(14, 26, 70).rimWidthPx(DENSITY), 1e-4f);
+        assertEquals("a wide edge widens it", 0.15f * 60f * DENSITY,
             new GlassRefraction.Look(14, 60, 70).rimWidthPx(DENSITY), 1e-4f);
         assertEquals("never under two pixels", 2f,
-            new GlassRefraction.Look(14, 28, 70).rimWidthPx(1f), 1e-4f);
+            new GlassRefraction.Look(14, 10, 70).rimWidthPx(0.4f), 1e-4f);
     }
 
     @Test

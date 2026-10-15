@@ -33,7 +33,7 @@ import java.util.Arrays;
  * the opposite edge's picture. Under the band the picture is also magnified along the edge
  * toward the surface's centre, the way a thick slab's rounded edge acts as a lens, by no more
  * than the pull itself, so a line that crosses an edge kinks there instead of only smearing along
- * it. The face inside the band samples exactly where it is. Along the rim, about 1.5 dp wide, the
+ * it. The face inside the band samples exactly where it is. Along the rim, about 4 dp wide, the
  * edge is a little darker, and over that dark edge the top edge, which faces the room's one light
  * straight above, catches the light along its length, fading round the corners and gone down the
  * sides, mixed toward white so it can never outline the whole surface or push a pixel past white;
@@ -122,11 +122,13 @@ public final class GlassRefraction {
         static final float MIN_LOBE_K = 2f;
 
         /**
-         * The rim light's width: 1.5 dp, a twentieth of the edge width once that is wider, and
-         * never under 2 px. Full brightness for half of it, gone at one and a half times it.
+         * The rim light's width: 4 dp, a sixth of the edge width once that is wider, and never
+         * under 2 px. Full brightness for half of it, gone at one and a half times it. A 1.5 dp
+         * hairline lit at a 16% mix was invisible beside the dark edge; the references light a
+         * soft band, not a line.
          */
-        static final float RIM_WIDTH_DP = 1.5f;
-        static final float RIM_WIDTH_SHARE = 0.05f;
+        static final float RIM_WIDTH_DP = 4f;
+        static final float RIM_WIDTH_SHARE = 0.15f;
         static final float MIN_RIM_WIDTH_PX = 2f;
 
         /** How far past the light the dark edge reaches, in dp. */
