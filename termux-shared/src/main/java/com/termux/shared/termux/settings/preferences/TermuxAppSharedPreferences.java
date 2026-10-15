@@ -2882,12 +2882,16 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
             // by moving the DEFAULT_* constants: an install that went through this branch under an
             // earlier build never stored these keys, and a changed constant would restyle it.
             // Every surface stays linked to Base, so the editor shows Clear selected; the material,
-            // tint, rim, motion, edge light, specular and dispersion are already Clear's defaults.
+            // tint, rim, motion and specular are already Clear's defaults. The edge is written whole:
+            // its defaults are what an install that never stored the keys has always read, and stay.
             setSurfaceBaseValue(SurfaceProperty.BLUR, FRESH_INSTALL_BASE_BLUR);
             setSurfaceBaseValue(SurfaceProperty.OPACITY, FRESH_INSTALL_BASE_OPACITY);
             setSurfaceBaseValue(SurfaceProperty.GRAIN, FRESH_INSTALL_BASE_GRAIN);
             setFancierGlassBendDp(FRESH_INSTALL_GLASS_BEND);
             setFancierGlassEdgeWidthDp(FRESH_INSTALL_GLASS_EDGE_WIDTH);
+            setFancierGlassEdgeLightPercent(FRESH_INSTALL_GLASS_EDGE_LIGHT);
+            setFancierGlassDispersionPercent(FRESH_INSTALL_GLASS_DISPERSION);
+            setFancierGlassClarityPercent(FRESH_INSTALL_GLASS_CLARITY);
             // The Layout margin writes both of these; the pane gap matches it at this size.
             setSurfaceBaseValue(SurfaceProperty.SIDE_GAP, FRESH_INSTALL_MARGIN);
             setTerminalPaneGap(FRESH_INSTALL_MARGIN);
@@ -2913,12 +2917,19 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
             TERMUX_APP.KEY_SHIPPED_SURFACE_DEFAULTS_ADOPTED, true, true);
     }
 
-    /** The Clear look's numbers and the margin a fresh install opens with. */
+    /**
+     * The Clear look's numbers and the margin a fresh install opens with. The app module's
+     * SurfacePresets holds Clear itself, out of reach here; a test there checks that a fresh
+     * store matches it.
+     */
     private static final int FRESH_INSTALL_BASE_BLUR = 4;
     private static final int FRESH_INSTALL_BASE_OPACITY = 10;
     private static final int FRESH_INSTALL_BASE_GRAIN = 4;
-    private static final int FRESH_INSTALL_GLASS_BEND = 4;
-    private static final int FRESH_INSTALL_GLASS_EDGE_WIDTH = 10;
+    private static final int FRESH_INSTALL_GLASS_BEND = 14;
+    private static final int FRESH_INSTALL_GLASS_EDGE_WIDTH = 28;
+    private static final int FRESH_INSTALL_GLASS_EDGE_LIGHT = 70;
+    private static final int FRESH_INSTALL_GLASS_DISPERSION = 25;
+    private static final int FRESH_INSTALL_GLASS_CLARITY = 100;
     private static final int FRESH_INSTALL_MARGIN = 8;
 
     /**

@@ -205,6 +205,15 @@ public class SurfacePresetsGlassTest {
     }
 
     @Test
+    public void aFreshInstallOpensExactlyOnClear() {
+        // The store is empty, as on a first run; adoption writes the shipped look into it.
+        preferences.migrateSurfaceInheritance();
+        assertTrue(SurfacePresets.matches(preferences, preset("minimal")));
+        for (String id : new String[] {"frost", "stock", "solid"})
+            assertFalse(id, SurfacePresets.matches(preferences, preset(id)));
+    }
+
+    @Test
     public void customRoundTripsTheNewKeys() {
         SurfacePresets.apply(preferences, preset("frost"));
         SurfacePresets.saveCustom(preferences);
