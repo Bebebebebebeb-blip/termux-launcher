@@ -47,13 +47,16 @@ under twenty items; past that, the oldest are re-judged first.
   (`debug.force_rtl` did not mirror the app; use the developer option or an RTL locale): the bent
   edge shows a clearer wallpaper, the frost inside is unchanged, corners and hairlines clean. The
   pane slab under Floating at Clear passed, also at font scale 1.3 · emulator.
-- 2026-10-15 · commits "feat(glass): a slab-lens edge …" and "feat(looks): stronger edges …" ·
-  Clear, Mist and Tint at their shipped values, the high-contrast test wallpaper: zoom the dock's
-  top edge (Docked and Floating), a key cap's area along the keyboard's top edge (keyboard up), and
-  a pane corner (one pane and split). Passes when the refraction reads without zooming: lines
-  crossing an edge kink there, a bright 1.5 dp hairline with a faint dark line just inside it, a
-  colour fringe on Clear and Mist; no image jump where the keyboard meets the strip under the
-  pill, no hairline on any seam, Solid unchanged · emulator.
+- 2026-10-15 · commit "feat(glass): a deep folding bend, a lit glint over a dark edge, a corner
+  fringe" · Clear and Mist at their shipped values (an install on the old Looks re-adopts them on
+  launch), once on the high-contrast synthetic wallpaper and once on a photo: crop a pane corner
+  (one pane and split), the dock's top edge (Docked and Floating, keyboard up and down) and the
+  status pane's bottom edge. Passes when the wallpaper visibly bends and folds under the rim
+  without zooming while the face stays flat; the top-left corner arcs carry a white glint and no
+  edge is outlined in white; every edge is a little darker; a red/blue glint sits at the corners
+  and none along the middle of a straight edge; a small pane shows no picture from its opposite
+  edge; no image jump or line on a seam (keyboard over the strip under the pill, status over the
+  window bar); Solid unchanged · emulator.
 - 2026-10-15 · commit "fix(terminal-view): resolve symbol_map and fallback faces inside scaled
   text" · `/tmp/launcher-scaled-symbols-2026-10-15/glyph-test.sh`: line 2 (s=2) shows both Nerd
   Font icons (U+F0C5, U+F0219) at double size, centred in their 2×2 cells, no tofu; lines 1 and 3
