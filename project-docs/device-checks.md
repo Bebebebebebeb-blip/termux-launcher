@@ -32,9 +32,7 @@ under twenty items; past that, the oldest are re-judged first.
   below 2 GB.
 - 2026-10-14 · commit "feat(keyboard): edit, reset and create layouts in Settings › Layouts" ·
   Still owed: TalkBack reads the 48dp icons (force-stop TalkBack's tutorial first, then relaunch
-  the app). Opening Layouts right after a density or font change briefly shows a user layout as
-  lowercase "zed" with an empty Your layouts before it corrects itself
-  (`~/reports/devcheck-2026-10-15/d1.png`) · emulator.
+  the app) · emulator.
 - 2026-10-14 · commit "fix(keyboard): readable rebuilt layouts, no fallback flash on a first
   swap" · A later swap to a new user layout showed it at once, 2026-10-15; still owed: the very
   first swap right after creating the layout and adding it to the cycle, captured from the tap ·
