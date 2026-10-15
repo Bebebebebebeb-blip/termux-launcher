@@ -59,18 +59,34 @@ public class SurfaceLooksReadoptTest {
         SurfacePresets.readoptMovedLooks(preferences);
 
         assertTrue(SurfacePresets.matches(preferences, preset("minimal")));
-        assertEquals(11, preferences.getFancierGlassBendDp());
+        // Clear's bend is a whole band since the lobe rework (was 11).
+        assertEquals(26, preferences.getFancierGlassBendDp());
         assertEquals(100, preferences.getFancierGlassClarityPercent());
         assertEquals(SurfacePresets.LOOKS_GENERATION,
             store.getInt(SurfacePresets.KEY_LOOKS_GENERATION, 0));
     }
 
     @Test
+    public void anInstallAlreadyOnGenerationOneTakesTheReworkedEdge() {
+        // Generation 1 brought it to 11/28/70/0/25/100; the lobe rework moves it once more.
+        store.edit().putInt(SurfacePresets.KEY_LOOKS_GENERATION, 1).commit();
+        SurfacePresets.apply(preferences,
+            SurfacePresets.withEdges(preset("minimal"), new int[] {11, 28, 70, 0, 25, 100}));
+
+        SurfacePresets.readoptMovedLooks(preferences);
+
+        assertTrue(SurfacePresets.matches(preferences, preset("minimal")));
+        assertEquals(30, preferences.getFancierGlassEdgeLightPercent());
+        assertEquals(2, store.getInt(SurfacePresets.KEY_LOOKS_GENERATION, 0));
+    }
+
+    @Test
     public void everyEarlierEdgeOfEveryMovedLookIsReadopted() {
         int[][][] earlier = {
-            {{6, 14, 40, 0, 0, 70}, {6, 14, 24, 0, 0, 70}, {4, 10, 18, 0, 0, 0}},
-            {{9, 20, 30, 0, 0, 60}, {9, 20, 18, 0, 0, 45}, {9, 20, 18, 20, 0, 0}, {9, 20, 18, 0, 0, 0}},
-            {{6, 14, 36, 0, 0, 55}, {6, 14, 22, 0, 0, 55}, {4, 10, 18, 0, 0, 0}},
+            {{11, 28, 70, 0, 25, 100}, {6, 14, 40, 0, 0, 70}, {6, 14, 24, 0, 0, 70}, {4, 10, 18, 0, 0, 0}},
+            {{13, 32, 60, 0, 20, 90}, {9, 20, 30, 0, 0, 60}, {9, 20, 18, 0, 0, 45}, {9, 20, 18, 20, 0, 0},
+                {9, 20, 18, 0, 0, 0}},
+            {{10, 26, 60, 0, 0, 85}, {6, 14, 36, 0, 0, 55}, {6, 14, 22, 0, 0, 55}, {4, 10, 18, 0, 0, 0}},
         };
         String[] ids = {"minimal", "frost", "stock"};
         for (int look = 0; look < ids.length; look++) {

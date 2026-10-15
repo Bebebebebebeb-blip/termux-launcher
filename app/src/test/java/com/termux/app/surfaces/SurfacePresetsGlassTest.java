@@ -78,10 +78,10 @@ public class SurfacePresetsGlassTest {
 
     @Test
     public void clearTintAndSolidCarryTheRecipesOfTheSpec() {
-        assertRecipe(preset("minimal"), 4, 10, 4, 11, 28, 70, 25, 100);
-        assertRecipe(preset("stock"), 10, 46, 10, 10, 26, 60, 0, 85);
+        assertRecipe(preset("minimal"), 4, 10, 4, 26, 26, 30, 35, 100); // re-tuned for the lobe and the deeper bend
+        assertRecipe(preset("stock"), 10, 46, 10, 20, 26, 25, 0, 85); // re-tuned for the lobe and the deeper bend
         assertRecipe(preset("solid"), 0, 92, 0, 0, 1, 0, 0, 0);
-        assertRecipe(preset("frost"), 25, 60, 8, 13, 32, 60, 20, 90);
+        assertRecipe(preset("frost"), 25, 60, 8, 24, 30, 28, 30, 90); // re-tuned for the lobe and the deeper bend
         assertEquals(TERMUX_APP.GLASS_TINT_MATERIAL,
             preset("stock").values.get(TERMUX_APP.KEY_SURFACE_GLASS_TINT));
 
@@ -100,7 +100,7 @@ public class SurfacePresetsGlassTest {
     public void clearIsTheMostTransparentGlassWithNoDetachedTerminalOpacity() {
         SurfacePresets.Preset clear = preset("minimal");
         assertEquals("one hairline, no second line inside it", 0, clear.values.get(TERMUX_APP.KEY_FANCIER_GLASS_SPECULAR));
-        assertEquals("a faint fringe at the edge", 25, clear.values.get(TERMUX_APP.KEY_FANCIER_GLASS_DISPERSION));
+        assertEquals("a colour glint at the corners", 35, clear.values.get(TERMUX_APP.KEY_FANCIER_GLASS_DISPERSION));
         assertEquals("a sharp, even hairline, no gradient wash into the pane",
             TERMUX_APP.GLASS_RIM_HAIRLINE, clear.values.get(TERMUX_APP.KEY_SURFACE_GLASS_RIM));
         assertEquals(TERMUX_APP.GLASS_TINT_SCHEME, clear.values.get(TERMUX_APP.KEY_SURFACE_GLASS_TINT));
@@ -111,7 +111,7 @@ public class SurfacePresetsGlassTest {
         SurfacePresets.apply(preferences, clear);
         assertEquals(10, preferences.getSurfaceBaseValue(SurfaceProperty.OPACITY));
         assertEquals(0, preferences.getFancierGlassSpecularPercent());
-        assertEquals(25, preferences.getFancierGlassDispersionPercent());
+        assertEquals(35, preferences.getFancierGlassDispersionPercent()); // the corner glint needs more now it scales with the pull
         assertTrue(SurfacePresets.matches(preferences, clear));
     }
 
@@ -120,7 +120,7 @@ public class SurfacePresetsGlassTest {
         assertEquals(0, preset("stock").values.get(TERMUX_APP.KEY_FANCIER_GLASS_SPECULAR));
         assertEquals(0, preset("solid").values.get(TERMUX_APP.KEY_FANCIER_GLASS_SPECULAR));
         assertEquals(0, preset("frost").values.get(TERMUX_APP.KEY_FANCIER_GLASS_SPECULAR));
-        assertEquals(20, preset("frost").values.get(TERMUX_APP.KEY_FANCIER_GLASS_DISPERSION));
+        assertEquals(30, preset("frost").values.get(TERMUX_APP.KEY_FANCIER_GLASS_DISPERSION)); // re-tuned with Clear
         assertEquals(0, preset("stock").values.get(TERMUX_APP.KEY_FANCIER_GLASS_DISPERSION));
         assertEquals(0, preset("solid").values.get(TERMUX_APP.KEY_FANCIER_GLASS_DISPERSION));
         assertEquals(TERMUX_APP.DEFAULT_VALUE_FANCIER_GLASS_SPECULAR,
