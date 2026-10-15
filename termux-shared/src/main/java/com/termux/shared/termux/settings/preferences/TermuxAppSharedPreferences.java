@@ -656,6 +656,45 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
             TermuxPreferenceConstants.TERMUX_APP.KEY_LAZY_MODE, value, false);
     }
 
+    /** See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_LOW_MEMORY_PRESET}. */
+    public boolean isLowMemoryPresetEnabled() {
+        return SharedPreferenceUtils.getBoolean(mSharedPreferences,
+            TermuxPreferenceConstants.TERMUX_APP.KEY_LOW_MEMORY_PRESET,
+            TermuxPreferenceConstants.TERMUX_APP.DEFAULT_VALUE_LOW_MEMORY_PRESET);
+    }
+
+    /** See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_LOW_MEMORY_PRESET}. */
+    public void setLowMemoryPresetEnabled(boolean value) {
+        SharedPreferenceUtils.setBoolean(mSharedPreferences,
+            TermuxPreferenceConstants.TERMUX_APP.KEY_LOW_MEMORY_PRESET, value, false);
+    }
+
+    /** See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_LOW_MEMORY_PRESET_SNAPSHOT}; empty when none. */
+    @NonNull
+    public String getLowMemoryPresetSnapshot() {
+        return SharedPreferenceUtils.getString(mSharedPreferences,
+            TermuxPreferenceConstants.TERMUX_APP.KEY_LOW_MEMORY_PRESET_SNAPSHOT, "", true);
+    }
+
+    public void setLowMemoryPresetSnapshot(@Nullable String snapshot) {
+        SharedPreferenceUtils.setString(mSharedPreferences,
+            TermuxPreferenceConstants.TERMUX_APP.KEY_LOW_MEMORY_PRESET_SNAPSHOT,
+            snapshot == null ? "" : snapshot, false);
+    }
+
+    /** See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_APPEARANCE_EDITOR_LAST_GROUP}. */
+    @NonNull
+    public String getAppearanceEditorLastGroup() {
+        return SharedPreferenceUtils.getString(mSharedPreferences,
+            TermuxPreferenceConstants.TERMUX_APP.KEY_APPEARANCE_EDITOR_LAST_GROUP,
+            TermuxPreferenceConstants.TERMUX_APP.DEFAULT_VALUE_APPEARANCE_EDITOR_LAST_GROUP, true);
+    }
+
+    public void setAppearanceEditorLastGroup(@NonNull String group) {
+        SharedPreferenceUtils.setString(mSharedPreferences,
+            TermuxPreferenceConstants.TERMUX_APP.KEY_APPEARANCE_EDITOR_LAST_GROUP, group, false);
+    }
+
     /** See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_FANCIER_GLASS}. The switch alone; whether it takes effect is the chrome's call. */
     public boolean isFancierGlassEnabled() {
         return SharedPreferenceUtils.getBoolean(mSharedPreferences,
