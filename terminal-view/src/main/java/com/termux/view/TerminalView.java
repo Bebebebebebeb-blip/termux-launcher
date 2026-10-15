@@ -2027,13 +2027,14 @@ public final class TerminalView extends View {
 
     /**
      * Redraw for a move of the smooth scroll alone. The grid's rows are what they were, so this is
-     * the one invalidate that leaves the scroll cache's recording valid.
+     * the one invalidate that leaves the scroll cache's recording valid. The scrollbar is woken
+     * without its own invalidate, which would arrive later, outside the flag, and count as content.
      */
     private void invalidateScrollPosition() {
+        awakenScrollBars(ViewConfiguration.getScrollDefaultDelay(), false);
         mScrollPositionInvalidate = true;
         try {
-            if (!awakenScrollBars())
-                invalidate();
+            invalidate();
         } finally {
             mScrollPositionInvalidate = false;
         }
