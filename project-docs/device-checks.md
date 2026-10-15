@@ -166,3 +166,10 @@ under twenty items; past that, the oldest are re-judged first.
   overlay and the padding fill track the text); output arriving and the cursor blinking mid-scroll
   show at once; a pane snapshot (split reveal) mid-fling is whole; on Android 10 the
   `Terminal.scrollCache.draw` frames in a trace cost one node draw, not a render · pong, by hand.
+- 2026-10-15 · commit "perf(terminal): keep a scrolled row's recording, record only the rows that
+  came in" · Fill the transcript with mixed content (bold, 256 colours, a URL with underlines on,
+  a kitty image if easy, and a few text sizing blocks: `printf '\e]66;s=2;Big\a\n'`, no probe
+  exists in project-docs/verification), then drag and fling through it, one pane and split: every
+  row lands where it did before, rows under a text block and the block itself stay whole and in
+  place (also with the block's anchor just above the top edge), the cursor row looks right when it
+  scrolls back in, and the row entering at the bottom is whole · pong, by hand.
