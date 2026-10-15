@@ -27,6 +27,7 @@ Latest stable: v1.0.5.
 - The Appearance editor's Cursor trail menu has an Off entry, so you can turn the trail off without going to Settings.
 - The Mouse mode key reads out the state it switched to: Mouse mode on, Mouse mode off.
 - Editing a cleaned-up dictation keeps the words the cleanup fixed or added highlighted while you type.
+- Glass edges bend the wallpaper under them much more, catch a soft light along the top and a touch of colour at the corners, and no longer draw a bright outline; the Looks were re-tuned to match.
 - Look › Custom's edge sliders are now a Glass group of three, Depth, Highlight and Clear edge, and Mist and Tint draw a slightly narrower edge so each Look sits exactly on them.
 
 ## Experimental
