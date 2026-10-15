@@ -148,6 +148,7 @@ public class GlassRefractionTest {
             "uRadius", "uBand", "uStrength", "uRim", "uDisp", "uSpec", "uBevel", "uDensity",
             "uLensActive", "uLensCenter", "uLensHalf", "uLensRadius", "uLensStrength", "uLensFeather",
             "uClarity", "uThick", "uTouchActive", "uTouch", "uTouchRadius", "uTouchLens",
+            "uSlab", "uRimW", "uContour",
         };
         for (String name : written) {
             assertTrue(name + " is declared",
@@ -155,6 +156,116 @@ public class GlassRefractionTest {
         }
         assertTrue(GlassRefraction.AGSL.contains("uniform shader content;"));
         assertTrue("the clearer picture is a second input", GlassRefraction.AGSL.contains("uniform shader sharp;"));
+    }
+
+    @Test
+    public void theSlabLensFollowsTheBendAndIsNotAKnob() {
+        // uSlab: none with no bend, a quarter of the way to the centre at the slider's maximum,
+        // linear between, held there past it.
+        assertEquals(0f, new GlassRefraction.Look(0, 28, 70).slabLens(), 0f);
+        assertEquals(0.125f, new GlassRefraction.Look(15, 28, 70).slabLens(), 1e-4f);
+        assertEquals(GlassRefraction.Look.MAX_SLAB_LENS,
+            new GlassRefraction.Look(30, 28, 70).slabLens(), 1e-4f);
+        assertEquals(GlassRefraction.Look.MAX_SLAB_LENS,
+            new GlassRefraction.Look(90, 28, 70).slabLens(), 1e-4f);
+        assertEquals(0f, new GlassRefraction.Look(-4, 28, 70).slabLens(), 0f);
+    }
+
+    @Test
+    public void thePullNeverCollapsesTheRim() {
+        // The pull's slope at the rim is 1 - 2 * pull / band: held under 0.45 of the band.
+        assertEquals(0.45f * 28f * DENSITY,
+            new GlassRefraction.Look(14, 28, 70).strengthPx(DENSITY), 1e-3f);
+        assertEquals(0.45f * 28f * DENSITY,
+            new GlassRefraction.Look(30, 28, 70).strengthPx(DENSITY), 1e-3f);
+        assertEquals("a shallow bend is untouched", 6f * DENSITY,
+            new GlassRefraction.Look(6, 28, 70).strengthPx(DENSITY), 1e-4f);
+        // Every shipped Look sits under the hold, so the slider and the pull agree.
+        int[][] looks = {{11, 28}, {13, 32}, {10, 26}};
+        for (int[] look : looks)
+            assertEquals(look[0] * DENSITY,
+                new GlassRefraction.Look(look[0], look[1], 70).strengthPx(DENSITY), 1e-4f);
+    }
+
+    @Test
+    public void theHairlineWidensWithDensityAndTheEdgeWidth() {
+        assertEquals(1.5f * DENSITY, new GlassRefraction.Look(14, 28, 70).rimWidthPx(DENSITY), 1e-4f);
+        assertEquals("a wide edge widens it", 0.05f * 60f * DENSITY,
+            new GlassRefraction.Look(14, 60, 70).rimWidthPx(DENSITY), 1e-4f);
+        assertEquals("never under two pixels", 2f,
+            new GlassRefraction.Look(14, 28, 70).rimWidthPx(1f), 1e-4f);
+    }
+
+    @Test
+    public void theContourFollowsTheLight() {
+        // Edge light 100 is the brightest rim and the darkest contour (0.85 of the picture).
+        assertEquals(0.8f, GlassRefraction.Look.MAX_RIM, 0f);
+        assertEquals(GlassRefraction.Look.MAX_CONTOUR, new GlassRefraction.Look(14, 28, 100).contour(), 1e-4f);
+        assertEquals(0.075f, new GlassRefraction.Look(14, 28, 50).contour(), 1e-4f);
+        assertEquals("no light, no contour", 0f, new GlassRefraction.Look(14, 28, 0).contour(), 0f);
+        assertEquals(0f, new GlassRefraction.Look(14, 28, -5).contour(), 0f);
+    }
+
+    @Test
+    public void theBendActsAcrossTheWholeBandAndLeavesTheFaceWhereItIs() {
+        // The squared profile, not the quarter circle that was near zero over most of the band.
+        assertTrue(GlassRefraction.AGSL.contains("float e = x * x;"));
+        assertTrue(!GlassRefraction.AGSL.contains("sqrt("));
+        // Both the pull and the lens are offsets that vanish at e 0, so a face pixel samples
+        // exactly fragCoord rather than a rounding of centre + (fragCoord - centre).
+        assertTrue(GlassRefraction.AGSL.contains("float2 bent = fragCoord - n * (e * uStrength);"));
+        assertTrue(GlassRefraction.AGSL.contains(
+            "float2 sampleCoord = bent - slabOffset(bent, center, n, e);"));
+    }
+
+    @Test
+    public void theSlabLensRunsAlongTheEdgeAndNeverFurtherThanThePull() {
+        // The program drops the normal part and caps the rest at the pull: the same expressions
+        // the Java mirror runs.
+        assertTrue(GlassRefraction.AGSL.contains("d = d - n * dot(d, n);"));
+        assertTrue(GlassRefraction.AGSL.contains("float cap = e * uStrength;"));
+        assertTrue(GlassRefraction.AGSL.contains("return len > cap ? d * (cap / len) : d;"));
+        GlassRefraction.Look clear = new GlassRefraction.Look(11, 28, 70);
+        float slab = clear.slabLens();
+        float pull = clear.strengthPx(DENSITY);
+        float[] out = new float[2];
+
+        // A full-width dock's top band (normal straight up) near its left end, at the rim (e 1):
+        // the part toward the centre along the normal is dropped, and the part along the edge,
+        // uncapped about 50 px, is held at the pull.
+        GlassRefraction.slabOffset(0f, 0f, 540f, 60f, 0f, -1f, slab, 1f, pull, out);
+        assertEquals(-pull, out[0], 1e-3f);
+        assertEquals(0f, out[1], 1e-4f);
+
+        // A small pane's top rim, 40 px left of its centre: already under the pull, uncapped.
+        GlassRefraction.slabOffset(0f, 0f, 40f, 30f, 0f, -1f, slab, 1f, pull, out);
+        assertEquals(-40f * slab, out[0], 1e-4f);
+        assertEquals(0f, out[1], 1e-4f);
+
+        // Straight across an edge from the centre there is nothing along the edge: no lens.
+        GlassRefraction.slabOffset(0f, 0f, 540f, 0f, -1f, 0f, slab, 1f, pull, out);
+        assertEquals(0f, out[0], 1e-4f);
+        assertEquals(0f, out[1], 1e-4f);
+
+        // Two surfaces of very different size kink by the same amount once both are capped.
+        float[] wide = new float[2];
+        GlassRefraction.slabOffset(0f, 0f, 2000f, 0f, 0f, -1f, slab, 0.5f, pull, wide);
+        GlassRefraction.slabOffset(0f, 0f, 800f, 0f, 0f, -1f, slab, 0.5f, pull, out);
+        assertEquals(wide[0], out[0], 1e-4f);
+        assertEquals(-0.5f * pull, out[0], 1e-4f);
+
+        // The face (e 0) takes none.
+        GlassRefraction.slabOffset(0f, 0f, 540f, 60f, 0f, -1f, slab, 0f, pull, out);
+        assertEquals(0f, out[0], 0f);
+        assertEquals(0f, out[1], 0f);
+    }
+
+    @Test
+    public void aSeamClearsTheHairlineAndItsContourOnANarrowBand() {
+        // Solid's 1 dp edge ends inside the hairline; the seam is pushed past both regardless.
+        GlassRefraction.Look narrow = new GlassRefraction.Look(0, 1, 100);
+        assertTrue(GlassRefraction.seamReachPx(narrow, DENSITY, 0f) > narrow.rimReachPx(DENSITY));
+        assertTrue(GlassRefraction.seamReachPx(narrow, 1f, 0f) > narrow.rimReachPx(1f));
     }
 
     @Test

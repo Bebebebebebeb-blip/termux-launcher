@@ -79,30 +79,36 @@ public final class SurfacePresets {
 
     private static final List<Preset> PRESETS = Collections.unmodifiableList(Arrays.asList(
         // Clear (id minimal): the most transparent glass, wallpaper forward. Blur 4, opacity 10 on
-        // every surface (the terminal follows Base, no detached override), grain 4, a thick edge
-        // (bend 6, edge 14, light 40) that shows the wallpaper clearest of all the Looks (clarity
-        // 70), no specular and no dispersion. Scheme tint, hairline rim, classic motion.
+        // every surface (the terminal follows Base, no detached override), grain 4. Its face is
+        // nearly the wallpaper itself, so the edge has to carry the glass: a thick, bright edge
+        // (bend 11, edge 28, light 70) that reads at a glance, the wallpaper at full clarity under
+        // it (clarity 100) and a faint colour fringe (dispersion 25); no specular. Every Look's
+        // bend is about 0.4 of its edge width, under the pull's 0.45 hold, so the picture
+        // compresses toward the rim and keeps some of itself there.
+        // Scheme tint, hairline rim, classic motion.
         preset("minimal", R.string.termux_surface_preset_minimal,
-            TERMUX_APP.SURFACE_MATERIAL_GLASS, 50, 4, 10, 4, 6, 14, 40, 0, 0, 70,
+            TERMUX_APP.SURFACE_MATERIAL_GLASS, 50, 4, 10, 4, 11, 28, 70, 0, 25, 100,
             look -> { }),
         // Mist: Obsidian-Music's glass and motion (Apache-2.0; see
         // project-docs/reference/launcher/mist-preset-obsidian-values.md). Blur 25
         // and opacity 60 are Obsidian's own numbers. Grain 8 is not its 0.08 noise carried over:
         // Haze lays a soft noise tile at 0.08 alpha, ours is full-contrast random alpha at up to
         // 60/255 of the percentage, so a literal match (about 68) would read as sand. 8 is the
-        // same faint tooth. The edge is the deepest (bend 9, edge 20, light 18), and clears the
-        // heavy frost toward the rim by less than Clear does (clarity 45).
+        // same faint tooth. The edge is the deepest (bend 13, edge 32, light 60), clears the heavy
+        // frost toward the rim a little less than Clear does (clarity 90), with a fainter fringe
+        // (dispersion 20).
         preset("frost", R.string.termux_surface_preset_frost,
-            TERMUX_APP.SURFACE_MATERIAL_FROST, 50, 25, 60, 8, 9, 20, 30, 0, 0, 60,
+            TERMUX_APP.SURFACE_MATERIAL_FROST, 50, 25, 60, 8, 13, 32, 60, 0, 20, 90,
             look -> {
                 look.put(TERMUX_APP.KEY_SURFACE_GLASS_TINT, TERMUX_APP.GLASS_TINT_OBSIDIAN);
                 look.put(TERMUX_APP.KEY_SURFACE_GLASS_RIM, TERMUX_APP.GLASS_RIM_GRADIENT);
                 look.put(TERMUX_APP.KEY_SURFACE_GLASS_MOTION, TERMUX_APP.GLASS_MOTION_MIST);
             }),
         // Tint (id stock): glass in Material colours (surface tint toward primary container), with
-        // Clear's edge (bend 6, edge 14) a little less lit (light 36) and clear (clarity 55).
+        // an edge a little shallower than Clear's (bend 10, edge 26), a little less lit (light 60)
+        // and clear (clarity 85), and no fringe.
         preset("stock", R.string.termux_surface_preset_stock,
-            TERMUX_APP.SURFACE_MATERIAL_GLASS, 50, 10, 46, 10, 6, 14, 36, 0, 0, 55,
+            TERMUX_APP.SURFACE_MATERIAL_GLASS, 50, 10, 46, 10, 10, 26, 60, 0, 0, 85,
             look -> look.put(TERMUX_APP.KEY_SURFACE_GLASS_TINT, TERMUX_APP.GLASS_TINT_MATERIAL)),
         // Solid: opaque, no blur cost, and no edge to clear.
         preset("solid", R.string.termux_surface_preset_solid,
@@ -112,6 +118,95 @@ public final class SurfacePresets {
 
     private interface Extras {
         void addTo(Map<String, Object> look);
+    }
+
+    // --------------------------------------------------------------- a Look that moved
+
+    /**
+     * Bumped whenever a shipped Look's edge values move, with the values it had until then added to
+     * {@link #EARLIER_EDGES}, so that {@link #readoptMovedLooks} carries an install sitting on the
+     * old values to the new ones once.
+     */
+    static final int LOOKS_GENERATION = 1;
+
+    /** The generation an install's Looks were last brought up to; absent is 0. */
+    static final String KEY_LOOKS_GENERATION = "surface_looks_generation";
+
+    /** The six edge keys, in the order {@link #EARLIER_EDGES} lists their values. */
+    private static final String[] EDGE_KEYS = {
+        TERMUX_APP.KEY_FANCIER_GLASS_BEND, TERMUX_APP.KEY_FANCIER_GLASS_EDGE_WIDTH,
+        TERMUX_APP.KEY_FANCIER_GLASS_EDGE_LIGHT, TERMUX_APP.KEY_FANCIER_GLASS_SPECULAR,
+        TERMUX_APP.KEY_FANCIER_GLASS_DISPERSION, TERMUX_APP.KEY_FANCIER_GLASS_CLARITY,
+    };
+
+    /**
+     * Each Look's earlier edges (bend, edge width, light, specular, dispersion, clarity), newest
+     * first: every generation whose other values were already the Look's current ones, so an
+     * install that took the Look then still matches it whole. A key a generation did not have yet
+     * reads as its default, 0. Clear and Tint once shared 4/10/18 and Mist's oldest edge is the
+     * untouched defaults, which is why a match takes the whole Look and not the edge alone.
+     */
+    private static final Map<String, int[][]> EARLIER_EDGES = earlierEdges();
+
+    private static Map<String, int[][]> earlierEdges() {
+        HashMap<String, int[][]> earlier = new HashMap<>();
+        earlier.put("minimal", new int[][] {
+            {6, 14, 40, 0, 0, 70}, // bfcd74678
+            {6, 14, 24, 0, 0, 70}, // 6475ebebe
+            {4, 10, 18, 0, 0, 0},  // f32aa35a6, and every fresh install until this generation
+        });
+        earlier.put("frost", new int[][] {
+            {9, 20, 30, 0, 0, 60}, // bfcd74678
+            {9, 20, 18, 0, 0, 45}, // 6475ebebe
+            {9, 20, 18, 20, 0, 0}, // 69ab9c6e9
+            {9, 20, 18, 0, 0, 0},  // 04219dea8, again from 2adbaf512
+        });
+        earlier.put("stock", new int[][] {
+            {6, 14, 36, 0, 0, 55}, // bfcd74678
+            {6, 14, 22, 0, 0, 55}, // 6475ebebe
+            {4, 10, 18, 0, 0, 0},  // f32aa35a6
+        });
+        return Collections.unmodifiableMap(earlier);
+    }
+
+    /**
+     * Once per {@link #LOOKS_GENERATION}: an install whose live look is a shipped Look at one of
+     * its earlier edges takes the Look as it ships now, so its stop in the editor stays that Look
+     * rather than turning Custom. Any other look, Custom included, is left exactly as it is. Runs
+     * at start-up, after the preferences' own migrations.
+     */
+    public static void readoptMovedLooks(@NonNull TermuxAppSharedPreferences prefs) {
+        SharedPreferences store = prefs.getSharedPreferences();
+        if (store == null || store.getInt(KEY_LOOKS_GENERATION, 0) >= LOOKS_GENERATION)
+            return;
+        Preset moved = lookOnEarlierEdges(prefs);
+        if (moved != null)
+            apply(prefs, moved);
+        store.edit().putInt(KEY_LOOKS_GENERATION, LOOKS_GENERATION).apply();
+    }
+
+    /** The shipped Look the live look is at one of its earlier edges, or null. */
+    @Nullable
+    static Preset lookOnEarlierEdges(@NonNull TermuxAppSharedPreferences prefs) {
+        for (Preset preset : PRESETS) {
+            int[][] earlier = EARLIER_EDGES.get(preset.id);
+            if (earlier == null)
+                continue;
+            for (int[] edges : earlier) {
+                if (matches(prefs, withEdges(preset, edges)))
+                    return preset;
+            }
+        }
+        return null;
+    }
+
+    /** {@code preset} with its six edge values replaced by {@code edges}. */
+    @NonNull
+    static Preset withEdges(@NonNull Preset preset, @NonNull int[] edges) {
+        LinkedHashMap<String, Object> values = new LinkedHashMap<>(preset.values);
+        for (int i = 0; i < EDGE_KEYS.length; i++)
+            values.put(EDGE_KEYS[i], edges[i]);
+        return new Preset(preset.id, preset.nameRes, values);
     }
 
     /**
