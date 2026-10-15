@@ -180,8 +180,9 @@ public final class AppearanceLooks {
     public static final int APP_ICONS_MAX = 10;
 
     /**
-     * The global set's two halves: Surface, the shared glass and shape, and Edge, the glass
-     * edge's sliders. Only the global set has them; an element's set is one.
+     * The global set's two halves: Surface, the shared glass and shape, and Edge (labelled
+     * Glass), the glass edge's sliders. The names are what the last group is remembered by. Only
+     * the global set has them; an element's set is one.
      */
     public enum Group {
         SURFACE,

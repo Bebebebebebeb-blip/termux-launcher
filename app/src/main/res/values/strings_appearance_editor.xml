@@ -59,8 +59,8 @@
          the glass edge. -->
     <string name="appearance_editor_group_description">Settings to show</string>
     <string name="appearance_editor_group_surface">Surface</string>
-    <string name="appearance_editor_group_edge">Edge</string>
-    <!-- The Edge group: how thick the glass edge looks, how brightly it catches the light, and
+    <string name="appearance_editor_group_edge">Glass</string>
+    <!-- The Glass group (Group.EDGE in code): how thick the glass edge looks, how brightly it catches the light, and
          how clearly the wallpaper shows through it. -->
     <string name="appearance_editor_depth">Depth · %1$d%%</string>
     <string name="appearance_editor_highlight">Highlight · %1$d%%</string>

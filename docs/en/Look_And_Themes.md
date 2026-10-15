@@ -43,11 +43,11 @@ on screen, so you tune what you see; **Undo** puts back what you opened with.
 
 At **Custom**, vertical sliders appear:
 
-- With nothing tapped, a **Surface** | **Edge** toggle beside **All surfaces** switches between two
+- With nothing tapped, a **Surface** | **Glass** toggle beside **All surfaces** switches between two
   sets for every surface:
   - **Surface**: **Blur**, **Grain**, **Opacity**, **Tint**, **Margin** and **Corner radius**, the
     glass and the shape.
-  - **Edge**: **Depth** (how thick the glass edge looks), **Highlight** (how brightly the top
+  - **Glass**: **Depth** (how thick the glass edge looks), **Highlight** (how brightly the top
     edge catches the light; past the middle the light also runs round the corners and down the
     sides) and **Clear edge** (how sharply the wallpaper shows through the edge). Picking a Look
     puts all three where that Look has them. The edge needs Android 13 and a wallpaper set
