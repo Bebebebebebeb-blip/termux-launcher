@@ -771,7 +771,7 @@ public final class VoiceListeningIndicator implements VoiceCardEdit.Card {
         VoiceTranscriptPanel view = panel;
         if (view == null) return;
         setEditing(true);
-        view.showDraft(model.text(), model.caretUtf16());
+        view.showDraft(model.text(), model.caretUtf16(), model.marks());
     }
 
     @Override

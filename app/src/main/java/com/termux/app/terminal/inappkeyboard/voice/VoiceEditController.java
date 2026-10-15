@@ -9,6 +9,9 @@ import com.termux.app.terminal.ClipboardText;
 import com.termux.app.terminal.CommandPaletteSoftKeyDecision;
 import com.termux.app.terminal.FocuslessKeyIntake;
 
+import java.util.Collections;
+import java.util.List;
+
 /**
  * The {@link FocuslessKeyIntake} of the dictation card's editor: what each key does to the
  * {@link VoiceEditModel}. The card's text is never focused and holds no {@code InputConnection};
@@ -51,9 +54,15 @@ public final class VoiceEditController extends FocuslessKeyIntake {
 
     /** Opens the editor on {@code text}, the caret at UTF-16 {@code caretUtf16}; an edit already open ends first, kept. */
     public void begin(@NonNull String text, int caretUtf16, @NonNull Host host) {
+        begin(text, caretUtf16, Collections.emptyList(), host);
+    }
+
+    /** As {@link #begin(String, int, Host)}, with the cleanup's {@code marks} on {@code text} ({@link VoiceEditModel#cleanupMarks}). */
+    public void begin(@NonNull String text, int caretUtf16, @NonNull List<VoiceEditModel.Mark> marks,
+                      @NonNull Host host) {
         if (active) end();
         this.host = host;
-        this.model = new VoiceEditModel(text, caretUtf16);
+        this.model = new VoiceEditModel(text, caretUtf16, marks);
         active = true;
         host.onDraftChanged(model);
     }
