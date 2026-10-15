@@ -63,10 +63,22 @@ under twenty items; past that, the oldest are re-judged first.
   icons (U+F0C5, U+F0219) with no tofu, each about twice the size of the same icon on line 1 (an
   icon followed by a space spreads over it, as at normal size), centred in the cells it covers;
   lines 1 and 3 look as before; Latin in a scaled block is unchanged · emulator.
+- 2026-10-15 · commit "feat(appearance-editor): Depth, Highlight and Clear edge replace the
+  six edge sliders", "feat(appearance-editor): label the edge group Glass" and
+  "feat(appearance-editor): keep a Depth or Highlight thumb where it was left" · Look › Custom shows a Surface | Glass toggle, and Glass shows three
+  sliders, Depth, Highlight and Clear edge, each legend and both toggle words whole (also at
+  font scale 1.3 on a 360dp screen). After a drag, each readout
+  matches its stored pair (`run-as` the prefs: `fancier_glass_bend`/`_edge_width` for Depth,
+  `_edge_light`/`_specular` for Highlight, `_clarity` for Clear edge) and the other groups' keys
+  are unchanged. Clear, Mist and Tint picked from the stops read Depth 85/79/65, Highlight
+  30/28/25, Clear edge 100/90/85, and a Depth nudge and back lands on the Look's stop again. Drag Depth to 87 on Clear, switch to
+  Surface and back: it still reads 87; pick a Look and it reads that Look's position. A
+  Custom saved with the old six values (e.g. 13/32/60/20/20/90) opens without changing any key
+  until a slider moves · emulator, with a wallpaper set from the launcher.
 
 ## Developer
 
-- 2026-10-15 · commit "feat(appearance): reopen the Look page on the last group" · Switch to Edge, tap Done, open the editor again: it opens on Edge, and on Surface after switching back · pong, Appearance editor.
+- 2026-10-15 · commit "feat(appearance): reopen the Look page on the last group" · Switch to Glass, tap Done, open the editor again: it opens on Glass, and on Surface after switching back · pong, Appearance editor.
 
 - 2026-10-15 · commit "feat(settings): make the Low-memory preset a switch" · Turning it on and off
   returns the look you had (material, opacity, effects, parallax), and Reduce idle activity follows

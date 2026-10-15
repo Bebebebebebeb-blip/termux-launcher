@@ -77,16 +77,51 @@ public class SurfaceLooksReadoptTest {
 
         assertTrue(SurfacePresets.matches(preferences, preset("minimal")));
         assertEquals(30, preferences.getFancierGlassEdgeLightPercent());
-        assertEquals(2, store.getInt(SurfacePresets.KEY_LOOKS_GENERATION, 0));
+        assertEquals(SurfacePresets.LOOKS_GENERATION,
+            store.getInt(SurfacePresets.KEY_LOOKS_GENERATION, 0));
+    }
+
+    @Test
+    public void mistAndTintOnGenerationTwoTakeTheirEdgesOnTheDepthCurve() {
+        // Generation 2 left Mist at 24/30 and Tint at 20/26; the Depth slider's curve takes their
+        // widths to 24 and 22, and nothing else about either Look moves.
+        String[] ids = {"frost", "stock"};
+        int[][] generationTwo = {{24, 30, 28, 0, 30, 90}, {20, 26, 25, 0, 0, 85}};
+        int[] width = {24, 22};
+        for (int look = 0; look < ids.length; look++) {
+            store.edit().clear().commit();
+            store.edit().putInt(SurfacePresets.KEY_LOOKS_GENERATION, 2).commit();
+            SurfacePresets.apply(preferences,
+                SurfacePresets.withEdges(preset(ids[look]), generationTwo[look]));
+            assertFalse(ids[look], SurfacePresets.matches(preferences, preset(ids[look])));
+
+            SurfacePresets.readoptMovedLooks(preferences);
+
+            assertTrue(ids[look], SurfacePresets.matches(preferences, preset(ids[look])));
+            assertEquals(ids[look], width[look], preferences.getFancierGlassEdgeWidthDp());
+            assertEquals(3, store.getInt(SurfacePresets.KEY_LOOKS_GENERATION, 0));
+        }
+    }
+
+    @Test
+    public void clearOnGenerationTwoIsAlreadyOnTheCurveAndUntouched() {
+        store.edit().putInt(SurfacePresets.KEY_LOOKS_GENERATION, 2).commit();
+        SurfacePresets.apply(preferences, preset("minimal"));
+        Map<String, ?> before = looks();
+
+        SurfacePresets.readoptMovedLooks(preferences);
+
+        assertEquals(before, looks());
+        assertEquals(26, preferences.getFancierGlassEdgeWidthDp());
     }
 
     @Test
     public void everyEarlierEdgeOfEveryMovedLookIsReadopted() {
         int[][][] earlier = {
             {{11, 28, 70, 0, 25, 100}, {6, 14, 40, 0, 0, 70}, {6, 14, 24, 0, 0, 70}, {4, 10, 18, 0, 0, 0}},
-            {{13, 32, 60, 0, 20, 90}, {9, 20, 30, 0, 0, 60}, {9, 20, 18, 0, 0, 45}, {9, 20, 18, 20, 0, 0},
+            {{24, 30, 28, 0, 30, 90}, {13, 32, 60, 0, 20, 90}, {9, 20, 30, 0, 0, 60}, {9, 20, 18, 0, 0, 45}, {9, 20, 18, 20, 0, 0},
                 {9, 20, 18, 0, 0, 0}},
-            {{10, 26, 60, 0, 0, 85}, {6, 14, 36, 0, 0, 55}, {6, 14, 22, 0, 0, 55}, {4, 10, 18, 0, 0, 0}},
+            {{20, 26, 25, 0, 0, 85}, {10, 26, 60, 0, 0, 85}, {6, 14, 36, 0, 0, 55}, {6, 14, 22, 0, 0, 55}, {4, 10, 18, 0, 0, 0}},
         };
         String[] ids = {"minimal", "frost", "stock"};
         for (int look = 0; look < ids.length; look++) {

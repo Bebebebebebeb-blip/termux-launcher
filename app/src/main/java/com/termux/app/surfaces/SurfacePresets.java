@@ -94,21 +94,21 @@ public final class SurfacePresets {
         // and opacity 60 are Obsidian's own numbers. Grain 8 is not its 0.08 noise carried over:
         // Haze lays a soft noise tile at 0.08 alpha, ours is full-contrast random alpha at up to
         // 60/255 of the percentage, so a literal match (about 68) would read as sand. 8 is the
-        // same faint tooth. The edge is a little softer than Clear's (bend 24 over the widest edge,
-        // 30, so 0.8 of a band; light 28), clears the heavy frost toward the rim a little less than
-        // Clear does (clarity 90), with a fainter corner glint (dispersion 30).
+        // same faint tooth. The edge is a little shallower than Clear's (bend 24 over an edge of
+        // 24, on the Depth slider's curve; light 28), clears the heavy frost toward the rim a little
+        // less than Clear does (clarity 90), with a fainter corner glint (dispersion 30).
         preset("frost", R.string.termux_surface_preset_frost,
-            TERMUX_APP.SURFACE_MATERIAL_FROST, 50, 25, 60, 8, 24, 30, 28, 0, 30, 90,
+            TERMUX_APP.SURFACE_MATERIAL_FROST, 50, 25, 60, 8, 24, 24, 28, 0, 30, 90,
             look -> {
                 look.put(TERMUX_APP.KEY_SURFACE_GLASS_TINT, TERMUX_APP.GLASS_TINT_OBSIDIAN);
                 look.put(TERMUX_APP.KEY_SURFACE_GLASS_RIM, TERMUX_APP.GLASS_RIM_GRADIENT);
                 look.put(TERMUX_APP.KEY_SURFACE_GLASS_MOTION, TERMUX_APP.GLASS_MOTION_MIST);
             }),
         // Tint (id stock): glass in Material colours (surface tint toward primary container), with
-        // an edge a little shallower than Clear's (bend 20, edge 26, about 0.8 of a band), a little
-        // less lit (light 25) and clear (clarity 85), and no fringe.
+        // an edge shallower than Clear's (bend 20 over an edge of 22, on the Depth slider's curve),
+        // a little less lit (light 25) and clear (clarity 85), and no fringe.
         preset("stock", R.string.termux_surface_preset_stock,
-            TERMUX_APP.SURFACE_MATERIAL_GLASS, 50, 10, 46, 10, 20, 26, 25, 0, 0, 85,
+            TERMUX_APP.SURFACE_MATERIAL_GLASS, 50, 10, 46, 10, 20, 22, 25, 0, 0, 85,
             look -> look.put(TERMUX_APP.KEY_SURFACE_GLASS_TINT, TERMUX_APP.GLASS_TINT_MATERIAL)),
         // Solid: opaque, no blur cost, and no edge to clear.
         preset("solid", R.string.termux_surface_preset_solid,
@@ -127,7 +127,7 @@ public final class SurfacePresets {
      * {@link #EARLIER_EDGES}, so that {@link #readoptMovedLooks} carries an install sitting on the
      * old values to the new ones once.
      */
-    static final int LOOKS_GENERATION = 2;
+    static final int LOOKS_GENERATION = 3;
 
     /** The generation an install's Looks were last brought up to; absent is 0. */
     static final String KEY_LOOKS_GENERATION = "surface_looks_generation";
@@ -157,6 +157,7 @@ public final class SurfacePresets {
             {4, 10, 18, 0, 0, 0},  // f32aa35a6, and every fresh install until this generation
         });
         earlier.put("frost", new int[][] {
+            {24, 30, 28, 0, 30, 90}, // 2d3c642d7, generation 2
             {13, 32, 60, 0, 20, 90}, // b81888cf5, generation 1
             {9, 20, 30, 0, 0, 60}, // bfcd74678
             {9, 20, 18, 0, 0, 45}, // 6475ebebe
@@ -164,6 +165,7 @@ public final class SurfacePresets {
             {9, 20, 18, 0, 0, 0},  // 04219dea8, again from 2adbaf512
         });
         earlier.put("stock", new int[][] {
+            {20, 26, 25, 0, 0, 85}, // 2d3c642d7, generation 2
             {10, 26, 60, 0, 0, 85}, // b81888cf5, generation 1
             {6, 14, 36, 0, 0, 55}, // bfcd74678
             {6, 14, 22, 0, 0, 55}, // 6475ebebe
