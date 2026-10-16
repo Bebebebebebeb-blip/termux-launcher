@@ -125,4 +125,4 @@ whole file. A line lives here until it ships in a stable, then moves into that r
 
 [`verification/`](verification/) holds the runnable probes: on-device scripts for keybinds,
 terminal actions, terminal protocols and OSC 133 shell integration, the JVM escape-parser fuzz
-harness, the X11 display check, and the agent-platform smoke clients under `verification/tai-ext/`.
+harness, the X11 display check, the keyboard touch engine's pass-bar reader, and the agent-platform smoke clients under `verification/tai-ext/`.
