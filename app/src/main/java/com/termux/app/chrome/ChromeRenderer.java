@@ -94,6 +94,15 @@ public final class ChromeRenderer {
         }
 
         /**
+         * Told after every top-pane frost pass whether the window bar's frost is now on screen
+         * drawn through the program, whose gathered light is then the bar's edge; the bar's own
+         * stroke follows it ({@link GlassSurfaceFactory#statusBarSurface(float, float, float, int,
+         * GlassBackdropCache.Band, boolean)}). The frost is painted after the bar is dressed, so
+         * the bar learns of it here rather than asking while it dresses.
+         */
+        default void onWindowBarFrostEdge(boolean drawsEdge) {}
+
+        /**
          * What leads the top edge's stack, which the strip behind the system status bar continues
          * in the docked style ({@link ChromeEdgeRule#statusInsetLead}); NONE while the strip is
          * not shown.
@@ -153,15 +162,6 @@ public final class ChromeRenderer {
         @Nullable
         default GlassRefraction.Look fancierGlassLook() {
             return null;
-        }
-
-        /**
-         * Adaptive glass: the program draws every glass outline as gathered light, so no surface
-         * lays the white gradient rim over it. True only while {@link #fancierGlassLook()} answers
-         * a look and the switch is on; false, the default, is the hairline and the rim as before.
-         */
-        default boolean adaptiveGlass() {
-            return false;
         }
 
         /**

@@ -5,6 +5,7 @@ import android.graphics.drawable.LayerDrawable;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 
@@ -189,21 +190,41 @@ public final class GlassStack {
     /**
      * The stack itself, bottom to top: {@code backdrop} (the caller's view onto the shared frame,
      * or null where there is nothing to blur) dressed with the frost and the refraction, the tint
-     * with its grain and rim, all under the spec's one stack alpha. With Adaptive glass
-     * ({@link GlassSurfaceFactory#gathersEdge}) the program draws the outline as gathered light
-     * and the spec's rim is left out.
+     * with its grain and rim, all under the spec's one stack alpha. Where this stack's own
+     * backdrop runs the program ({@link SharedFrameDrawable#refracts}) the program draws the
+     * outline as gathered light and the spec's rim is left out ({@link #wearsRim}); a stack with
+     * no backdrop, or one drawn plain, keeps its rim.
      */
     @NonNull
     public static Drawable build(@NonNull GlassSurfaceFactory glass, @NonNull Spec spec,
                                  float density, @Nullable SharedFrameDrawable backdrop) {
+        return build(glass, spec, density, backdrop, SharedFrameDrawable::refracts);
+    }
+
+    /** How a stack asks whether its own backdrop draws its edge: {@link SharedFrameDrawable#refracts}. */
+    interface EdgeProbe {
+        boolean drawsEdge(@NonNull SharedFrameDrawable backdrop);
+    }
+
+    /**
+     * {@link #build(GlassSurfaceFactory, Spec, float, SharedFrameDrawable)} with the question of
+     * whether the backdrop refracts put to {@code probe}, asked once it has been handed the look.
+     * The tests' way to stand in a refracting frame on a JVM that runs no program.
+     */
+    @VisibleForTesting
+    @NonNull
+    static Drawable build(@NonNull GlassSurfaceFactory glass, @NonNull Spec spec, float density,
+                          @Nullable SharedFrameDrawable backdrop, @NonNull EdgeProbe probe) {
         List<Drawable> layers = new ArrayList<>(3);
+        boolean programEdge = false;
         if (backdrop != null) {
             // The content-aware light scatter every glass surface's frame wears.
             backdrop.setColorFilter(GlassFilters.frost(Math.round(spec.tintAlpha * 100f)));
-            backdrop.setRefraction(spec.look, density, spec.cornerRadiusPx, spec.seams,
-                glass.gathersEdge());
+            backdrop.setRefraction(spec.look, density, spec.cornerRadiusPx, spec.seams);
+            programEdge = probe.drawsEdge(backdrop);
             layers.add(backdrop);
         }
+        boolean rim = wearsRim(spec.rim, programEdge);
         if (spec.tintColor != null) {
             layers.add(new android.graphics.drawable.ColorDrawable(spec.tintColor));
             // A scheme colour stands in for the glass tint, and the band's veil still goes over
@@ -213,10 +234,10 @@ public final class GlassStack {
                 layers.add(new android.graphics.drawable.ColorDrawable(veil));
             // The scheme tint wears the surface's grain like every other glass stack.
             if (spec.grainPercent > 0) layers.add(glass.grainLayer(spec.grainPercent));
-            if (spec.rim && !glass.gathersEdge()) layers.add(glass.rimDrawable(spec.cornerRadiusPx));
+            if (rim) layers.add(glass.rimDrawable(spec.cornerRadiusPx));
         } else {
             layers.add(glass.surface(spec.tintAlpha, 0f, spec.sliceEnd, spec.foot,
-                spec.grainPercent, spec.cornerRadiusPx, spec.rim, spec.band,
+                spec.grainPercent, spec.cornerRadiusPx, rim, spec.band,
                 spec.tintStrengthPercent));
         }
         Drawable material = layers.size() == 1
@@ -224,6 +245,16 @@ public final class GlassStack {
         if (spec.stackAlphaPercent < 100)
             applyStackAlpha(material, Math.round(255f * spec.stackAlphaPercent / 100f));
         return material;
+    }
+
+    /**
+     * Whether a stack lays its gradient rim: when its spec asks for one and its own backdrop does
+     * not already draw the outline ({@code programEdge}, the program's gathered light). One edge
+     * per surface, decided per stack: another surface's glass refracting says nothing about this
+     * one's.
+     */
+    static boolean wearsRim(boolean specRim, boolean programEdge) {
+        return specRim && !programEdge;
     }
 
     /**

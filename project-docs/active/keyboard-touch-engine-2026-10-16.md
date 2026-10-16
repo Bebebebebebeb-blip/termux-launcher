@@ -146,7 +146,8 @@ Decisions:
 
 On pong, over a few days of the developer's normal use: space take-backs (hit `b`, `v` or `n`, meant
 space, under the round 2 rule) drop by at least 30% against the warm-up baseline, and the take-back rate
-for other keys does not rise.
+for other keys does not rise. Read it with `project-docs/verification/touch-engine-passbar.py --pong`;
+its thresholds for "enough data" and "risen" are the working definition.
 
 ## Device checks owed
 

@@ -1,7 +1,36 @@
 # Glass plan: the next round on `pre` (2026-10-16)
 
-Status: spec. Nothing here is built. It is for the developer, who decides, and for the agent who
-builds it.
+Status: spec. Rounds 0 and 1 are built on `pre` (e928252ab), and Round 1 is now always on (phase
+A of the glass controls work, 2026-10-16): the Adaptive glass switch is gone and the gathered
+light is the only edge the program draws on Android 13 and up. Rounds 2 to 5 are not built. It is
+for the developer, who decides, and for the agent who builds it.
+
+**Superseded by phase A** (read the sections below with this in mind):
+
+- "One switch: Adaptive glass" no longer holds. The key `fancier_glass_adaptive`, its accessors,
+  the settings row and its two strings are deleted; a stored value is ignored, with no migration.
+  Every surface that runs the program wears the gathered light, the dock and the under-pill strip
+  with no Look (`Look.DEFAULT`) among them. Later rounds that were to sit behind the switch need a
+  new decision.
+- Round 1's hairline branch, `uGathered`, `kRim`, `kShade`, `kLight`, `kLobeK`, `lobe()`,
+  `edgeLit`, `Program.setGathered` and the flag on `setRefraction`, `rimReachPx` and `seamReachPx`
+  are deleted. `kRimDp`/`kMinRimPx` stay for the pull's ease. Seams are always pushed past the
+  glow's 10 dp reach.
+- New in phase A: the light's strength is held under the headroom the sample's brightest channel
+  has left (`heldK`: exact below half of it, then `1 - 1/(4r)`), so a pale backdrop's outline
+  never clips and keeps its hue. A 0.5 grey now peaks near 0.87 at the brightest corner, not 0.98.
+- Rims: decided per surface from what is on screen, never from the look. `GlassStack` drops its
+  rim only when its own backdrop refracts (`SharedFrameDrawable.refracts`). The window bar's stroke
+  follows its frost as each top-pane frost pass leaves it (`Surfaces.onWindowBarFrostEdge`, which
+  re-dresses the bar when the answer moves). The dock drops `rimUnderGlass` while a refraction
+  effect is installed on its visible backdrop (`setDockProgramEdge`, which re-cuts the host's
+  shape; the capsule keeps an outline-only background to clip to). A glass pane's resting border
+  asks its own slab on every draw (`PaneRim.SlabEdge`, answered by `PaneGlassBackdropView`) and is
+  redrawn when the slab's answer moves. Focus and attention borders stay. The corner tab gets the
+  gathered edge with everything else.
+- Not done, by the developer's decision: no top layer. The light stays under tint, veil and grain,
+  so opaque surfaces (Mist, Solid, the sheet and chip floors) show it only through their tint;
+  phase B scales its strength by opacity.
 
 It covers the ten items the developer picked: C-01, K-2, C-02, E-1, C-03, C-05, C-07, C-09,
 C-10, C-11. The developer ruled these out: accessibility settings (C-06), the scroll-edge fade
@@ -52,6 +81,9 @@ commits, compiles on its own and adds its line to `project-docs/prerelease-notes
 on `pre`.
 
 ## One switch: Adaptive glass
+
+*Superseded (phase A, 2026-10-16): the switch is deleted and Round 1 is always on. Kept for the
+record.*
 
 Every item here changes a look someone already has. The developer's stance is that new glass terms
 arrive as opt-in knobs. So all of them sit behind one switch. One row, not nine, keeps the settings

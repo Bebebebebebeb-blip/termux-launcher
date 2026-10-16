@@ -33,7 +33,7 @@ Three rules keep this directory from rotting:
 | | |
 |---|---|
 | [`active/fancier-glass/SPEC.md`](active/fancier-glass/SPEC.md) | Fancier Glass: refraction, motions and their bug list. Partly built. |
-| [`active/glass-plan-2026-10-16.md`](active/glass-plan-2026-10-16.md) | The next glass round: gathered-light edge, a per-spot film under Clear, small glass that picks its own ink, behind one Adaptive glass switch. Spec; not started. |
+| [`active/glass-plan-2026-10-16.md`](active/glass-plan-2026-10-16.md) | The next glass round: gathered-light edge, a per-spot film under Clear, small glass that picks its own ink. Rounds 0 and 1 built, Round 1 always on (the switch is gone); the rest is spec. |
 | [`active/display-fullscreen/PARKED.md`](active/display-fullscreen/PARKED.md) | Full-screen Display with edge slide-outs. Parked. |
 | [`active/tai-memory-manager.md`](active/tai-memory-manager.md) | The "can this model load right now" owner. Built; device checks pending. |
 | [`active/tai-feature-load-plan-2026-10-08.md`](active/tai-feature-load-plan-2026-10-08.md) | The feature load plan: how each on-device AI feature picks its model, accelerator and context for a phone. |
@@ -125,4 +125,4 @@ whole file. A line lives here until it ships in a stable, then moves into that r
 
 [`verification/`](verification/) holds the runnable probes: on-device scripts for keybinds,
 terminal actions, terminal protocols and OSC 133 shell integration, the JVM escape-parser fuzz
-harness, the X11 display check, and the agent-platform smoke clients under `verification/tai-ext/`.
+harness, the X11 display check, the keyboard touch engine's pass-bar reader, and the agent-platform smoke clients under `verification/tai-ext/`.

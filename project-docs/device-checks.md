@@ -82,20 +82,35 @@ under twenty items; past that, the oldest are re-judged first.
   and `fancier_glass_edge_width` 18; one Depth step down writes 26/17 and the dock's bend ring
   narrows by a step, not to a third. Fails if the page says Custom with Depth 34: something wrote
   a preference before the first-run check, and the install was taken for an upgrade · emulator.
-- 2026-10-16 · commit "feat(glass): Adaptive glass, an edge of gathered light" (glass plan Round
-  1) · Adaptive glass off: Clear, Mist and Tint look exactly as on `pre` (crop a pane corner and
-  the dock's top edge on both builds). On: the edge is the wallpaper's colour brightened,
-  brightest top-left and faint all round; no white line and no second stroke; over a pale
-  wallpaper the glint shrinks; no bright line on a seam (keyboard over the under-pill strip, status
-  over the window bar); the dock shows one edge, not two; in a joined frame, no glow runs along the
-  screen's own edges. Look for a leftover white line on a Floating pane with the border on (its
-  border still comes from the gradient rim) and on a wall page's corner tab (still the hairline).
-  The row is hidden on Android 12 and greyed with the hint until a wallpaper is set from the
-  picker · emulator, `glass-city` and `glass-flowers` wallpapers, Docked and Floating, keyboard up
-  and down.
-- 2026-10-16 · commit "feat(glass): Adaptive glass, an edge of gathered light" ·
-  `GlassRefractionAgslInstrumentationTest` passes, its two gathered-edge cases included (a lit
-  top-left corner with `uGathered` 1; switched back off draws the hairline exactly) · emulator.
+- 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" (glass plan Round
+  1, always on) · Android 13+, wallpaper set from the picker, Clear, Mist and Tint: every glass
+  surface shows one edge, the wallpaper's colour brightened, brightest top-left and faint all
+  round, and no white line or gradient stroke beside it. Crop each: the dock (Docked and capsule,
+  where the capsule must still clip to its rounded outline), the under-pill strip, the keyboard,
+  the window bar capsule, a Floating pane with the border on (one edge, no rim), a split's focused
+  pane (its active colour still shows), a wall page's corner tab (now lit), the frame gutter in a
+  joined Docked frame (no glow along the screen's edges). No bright line on a seam (keyboard over
+  the strip, status over the window bar). Over a pale sky the edge stays blue, not white or cyan.
+  With no Look (Fancier Glass off, a wallpaper not set from the picker) the dock and the strip
+  still show the gathered edge and no rim under it, and the other surfaces keep their rims ·
+  emulator, `glass-city` and `glass-flowers` and a pale-sky wallpaper, Docked and Floating,
+  keyboard up and down.
+- 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · Android 12 (or a
+  forced plain draw) looks exactly as on `pre`: every rim, the dock's rim under its glass, the
+  panes' gradient rim · an API 31/32 emulator.
+- 2026-10-17 · commit "fix(glass): every edge follows the glass on screen, not the rule" · The
+  window bar capsule: one edge on a cold start (no rim beside the gathered light on the first
+  frame after the frost lands), and its stroke back the moment the frost goes (Fancier Glass off,
+  status blur radius 0, the bar moved onto the dock's plank and back). The dock: its rim under the
+  glass shows while a blur is in flight on a fresh wallpaper and goes once the glass is up. A
+  Floating pane: its rim shows while its slab is plain (a fresh blur in flight, a corner-masked
+  page) and goes when the slab refracts · emulator, logcat clean.
+- 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · Settings › Theme
+  & fonts has no Adaptive glass row and nothing else on the page moved (crop the page before and
+  after) · emulator.
+- 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" ·
+  `GlassRefractionAgslInstrumentationTest` passes, `aPaleSkysOutlineKeepsItsBlue` and the lit
+  top-left corner included (only a device proves the AGSL compiles) · emulator.
 - 2026-10-16 · commit "feat(keyboard): a touch engine that learns where your taps land" ·
   A swipe that starts in a moved border strip keeps its own key's swipe legend: with Adaptive
   touch accuracy past its warm-up and a border moved (the low strip of `b` typing a space), swipe
@@ -111,25 +126,20 @@ under twenty items; past that, the oldest are re-judged first.
 
 ## Developer
 
-- 2026-10-16 · commit "feat(glass): Adaptive glass, an edge of gathered light" · With the switch
-  on, the edge reads as light, not an outline. Also record whether floating panels still stand
-  apart from a white wallpaper: that is Round 5's gate · pong, release build.
+- 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · The edge reads
+  as light, not an outline, on every surface; on Mist and Solid (and the sheet and chip, floored
+  near opaque) note how faint the outline gets under their tint, for phase B's opacity scaling.
+  Also record whether floating panels still stand apart from a white wallpaper: that is Round 5's
+  gate · pong, release build.
 - 2026-10-16 · commit "feat(keyboard): a touch engine that learns where your taps land" ·
-  The touch engine's pass bar: over a few days of normal typing with Adaptive touch accuracy on,
-  space take-backs (`b`, `v` or `n`, Backspace, space) drop by at least 30% against the warm-up's
-  rate, and the take-back rate for other keys does not rise; aiming at the space bar and landing
-  on `b` or `v` types a space · pong, by hand. How to read it: `run-as` the app and open
-  `files/keyboard-tap-model.json`; under `"entries"`, the layout's grid has per-key arrays indexed
-  like the layout's keys (rows top to bottom, keys left to right). For the space bar's index,
-  the warm-up rate is `takebacks_warm` / `taps_warm` and the corrected rate is
-  `takebacks_active` / `taps_active`; the first must drop by 30% or more in the second, and no
-  other key's rate may rise. `takebacks_warm` and `takebacks_active` count take-backs by the key
-  meant (here space), so they hold every take-back into space; `takebacks_hit_warm` and
-  `takebacks_hit_active` count the same take-backs by the key that was hit, so the entries at
-  `b`, `v` and `n` say how many misses landed there. A take-back now also catches a miss noticed
-  a few keys later: Backspace up to 8 times, then the same keys retyped with one neighbouring
-  key changed. The counts start again with each warm-up (`count_epoch` matches the engine's
-  `epoch`).
+  The touch engine's pass bar, under the round 2 take-back rule: take-backs into space drop by
+  30% or more from the warm-up's rate to the corrected rate, no other key's rate rises, and aiming
+  at the space bar and landing on `b` or `v` types a space · pong, a few days of normal typing
+  from the 2026-10-16 install of 1dbeda5b1 (learning restarted from zero there). Read it with
+  `project-docs/verification/touch-engine-passbar.py --pong`, which prints a verdict per layout
+  grid; until it says PASS or FAIL it reports how much data is still missing. A FAIL, a paused
+  engine, or the developer reporting misses that still go to `b` or `v` sends the next session to
+  the spec's Round 2 section before any change.
 - 2026-10-15 · commit "feat(settings): make the Low-memory preset a switch" · Turning it on and off
   returns the look you had (material, opacity, effects, parallax), and Reduce idle activity follows
   the switch both ways without leaving the page · pong, Settings → App behavior.
