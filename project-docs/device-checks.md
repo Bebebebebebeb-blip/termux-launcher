@@ -96,12 +96,36 @@ under twenty items; past that, the oldest are re-judged first.
 - 2026-10-16 · commit "feat(glass): Adaptive glass, an edge of gathered light" ·
   `GlassRefractionAgslInstrumentationTest` passes, its two gathered-edge cases included (a lit
   top-left corner with `uGathered` 1; switched back off draws the hairline exactly) · emulator.
+- 2026-10-16 · commit "feat(keyboard): a touch engine that learns where your taps land" ·
+  A swipe that starts in a moved border strip keeps its own key's swipe legend: with Adaptive
+  touch accuracy past its warm-up and a border moved (the low strip of `b` typing a space), swipe
+  up from that strip and get `b`'s upward legend, never the space bar's; a plain tap there still
+  types a space · emulator, warm-up driven with scripted taps.
+- 2026-10-16 · commit "feat(keyboard): a touch engine that learns where your taps land" · A forced drift pause shows in Settings and resume restarts the warm-up: set
+  `"state":2` under `"engine"` in `files/keyboard-tap-model.json` (`run-as`, before any
+  force-stop), reopen Settings → Keyboard → Typing: the status row reads Paused with the taps
+  learned; tap it: Learning, and the file's `"wt"` is 0 · emulator.
+- 2026-10-16 · commit "feat(keyboard): a touch engine that learns where your taps land" · The status row reads whole at font scale 1.3 in all three states (Learning, Active,
+  Paused), its summary wrapping rather than clipping, and dims with the switch off · emulator,
+  `font_scale 1.3`, force-stop after the change.
 
 ## Developer
 
 - 2026-10-16 · commit "feat(glass): Adaptive glass, an edge of gathered light" · With the switch
   on, the edge reads as light, not an outline. Also record whether floating panels still stand
   apart from a white wallpaper: that is Round 5's gate · pong, release build.
+- 2026-10-16 · commit "feat(keyboard): a touch engine that learns where your taps land" ·
+  The touch engine's pass bar: over a few days of normal typing with Adaptive touch accuracy on,
+  space take-backs (`b`, `v` or `n`, Backspace, space) drop by at least 30% against the warm-up's
+  rate, and the take-back rate for other keys does not rise; aiming at the space bar and landing
+  on `b` or `v` types a space · pong, by hand. How to read it: `run-as` the app and open
+  `files/keyboard-tap-model.json`; under `"entries"`, the layout's grid has per-key arrays indexed
+  like the layout's keys (rows top to bottom, keys left to right). For the space bar's index,
+  the warm-up rate is `takebacks_warm` / `taps_warm` and the corrected rate is
+  `takebacks_active` / `taps_active`; the first must drop by 30% or more in the second, and no
+  other key's rate may rise. Take-backs are counted by the key meant (here space), not by the key
+  missed, so the figure is every take-back into space, not only those from `b`, `v` or `n`.
+  The counts start again with each warm-up (`count_epoch` matches the engine's `epoch`).
 - 2026-10-15 · commit "feat(settings): make the Low-memory preset a switch" · Turning it on and off
   returns the look you had (material, opacity, effects, parallax), and Reduce idle activity follows
   the switch both ways without leaving the page · pong, Settings → App behavior.

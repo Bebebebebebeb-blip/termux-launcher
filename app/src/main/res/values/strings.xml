@@ -435,6 +435,19 @@
         <item quantity="one">Learned from %1$d tap.</item>
         <item quantity="other">Learned from %1$d taps.</item>
     </plurals>
+    <string name="settings_keyboard_tap_correction_reset_summary_some">Forget what was learned and start again.</string>
+    <string name="settings_keyboard_tap_correction_status_learning">Learning</string>
+    <string name="settings_keyboard_tap_correction_status_active">Active</string>
+    <string name="settings_keyboard_tap_correction_status_paused">Paused</string>
+    <string name="settings_keyboard_tap_correction_status_learning_none">Start typing to begin.</string>
+    <plurals name="settings_keyboard_tap_correction_status_learning_summary">
+        <item quantity="one">%1$d tap so far.</item>
+        <item quantity="other">%1$d taps so far.</item>
+    </plurals>
+    <plurals name="settings_keyboard_tap_correction_status_paused_summary">
+        <item quantity="one">Typing got less accurate. Tap to resume. Learned from %1$d tap.</item>
+        <item quantity="other">Typing got less accurate. Tap to resume. Learned from %1$d taps.</item>
+    </plurals>
     <string name="settings_haptic_feedback_title">Haptic feedback</string>
     <string name="settings_keypress_sound_title">Key sound</string>
     <string name="settings_key_popup_title">Key preview</string>

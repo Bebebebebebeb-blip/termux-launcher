@@ -1062,6 +1062,14 @@ public final class TermuxInAppKeyboard {
     }
 
     /**
+     * Input reached the terminal from somewhere other than a tap on these keys — a hardware key,
+     * a paste from outside the keyboard — so the touch engine reads no take-back across it.
+     */
+    public void onOtherInput() {
+        mTapCorrection.interrupt();
+    }
+
+    /**
      * Paste where the keyboard's own paste key pastes.
      *
      * <p>The extra-keys row carries the same key for when the keyboard is down, and it used to
@@ -1073,6 +1081,7 @@ public final class TermuxInAppKeyboard {
      * @return false when there is no keyboard to route through and the caller should paste itself
      */
     public boolean pasteThroughKeyboard() {
+        onOtherInput();
         KeyValue paste = KeyValue.getKeyByName("paste");
         if (paste == null)
             return false;
@@ -2043,6 +2052,7 @@ public final class TermuxInAppKeyboard {
     }
 
     private void resetInputPipeline() {
+        mTapCorrection.interrupt();
         if (mKeyboardView != null)
             mKeyboardView.resetInputState();
         if (mKeyEventHandler != null)
