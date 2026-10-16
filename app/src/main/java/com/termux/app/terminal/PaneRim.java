@@ -72,6 +72,7 @@ public final class PaneRim {
     private boolean mGradientRim;
     private boolean mDocked;
     private boolean mOpeningLine;
+    private boolean mProgramEdge;
     private float mRadiusPx;
     private ValueAnimator mAnimator;
     /** The alpha the kind asks for, before the wall's travel takes its share. */
@@ -110,6 +111,7 @@ public final class PaneRim {
                          @Nullable PaneSurfaceStyle style) {
         float radius = Math.max(0f, radiusPx);
         boolean gradientRim = style != null && style.paneGlassRimWanted();
+        boolean programEdge = programDrawsEdge(glass, style);
         boolean pulses = animationsEnabled() && (style == null || style.paneAttentionPulses());
         boolean docked = style != null && style.paneDocked();
         boolean openingLine = style != null && style.paneOpeningLine();
@@ -117,7 +119,7 @@ public final class PaneRim {
         boolean reusable = mDrawable != null && frame.getForeground() == mDrawable
             && mKind == decision.kind && mColour == decision.colour && mGlass == glass
             && mRadiusPx == radius && mGradientRim == gradientRim && mDocked == docked
-            && mOpeningLine == openingLine;
+            && mOpeningLine == openingLine && mProgramEdge == programEdge;
         if (reusable) {
             if (mDrawable instanceof PaneAttentionGlow)
                 ((PaneAttentionGlow) mDrawable).setPulsing(pulses);
@@ -133,6 +135,7 @@ public final class PaneRim {
         mGradientRim = gradientRim;
         mDocked = docked;
         mOpeningLine = openingLine;
+        mProgramEdge = programEdge;
         mRadiusPx = radius;
         float density = frame.getResources().getDisplayMetrics().density;
         switch (decision.kind) {
@@ -155,17 +158,32 @@ public final class PaneRim {
                 break;
             default:
                 // The Docked insert wears the opening's line rather than the glass's rim: a
-                // SharedRim with no style to build from is that line.
-                mDrawable = docked
-                    ? new PaneDividerEdges(frame, lineColour(frame.getContext()), density)
-                    : new SharedRim(frame.getContext(), openingLine ? null : style, radius,
-                        density);
+                // SharedRim with no style to build from is that line. A glass slab drawn through
+                // the program wears the gathered light as its edge and takes no rim over it.
+                if (docked) {
+                    mDrawable = new PaneDividerEdges(frame, lineColour(frame.getContext()), density);
+                } else if (!openingLine && programEdge) {
+                    mDrawable = new SharedRim(frame.getContext(), style, radius, density, true);
+                } else {
+                    mDrawable = new SharedRim(frame.getContext(), openingLine ? null : style, radius,
+                        density, false);
+                }
                 break;
         }
         frame.setForeground(mDrawable);
         setBaseAlpha(255);
         if (kindChanged && animationsEnabled()) fadeIn();
         return true;
+    }
+
+    /**
+     * Whether a frame's resting border is the slab's own edge: the pane is glass and its slab is
+     * drawn through the program ({@link PaneSurfaceStyle#paneGlassDrawsEdge}), whose gathered
+     * light outlines it, so the shared rim would be a second line beside it. Focus and attention
+     * still draw theirs; they say something the edge does not.
+     */
+    static boolean programDrawsEdge(boolean glass, @Nullable PaneSurfaceStyle style) {
+        return glass && style != null && style.paneGlassDrawsEdge();
     }
 
     /**
@@ -258,26 +276,32 @@ public final class PaneRim {
      * The rim every other surface wears, cut at this pane's radius capped for its live bounds.
      * The style builds it (hairline or gradient, per preset); with no style it is the
      * outline-colour hairline, which is also the Docked opening's line ({@link #openingLine}).
+     * Over a slab whose program draws the edge ({@link #programDrawsEdge}) it draws nothing: the
+     * frame still carries its border, so the decision and its reuse read as for any rim.
      */
     private static final class SharedRim extends Drawable {
         private final PaneSurfaceStyle mStyle;
         private final float mRequestedRadiusPx;
         private final float mDensity;
         private final int mFallbackColour;
+        /** The slab's program draws the edge; this rim draws nothing over it. */
+        private final boolean mProgramEdge;
         private Drawable mInner;
         private float mInnerRadiusPx = -1f;
         private int mAlpha = 255;
 
         SharedRim(@NonNull Context context, @Nullable PaneSurfaceStyle style, float radiusPx,
-                  float density) {
+                  float density, boolean programEdge) {
             mStyle = style;
             mRequestedRadiusPx = radiusPx;
             mDensity = density;
             mFallbackColour = lineColour(context);
+            mProgramEdge = programEdge;
         }
 
         @Override
         protected void onBoundsChange(@NonNull Rect bounds) {
+            if (mProgramEdge) return;
             float radius = PaneShape.radiusForBounds(mRequestedRadiusPx, bounds.width(),
                 bounds.height());
             if (mInner == null || radius != mInnerRadiusPx) {

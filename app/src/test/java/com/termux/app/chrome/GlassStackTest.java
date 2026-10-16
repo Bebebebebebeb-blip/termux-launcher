@@ -136,34 +136,30 @@ public class GlassStackTest {
     }
 
     @Test
-    public void withAdaptiveGlassTheProgramDrawsTheEdgeAndNoRimIsLaidOverIt() {
-        // Glass plan 2026-10-16, Round 1: the gathered light replaces the white gradient stroke
-        // wherever the program draws the glass.
-        surfaces.adaptive = true;
-        Bitmap frame = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888);
-        SharedFrameDrawable backdrop = new SharedFrameDrawable(frame, new Rect(0, 0, 40, 40), null,
-            out -> { out[0] = 0; out[1] = 0; });
-
-        Drawable stack = GlassStack.build(glass, keyboardSpec(FANCIER), 2f, backdrop);
-
-        assertEquals(0, rimsIn(stack));
-        assertTrue("the frame is told to gather its edge", backdrop.refractionGathered());
-        assertEquals("the look itself is what is stored", FANCIER, backdrop.refractionLook());
-        // The scheme-colour stack the same way.
-        assertEquals(0, rimsIn(GlassStack.build(glass,
-            keyboardSpec(null).withTintColor(0x80112233), 2f, null)));
+    public void theRimIsDecidedPerStackByWhetherItsOwnBackdropDrawsTheEdge() {
+        // The gathered light is the edge wherever the program draws the glass; a stack whose own
+        // backdrop is plain, or that has none, keeps its rim.
+        assertFalse("its backdrop runs the program", GlassStack.wearsRim(true, true));
+        assertTrue("its backdrop is plain", GlassStack.wearsRim(true, false));
+        assertFalse("the spec asked for none", GlassStack.wearsRim(false, false));
+        assertFalse(GlassStack.wearsRim(false, true));
     }
 
     @Test
-    public void withAdaptiveGlassOffTheStackIsExactlyTodays() {
+    public void aStackWhoseBackdropDrawsPlainKeepsItsRimWhateverTheLook() {
+        // Below Android 13 (this runner) the frame never runs the program, so a stack keeps its
+        // rim even while Fancier Glass answers a look: the gate is the backdrop, not the look.
+        surfaces.look = FANCIER;
         Bitmap frame = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888);
         SharedFrameDrawable backdrop = new SharedFrameDrawable(frame, new Rect(0, 0, 40, 40), null,
             out -> { out[0] = 0; out[1] = 0; });
 
         Drawable stack = GlassStack.build(glass, keyboardSpec(FANCIER), 2f, backdrop);
 
+        assertFalse(backdrop.refracts());
         assertEquals(1, rimsIn(stack));
-        assertFalse(backdrop.refractionGathered());
+        assertEquals("the look itself is what is stored", FANCIER, backdrop.refractionLook());
+        // A stack with no backdrop at all, the scheme-colour one, the same way.
         assertEquals(1, rimsIn(GlassStack.build(glass,
             keyboardSpec(null).withTintColor(0x80112233), 2f, null)));
     }

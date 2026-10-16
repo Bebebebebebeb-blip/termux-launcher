@@ -1580,10 +1580,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return mFancierGlassLook;
         }
 
-        @Override public boolean adaptiveGlass() {
-            return mAdaptiveGlass;
-        }
-
         @Override public float planeGlassCornerRadiusPx() {
             // The planes are clipped to the terminal's own edge shape, capsule or knob.
             return terminalEdgeCornerRadiusPx();
@@ -3414,8 +3410,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // reset that runs just before leaves a transparent colour drawable and hides the view, and
         // taking that for the glass left the gutter bare from the second pass on.
         List<Object> key = Arrays.asList(frame, blurRadiusDp, mPreferences.getAppBarOpacity(),
-            mPreferences.getDockGlassGrain(), mFancierGlassLook, mPreferences.getDockTintStrength(),
-            mAdaptiveGlass);
+            mPreferences.getDockGlassGrain(), mFancierGlassLook, mPreferences.getDockTintStrength());
         if (mFrameGutterShown && mFrameGutterDrawable != null
                 && body.getBackground() == mFrameGutterDrawable && key.equals(mFrameGutterKey)) {
             body.setVisibility(View.VISIBLE);
@@ -3432,10 +3427,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             blurRadiusDp, mPreferences.getAppBarOpacity() / 100f,
             mPreferences.getDockGlassGrain(), 0f, mFancierGlassLook).withRim(false)
             .withTintStrength(mPreferences.getDockTintStrength())
-            // Every edge of this sheet is the screen's own. The hairline there is a hair of shade
-            // nobody sees; the gathered light, which every side takes a share of, would run a
-            // glow round the screen, so with Adaptive glass all four are seams.
-            .withSeams(mAdaptiveGlass ? com.termux.app.chrome.ChromeEdgeRule.ALL : 0);
+            // Every edge of this sheet is the screen's own. The gathered light, which every side
+            // takes a share of, would run a glow round the screen, so all four are seams.
+            .withSeams(com.termux.app.chrome.ChromeEdgeRule.ALL);
         mFrameGutterDrawable =
             com.termux.app.chrome.GlassStack.build(mChrome.glass(), spec, density, backdrop);
         body.setBackground(mFrameGutterDrawable);
@@ -3581,10 +3575,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 return mFancierGlassLook;
             }
 
-            @Override public boolean adaptiveGlass() {
-                return mAdaptiveGlass;
-            }
-
             @Override @Nullable public Bitmap paneGlassClearFrame() {
                 // Asked of the look the slabs actually draw: the joined frame's insert keeps no
                 // bend and so no clarity, and holds no clear frame for it.
@@ -3637,7 +3627,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             }
 
             @Override public boolean paneGlassRimWanted() {
-                return true; // every look wears the dock's gradient rim
+                // Every plain slab wears the dock's gradient rim; one drawn through the program
+                // wears the gathered light instead.
+                return !paneGlassDrawsEdge();
+            }
+
+            @Override public boolean paneGlassDrawsEdge() {
+                return paneGlassRefraction() != null
+                    && com.termux.app.chrome.GlassRefraction.available();
             }
 
             @Override public boolean paneOpeningLine() {
@@ -3805,12 +3802,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      */
     private void syncFancierGlassLook() {
         com.termux.app.chrome.GlassRefraction.Look look = currentFancierGlassLook();
-        // Adaptive glass rides on the look: no look, no program to draw the gathered edge.
-        boolean adaptive = look != null && mPreferences != null
-            && mPreferences.isFancierGlassAdaptiveEnabled();
-        if (java.util.Objects.equals(look, mFancierGlassLook) && adaptive == mAdaptiveGlass) return;
+        if (java.util.Objects.equals(look, mFancierGlassLook)) return;
         mFancierGlassLook = look;
-        mAdaptiveGlass = adaptive;
         mChrome.ledger().markAllBackdropsDirty();
         mAppliedPaneStyleKey = null;
     }
@@ -4229,6 +4222,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      */
     @Nullable private com.termux.app.chrome.GlassRefraction.Program mNavStripRefraction;
 
+    /** The driver refused the dock's program, so the dock is drawn plain and keeps its rim. */
+    private boolean mDockRefractionRefused;
+
     /** Where the dock host's origin sits in its backdrop's pixels, for mapping a pressed key into it. */
     private float mGlassOriginLeft, mGlassOriginTop;
 
@@ -4239,13 +4235,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * wallpaper id, and every glass surface in a pass reads it.
      */
     @Nullable private com.termux.app.chrome.GlassRefraction.Look mFancierGlassLook;
-
-    /**
-     * Adaptive glass as it stands this instant: its switch, while {@link #mFancierGlassLook} is
-     * set. Every glass outline then gathers the wallpaper's light in place of the hairline and
-     * the gradient rim. Re-read with the look ({@link #syncFancierGlassLook}).
-     */
-    private boolean mAdaptiveGlass;
 
     // --- Active extra-key lens state (drives the per-key refraction in the backdrop shader). ---
     private boolean mKeyLensActive = false;
@@ -4289,6 +4278,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     getResources().getDisplayMetrics().density);
                 if (navStrip) mNavStripRefraction = program;
                 else mDockRefraction = program;
+                if (!navStrip) mDockRefractionRefused = program == null;
             }
             if (program == null) {
                 return null;
@@ -4299,7 +4289,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             // The user's knobs while Fancier Glass is on; the numbers this dock always ran with
             // otherwise, so the default mode's dock and strip are pixel for pixel what they were.
             program.setLook(com.termux.app.chrome.GlassStack.lookFor(mFancierGlassLook));
-            program.setGathered(mAdaptiveGlass);
             // Per-key lens state (0 intensity == no lens, dock refraction unchanged).
             if (!navStrip && mKeyLensActive && mKeyLensIntensity > 0f) {
                 program.setLens(mKeyLensCx, mKeyLensCy, mKeyLensHx, mKeyLensHy, mKeyLensRadius,
@@ -5598,7 +5587,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             // corners are square except a screen corner it stands on.
             List<com.termux.app.place.ChromeShape.PieceId> ids = dockPieceIds(
                 ownsInnerEdge && shouldUseUnifiedDefaultKeyboardGlassSurface(buildChromeSpec()));
-            int strokeEdges = innerRim ? chromeRimEdges(
+            // The program's gathered light is the dock's edge wherever it runs; the rim under the
+            // glass would be a second one.
+            int strokeEdges = innerRim && !dockGlassDrawsEdge() ? chromeRimEdges(
                 ids.toArray(new com.termux.app.place.ChromeShape.PieceId[0]))
                 : com.termux.app.chrome.ChromeEdgeRule.NONE;
             surface.setBackground(mChrome.glass().rimUnderGlass(0f, strokeEdges));
@@ -5622,9 +5613,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         }
 
-        // Barely-there containing stroke; the AGSL shader draws the dark glass contour + bevel at the
-        // edge, so a visible outline here would read as a drawn border ("inside rim") over the glass.
-        Drawable outline = mChrome.glass().rimUnderGlass(resolveDockCapsuleCornerRadiusPx(surfaceHeightPx));
+        // Barely-there containing stroke; where the program runs, its gathered light is the edge
+        // and the capsule keeps only the outline it clips to, or the two would read as a double
+        // line ("inside rim") over the glass.
+        float capsuleRadiusPx = resolveDockCapsuleCornerRadiusPx(surfaceHeightPx);
+        Drawable outline = dockGlassDrawsEdge()
+            ? mChrome.glass().outlineOnly(capsuleRadiusPx)
+            : mChrome.glass().rimUnderGlass(capsuleRadiusPx);
         surface.setBackground(outline);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             surface.setOutlineProvider(ViewOutlineProvider.BACKGROUND);
@@ -5859,6 +5854,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         return state.toolbarShown
             && state.blurEnabled
             && !frameStandsDown();
+    }
+
+    /**
+     * Whether the dock's own glass draws its outline: the dock's backdrop runs the program
+     * ({@link #buildGlassRefractionEffect}), whose gathered light is then the dock's edge, so
+     * the host lays no {@code rimUnderGlass} under it. Decided from the same rule that puts the
+     * backdrop up, not from the last effect built, since the host's shape is set first in a pass.
+     * A driver that refused the program leaves the rim.
+     */
+    private boolean dockGlassDrawsEdge() {
+        return com.termux.app.chrome.GlassRefraction.available() && !mDockRefractionRefused
+            && shouldUseAccessoryRenderEffectBlur(buildChromeSpec());
     }
 
     private void clearAccessoryRenderEffectBackdrop() {
@@ -7073,7 +7080,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 capsuleOverlay ? 0 : com.termux.app.chrome.ChromeEdgeRule.TOP);
             float reachPx = com.termux.app.chrome.GlassRefraction.seamReachPx(
                 com.termux.app.chrome.GlassStack.lookFor(mFancierGlassLook),
-                getResources().getDisplayMetrics().density, 0f, mAdaptiveGlass);
+                getResources().getDisplayMetrics().density, 0f);
             float[] rect = new float[4];
             com.termux.app.chrome.GlassRefraction.rimRect(rect, 0f, 0f,
                 Math.max(1, targetRect.width()), Math.max(1, targetRect.height()), reachPx,
@@ -7660,7 +7667,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             com.termux.app.chrome.GlassRefraction.rimRect(capRect, capLeft, 0f, capRight, capBottom,
                 com.termux.app.chrome.GlassRefraction.seamReachPx(
                     com.termux.app.chrome.GlassStack.lookFor(mFancierGlassLook),
-                    getResources().getDisplayMetrics().density, radiusPx, mAdaptiveGlass),
+                    getResources().getDisplayMetrics().density, radiusPx),
                 dockSeams);
             RenderEffect glass = buildGlassRefractionEffect(0f, capRect[0], capRect[1], capRect[2],
                 capRect[3], radiusPx);
@@ -22172,7 +22179,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     : mChrome.glass().statusBarSurface(opacity,
                         capsuleStatusBar || isStatusBarVertical() || !stripContinues
                             ? 0f : terminalWindowGlassStatusFraction(host), 1f, barStroke,
-                        com.termux.app.chrome.GlassBackdropCache.Band.WINDOW_BAR));
+                        com.termux.app.chrome.GlassBackdropCache.Band.WINDOW_BAR,
+                        // The bar's frost draws the gathered light along the same outline.
+                        com.termux.app.chrome.GlassSurfaceFactory.frostDrawsEdge(
+                            findViewById(R.id.terminal_window_bar_wallpaper_backdrop))));
         }
         applyStatusBarStyle(host);
         applyTerminalWindowBarBackdropInsets();

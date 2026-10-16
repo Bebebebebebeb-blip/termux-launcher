@@ -194,16 +194,72 @@ public class PaneRimBorderTest {
         assertEquals(PaneStyleKey.of(new Style(true)), PaneStyleKey.of(new Style(true)));
     }
 
+    @Test
+    public void aSlabWhoseProgramDrawsTheEdgeWearsNoRimOverIt() {
+        // Floating panes wore the gradient rim over the program's gathered light: two edges. With
+        // the slabs refracting, a glass pane's resting border draws nothing.
+        Activity activity = activity();
+        Style refracting = new Style(false, true);
+        FrameLayout frame = new FrameLayout(activity);
+        new PaneRim().apply(frame, true, RADIUS, PaneBorderStyle.lone(), refracting);
+        Bitmap drawn = draw(frame);
+        assertFalse(hasColour(drawn, GLASS_RIM));
+        assertFalse("not the fallback line either", hasColour(drawn, outlineLine(activity)));
+        assertEquals("the shared rim was never even built", 0, refracting.rimsBuilt);
+
+        // A frame that is not glass has no program under it and keeps its line.
+        FrameLayout plain = new FrameLayout(activity);
+        new PaneRim().apply(plain, false, RADIUS, PaneBorderStyle.lone(), refracting);
+        assertTrue(hasColour(draw(plain), GLASS_RIM));
+
+        // The same frame, the slabs drawn plain again: the rim comes back, not the stale nothing.
+        PaneRim rim = new PaneRim();
+        FrameLayout back = new FrameLayout(activity);
+        rim.apply(back, true, RADIUS, PaneBorderStyle.lone(), refracting);
+        rim.apply(back, true, RADIUS, PaneBorderStyle.lone(), new Style(false, false));
+        assertTrue(hasColour(draw(back), GLASS_RIM));
+        // The Docked opening's line is the insert's, not the glass's rim, and stays.
+        FrameLayout docked = new FrameLayout(activity);
+        new PaneRim().apply(docked, true, RADIUS, PaneBorderStyle.lone(), new Style(true, true));
+        assertIsTheLine(draw(docked), activity, "docked");
+    }
+
+    @Test
+    public void theFocusedPaneStillWearsTheActiveColourOverARefractingSlab() {
+        Activity activity = activity();
+        PaneBorderStyle.Palette palette = PaneRim.palette(activity);
+        FrameLayout frame = new FrameLayout(activity);
+        new PaneRim().apply(frame, true, RADIUS,
+            PaneBorderStyle.decide(2, true, false, palette), new Style(false, true));
+        assertNotNull(frame.getForeground());
+        assertFalse(PaneRim.programDrawsEdge(false, new Style(false, true)));
+        assertTrue(PaneRim.programDrawsEdge(true, new Style(false, true)));
+        assertFalse(PaneRim.programDrawsEdge(true, new Style(false, false)));
+        assertFalse(PaneRim.programDrawsEdge(true, null));
+    }
+
     /** A glass style whose shared rim is {@link #GLASS_RIM}, Docked or Floating. */
     private static final class Style implements PaneSurfaceStyle {
         private final boolean mDocked;
+        private final boolean mDrawsEdge;
+        /** How many times the shared rim was asked for. */
+        int rimsBuilt;
 
         Style(boolean docked) {
+            this(docked, false);
+        }
+
+        /** @param drawsEdge the slabs run the program, whose gathered light is their edge */
+        Style(boolean docked, boolean drawsEdge) {
             mDocked = docked;
+            mDrawsEdge = drawsEdge;
         }
 
         @Override public boolean paneOpeningLine() { return mDocked; }
+        @Override public boolean paneGlassDrawsEdge() { return mDrawsEdge; }
+        @Override public boolean paneGlassRimWanted() { return !mDrawsEdge; }
         @Override @Nullable public Drawable paneRimDrawable(float radiusPx) {
+            rimsBuilt++;
             GradientDrawable rim = new GradientDrawable();
             rim.setColor(Color.TRANSPARENT);
             rim.setCornerRadius(radiusPx);

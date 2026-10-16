@@ -189,6 +189,18 @@ public final class GlassSurfaceFactory {
     @NonNull
     public Drawable statusBarSurface(float barAlpha, float sliceStart, float sliceEnd,
                                      int strokeEdges, @Nullable GlassBackdropCache.Band band) {
+        return statusBarSurface(barAlpha, sliceStart, sliceEnd, strokeEdges, band, false);
+    }
+
+    /**
+     * @param glassDrawsEdge the frost under this bar draws its outline itself
+     *     ({@link #frostDrawsEdge}): the bar keeps the corner {@code strokeEdges} gives it and lays
+     *     no stroke, so the gathered light is its one edge
+     */
+    @NonNull
+    public Drawable statusBarSurface(float barAlpha, float sliceStart, float sliceEnd,
+                                     int strokeEdges, @Nullable GlassBackdropCache.Band band,
+                                     boolean glassDrawsEdge) {
         TermuxAppSharedPreferences preferences = mSurfaces.preferences();
         int grain = preferences != null
             ? preferences.getStatusBarGrain()
@@ -198,8 +210,8 @@ public final class GlassSurfaceFactory {
         float cornerRadiusPx = strokeEdges != ChromeEdgeRule.NONE && mSurfaces.roundedDockStyle()
             ? mSurfaces.statusBarRimCornerRadiusPx()
             : 0f;
-        return surface(barAlpha, sliceStart, sliceEnd, true, grain, cornerRadiusPx, strokeEdges,
-            band, band, statusTintStrength());
+        return surface(barAlpha, sliceStart, sliceEnd, true, grain, cornerRadiusPx,
+            glassDrawsEdge ? ChromeEdgeRule.NONE : strokeEdges, band, band, statusTintStrength());
     }
 
     /** The dock's material: {@code grain} given, the tint the dock's. */
@@ -338,7 +350,7 @@ public final class GlassSurfaceFactory {
         if (grain > 0) {
             layers.add(grainLayer(grain));
         }
-        Drawable rim = gathersEdge() ? null : rimDrawable(cornerRadiusPx, strokeEdges);
+        Drawable rim = rimDrawable(cornerRadiusPx, strokeEdges);
         if (rim != null) layers.add(rim);
         if (cornerRadiusPx > 0f) {
             baseLayer.setCornerRadius(cornerRadiusPx);
@@ -396,13 +408,52 @@ public final class GlassSurfaceFactory {
     }
 
     /**
-     * Whether the program draws the glass's outline as gathered light (Adaptive glass), so the
-     * surfaces built here lay no rim over it: {@link #surface} drops its {@link #rimDrawable},
-     * and so does {@link GlassStack#build}. The dock's {@link #rimUnderGlass} is its outline and
-     * stays.
+     * Whether the frost {@code frost} stands for draws its own outline: it is on screen and its
+     * {@link SharedFrameDrawable} runs the program, whose gathered light is then the edge, so the
+     * tint over it lays no rim of its own. Asked of the frost itself, never of the look, so a
+     * frost that is hidden, plain or refused by the driver leaves the tint its rim. Below Android
+     * 13 nothing refracts and every rim stays.
      */
-    public boolean gathersEdge() {
-        return mSurfaces.adaptiveGlass();
+    public static boolean frostDrawsEdge(@Nullable android.widget.ImageView frost) {
+        if (frost == null || frost.getVisibility() != android.view.View.VISIBLE) return false;
+        SharedFrameDrawable shared = SharedFrameDrawable.of(frost.getDrawable());
+        return shared != null && shared.refracts();
+    }
+
+    /**
+     * The dock's outline with nothing drawn: what its host wears in place of
+     * {@link #rimUnderGlass} while the dock's program draws its edge, so the capsule still clips to
+     * the shape the rim's outline gave it.
+     */
+    @NonNull
+    public Drawable outlineOnly(float cornerRadiusPx) {
+        return new OutlineOnlyDrawable(Math.max(0f, cornerRadiusPx));
+    }
+
+    /**
+     * Draws nothing and answers {@link GradientRimDrawable}'s outline, the same round rect at
+     * full alpha, so a view clipping to its background's outline clips exactly as it did.
+     */
+    private static final class OutlineOnlyDrawable extends Drawable {
+        private final float mRadiusPx;
+
+        OutlineOnlyDrawable(float radiusPx) {
+            mRadiusPx = radiusPx;
+        }
+
+        @Override public void draw(@NonNull android.graphics.Canvas canvas) {}
+
+        @Override public void getOutline(@NonNull android.graphics.Outline outline) {
+            outline.setRoundRect(getBounds(), mRadiusPx);
+        }
+
+        @Override public void setAlpha(int alpha) {}
+
+        @Override public void setColorFilter(@Nullable android.graphics.ColorFilter colorFilter) {}
+
+        @Override public int getOpacity() {
+            return android.graphics.PixelFormat.TRANSPARENT;
+        }
     }
 
     /**

@@ -32,16 +32,13 @@ import java.util.Arrays;
  * so a small pane never shows the other edge's picture. Across the outermost dp the pull eases
  * back to nothing, as Haze's edge softness does, so the outline's own pixel shows the picture just
  * outside it and the glass is continuous with the wallpaper there.</p>
- * <p>With Adaptive glass on ({@link Program#setGathered}) the outline gathers the wallpaper's own
- * light instead of the hairline below: the sample is brightened in proportion to itself, most
- * toward one key light up and to the left with a quarter share all round, fading inward over
- * about a dp and a half, and less over a pale backdrop, so the edge reads as the wallpaper's
- * colour caught at the outline rather than a white line drawn on it.</p>
- * <p>Along that same dp the rim is a hairline, about as wide and as bright as Haze's and Kyant's:
- * a little darker all round, so the edge reads on a light wallpaper, and over that mixed toward
- * white where it faces the room's one light straight above, fading round the corners and gone
- * down the sides, so it can never outline the whole surface or push a pixel past white. The
- * hairline is fixed material, not a knob. Where a clearer picture of the wallpaper is handed in
+ * <p>The outline gathers the wallpaper's own light: the sample is brightened in proportion to
+ * itself, most toward one key light up and to the left with a quarter share all round, fading
+ * inward over about a dp and a half, and less over a pale backdrop, so the edge reads as the
+ * wallpaper's colour caught at the outline rather than a white line drawn on it. The brightening
+ * is held under the headroom the sample's brightest channel has left, so no channel clips and a
+ * pale sky's edge stays blue rather than turning white or cyan. The light is fixed material, not
+ * a knob, and every surface that runs the program wears it. Where a clearer picture of the wallpaper is handed in
  * ({@link Program#setClarityInput}), the band shows it through the bend in place of the frost,
  * growing clearer toward the rim, which is what a thick glass edge does to what is behind it.
  * Dispersion splits the bent picture into red and blue at the corners, in step with how far it is
@@ -85,7 +82,7 @@ public final class GlassRefraction {
      * A surface's glass as stored, as one value: how far the picture is bent under the rim, how
      * far in from the rim the bend reaches, how far the colours part at the corners, and how clear
      * the wallpaper shows through the bent edge. It also carries the stored edge light and
-     * specular, which the program no longer reads: the rim's hairline is fixed material. Stored in
+     * specular, which the program no longer reads: the edge's light is fixed material. Stored in
      * dp and percent so two reads compare equal whatever the screen's density; the program
      * converts when it is handed one.
      */
@@ -98,32 +95,9 @@ public final class GlassRefraction {
             TERMUX_APP.DEFAULT_VALUE_FANCIER_GLASS_EDGE_LIGHT);
 
         /**
-         * The most white the rim's hairline lays over the picture where it faces the light
-         * squarely, as an alpha (Haze's rim light runs 0.38 to 0.55, Kyant's 0.38 to 0.5). The
-         * light is mixed toward white, never added, so a lit pixel moves at most this share of
-         * the way from its own colour to white. The program's {@code kRim}.
-         */
-        static final float LIGHT_ALPHA = 0.45f;
-
-        /**
-         * How much the hairline takes off the picture all round: it is multiplied by 1 minus
-         * this at the outline (Haze's edge shadow runs 10 to 14% black on light glass). The
-         * program's {@code kShade}.
-         */
-        static final float SHADE = 0.12f;
-
-        /**
-         * The light's falloff round the rim, the exponent on how squarely the rim faces it. The
-         * light is straight above, so the top edge is lit along its length, the corner's 45
-         * degrees keeps a sixteenth and the sides none: the arc Haze's 3D lobe at k 16 to 24
-         * draws. The program's {@code kLobeK}.
-         */
-        static final float LOBE_K = 8f;
-
-        /**
-         * The hairline's width: 1 dp and never under 2 px (Haze's edge softness and its sample
-         * step). Full at the outline, gone this far in. The pull eases in across the same width.
-         * The program's {@code kRimDp} and {@code kMinRimPx}.
+         * The outermost width the pull eases in across: 1 dp and never under 2 px (Haze's edge
+         * softness and its sample step), so the outline's own pixel shows the picture just
+         * outside it. The program's {@code kRimDp} and {@code kMinRimPx}.
          */
         static final float RIM_WIDTH_DP = 1f;
         static final float MIN_RIM_WIDTH_PX = 2f;
@@ -144,14 +118,14 @@ public final class GlassRefraction {
         /** How much of the clearer picture the band shows at the rim at 100%: all of it. */
         static final float MAX_CLARITY = 1f;
 
-        // The gathered light, Adaptive glass's edge in place of the hairline
-        // ({@link Program#setGathered}). Each is the program's constant of the same name.
+        // The gathered light, the edge every surface's outline wears. Each is the program's
+        // constant of the same name.
 
         /** How fast the light fades inward, in dp: 1 at the outline, 1/e this far in. {@code kGlowDp}. */
         static final float GLOW_DP = 1.4f;
         /** The share every side gets, so the light follows the whole shape. {@code kAmbient}. */
         static final float AMBIENT = 0.25f;
-        /** The key light's falloff round the outline; much wider than the hairline's {@link #LOBE_K}. {@code kKeyExp}. */
+        /** The key light's falloff round the outline, a wide lobe. {@code kKeyExp}. */
         static final float KEY_EXPONENT = 2f;
         /** How much of the glint a white backdrop takes away: over white a quarter is left. {@code kPaleCut}. */
         static final float PALE_CUT = 0.75f;
@@ -159,8 +133,16 @@ public final class GlassRefraction {
         static final float GAIN = 1.6f;
         /** A little grey light, so a black wallpaper still shows an edge. {@code kLift}. */
         static final float LIFT = 0.07f;
-        /** The faint dark under the light, in place of the hairline's {@link #SHADE}. {@code kEdgeShade}. */
+        /** The faint dark under the light. {@code kEdgeShade}. */
         static final float EDGE_SHADE = 0.05f;
+        /**
+         * Where the brightening starts to give way to the headroom the sample's brightest channel
+         * has left: below half of it the light is exactly as asked, above it the light eases
+         * toward that headroom without reaching it, on {@code 1 - 1 / (4 r)}, which meets the
+         * straight line at a half with the same slope. Fixed by that join; named for the tests.
+         * {@link GlassRefraction#heldK}.
+         */
+        static final float HEADROOM_KNEE = 0.5f;
         /**
          * How far in the light reaches at all, in dp: {@code exp(-10 / 1.4)} is under one 8-bit
          * step even at full gain, so pixels further in skip the term. {@code kGlowReachDp}.
@@ -171,12 +153,12 @@ public final class GlassRefraction {
         public final int edgeWidthDp;
         /**
          * The stored edge light, a percentage. Kept so a saved look loads and compares as it
-         * was; the program ignores it ({@link #LIGHT_ALPHA}).
+         * was; the program ignores it: the edge is the gathered light, fixed material.
          */
         public final int edgeLightPercent;
         /**
          * The stored specular, a percentage. Kept so a saved look loads and compares as it was;
-         * the program ignores it ({@link #LOBE_K}).
+         * the program ignores it, as {@link #edgeLightPercent}.
          */
         public final int specularPercent;
         /** The chromatic split at the corners, a percentage; 0 samples r, g and b alike. */
@@ -246,26 +228,18 @@ public final class GlassRefraction {
             return share(clarityPercent) * MAX_CLARITY;
         }
 
-        /** The hairline's width in px at {@code density}, as the program computes it; see {@link #RIM_WIDTH_DP}. */
+        /** The eased pull's width in px at {@code density}, as the program computes it; see {@link #RIM_WIDTH_DP}. */
         public static float rimWidthPx(float density) {
             return Math.max(MIN_RIM_WIDTH_PX, RIM_WIDTH_DP * density);
         }
 
         /**
-         * How far in from the rim the hairline and the eased pull reach, in px: what a seam edge
-         * must be pushed past for neither to show along it.
+         * How far in from the rim the gathered light and the eased pull reach, in px: what a seam
+         * edge must be pushed past for neither to show along it, or a soft bright line shows
+         * through one sheet of glass. The light reaches much the further.
          */
         public static float rimReachPx(float density) {
-            return rimReachPx(density, false);
-        }
-
-        /**
-         * {@link #rimReachPx(float)} for the edge the program draws: the hairline's, or with the
-         * gathered light ({@link Program#setGathered}) as far as that light reaches.
-         */
-        public static float rimReachPx(float density, boolean gathered) {
-            float hairline = rimWidthPx(density);
-            return gathered ? Math.max(hairline, GLOW_REACH_DP * density) : hairline;
+            return Math.max(rimWidthPx(density), GLOW_REACH_DP * density);
         }
 
         @Override
@@ -325,20 +299,11 @@ public final class GlassRefraction {
     }
 
     /**
-     * How far a seam edge is pushed out: past the band (or the hairline, where a narrow band ends
-     * inside it), the pull and the corner arc, with a little to spare.
+     * How far a seam edge is pushed out: past the band (or the gathered light, where a narrow
+     * band ends inside its reach), the pull and the corner arc, with a little to spare.
      */
     public static float seamReachPx(@NonNull Look look, float density, float cornerRadiusPx) {
-        return seamReachPx(look, density, cornerRadiusPx, false);
-    }
-
-    /**
-     * {@link #seamReachPx(Look, float, float)} past the edge the program draws: with the gathered
-     * light, past that light's reach as well, or a soft bright line shows through one sheet.
-     */
-    public static float seamReachPx(@NonNull Look look, float density, float cornerRadiusPx,
-                                    boolean gathered) {
-        return Math.max(look.bandPx(density), Look.rimReachPx(density, gathered))
+        return Math.max(look.bandPx(density), Look.rimReachPx(density))
             + look.strengthPx(density) + Math.max(0f, cornerRadiusPx) + 2f * density;
     }
 
@@ -373,8 +338,6 @@ public final class GlassRefraction {
         "uniform float uDisp;\n" +
         "uniform float uClarity;\n" +
         "uniform float uDensity;\n" +
-        // Which edge the outline wears: 0 the hairline, 1 the gathered light (Adaptive glass).
-        "uniform float uGathered;\n" +
         // A finger on the glass: where it rests, how far its light reaches, and its 0..1 fade.
         "uniform float uTouchActive;\n" +
         "uniform float2 uTouch;\n" +
@@ -390,15 +353,8 @@ public final class GlassRefraction {
         "uniform float uLensRadius;\n" +
         "uniform float uLensStrength;\n" +
         "uniform float uLensFeather;\n" +
-        // The room's one light: straight above, so the top edge is lit along its length and the
-        // sides fade. A unit vector toward it; LIGHT_X and LIGHT_Y in Java.
-        "const float2 kLight = float2(0.0, -1.0);\n" +
-        // The hairline, fixed material: its most white where it faces the light, how much darker
-        // it is all round, the light's falloff, and its width, a dp never under two px.
-        // Look.LIGHT_ALPHA, SHADE, LOBE_K, RIM_WIDTH_DP and MIN_RIM_WIDTH_PX in Java.
-        "const float kRim = 0.45;\n" +
-        "const float kShade = 0.12;\n" +
-        "const float kLobeK = 8.0;\n" +
+        // The outermost width the pull eases in across, a dp never under two px.
+        // Look.RIM_WIDTH_DP and MIN_RIM_WIDTH_PX in Java.
         "const float kRimDp = 1.0;\n" +
         "const float kMinRimPx = 2.0;\n" +
         // How fast Haze's edge profile decays into the band; EDGE_DECAY in Java.
@@ -457,17 +413,19 @@ public final class GlassRefraction {
         "float cornerWeight(float2 p, float2 b) {\n" +
         "    return min(abs(p.x * p.y) / max(b.x * b.y, 1.0), 1.0);\n" +
         "}\n" +
-        // How squarely the rim with outward normal n faces the light, to the power k: 1 along the
-        // top edge, a sixteenth 45 degrees round, nothing facing away. lobe in Java.
-        "float lobe(float2 n, float k) {\n" +
-        "    float c = max(dot(n, kLight), 0.0);\n" +
-        "    return c > 0.0 ? pow(c, k) : 0.0;\n" +
-        "}\n" +
         // How much of the gathered light the outline with outward normal n takes: the ambient share
         // all round, the rest on the key light's wide lobe. gatherShare in Java.
         "float gatherShare(float2 n) {\n" +
         "    float c = max(dot(n, kKeyLight), 0.0);\n" +
         "    return kAmbient + (1.0 - kAmbient) * (c > 0.0 ? pow(c, kKeyExp) : 0.0);\n" +
+        "}\n" +
+        // The light's strength k held under kMax, the most the sample's brightest channel can take
+        // before it clips: exactly k below half of kMax, then easing toward kMax on 1 - 1/(4r),
+        // which meets the straight line there with the same slope and never reaches kMax. heldK in
+        // Java.
+        "float heldK(float k, float kMax) {\n" +
+        "    float r = k / max(kMax, 0.000001);\n" +
+        "    return r <= 0.5 ? k : kMax * (1.0 - 0.25 / r);\n" +
         "}\n" +
         "half4 main(float2 fragCoord) {\n" +
         "    float2 center = (uRectMin + uRectMax) * 0.5;\n" +
@@ -479,13 +437,13 @@ public final class GlassRefraction {
         "    float2 n = rectNormal(p, b, min(uRadius * 1.5, min(b.x, b.y)));\n" +
         // t runs 0 at the rim to 1 at the band's inner edge, and stays 1 across the face.
         "    float t = clamp(inside / uBand, 0.0, 1.0);\n" +
-        // The hairline's width, and how far in from the outline this pixel is across it: 0 at the
-        // outline, 1 from a hairline in.
+        // The eased pull's width, and how far in from the outline this pixel is across it: 0 at
+        // the outline, 1 from that width in.
         "    float rimW = max(kMinRimPx, kRimDp * uDensity);\n" +
         "    float edge = smoothstep(0.0, rimW, inside);\n" +
         // The pull: inward along the rim's normal by the profile's share of the bend, the bend held
         // at half the surface's short side (Haze's plain cap) so a small pane never reaches across
-        // to the other edge's picture, and eased to nothing across the outermost hairline (Haze's
+        // to the other edge's picture, and eased to nothing across the outermost dp (Haze's
         // edge softness) so the outline's pixel shows the picture just outside it. An offset that
         // vanishes at t 1: a face pixel samples exactly where it is. A seam edge lies past the band
         // (rimRect), so it takes none. pullPx in Java is the same arithmetic.
@@ -546,30 +504,22 @@ public final class GlassRefraction {
         "            col = mix(col, sharp.eval(f), half(clarityK));\n" +
         "        }\n" +
         "    }\n" +
-        // The hairline: full at the outline, gone a hairline in. Darker all round by kShade, so the
-        // edge reads on a light wallpaper, then lit where it faces the light: mixed toward white by
-        // at most kRim on the lobe, so it can never outline the whole surface or push a pixel past
-        // white. A finger lights the rim nearest it the same way. edgeLit in Java.
-        // The gathered light, with Adaptive glass on, in its place: the backdrop's own colour
-        // brightened at the outline and fading inward over kGlowDp, brightest toward the key light
-        // with the ambient share all round, a finger's light added to it, and less of it over a
-        // pale backdrop. It multiplies the colour, so a blue wallpaper gives a brighter blue edge;
-        // only kLift is grey. Held under the alpha, so it never passes white. Pixels past
-        // kGlowReachDp skip it. The hairline's ease of the pull above stays either way. A uniform
-        // branch: one program for both. gatheredLit in Java.
-        "    if (uGathered > 0.5) {\n" +
-        "        if (inside < kGlowReachDp * uDensity) {\n" +
-        "            float glow = exp(-max(inside, 0.0) / (kGlowDp * uDensity));\n" +
-        "            float pale = dot(float3(col.rgb), kLumaW);\n" +
-        "            float k = glow * (gatherShare(n) + 1.5 * touchG) * (1.0 - kPaleCut * pale);\n" +
-        "            col.rgb = col.rgb * half(1.0 - glow * kEdgeShade);\n" +
-        "            col.rgb = min(half3(col.a), col.rgb * half(1.0 + kGain * k) + half3(kLift * k));\n" +
-        "        }\n" +
-        "    } else {\n" +
-        "        float rim = 1.0 - edge;\n" +
-        "        col.rgb = col.rgb * half(1.0 - rim * kShade);\n" +
-        "        float light = rim * kRim * (lobe(n, kLobeK) + 1.5 * touchG);\n" +
-        "        col.rgb = mix(col.rgb, half3(1.0), half(clamp(light, 0.0, 1.0)));\n" +
+        // The gathered light: the backdrop's own colour brightened at the outline and fading
+        // inward over kGlowDp, brightest toward the key light with the ambient share all round, a
+        // finger's light added to it, and less of it over a pale backdrop. It multiplies the
+        // colour, so a blue wallpaper gives a brighter blue edge; only kLift is grey. Its strength
+        // is held under the headroom the brightest channel has left (heldK), so no channel clips
+        // and the hue is kept: a pale sky's edge stays blue rather than going cyan or white. The
+        // min under the alpha is only a guard. Pixels past kGlowReachDp skip it. gatheredLit in
+        // Java.
+        "    if (inside < kGlowReachDp * uDensity) {\n" +
+        "        float glow = exp(-max(inside, 0.0) / (kGlowDp * uDensity));\n" +
+        "        float pale = dot(float3(col.rgb), kLumaW);\n" +
+        "        float k = glow * (gatherShare(n) + 1.5 * touchG) * (1.0 - kPaleCut * pale);\n" +
+        "        col.rgb = col.rgb * half(1.0 - glow * kEdgeShade);\n" +
+        "        float peak = float(max(col.r, max(col.g, col.b)));\n" +
+        "        k = heldK(k, max(float(col.a) - peak, 0.0) / (kGain * peak + kLift));\n" +
+        "        col.rgb = min(half3(col.a), col.rgb * half(1.0 + kGain * k) + half3(kLift * k));\n" +
         "    }\n" +
         // The pressed key's glow and the faint scatter under a finger stay small additive light.
         "    col.rgb = col.rgb + half3(lensGlow * kKeyGlow + 0.045 * touchG * touchG);\n" +
@@ -593,10 +543,6 @@ public final class GlassRefraction {
         out[0] = (hx / hw - offsetX) / Math.max(1e-4f, scaleX);
         out[1] = (hy / hw - offsetY) / Math.max(1e-4f, scaleY);
     }
-
-    /** The program's light direction, {@code kLight}: a unit vector straight up. */
-    static final float LIGHT_X = 0f;
-    static final float LIGHT_Y = -1f;
 
     /** The gathered light's key light, {@code kKeyLight}: up and to the left, a unit vector. */
     static final float KEY_LIGHT_X = -0.552f;
@@ -643,25 +589,6 @@ public final class GlassRefraction {
         return Math.min(Math.abs(px * py) / Math.max(bx * by, 1f), 1f);
     }
 
-    /** The program's {@code lobe}: how squarely the rim with outward normal {@code (nx, ny)} faces the light, to the power {@code k}. */
-    static float lobe(float nx, float ny, float k) {
-        float c = Math.max(nx * LIGHT_X + ny * LIGHT_Y, 0f);
-        return c > 0f ? (float) Math.pow(c, k) : 0f;
-    }
-
-    /**
-     * The program's hairline on one colour channel {@code face} (0..1), with no finger on the
-     * glass, for a pixel {@code insidePx} in from the outline whose rim faces the light by
-     * {@code lobe}: darker by {@link Look#SHADE} at the outline, then mixed toward white by
-     * {@link Look#LIGHT_ALPHA} times the lobe, both gone a hairline in.
-     */
-    static float edgeLit(float face, float insidePx, float rimWidthPx, float lobe) {
-        float rim = 1f - smoothstep(0f, rimWidthPx, insidePx);
-        float shaded = face * (1f - rim * Look.SHADE);
-        float light = Math.max(0f, Math.min(1f, rim * Look.LIGHT_ALPHA * lobe));
-        return shaded + (1f - shaded) * light;
-    }
-
     /**
      * The program's {@code gatherShare}: how much of the gathered light the outline with outward
      * normal {@code (nx, ny)} takes, {@link Look#AMBIENT} all round and the rest on the key
@@ -692,26 +619,45 @@ public final class GlassRefraction {
     }
 
     /**
+     * The program's {@code heldK}: the light's strength {@code k} held under {@code kMax}, the
+     * most the sample's brightest channel takes before it clips. Exactly {@code k} up to
+     * {@link Look#HEADROOM_KNEE} of {@code kMax}; past it {@code kMax (1 - 1 / (4 r))} with
+     * {@code r = k / kMax}, which joins the straight line there with the same slope and only
+     * nears {@code kMax}.
+     */
+    static float heldK(float k, float kMax) {
+        float r = k / Math.max(kMax, 1e-6f);
+        return r <= Look.HEADROOM_KNEE ? k : kMax * (1f - Look.HEADROOM_KNEE * Look.HEADROOM_KNEE / r);
+    }
+
+    /**
+     * The headroom {@link #heldK} holds the light under, for a premultiplied sample whose
+     * brightest channel is {@code peak} at alpha {@code a}: the {@code k} at which that channel,
+     * brightened by {@link Look#GAIN} and lifted by {@link Look#LIFT}, would reach the alpha.
+     */
+    static float headroomK(float peak, float a) {
+        return Math.max(a - peak, 0f) / (Look.GAIN * peak + Look.LIFT);
+    }
+
+    /**
      * The program's gathered light on a premultiplied sample {@code (r, g, b, a)}, with no finger
      * on the glass, into {@code out}: darkened by {@link Look#EDGE_SHADE} on the glow, brightened
      * in proportion to itself by {@link Look#GAIN} plus {@link Look#LIFT} of grey, both times
-     * {@code k}, and held under the alpha.
+     * {@code k} held under the brightest channel's headroom ({@link #heldK}), and held under the
+     * alpha as a guard.
      */
     static void gatheredLit(float r, float g, float b, float a, float insidePx, float density,
                             float nx, float ny, @NonNull float[] out) {
         float luma = r * LUMA_R + g * LUMA_G + b * LUMA_B;
         float k = gatherK(insidePx, density, gatherShare(nx, ny), luma);
         float shade = 1f - glow(insidePx, density) * Look.EDGE_SHADE;
+        float sr = r * shade, sg = g * shade, sb = b * shade;
+        if (k > 0f) k = heldK(k, headroomK(Math.max(sr, Math.max(sg, sb)), a));
         float gain = 1f + Look.GAIN * k;
         float lift = Look.LIFT * k;
-        out[0] = Math.min(a, r * shade * gain + lift);
-        out[1] = Math.min(a, g * shade * gain + lift);
-        out[2] = Math.min(a, b * shade * gain + lift);
-    }
-
-    /** {@code uGathered} for an edge: 1 for the gathered light, 0 (the program's first write) for the hairline. */
-    static float gatheredUniform(boolean gathered) {
-        return gathered ? 1f : 0f;
+        out[0] = Math.min(a, sr * gain + lift);
+        out[1] = Math.min(a, sg * gain + lift);
+        out[2] = Math.min(a, sb * gain + lift);
     }
 
     /** The key lens's own strength and feather, which no knob reaches: the press reads the same in both modes. */
@@ -749,15 +695,11 @@ public final class GlassRefraction {
         private float mClarityWritten = Float.NaN;
         private boolean mTouchOn;
         private float mTouchX, mTouchY, mTouchRadius, mTouchIntensity;
-        /** Whether the outline wears the gathered light; see {@link #setGathered}. */
-        private boolean mGathered;
 
         private Program(float density) {
             mShader = new RuntimeShader(AGSL);
             mDensity = density;
             mShader.setFloatUniform("uDensity", density);
-            // The hairline until a caller asks for the gathered light: off is today's look.
-            mShader.setFloatUniform("uGathered", gatheredUniform(false));
             mShader.setFloatUniform("uLensStrength", LENS_STRENGTH);
             mShader.setFloatUniform("uLensFeather", density * LENS_FEATHER_DP);
             mShader.setFloatUniform("uTouchLens", TOUCH_LENS);
@@ -908,7 +850,7 @@ public final class GlassRefraction {
             mShader.setFloatUniform("uRadius", Math.max(0f, cornerRadiusPx));
         }
 
-        /** The knobs, converted at this program's density. The hairline is fixed and takes none. */
+        /** The knobs, converted at this program's density. The gathered light is fixed and takes none. */
         public void setLook(@NonNull Look look) {
             if (look.equals(mLook)) return;
             mLook = look;
@@ -916,17 +858,6 @@ public final class GlassRefraction {
             mShader.setFloatUniform("uStrength", look.strengthPx(mDensity));
             mShader.setFloatUniform("uDisp", look.dispersion());
             syncClarity();
-        }
-
-        /**
-         * Adaptive glass's edge: the gathered light in place of the hairline. Passed beside the
-         * look, never in it, so a Look and its stored keys compare as they did. A caller that
-         * turns it on pushes its seams past the light too ({@link GlassRefraction#seamReachPx(Look, float, float, boolean)}).
-         */
-        public void setGathered(boolean gathered) {
-            if (gathered == mGathered) return;
-            mGathered = gathered;
-            mShader.setFloatUniform("uGathered", gatheredUniform(gathered));
         }
 
         /**

@@ -82,20 +82,28 @@ under twenty items; past that, the oldest are re-judged first.
   and `fancier_glass_edge_width` 18; one Depth step down writes 26/17 and the dock's bend ring
   narrows by a step, not to a third. Fails if the page says Custom with Depth 34: something wrote
   a preference before the first-run check, and the install was taken for an upgrade · emulator.
-- 2026-10-16 · commit "feat(glass): Adaptive glass, an edge of gathered light" (glass plan Round
-  1) · Adaptive glass off: Clear, Mist and Tint look exactly as on `pre` (crop a pane corner and
-  the dock's top edge on both builds). On: the edge is the wallpaper's colour brightened,
-  brightest top-left and faint all round; no white line and no second stroke; over a pale
-  wallpaper the glint shrinks; no bright line on a seam (keyboard over the under-pill strip, status
-  over the window bar); the dock shows one edge, not two; in a joined frame, no glow runs along the
-  screen's own edges. Look for a leftover white line on a Floating pane with the border on (its
-  border still comes from the gradient rim) and on a wall page's corner tab (still the hairline).
-  The row is hidden on Android 12 and greyed with the hint until a wallpaper is set from the
-  picker · emulator, `glass-city` and `glass-flowers` wallpapers, Docked and Floating, keyboard up
-  and down.
-- 2026-10-16 · commit "feat(glass): Adaptive glass, an edge of gathered light" ·
-  `GlassRefractionAgslInstrumentationTest` passes, its two gathered-edge cases included (a lit
-  top-left corner with `uGathered` 1; switched back off draws the hairline exactly) · emulator.
+- 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" (glass plan Round
+  1, always on) · Android 13+, wallpaper set from the picker, Clear, Mist and Tint: every glass
+  surface shows one edge, the wallpaper's colour brightened, brightest top-left and faint all
+  round, and no white line or gradient stroke beside it. Crop each: the dock (Docked and capsule,
+  where the capsule must still clip to its rounded outline), the under-pill strip, the keyboard,
+  the window bar capsule, a Floating pane with the border on (one edge, no rim), a split's focused
+  pane (its active colour still shows), a wall page's corner tab (now lit), the frame gutter in a
+  joined Docked frame (no glow along the screen's edges). No bright line on a seam (keyboard over
+  the strip, status over the window bar). Over a pale sky the edge stays blue, not white or cyan.
+  With no Look (Fancier Glass off, a wallpaper not set from the picker) the dock and the strip
+  still show the gathered edge and no rim under it, and the other surfaces keep their rims ·
+  emulator, `glass-city` and `glass-flowers` and a pale-sky wallpaper, Docked and Floating,
+  keyboard up and down.
+- 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · Android 12 (or a
+  forced plain draw) looks exactly as on `pre`: every rim, the dock's rim under its glass, the
+  panes' gradient rim · an API 31/32 emulator.
+- 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · Settings › Theme
+  & fonts has no Adaptive glass row and nothing else on the page moved (crop the page before and
+  after) · emulator.
+- 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" ·
+  `GlassRefractionAgslInstrumentationTest` passes, `aPaleSkysOutlineKeepsItsBlue` and the lit
+  top-left corner included (only a device proves the AGSL compiles) · emulator.
 - 2026-10-16 · commit "feat(keyboard): a touch engine that learns where your taps land" ·
   A swipe that starts in a moved border strip keeps its own key's swipe legend: with Adaptive
   touch accuracy past its warm-up and a border moved (the low strip of `b` typing a space), swipe
@@ -111,9 +119,11 @@ under twenty items; past that, the oldest are re-judged first.
 
 ## Developer
 
-- 2026-10-16 · commit "feat(glass): Adaptive glass, an edge of gathered light" · With the switch
-  on, the edge reads as light, not an outline. Also record whether floating panels still stand
-  apart from a white wallpaper: that is Round 5's gate · pong, release build.
+- 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · The edge reads
+  as light, not an outline, on every surface; on Mist and Solid (and the sheet and chip, floored
+  near opaque) say whether the outline is still enough, since the light still sits under their
+  tint (the top-layer light was not built). Also record whether floating panels still stand apart
+  from a white wallpaper: that is Round 5's gate · pong, release build.
 - 2026-10-16 · commit "feat(keyboard): a touch engine that learns where your taps land" ·
   The touch engine's pass bar, under the round 2 take-back rule: take-backs into space drop by
   30% or more from the warm-up's rate to the corrected rate, no other key's rate rises, and aiming

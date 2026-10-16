@@ -1260,14 +1260,6 @@ public final class TermuxPreferenceConstants {
         public static final boolean DEFAULT_VALUE_FANCIER_GLASS = true;
 
         /**
-         * Adaptive glass (glass plan 2026-10-16): the glass edge gathers the wallpaper's own light
-         * instead of drawing a white hairline and stroke. Off by default until it has been seen on
-         * a phone; it takes effect only where Fancier Glass does.
-         */
-        public static final String KEY_FANCIER_GLASS_ADAPTIVE = "fancier_glass_adaptive";
-        public static final boolean DEFAULT_VALUE_FANCIER_GLASS_ADAPTIVE = false;
-
-        /**
          * How far the wallpaper is bent under a glass rim, in dp of displacement. The three
          * refraction knobs are global: one look for every glass surface, never per surface. Their
          * defaults are exactly the numbers the dock's refraction always used, so switching Fancier
