@@ -131,14 +131,53 @@ public class GlassRefractionAgslInstrumentationTest {
         assertTrue("the far corner rests, mean diff " + far, far < 0.5f);
     }
 
+    @Test
+    public void theGatheredEdgeLightsTheTopLeftCornerAndLeavesTheMiddle() {
+        // Glass plan 2026-10-16, Round 1: uGathered 1 draws the gathered light in place of the
+        // hairline. A flat backdrop, so the bend moves nothing and any change is the edge alone.
+        Bitmap content = flat(Color.rgb(60, 90, 160));
+        GlassRefraction.Look clear = new GlassRefraction.Look(27, 18, 10, 0, 40, 76);
+        Bitmap hairline = draw(clear, content, null, null, program -> { });
+        Bitmap gathered = draw(clear, content, null, null, program -> program.setGathered(true));
+        // Boxes on the corner arcs at 45 degrees, just inside the outline: the 32 px corner's arc
+        // passes about 9 px in from each edge there.
+        float topLeft = meanLuma(gathered, 9, 9, 13, 13) - meanLuma(hairline, 9, 9, 13, 13);
+        float bottomRight = meanLuma(gathered, W - 13, H - 13, W - 9, H - 9)
+            - meanLuma(hairline, W - 13, H - 13, W - 9, H - 9);
+        float middle = meanDiff(hairline, gathered, W / 2 - 20, H / 2 - 20, W / 2 + 20, H / 2 + 20);
+        assertTrue("the top-left corner gathers the light, " + topLeft, topLeft > 12f);
+        assertTrue("the bottom-right keeps a fainter share, " + bottomRight + " against " + topLeft,
+            bottomRight < topLeft / 1.5f);
+        assertTrue("the middle stays, mean diff " + middle, middle < 0.5f);
+    }
+
+    @Test
+    public void theGatheredEdgeSwitchedBackOffIsTheHairlineExactly() {
+        Bitmap content = checker();
+        GlassRefraction.Look clear = new GlassRefraction.Look(27, 18, 10, 0, 40, 76);
+        Bitmap never = draw(clear, content, null, null, program -> { });
+        Bitmap back = draw(clear, content, null, null, program -> {
+            program.setGathered(true);
+            program.setGathered(false);
+        });
+        assertTrue(meanDiff(never, back, 0, 0, W, H) == 0f);
+    }
+
     private static Bitmap draw(GlassRefraction.Look look, Bitmap content) {
         return draw(look, content, null, null);
     }
 
     /** {@code touch} is {@code {x, y, radiusPx, intensity}} or null for no finger. */
     private static Bitmap draw(GlassRefraction.Look look, Bitmap content, Bitmap sharp, float[] touch) {
+        return draw(look, content, sharp, touch, program -> { });
+    }
+
+    /** As above, with {@code setup} run on the program before it draws. */
+    private static Bitmap draw(GlassRefraction.Look look, Bitmap content, Bitmap sharp, float[] touch,
+                               java.util.function.Consumer<GlassRefraction.Program> setup) {
         GlassRefraction.Program program = GlassRefraction.Program.create(2f);
         assertNotNull(program);
+        setup.accept(program);
         program.setInput(new BitmapShader(content, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP));
         if (sharp != null)
             program.setClarityInput(new BitmapShader(sharp, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP),
@@ -154,6 +193,26 @@ public class GlassRefractionAgslInstrumentationTest {
         canvas.drawRect(0, 0, W, H, paint);
         picture.endRecording();
         return Bitmap.createBitmap(picture).copy(Bitmap.Config.ARGB_8888, false);
+    }
+
+    private static Bitmap flat(int color) {
+        Bitmap b = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888);
+        b.eraseColor(color);
+        return b;
+    }
+
+    /** Mean Rec. 709 luma over a rectangle, in 0..255 units. */
+    private static float meanLuma(Bitmap a, int l, int t, int r, int bottom) {
+        double sum = 0;
+        int n = 0;
+        for (int y = t; y < bottom; y++) {
+            for (int x = l; x < r; x++) {
+                int p = a.getPixel(x, y);
+                sum += 0.2126 * Color.red(p) + 0.7152 * Color.green(p) + 0.0722 * Color.blue(p);
+                n++;
+            }
+        }
+        return (float) (sum / n);
     }
 
     private static Bitmap checker() {

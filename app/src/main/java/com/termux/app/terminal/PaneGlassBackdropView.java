@@ -110,6 +110,8 @@ public final class PaneGlassBackdropView extends View {
     @Nullable private BitmapShader mLastAimShader;
     /** Fancier Glass, or null for the plain draw. */
     @Nullable private GlassRefraction.Look mLook;
+    /** Adaptive glass's gathered light in place of the hairline; see {@link GlassRefraction.Program#setGathered}. */
+    private boolean mGathered;
     /** The program the frame draws through while {@link #mLook} is set and the phone runs one. */
     @Nullable private GlassRefraction.Program mProgram;
     @Nullable private GlassRefraction.Program mPreviousProgram;
@@ -312,8 +314,18 @@ public final class PaneGlassBackdropView extends View {
      * behind the page, which has no rim.
      */
     public void setRefraction(@Nullable GlassRefraction.Look look) {
-        if (java.util.Objects.equals(look, mLook)) return;
+        setRefraction(look, false);
+    }
+
+    /**
+     * {@link #setRefraction(GlassRefraction.Look)} with Adaptive glass's edge: {@code gathered}
+     * draws the gathered light in place of the hairline. A slab's rim runs along its own bounds,
+     * with no seam to push past it.
+     */
+    public void setRefraction(@Nullable GlassRefraction.Look look, boolean gathered) {
+        if (java.util.Objects.equals(look, mLook) && gathered == mGathered) return;
         mLook = look;
+        mGathered = gathered;
         syncRefraction();
         // Whichever way the draw goes now, its aim has to be written afresh: the program's on
         // first use, the shader's matrix after the program cleared it.
@@ -395,6 +407,7 @@ public final class PaneGlassBackdropView extends View {
             return;
         }
         program.setLook(look);
+        program.setGathered(mGathered);
         program.setInput(shader);
         syncClarity();
         program.applyTo(mFramePaint);
@@ -414,6 +427,7 @@ public final class PaneGlassBackdropView extends View {
         mPreviousProgram = previous;
         if (previous != null) {
             previous.setLook(look);
+            previous.setGathered(mGathered);
             previous.setInput(previousShader);
             previous.applyTo(mPreviousFramePaint);
         }

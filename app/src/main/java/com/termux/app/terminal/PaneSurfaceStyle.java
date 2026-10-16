@@ -129,6 +129,13 @@ public interface PaneSurfaceStyle {
     @Nullable default com.termux.app.chrome.GlassRefraction.Look paneGlassRefraction() { return null; }
 
     /**
+     * Adaptive glass: the slab's outline gathers the wallpaper's light in place of the hairline
+     * ({@link com.termux.app.chrome.GlassRefraction.Program#setGathered}). False, the default, is
+     * the hairline; only meaningful while {@link #paneGlassRefraction()} answers a look.
+     */
+    default boolean adaptiveGlass() { return false; }
+
+    /**
      * Fancier Glass's edge clarity: a clearer frame of the same rect as
      * {@link #paneGlassBlurFrame()} (the blur cache's one rect at
      * {@link com.termux.app.chrome.GlassRefraction#CLARITY_RADIUS_DP}) that the slab's bent edge

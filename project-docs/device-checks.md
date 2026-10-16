@@ -76,9 +76,32 @@ under twenty items; past that, the oldest are re-judged first.
   still reads 92; pick a Look and it reads that Look's position. A Custom saved with the old six values (e.g.
   13/32/60/20/20/90) opens without changing any key until Depth moves · emulator, with a
   wallpaper set from the launcher.
+- 2026-10-16 · commit "test(surfaces): pin the first run on Clear, on Depth's curve" (glass plan
+  Round 0) · Fresh install (`ad clear`, then a wallpaper set through the picker): the Look page
+  shows Clear selected and Depth reads 90, and `run-as` the prefs holds `fancier_glass_bend` 27
+  and `fancier_glass_edge_width` 18; one Depth step down writes 26/17 and the dock's bend ring
+  narrows by a step, not to a third. Fails if the page says Custom with Depth 34: something wrote
+  a preference before the first-run check, and the install was taken for an upgrade · emulator.
+- 2026-10-16 · commit "feat(glass): Adaptive glass, an edge of gathered light" (glass plan Round
+  1) · Adaptive glass off: Clear, Mist and Tint look exactly as on `pre` (crop a pane corner and
+  the dock's top edge on both builds). On: the edge is the wallpaper's colour brightened,
+  brightest top-left and faint all round; no white line and no second stroke; over a pale
+  wallpaper the glint shrinks; no bright line on a seam (keyboard over the under-pill strip, status
+  over the window bar); the dock shows one edge, not two; in a joined frame, no glow runs along the
+  screen's own edges. Look for a leftover white line on a Floating pane with the border on (its
+  border still comes from the gradient rim) and on a wall page's corner tab (still the hairline).
+  The row is hidden on Android 12 and greyed with the hint until a wallpaper is set from the
+  picker · emulator, `glass-city` and `glass-flowers` wallpapers, Docked and Floating, keyboard up
+  and down.
+- 2026-10-16 · commit "feat(glass): Adaptive glass, an edge of gathered light" ·
+  `GlassRefractionAgslInstrumentationTest` passes, its two gathered-edge cases included (a lit
+  top-left corner with `uGathered` 1; switched back off draws the hairline exactly) · emulator.
 
 ## Developer
 
+- 2026-10-16 · commit "feat(glass): Adaptive glass, an edge of gathered light" · With the switch
+  on, the edge reads as light, not an outline. Also record whether floating panels still stand
+  apart from a white wallpaper: that is Round 5's gate · pong, release build.
 - 2026-10-15 · commit "feat(settings): make the Low-memory preset a switch" · Turning it on and off
   returns the look you had (material, opacity, effects, parallax), and Reduce idle activity follows
   the switch both ways without leaving the page · pong, Settings → App behavior.

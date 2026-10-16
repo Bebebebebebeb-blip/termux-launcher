@@ -41,6 +41,8 @@ final class FakeChromeSurfaces implements ChromeRenderer.Surfaces {
     boolean blurHealthy = true;
     /** Fancier Glass as the Activity would answer it; null is the default mode. */
     @Nullable GlassRefraction.Look look;
+    /** {@link #adaptiveGlass()}: Adaptive glass's gathered edge, off as on a fresh install. */
+    boolean adaptive;
     @NonNull ChromeSpec spec = new ChromeSpec(true, false, 0, true, true, false, true, 1f, 12);
 
     /**
@@ -185,6 +187,11 @@ final class FakeChromeSurfaces implements ChromeRenderer.Surfaces {
     @Override
     public GlassRefraction.Look fancierGlassLook() {
         return look;
+    }
+
+    @Override
+    public boolean adaptiveGlass() {
+        return adaptive;
     }
 
     @Override

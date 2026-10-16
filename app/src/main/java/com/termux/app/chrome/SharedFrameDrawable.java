@@ -77,6 +77,8 @@ public final class SharedFrameDrawable extends Drawable {
     private float mLookDensity;
     private float mRimRadiusPx;
     private int mSeams;
+    /** Adaptive glass's gathered light in place of the hairline; see {@link GlassRefraction.Program#setGathered}. */
+    private boolean mGathered;
     /** The program the frame draws through while {@link #mLook} is set and the phone runs one. */
     @Nullable private GlassRefraction.Program mProgram;
     @Nullable private GlassRefraction.Program mPreviousProgram;
@@ -141,12 +143,23 @@ public final class SharedFrameDrawable extends Drawable {
      */
     public void setRefraction(@Nullable GlassRefraction.Look look, float density,
                               float cornerRadiusPx, int seams) {
+        setRefraction(look, density, cornerRadiusPx, seams, false);
+    }
+
+    /**
+     * {@link #setRefraction(GlassRefraction.Look, float, float, int)} with Adaptive glass's
+     * edge: {@code gathered} draws the gathered light in place of the hairline, and pushes the
+     * seams past its reach. Off is the hairline, exactly as before.
+     */
+    public void setRefraction(@Nullable GlassRefraction.Look look, float density,
+                              float cornerRadiusPx, int seams, boolean gathered) {
         if (Objects.equals(look, mLook) && mLookDensity == density
-            && mRimRadiusPx == cornerRadiusPx && mSeams == seams) return;
+            && mRimRadiusPx == cornerRadiusPx && mSeams == seams && mGathered == gathered) return;
         mLook = look;
         mLookDensity = density;
         mRimRadiusPx = cornerRadiusPx;
         mSeams = seams;
+        mGathered = gathered;
         syncRefraction();
         invalidateSelf();
     }
@@ -250,6 +263,11 @@ public final class SharedFrameDrawable extends Drawable {
         return mSeams;
     }
 
+    @VisibleForTesting
+    boolean refractionGathered() {
+        return mGathered;
+    }
+
     /**
      * Points the paints at the program or at the frame's own shader, whichever the look asks for
      * and the phone can run. On every frame change and look change, never per draw: the program
@@ -277,6 +295,7 @@ public final class SharedFrameDrawable extends Drawable {
             return;
         }
         program.setLook(look);
+        program.setGathered(mGathered);
         program.setInput(shader);
         syncClarity();
         syncTouch();
@@ -298,6 +317,7 @@ public final class SharedFrameDrawable extends Drawable {
         mPreviousProgram = previous;
         if (previous != null) {
             previous.setLook(look);
+            previous.setGathered(mGathered);
             previous.setInput(previousShader);
             previous.applyTo(mPreviousPaint);
         }
@@ -308,7 +328,7 @@ public final class SharedFrameDrawable extends Drawable {
         GlassRefraction.Look look = mLook;
         if (look == null) return;
         GlassRefraction.rimRect(mRim, getBounds(),
-            GlassRefraction.seamReachPx(look, mLookDensity, mRimRadiusPx), mSeams);
+            GlassRefraction.seamReachPx(look, mLookDensity, mRimRadiusPx, mGathered), mSeams);
     }
 
     @Override
