@@ -37,6 +37,7 @@ Three rules keep this directory from rotting:
 | [`active/display-fullscreen/PARKED.md`](active/display-fullscreen/PARKED.md) | Full-screen Display with edge slide-outs. Parked. |
 | [`active/tai-memory-manager.md`](active/tai-memory-manager.md) | The "can this model load right now" owner. Built; device checks pending. |
 | [`active/tai-feature-load-plan-2026-10-08.md`](active/tai-feature-load-plan-2026-10-08.md) | The feature load plan: how each on-device AI feature picks its model, accelerator and context for a phone. |
+| [`active/keyboard-touch-engine-2026-10-16.md`](active/keyboard-touch-engine-2026-10-16.md) | The in-app keyboard learns where your thumbs land, space bar first: corrected taps on release, take-backs, warm-up and a drift pause. Spec; not started. |
 | [`active/input-latency-study.md`](active/input-latency-study.md) | Touch-to-intent latency measured on pong, 2026-09-08: twelve tactical fixes and seven architectural directions. Not started. |
 | [`active/perf-home-terminal-idle-handoff-2026-09-27.md`](active/perf-home-terminal-idle-handoff-2026-09-27.md) | Home to Terminal slide cost and idle redraw: symptoms and a code map. Not started. |
 | [`device-checks.md`](device-checks.md) | Device checks owed, rolling: Agent and Developer items, deleted once seen; read before every drop and cut. |
@@ -70,6 +71,8 @@ task-oriented guide for the terminal is
 
 | | |
 |---|---|
+| [`reference/keyboard/adaptive-touch-targets.md`](reference/keyboard/adaptive-touch-targets.md) | Research: how phone keyboards adapt key hit areas to one user (Gboard, AOSP LatinIME, Apple, the papers), and what fits our keyboard. |
+| [`reference/keyboard/terminal-aware-key-prior.md`](reference/keyboard/terminal-aware-key-prior.md) | Research: a small shell-aware letter prior that tilts ambiguous taps, its gates and memory budget. Parked. |
 | [`reference/launcher/pane-wall-x11-study.md`](reference/launcher/pane-wall-x11-study.md) | The pane wall, home-screen pane and embedded X11 pane. Built; why termux-x11 is forked and bundled, and why the wall is an outer container. |
 | [`reference/launcher/nix-edition-vanilla-study.md`](reference/launcher/nix-edition-vanilla-study.md) | Whether the Nix edition could track upstream nix-on-droid, and why it was declined on 2026-09-01. |
 | [`reference/launcher/proot-gui-apps-research.md`](reference/launcher/proot-gui-apps-research.md), [`de-sessions-research.md`](reference/launcher/de-sessions-research.md) | Linux apps and desktop sessions from a proot distro. |
