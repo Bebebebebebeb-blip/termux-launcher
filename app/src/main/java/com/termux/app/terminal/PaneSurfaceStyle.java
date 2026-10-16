@@ -80,12 +80,7 @@ public interface PaneSurfaceStyle {
     default boolean paneAttentionPulses() { return true; }
     /** True while {@link #paneGlassRim} would answer, so a re-dress asks for a drawable only then. */
     default boolean paneGlassRimWanted() { return false; }
-    /**
-     * True while every slab is drawn through the refraction program, whose gathered light is then
-     * the slab's edge: a glass pane's resting border draws nothing over it ({@link PaneRim}), so
-     * no pane wears two lines. False, the default, for plain slabs and below Android 13.
-     */
-    default boolean paneGlassDrawsEdge() { return false; }
+
     /** Corner radius of a pane slab, in px. */
     float paneGlassCornerRadiusPx();
     /**

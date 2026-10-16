@@ -98,6 +98,13 @@ under twenty items; past that, the oldest are re-judged first.
 - 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · Android 12 (or a
   forced plain draw) looks exactly as on `pre`: every rim, the dock's rim under its glass, the
   panes' gradient rim · an API 31/32 emulator.
+- 2026-10-17 · commit "fix(glass): every edge follows the glass on screen, not the rule" · The
+  window bar capsule: one edge on a cold start (no rim beside the gathered light on the first
+  frame after the frost lands), and its stroke back the moment the frost goes (Fancier Glass off,
+  status blur radius 0, the bar moved onto the dock's plank and back). The dock: its rim under the
+  glass shows while a blur is in flight on a fresh wallpaper and goes once the glass is up. A
+  Floating pane: its rim shows while its slab is plain (a fresh blur in flight, a corner-masked
+  page) and goes when the slab refracts · emulator, logcat clean.
 - 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · Settings › Theme
   & fonts has no Adaptive glass row and nothing else on the page moved (crop the page before and
   after) · emulator.
@@ -121,9 +128,9 @@ under twenty items; past that, the oldest are re-judged first.
 
 - 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · The edge reads
   as light, not an outline, on every surface; on Mist and Solid (and the sheet and chip, floored
-  near opaque) say whether the outline is still enough, since the light still sits under their
-  tint (the top-layer light was not built). Also record whether floating panels still stand apart
-  from a white wallpaper: that is Round 5's gate · pong, release build.
+  near opaque) note how faint the outline gets under their tint, for phase B's opacity scaling.
+  Also record whether floating panels still stand apart from a white wallpaper: that is Round 5's
+  gate · pong, release build.
 - 2026-10-16 · commit "feat(keyboard): a touch engine that learns where your taps land" ·
   The touch engine's pass bar, under the round 2 take-back rule: take-backs into space drop by
   30% or more from the warm-up's rate to the corrected rate, no other key's rate rises, and aiming

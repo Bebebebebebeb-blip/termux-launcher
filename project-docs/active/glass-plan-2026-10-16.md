@@ -19,17 +19,18 @@ for the developer, who decides, and for the agent who builds it.
 - New in phase A: the light's strength is held under the headroom the sample's brightest channel
   has left (`heldK`: exact below half of it, then `1 - 1/(4r)`), so a pale backdrop's outline
   never clips and keeps its hue. A 0.5 grey now peaks near 0.87 at the brightest corner, not 0.98.
-- Rims: decided per stack. `GlassStack` drops its rim only when its own backdrop refracts
-  (`SharedFrameDrawable.refracts`); the window bar asks its frost (`GlassSurfaceFactory.frostDrawsEdge`);
-  the dock drops `rimUnderGlass` while its program runs (the capsule keeps an outline-only
-  background to clip to); a glass pane's resting border draws nothing while the slabs refract
-  (`PaneSurfaceStyle.paneGlassDrawsEdge`, `PaneRim`). Focus and attention borders stay. The
-  corner tab gets the gathered edge with everything else.
-- Not done: drawing the light as a top layer above tint, veil and grain. Where a surface's tint is
-  its own view (dock, strip, status and window bars, palette, sheet, drawer, off-dock sheets) the
-  light would need a second program in that view, re-recorded on every parallax tick and slide,
-  which those views do not do today. Opaque surfaces (Mist, Solid, the sheet and chip floors) still
-  show the light only through their tint.
+- Rims: decided per surface from what is on screen, never from the look. `GlassStack` drops its
+  rim only when its own backdrop refracts (`SharedFrameDrawable.refracts`). The window bar's stroke
+  follows its frost as each top-pane frost pass leaves it (`Surfaces.onWindowBarFrostEdge`, which
+  re-dresses the bar when the answer moves). The dock drops `rimUnderGlass` while a refraction
+  effect is installed on its visible backdrop (`setDockProgramEdge`, which re-cuts the host's
+  shape; the capsule keeps an outline-only background to clip to). A glass pane's resting border
+  asks its own slab on every draw (`PaneRim.SlabEdge`, answered by `PaneGlassBackdropView`) and is
+  redrawn when the slab's answer moves. Focus and attention borders stay. The corner tab gets the
+  gathered edge with everything else.
+- Not done, by the developer's decision: no top layer. The light stays under tint, veil and grain,
+  so opaque surfaces (Mist, Solid, the sheet and chip floors) show it only through their tint;
+  phase B scales its strength by opacity.
 
 It covers the ten items the developer picked: C-01, K-2, C-02, E-1, C-03, C-05, C-07, C-09,
 C-10, C-11. The developer ruled these out: accessibility settings (C-06), the scroll-edge fade

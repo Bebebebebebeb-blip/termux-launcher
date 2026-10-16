@@ -60,7 +60,10 @@ public final class WallpaperFrostPainter {
         mSurfaces.updateTerminalGlassFrost();
         ImageView statusFrost = frostView(R.id.terminal_status_bar_wallpaper_backdrop);
         ImageView paneFrost = frostView(R.id.terminal_window_bar_wallpaper_backdrop);
-        if (statusFrost == null || paneFrost == null) return;
+        if (statusFrost == null || paneFrost == null) {
+            mSurfaces.onWindowBarFrostEdge(false);
+            return;
+        }
         // The status surface's own radius, not the dock's: the editor tunes them apart, and the
         // status slider has to visibly change this pane.
         int blurRadiusDp = mSurfaces.effectiveStatusBarBlurRadiusDp();
@@ -114,6 +117,8 @@ public final class WallpaperFrostPainter {
             mLedger.clearFrostDirty();
             mLedger.setFrostRadiusDp(SurfaceDirtyLedger.FrostRadius.TOP_PANE, blurRadiusDp);
         }
+        // Last, once the frost is where it will stay this pass: the bar's stroke follows it.
+        mSurfaces.onWindowBarFrostEdge(paneApplied && GlassSurfaceFactory.frostDrawsEdge(paneFrost));
     }
 
     public void clearTopPane() {
@@ -127,6 +132,7 @@ public final class WallpaperFrostPainter {
         mLedger.clearFrostRect(SurfaceDirtyLedger.FrostRect.OFF_DOCK_PLANK);
         mLedger.clearFrostRect(SurfaceDirtyLedger.FrostRect.AZ_BAR_HOST);
         mLedger.setFrostRadiusDp(SurfaceDirtyLedger.FrostRadius.TOP_PANE, -1);
+        mSurfaces.onWindowBarFrostEdge(false);
     }
 
     /**

@@ -1542,6 +1542,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return isRoundedDockStyle();
         }
 
+        @Override public void onWindowBarFrostEdge(boolean drawsEdge) {
+            if (drawsEdge == mWindowBarFrostDrawsEdge) return;
+            mWindowBarFrostDrawsEdge = drawsEdge;
+            // The bar's glass is dressed from this, so it is re-dressed now, not on the next pass.
+            refreshTerminalWindowBar();
+        }
+
         @Override public boolean statusBarOnDockPlank() {
             // Under a joined Docked frame the bar is on the frame's glass, which is as good as
             // the plank's: it wears no frost of its own.
@@ -3627,14 +3634,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             }
 
             @Override public boolean paneGlassRimWanted() {
-                // Every plain slab wears the dock's gradient rim; one drawn through the program
-                // wears the gathered light instead.
-                return !paneGlassDrawsEdge();
-            }
-
-            @Override public boolean paneGlassDrawsEdge() {
-                return paneGlassRefraction() != null
-                    && com.termux.app.chrome.GlassRefraction.available();
+                // Every look wears the dock's gradient rim; over a slab whose program draws its
+                // own edge, the pane's border yields to that edge (PaneRim.SlabEdge).
+                return true;
             }
 
             @Override public boolean paneOpeningLine() {
@@ -4222,8 +4224,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      */
     @Nullable private com.termux.app.chrome.GlassRefraction.Program mNavStripRefraction;
 
-    /** The driver refused the dock's program, so the dock is drawn plain and keeps its rim. */
-    private boolean mDockRefractionRefused;
+    /**
+     * Whether the dock's backdrop is on screen with a refraction effect installed right now, so
+     * its program's gathered light is the dock's edge; see {@link #setDockProgramEdge}.
+     */
+    private boolean mDockProgramEdge;
 
     /** Where the dock host's origin sits in its backdrop's pixels, for mapping a pressed key into it. */
     private float mGlassOriginLeft, mGlassOriginTop;
@@ -4278,7 +4283,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     getResources().getDisplayMetrics().density);
                 if (navStrip) mNavStripRefraction = program;
                 else mDockRefraction = program;
-                if (!navStrip) mDockRefractionRefused = program == null;
             }
             if (program == null) {
                 return null;
@@ -5581,6 +5585,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      */
     private void applyDockSurfaceShape(@NonNull View surface, boolean capsule, int surfaceHeightPx,
                                        boolean ownsInnerEdge, boolean innerRim) {
+        if (surface.getId() == R.id.accessory_surface_host) {
+            mDockShapeCut = true;
+            mDockShapeCapsule = capsule;
+            mDockShapeHeightPx = surfaceHeightPx;
+        }
         if (!capsule) {
             // Docked, the dock is a slice of the one frame. The model says which of its edges
             // face the opening (the only ones that wear the rim) and what its clip is; its
@@ -5857,16 +5866,33 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     /**
-     * Whether the dock's own glass draws its outline: the dock's backdrop runs the program
-     * ({@link #buildGlassRefractionEffect}), whose gathered light is then the dock's edge, so
-     * the host lays no {@code rimUnderGlass} under it. Decided from the same rule that puts the
-     * backdrop up, not from the last effect built, since the host's shape is set first in a pass.
-     * A driver that refused the program leaves the rim.
+     * Whether the dock's own glass draws its outline: its backdrop is up with a refraction effect
+     * installed ({@link #buildGlassRefractionEffect}), whose gathered light is then the dock's
+     * edge, so the host lays no {@code rimUnderGlass} under it. What is installed, not the rule
+     * that would install it: a backdrop gone while a blur is in flight, an effect that threw or a
+     * driver that refused the program all leave the rim.
      */
     private boolean dockGlassDrawsEdge() {
-        return com.termux.app.chrome.GlassRefraction.available() && !mDockRefractionRefused
-            && shouldUseAccessoryRenderEffectBlur(buildChromeSpec());
+        return mDockProgramEdge;
     }
+
+    /**
+     * Records whether the dock's backdrop now draws its edge, and re-cuts the host's shape when
+     * that moved: the shape is set early in a pass, before the effect is built, so the pass that
+     * installs or drops the effect re-dresses it at once rather than one pass late.
+     */
+    private void setDockProgramEdge(boolean drawsEdge) {
+        if (mDockProgramEdge == drawsEdge) return;
+        mDockProgramEdge = drawsEdge;
+        View host = findViewById(R.id.accessory_surface_host);
+        if (host != null && mDockShapeCut)
+            applyDockSurfaceShape(host, mDockShapeCapsule, mDockShapeHeightPx, true, true);
+    }
+
+    /** The dock host's shape as last cut, so {@link #setDockProgramEdge} can re-cut it alone. */
+    private boolean mDockShapeCut;
+    private boolean mDockShapeCapsule;
+    private int mDockShapeHeightPx;
 
     private void clearAccessoryRenderEffectBackdrop() {
         ImageView backdrop = findViewById(R.id.accessory_blur_backdrop);
@@ -5880,6 +5906,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         backdrop.setVisibility(View.GONE);
         mGlassParamsValid = false; // no live backdrop shader -> key lens falls back to the bubble border
         mChrome.ledger().reset(SurfaceDirtyLedger.Backdrop.ACCESSORY);
+        setDockProgramEdge(false);
     }
 
     /**
@@ -7640,6 +7667,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 backdrop.setImageDrawable(null);
                 backdrop.setVisibility(View.GONE);
                 mChrome.ledger().markDirty(SurfaceDirtyLedger.Backdrop.ACCESSORY);
+                setDockProgramEdge(false);
             }
             return;
         }
@@ -7686,6 +7714,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // Content-aware light scatter — the frost that makes the blur read as glass, not plastic.
         backdrop.setColorFilter(com.termux.app.chrome.GlassFilters.frost(mPreferences != null ? mPreferences.getAppBarOpacity() : 100));
         backdrop.setVisibility(View.VISIBLE);
+        // Below Android 13 there is no effect to install, and the dock keeps its rim.
+        setDockProgramEdge(mGlassParamsValid);
         mChrome.ledger().recordApplied(SurfaceDirtyLedger.Backdrop.ACCESSORY, state.blurRadiusDp,
             usingManagedWallpaperSource, backdropTargetRect);
         // The keyboard-local cover is deliberately retained until this expanded surface is ready.
@@ -22066,6 +22096,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         doRefreshTerminalWindowBar();
     }
 
+    /**
+     * Whether the window bar's frost is on screen drawn through the program, as the last top-pane
+     * frost pass reported it ({@code onWindowBarFrostEdge}); the bar's stroke stands down while
+     * it is.
+     */
+    private boolean mWindowBarFrostDrawsEdge;
+
     /** Depth of {@link #batchWindowBarRefresh}; while above zero a refresh is only noted. */
     private int mWindowBarRefreshBatchDepth;
     private boolean mWindowBarRefreshPending;
@@ -22180,9 +22217,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                         capsuleStatusBar || isStatusBarVertical() || !stripContinues
                             ? 0f : terminalWindowGlassStatusFraction(host), 1f, barStroke,
                         com.termux.app.chrome.GlassBackdropCache.Band.WINDOW_BAR,
-                        // The bar's frost draws the gathered light along the same outline.
-                        com.termux.app.chrome.GlassSurfaceFactory.frostDrawsEdge(
-                            findViewById(R.id.terminal_window_bar_wallpaper_backdrop))));
+                        // While the bar's frost draws the gathered light along the same outline,
+                        // as the last frost pass found it, the bar lays no stroke beside it.
+                        mWindowBarFrostDrawsEdge));
         }
         applyStatusBarStyle(host);
         applyTerminalWindowBarBackdropInsets();

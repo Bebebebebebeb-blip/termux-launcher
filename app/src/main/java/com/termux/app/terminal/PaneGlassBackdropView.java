@@ -46,7 +46,7 @@ import com.termux.app.chrome.WallpaperParallax;
  * grain and the rim, in addition to the user's own terminal opacity — the order
  * {@code GlassSurfaceFactory} gives a chrome band's veil.
  */
-public final class PaneGlassBackdropView extends View {
+public final class PaneGlassBackdropView extends View implements PaneRim.SlabEdge {
 
     private final Paint mFramePaint = new Paint(Paint.FILTER_BITMAP_FLAG);
     private final Paint mTintPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -119,6 +119,10 @@ public final class PaneGlassBackdropView extends View {
      * uniform it reads is written afresh before it draws again.
      */
     @Nullable private GlassRefraction.Program mSpareProgram;
+    /** Told when {@link #drawsEdge} changes; see {@link #setOnEdgeChanged}. */
+    @Nullable private Runnable mOnEdgeChanged;
+    /** {@link #drawsEdge} as last told. */
+    private boolean mEdgeTold;
     /** Answers this slab's veil; null for a slab nobody measures. See {@link #setVeilSource}. */
     @Nullable private PaneSurfaceStyle mVeilSource;
     /**
@@ -367,11 +371,49 @@ public final class PaneGlassBackdropView extends View {
     }
 
     /**
+     * True while this slab's own program draws its outline, the gathered light: it is shown, it
+     * has a frame, and that frame is drawn through the program, not plain (no look, a corner mask,
+     * a driver that refused the program, Android 12). The pane's resting border yields to it
+     * ({@link PaneRim}); every other case keeps the border.
+     */
+    @Override
+    public boolean drawsEdge() {
+        return getVisibility() == View.VISIBLE && mProgram != null && mFrame != null
+            && !mFrame.isRecycled();
+    }
+
+    @Override
+    public void setOnEdgeChanged(@Nullable Runnable onEdgeChanged) {
+        mOnEdgeChanged = onEdgeChanged;
+        mEdgeTold = drawsEdge();
+    }
+
+    /** Tells the border once {@link #drawsEdge} has moved, so it redraws with or without its line. */
+    private void tellEdge() {
+        boolean edge = drawsEdge();
+        if (edge == mEdgeTold) return;
+        mEdgeTold = edge;
+        Runnable told = mOnEdgeChanged;
+        if (told != null) told.run();
+    }
+
+    @Override
+    public void setVisibility(int visibility) {
+        super.setVisibility(visibility);
+        tellEdge();
+    }
+
+    /**
      * Points the paints at the program or at the frame's own shader, whichever the look asks for
      * and the phone can run. On every frame change and look change, never per draw: the program
      * captures its input when it is set.
      */
     private void syncRefraction() {
+        syncProgram();
+        tellEdge();
+    }
+
+    private void syncProgram() {
         mLastAimShader = null;
         GlassRefraction.Look look = mLook;
         BitmapShader shader = mFrameShader;

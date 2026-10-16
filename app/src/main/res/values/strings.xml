@@ -686,9 +686,6 @@
     <string name="settings_fancier_glass_header">Fancier Glass</string>
     <string name="settings_fancier_glass_title">Fancier Glass</string>
     <string name="settings_fancier_glass_summary">Bends the wallpaper at glass edges. Set the wallpaper with the in-app wallpaper picker.</string>
-    <!-- Shown as the summary while the switch is disabled: only a wallpaper picked from inside the
-         launcher can be read exactly enough to bend. -->
-    <string name="settings_fancier_glass_hint">Off: the wallpaper was not set with the in-app wallpaper picker.</string>
     <string name="terminal_key_binding_failed">%1$s: %2$s</string>
     <!-- Brief confirmation of the binding that just ran: stroke, then the action's name. -->
     <string name="terminal_key_binding_ran">%1$s · %2$s</string>

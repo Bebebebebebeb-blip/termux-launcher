@@ -164,6 +164,53 @@ public class GlassStackTest {
             keyboardSpec(null).withTintColor(0x80112233), 2f, null)));
     }
 
+    @Test
+    public void aStackWhoseBackdropRefractsLaysNoRim() {
+        // The JVM runs no program, so a refracting frame is stood in through the probe: what
+        // build() does with the answer is what is pinned here.
+        Bitmap frame = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888);
+        SharedFrameDrawable backdrop = new SharedFrameDrawable(frame, new Rect(0, 0, 40, 40), null,
+            out -> { out[0] = 0; out[1] = 0; });
+        boolean[] asked = {false};
+
+        Drawable stack = GlassStack.build(glass, keyboardSpec(FANCIER), 2f, backdrop, b -> {
+            asked[0] = true;
+            assertEquals("asked after the look is handed over", FANCIER, b.refractionLook());
+            return true;
+        });
+
+        assertTrue(asked[0]);
+        assertEquals("the gathered light is the edge; no rim over it", 0, rimsIn(stack));
+        // The same spec over a frame drawn plain keeps its rim, and the tint stack is otherwise
+        // the same: only the rim layer differs.
+        Drawable plain = GlassStack.build(glass, keyboardSpec(FANCIER), 2f, backdrop, b -> false);
+        assertEquals(1, rimsIn(plain));
+        assertEquals(layerCount(plain) - 1, layerCount(stack));
+        // A scheme-colour stack the same way.
+        assertEquals(0, rimsIn(GlassStack.build(glass,
+            keyboardSpec(FANCIER).withTintColor(0x80112233), 2f, backdrop, b -> true)));
+    }
+
+    @Test
+    public void theWindowBarOverAFrostThatDrawsTheEdgeLaysNoStrokeButKeepsItsCorner() {
+        Drawable stroked = glass.statusBarSurface(0.4f, 0f, 1f, ChromeEdgeRule.ALL, null, false);
+        Drawable bare = glass.statusBarSurface(0.4f, 0f, 1f, ChromeEdgeRule.ALL, null, true);
+        assertEquals(1, rimsIn(stroked));
+        assertEquals(0, rimsIn(bare));
+        assertEquals(layerCount(stroked) - 1, layerCount(bare));
+        // The five-argument form is the stroked one, as before.
+        assertEquals(1, rimsIn(glass.statusBarSurface(0.4f, 0f, 1f, ChromeEdgeRule.ALL, null)));
+    }
+
+    /** How many leaf layers a stack holds, at any depth. */
+    private static int layerCount(Drawable drawable) {
+        if (!(drawable instanceof LayerDrawable)) return 1;
+        LayerDrawable layers = (LayerDrawable) drawable;
+        int count = 0;
+        for (int i = 0; i < layers.getNumberOfLayers(); i++) count += layerCount(layers.getDrawable(i));
+        return count;
+    }
+
     /** How many {@link GradientRimDrawable} layers a stack holds, at any depth. */
     private static int rimsIn(Drawable drawable) {
         if (drawable instanceof GradientRimDrawable) return 1;

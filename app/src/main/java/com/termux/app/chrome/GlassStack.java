@@ -5,6 +5,7 @@ import android.graphics.drawable.LayerDrawable;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 
@@ -197,13 +198,30 @@ public final class GlassStack {
     @NonNull
     public static Drawable build(@NonNull GlassSurfaceFactory glass, @NonNull Spec spec,
                                  float density, @Nullable SharedFrameDrawable backdrop) {
+        return build(glass, spec, density, backdrop, SharedFrameDrawable::refracts);
+    }
+
+    /** How a stack asks whether its own backdrop draws its edge: {@link SharedFrameDrawable#refracts}. */
+    interface EdgeProbe {
+        boolean drawsEdge(@NonNull SharedFrameDrawable backdrop);
+    }
+
+    /**
+     * {@link #build(GlassSurfaceFactory, Spec, float, SharedFrameDrawable)} with the question of
+     * whether the backdrop refracts put to {@code probe}, asked once it has been handed the look.
+     * The tests' way to stand in a refracting frame on a JVM that runs no program.
+     */
+    @VisibleForTesting
+    @NonNull
+    static Drawable build(@NonNull GlassSurfaceFactory glass, @NonNull Spec spec, float density,
+                          @Nullable SharedFrameDrawable backdrop, @NonNull EdgeProbe probe) {
         List<Drawable> layers = new ArrayList<>(3);
         boolean programEdge = false;
         if (backdrop != null) {
             // The content-aware light scatter every glass surface's frame wears.
             backdrop.setColorFilter(GlassFilters.frost(Math.round(spec.tintAlpha * 100f)));
             backdrop.setRefraction(spec.look, density, spec.cornerRadiusPx, spec.seams);
-            programEdge = backdrop.refracts();
+            programEdge = probe.drawsEdge(backdrop);
             layers.add(backdrop);
         }
         boolean rim = wearsRim(spec.rim, programEdge);
