@@ -126,11 +126,13 @@ under twenty items; past that, the oldest are re-judged first.
 
 - 2026-10-17 · branch feat/glass-controls-unify, "feat(glass): one set of glass controls in Look › Custom" · Look ›
   Custom from Clear, then Mist, then Tint: Tint 0→100 adds visible accent each time (Mist light
-  theme too); Tint colour Secondary/Tertiary changes the hue; Glass 0→100 goes clear→frosted with
+  theme too); Hue Secondary/Tertiary changes the tint; Glass 0→100 goes clear→frosted with
   no sandy grain; Shade 100 darkens dark glass and whitens light glass without milk; Vibrancy
-  0.7x/1.5x changes the glass colour but not the bare wallpaper beside it; Edge colour Off/Glint/
-  Prism at a corner (Android 13+); the global heading row's two pills are whole at 360dp and at
-  Large text; Undo puts all of it back · emulator tl16, dark and light theme, screenshots
+  0.7x/1.5x changes the glass colour but not the bare wallpaper beside it; Edge Off/Glint/
+  Prism at a corner (Android 13+); the global heading row shows "All surfaces" with Hue and Edge
+  beside it, whole at 360dp and at Large text; Contrast moves with wallpaper colours off; Glass
+  released at 5 reads 5 on reopening; Shade 100 on a dark terminal scheme under light chrome dims
+  the pane (no milk); Undo puts all of it back · emulator tl16, dark and light theme, screenshots
   before/after per control.
 - 2026-10-17 · same branch · Migration: an install on Clear, Mist, Tint and Solid from the pre build
   keeps its stop and its colour after the update (Clear and Tint change blur and grain by design);
@@ -145,7 +147,7 @@ under twenty items; past that, the oldest are re-judged first.
   hitch while dragging, one short re-blur on release); Shade and Glass drags stay smooth on pong ·
   pong.
 - 2026-10-17 · same branch · Light-theme Mist is still milky at 60% (unchanged, pass 2 tunes it
-  with Shade and Vibrancy); taste check of Prism's provisional 80 and the 8x edge gain cap · pong.
+  with Shade and Vibrancy); taste check of Prism's provisional 80 and the 2x edge gain cap · pong.
 
 - 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · The edge reads
   as light, not an outline, on every surface; on Mist and Solid (and the sheet and chip, floored

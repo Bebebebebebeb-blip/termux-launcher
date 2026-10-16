@@ -179,7 +179,7 @@ dim (the wallpaper's own dim)
 
 **Tint amount**:
 What Look › Custom's Tint slider sets since phase B: how much accent colour is mixed into the
-Look's own colour, 0 to 100, from any Look. 100 is the Tint Look's Material blend. **Tint colour**
+Look's own colour, 0 to 100, from any Look. 100 is the Tint Look's Material blend. The **Hue** pill
 picks which accent (primary, secondary, tertiary).
 _Avoid_: tint strength (the old meaning, a share of the Look's tint family)
 

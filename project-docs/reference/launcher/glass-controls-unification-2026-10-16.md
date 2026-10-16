@@ -3,13 +3,14 @@
 **Status (2026-10-17): built in phase B** on `feat/glass-controls-unify`, with the developer's
 decisions overriding sections 4.3 and 5 where they differ: Tint is the accent amount (4.1) with
 the hue as a menu pill (rank 4); the ink check measures the tinted base and the Shade (4.2); no
-control is hidden or greyed (4.3 not built; Depth and Edge colour still appear only where the edge
-is drawn, as Depth always did); Glass replaces Blur and Grain on its own curve
+control is hidden or greyed by another's value (4.3 not built; Depth and the Edge pill appear only
+where the device and wallpaper can draw the edge, as Depth always did; Contrast no longer greys); Glass replaces Blur and Grain on its own curve
 (`blur = R(4 + 32 t^1.5)`, `grain = R(2 + 6 t)`, not the material curves of rank 2); Shade is a
 flat theme-aware layer, not the K-2 film (rank 1); Vibrancy is baked into the shared frame
 (rank 3); Dispersion is Off, Glint 40, Prism 80 (rank 5); the gathered edge's gain follows the
-cover over it. Margin and Corner radius left the Look page's Custom row (seven columns fit 360dp at
-the 36dp floor). 4.4 (clarity follows blur) is not built. The rest of this note is the research as
+cover over it, capped at 2. Margin and Corner radius left the Look page's Custom row (approved;
+seven columns fit 360dp at the 36dp floor, eight do not). Shade is black or white by each surface's
+own tint, is counted in the ink vote, and is held back where it alone would break a band's target. 4.4 (clarity follows blur) is not built. The rest of this note is the research as
 written.
 
 Read-only research for the developer's report: "in the Appearance editor, Clear or Mist, then Custom: the Tint

@@ -38,10 +38,12 @@ for the developer, who decides, and for the agent who builds it.
   glass, white to 25% on light glass), a Look › Custom slider at 0 in every Look and measured by
   `ChromeInk` like the tint. No `uFilm`, no per-pixel ink limit: if a per-pixel film is still
   wanted after pong, it is a new decision.
-- Dispersion is now the user's: Look › Custom's Edge colour pill writes Off 0, Glint 40 or Prism
+- Dispersion is now the user's: Look › Custom's Edge pill writes Off 0, Glint 40 or Prism
   80 (provisional, under the 0.05 share cap). Round 4's `uForm` would scale it with the pull.
 - The gathered light is raised by the cover over it (`uEdgeGain`, `Look.withCover`): 1 up to
-  Clear's 10%, `0.9 / (1 - cover)` above, at most 8, still held under the headroom. That is the
+  Clear's 10%, `0.9 / (1 - cover)` above, at most 2 (`Look.MAX_EDGE_GAIN`, a pass-2 tuning
+  knob: past it a mid backdrop's ring runs past `heldK`'s knee and flattens), still held under the
+  headroom. The dock and the under-pill strip follow the same rule with or without a Look. That is the
   "scales its strength by opacity" phase A left open.
 - Vibrancy (0.7x to 1.5x) is baked into the shared frame when it is blurred; the frost the program
   samples is brighter or duller with it, and `heldK` still holds the light under its headroom.
