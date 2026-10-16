@@ -589,13 +589,21 @@ Branch `worktree-agent-a53eeccfec00e894f`, commits `408477477` (shader, `GlassBo
 - **Measured, not claimed.** Frame timing on pong for a home ↔ terminal slide, with the switch on and
   off, is a Round 2 device check.
 
-## Open questions for the developer
+## The developer's answers (2026-10-16)
 
-1. Which card is "the editor card" in C-10? Assumed: the terminal sheet card for text prompts.
-2. C-03: should the status and window bars count as small? Assumed yes.
-3. C-07 reverses ChromeInk's coherence rule for small pieces. Confirm that is wanted.
-4. Should fresh installs get Adaptive glass on? Assumed off until it is seen on pong.
-5. C-05: which fix, if any (Round 0's options).
+These override the rounds above where they differ.
+
+1. **C-10: both.** The terminal sheet cards and the Appearance editor panel grow their edge as they
+   fade in. The editor panel does not come in through `GlassMotionPlayer`; Round 4 finds its entry
+   path and routes `uForm` there too, or reports why it cannot.
+2. **C-03: the bars are not small.** The status strip and the window bar keep today's tint. Only
+   chips, the A–Z host, the dock plank, the off-dock planks, the session chip and the window chips'
+   wash pass a short side.
+3. **C-07: yes.** Small pieces pick their own ink; rewrite ChromeInk's coherence paragraph for them.
+4. **Default: off** until it is seen on pong.
+5. **C-05: option (a).** Fresh installs apply Clear on first run. No constants move, and the
+   default-mode dock keeps `Look.DEFAULT`. Round 0 now builds this after the check, with a test that
+   a first run stores Clear's values and that Depth reads Clear's position.
 
 ## Item receipt
 
