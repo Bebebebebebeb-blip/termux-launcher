@@ -42,7 +42,9 @@ import java.util.Arrays;
  * ({@link Program#setClarityInput}), the band shows it through the bend in place of the frost,
  * growing clearer toward the rim, which is what a thick glass edge does to what is behind it.
  * Dispersion splits the bent picture into red and blue at the corners, in step with how far it is
- * bent there, the way a prism fans out white light; the middle of a straight edge takes none. A
+ * bent there, the way a prism fans out white light; the middle of a straight edge takes none.
+ * Through a frosted rim that split is blurred away, so the corners' gathered light is split as
+ * well, red's a little further in than blue's, giving way as the rim's picture clears. A
  * pressed extra key adds a lens that magnifies toward the key's centre and eases to nothing at its
  * pill rim, and a finger resting on the glass ({@link Program#setTouch}) lights the rim nearest
  * it, scatters a faint glow under it and draws the picture very slightly toward it.</p>
@@ -117,6 +119,21 @@ public final class GlassRefraction {
 
         /** How much of the clearer picture the band shows at the rim at 100%: all of it. */
         static final float MAX_CLARITY = 1f;
+
+        /**
+         * How far red's and blue's gathered light part at a corner at 100% dispersion, in dp
+         * ({@code kRimSplitDp}): Glint (40%) half a dp, Prism (80%) one. The light fades over
+         * {@link #GLOW_DP}, so half a dp moves one channel's light by about two fifths against
+         * green's at the corner: a glint, not a rainbow, and nothing along a straight edge.
+         */
+        static final float RIM_SPLIT_DP = 1.25f;
+
+        /**
+         * The clarity at which the sharp picture carries the dispersion fringe by itself, so the
+         * gathered light's split is gone ({@code kSharpClarity}): Clear's 76%. Below it the split
+         * on the light grows in as the rim's picture frosts over, all of it at clarity 0.
+         */
+        static final float SHARP_CLARITY = 0.76f;
 
         // The gathered light, the edge every surface's outline wears. Each is the program's
         // constant of the same name.
@@ -441,6 +458,12 @@ public final class GlassRefraction {
         "const float kGain = 1.6;\n" +
         "const float kLift = 0.07;\n" +
         "const float kEdgeShade = 0.05;\n" +
+        // Dispersion on the gathered light: uDisp's full share, how far red's and blue's light
+        // part at a corner at 100% in dp, and the clarity at which the sharp picture carries the
+        // fringe by itself. Look.MAX_DISPERSION_SHARE, RIM_SPLIT_DP and SHARP_CLARITY in Java.
+        "const float kMaxDisp = 0.05;\n" +
+        "const float kRimSplitDp = 1.25;\n" +
+        "const float kSharpClarity = 0.76;\n" +
         "float sdRoundRect(float2 p, float2 b, float r) {\n" +
         "    float2 q = abs(p) - b + float2(r, r);\n" +
         "    return min(max(q.x, q.y), 0.0) + length(max(q, float2(0.0, 0.0))) - r;\n" +
@@ -550,6 +573,14 @@ public final class GlassRefraction {
         // survives at the rim. A pixel with no split, every straight-edge middle and every face
         // pixel among them, takes the one sample.
         "    float split = uDisp > 0.0 ? pull * uDisp * cornerWeight(p, b) : 0.0;\n" +
+        // The same split laid on the gathered light, which is sharp at the outline however frosted
+        // the picture is: at the corners only, red's light as it stands a little further in and
+        // blue's a little further out. A frosted rim (clarity 0, Mist and Tint) blurs the sampled
+        // split away, so there this one carries the fringe; it gives way as the clearer picture
+        // takes over and is gone at Clear's clarity, whose sampled fringe is the glint already.
+        // rimSplitPx in Java.
+        "    float rimSplit = uDisp > 0.0 ? uDisp / kMaxDisp * cornerWeight(p, b) * kRimSplitDp * uDensity\n" +
+        "        * (1.0 - clamp(uClarity / kSharpClarity, 0.0, 1.0)) : 0.0;\n" +
         "    half4 col = half4(0.0);\n" +
         "    if (split > 0.0) {\n" +
         "        float2 fr = framePx(sampleCoord + n * split);\n" +
@@ -583,8 +614,21 @@ public final class GlassRefraction {
         "        float k = glow * (gatherShare(n) + 1.5 * touchG) * (1.0 - kPaleCut * pale) * uEdgeGain;\n" +
         "        col.rgb = col.rgb * half(1.0 - glow * kEdgeShade);\n" +
         "        float peak = float(max(col.r, max(col.g, col.b)));\n" +
+        "        float kRaw = k;\n" +
         "        k = heldK(k, max(float(col.a) - peak, 0.0) / (kGain * peak + kLift));\n" +
-        "        col.rgb = min(half3(col.a), col.rgb * half(1.0 + kGain * k) + half3(kLift * k));\n" +
+        "        if (rimSplit > 0.0) {\n" +
+        // Red's light as if its outline lay rimSplit further in, blue's as if it lay rimSplit
+        // further out: each channel's glow moved along the same exponential, held as green's is.
+        "            float kMax = max(float(col.a) - peak, 0.0) / (kGain * peak + kLift);\n" +
+        "            float gs = kGlowDp * uDensity;\n" +
+        "            float at = max(inside, 0.0);\n" +
+        "            float kr = heldK(kRaw * exp((at - max(inside - rimSplit, 0.0)) / gs), kMax);\n" +
+        "            float kb = heldK(kRaw * exp((at - max(inside + rimSplit, 0.0)) / gs), kMax);\n" +
+        "            float3 kc = float3(kr, k, kb);\n" +
+        "            col.rgb = min(half3(col.a), col.rgb * half3(1.0 + kGain * kc) + half3(kLift * kc));\n" +
+        "        } else {\n" +
+        "            col.rgb = min(half3(col.a), col.rgb * half(1.0 + kGain * k) + half3(kLift * k));\n" +
+        "        }\n" +
         "    }\n" +
         // The pressed key's glow and the faint scatter under a finger stay small additive light.
         "    col.rgb = col.rgb + half3(lensGlow * kKeyGlow + 0.045 * touchG * touchG);\n" +
@@ -729,6 +773,44 @@ public final class GlassRefraction {
         out[0] = Math.min(a, sr * gain + lift);
         out[1] = Math.min(a, sg * gain + lift);
         out[2] = Math.min(a, sb * gain + lift);
+    }
+
+    /**
+     * The program's {@code rimSplit}: how far red's and blue's gathered light part, in px, at a
+     * pixel taking {@code cornerWeight} of the split ({@link #cornerWeight}), for the look's
+     * {@code dispersion} ({@code uDisp}) and the {@code clarity} the program is given
+     * ({@code uClarity}). Nothing without dispersion, and nothing at or past
+     * {@link Look#SHARP_CLARITY}, where the sampled fringe is sharp enough to be seen.
+     */
+    static float rimSplitPx(float dispersion, float clarity, float cornerWeight, float density) {
+        if (dispersion <= 0f) return 0f;
+        float sharp = Math.max(0f, Math.min(1f, clarity / Look.SHARP_CLARITY));
+        return dispersion / Look.MAX_DISPERSION_SHARE * cornerWeight * Look.RIM_SPLIT_DP * density
+            * (1f - sharp);
+    }
+
+    /**
+     * {@link #gatheredLit(float, float, float, float, float, float, float, float, float, float[])}
+     * with the light split by {@code splitPx} ({@link #rimSplitPx}): red's light as it stands that
+     * far further in, blue's that far further out, each held under the same headroom as green's.
+     * A split of 0 is the unsplit light exactly.
+     */
+    static void gatheredLitSplit(float r, float g, float b, float a, float insidePx, float density,
+                                 float nx, float ny, float edgeGain, float splitPx,
+                                 @NonNull float[] out) {
+        gatheredLit(r, g, b, a, insidePx, density, nx, ny, edgeGain, out);
+        if (splitPx <= 0f || insidePx >= Look.GLOW_REACH_DP * density) return;
+        float luma = r * LUMA_R + g * LUMA_G + b * LUMA_B;
+        float kRaw = gatherK(insidePx, density, gatherShare(nx, ny), luma) * edgeGain;
+        float shade = 1f - glow(insidePx, density) * Look.EDGE_SHADE;
+        float sr = r * shade, sb = b * shade;
+        float kMax = headroomK(Math.max(sr, Math.max(g * shade, sb)), a);
+        float gs = Look.GLOW_DP * density;
+        float at = Math.max(insidePx, 0f);
+        float kr = heldK(kRaw * (float) Math.exp((at - Math.max(insidePx - splitPx, 0f)) / gs), kMax);
+        float kb = heldK(kRaw * (float) Math.exp((at - Math.max(insidePx + splitPx, 0f)) / gs), kMax);
+        out[0] = Math.min(a, sr * (1f + Look.GAIN * kr) + Look.LIFT * kr);
+        out[2] = Math.min(a, sb * (1f + Look.GAIN * kb) + Look.LIFT * kb);
     }
 
     /** The key lens's own strength and feather, which no knob reaches: the press reads the same in both modes. */

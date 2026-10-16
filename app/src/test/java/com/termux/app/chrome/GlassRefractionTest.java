@@ -784,4 +784,77 @@ public class GlassRefractionTest {
         assertTrue("a dark backdrop's inside the straight part",
             kDark < GlassRefraction.Look.HEADROOM_KNEE * GlassRefraction.headroomK(dark, 1f));
     }
+
+    // ------------------------------- dispersion on the gathered light (glass tuning 2026-10-17)
+
+    /**
+     * Mist bends through its frost (clarity 0), which blurs the sampled split away: Off and Prism
+     * looked the same. The split laid on the gathered light is what Dispersion does there, at a
+     * corner, and nothing along a straight edge.
+     */
+    @Test
+    public void dispersionSplitsTheLightAtClarityZero() {
+        GlassRefraction.Look mistPrism = new GlassRefraction.Look(24, 16, 10, 0, 80, 0);
+        float corner = GlassRefraction.rimSplitPx(mistPrism.dispersion(), mistPrism.clarity(), 1f, DENSITY);
+        assertEquals("Prism parts the light a dp at the corner", 1f * DENSITY, corner, 1e-4f);
+        assertEquals("nothing along a straight edge", 0f,
+            GlassRefraction.rimSplitPx(mistPrism.dispersion(), 0f, 0f, DENSITY), 0f);
+        GlassRefraction.Look mistOff = new GlassRefraction.Look(24, 16, 10, 0, 0, 0);
+        assertEquals("Off parts nothing", 0f,
+            GlassRefraction.rimSplitPx(mistOff.dispersion(), 0f, 1f, DENSITY), 0f);
+
+        // A grey corner a dp in, facing the key light: red rises over green, blue falls under it.
+        float d = (float) Math.sqrt(0.5);
+        float[] plain = new float[3];
+        float[] split = new float[3];
+        float inside = 1f * DENSITY;
+        GlassRefraction.gatheredLit(0.3f, 0.3f, 0.3f, 1f, inside, DENSITY, -d, -d, 1f, plain);
+        GlassRefraction.gatheredLitSplit(0.3f, 0.3f, 0.3f, 1f, inside, DENSITY, -d, -d, 1f, corner, split);
+        assertEquals("green is the unsplit light", plain[1], split[1], 0f);
+        assertTrue("red's light reaches further in", split[0] > plain[0] + 0.01f);
+        assertTrue("blue's less far", split[2] < plain[2] - 0.01f);
+        assertTrue(split[0] <= 1f);
+        // Off draws the unsplit light exactly.
+        GlassRefraction.gatheredLitSplit(0.3f, 0.3f, 0.3f, 1f, inside, DENSITY, -d, -d, 1f, 0f, split);
+        for (int c = 0; c < 3; c++) assertEquals(plain[c], split[c], 0f);
+    }
+
+    /** Glint stays a glint where it is new: red and blue part by well under the light's own fade. */
+    @Test
+    public void glintOnTheLightStaysSubtle() {
+        GlassRefraction.Look mistGlint = new GlassRefraction.Look(24, 16, 10, 0, 40, 0);
+        float corner = GlassRefraction.rimSplitPx(mistGlint.dispersion(), 0f, 1f, DENSITY);
+        assertEquals(0.5f * DENSITY, corner, 1e-4f);
+        assertTrue("under the glow's own fade", corner < GlassRefraction.Look.GLOW_DP * DENSITY);
+    }
+
+    /** Clear at Glint 40 is drawn as it was: its clear rim carries the fringe, the light is not split. */
+    @Test
+    public void clearsGlintIsUnchanged() {
+        GlassRefraction.Look clear = new GlassRefraction.Look(27, 18, 10, 0, 40, 76);
+        assertEquals(0f, GlassRefraction.rimSplitPx(clear.dispersion(), clear.clarity(), 1f, DENSITY), 0f);
+        // Half way to Clear's clarity, half the split.
+        float none = GlassRefraction.rimSplitPx(clear.dispersion(), 0f, 1f, DENSITY);
+        float half = GlassRefraction.rimSplitPx(clear.dispersion(),
+            GlassRefraction.Look.SHARP_CLARITY / 2f, 1f, DENSITY);
+        assertEquals(none / 2f, half, 1e-4f);
+    }
+
+    @Test
+    public void theLightsSplitIsTheProgramsOwn() {
+        assertConst("kMaxDisp", GlassRefraction.Look.MAX_DISPERSION_SHARE);
+        assertConst("kRimSplitDp", GlassRefraction.Look.RIM_SPLIT_DP);
+        assertConst("kSharpClarity", GlassRefraction.Look.SHARP_CLARITY);
+        String agsl = GlassRefraction.AGSL;
+        assertTrue(agsl.contains(
+            "float rimSplit = uDisp > 0.0 ? uDisp / kMaxDisp * cornerWeight(p, b) * kRimSplitDp * uDensity"));
+        assertTrue(agsl.contains("* (1.0 - clamp(uClarity / kSharpClarity, 0.0, 1.0)) : 0.0;"));
+        assertTrue(agsl.contains(
+            "float kr = heldK(kRaw * exp((at - max(inside - rimSplit, 0.0)) / gs), kMax);"));
+        assertTrue(agsl.contains(
+            "float kb = heldK(kRaw * exp((at - max(inside + rimSplit, 0.0)) / gs), kMax);"));
+        // No new pass and no new input: the same four taps of each picture.
+        assertEquals(4, count(agsl, "content.eval("));
+        assertEquals(4, count(agsl, "sharp.eval("));
+    }
 }
