@@ -85,8 +85,9 @@ other name (a place, a surface, a gesture, an edition), look it up in
 2. **The developer is editing this tree while you work in it.** Builds have failed mid-save on
    their in-flight edits. A compile error in a file you did not touch is probably theirs — retry
    the build, do not "fix" their half-typed code, and do not revert it.
-3. **Committing bootstrap zips.** `*.zip` is gitignored for a reason: bootstraps are downloaded and
-   checksum-verified at build time (`downloadBootstraps`) or on first run. One got committed once
+3. **Committing bootstrap zips.** `*.zip` is gitignored for a reason. No APK of any edition or build
+   type carries a bootstrap: the app downloads and checksum-verifies it on first run, so any APK can
+   install fresh, and a fresh install needs the network. One zip got committed once
    and cost a force-push and a history rewrite.
 4. **Touching a real phone without being asked.** The device of record is someone's daily
    driver, often reached over the network (`adb connect <device-ip>:5555`); how to reach it is
@@ -194,17 +195,16 @@ compatible with AGP 8.13.2; the code targets Java 11.
 - `./gradlew :app:connectedDebugAndroidTest` — instrumentation on a connected emulator or device.
 - `./gradlew lintDebug` — Android lint.
 - `./gradlew :app:verifyReleaseHardening` — release build safety settings.
-- `scripts/dev-install.sh` — strips the bootstraps from the arm64 staging APK and installs it as
-  an upgrade over an existing install (a fresh install from it has no bootstrap). Target the device
-  with `DEVICE=<serial>`; `BUILD_TYPE=debug` installs the debug APK instead.
+- `scripts/dev-install.sh` — installs the arm64 staging APK, fresh or as an upgrade. Target the
+  device with `DEVICE=<serial>`; `BUILD_TYPE=debug` installs the debug APK instead.
 - **Installing on pong** (only when the developer asks): pong runs release builds.
   `BUILD_TYPE=release DEVICE=<pong> scripts/dev-install.sh` builds one versioned
   `<versionName>+dev.<sha>` from HEAD and installs it. Do not `adb install` the release
   APK by hand: a local release build has no ABI splits (one ~100 MB universal APK with every
-  bootstrap) and is **unsigned** unless the CI's `TERMUX_RELEASE_*` variables are set, which
-  fails as `INSTALL_PARSE_FAILED_NO_CERTIFICATES`. The script keeps only arm64-v8a, drops the
-  bootstraps (an update never needs them), signs with the test key every build shares, installs
-  with `--no-incremental` and checks the launcher came back up.
+  ABI's native libraries) and is **unsigned** unless the CI's `TERMUX_RELEASE_*` variables are
+  set, which fails as `INSTALL_PARSE_FAILED_NO_CERTIFICATES`. The script keeps only arm64-v8a,
+  signs with the test key every build shares, installs with `--no-incremental` and checks the
+  launcher came back up.
 - `adb -s <serial> shell run-as <pkg> …` reads and edits the app's files on a debug or staging
   build.
 
