@@ -17,7 +17,7 @@ Latest stable: v1.0.6.
 - Look › Custom's Depth slider is the last of the shared sliders, and each Look sits exactly on it; the rest of the edge comes with the Look.
 - Pressing a pinned app on a glass dock, or a glass card in a sheet, lights the glass under your finger for a moment.
 - Settings › Theme & fonts › Adaptive glass, off by default: glass edges catch the wallpaper's own light instead of a white line, brightest at the top left.
-- The herdr theme template goes see-through over the launcher glass, with bright wallpaper-coloured text and accents.
+- The herdr theme template goes see-through over the launcher glass, with its sidebar, text and accents in your wallpaper's colours.
 - Settings › Keyboard › Adaptive touch accuracy now learns the space bar too: aim for space and land at the bottom of the row above, and it types a space once it has learned your taps. Swipes and Ctrl or Alt shortcuts always keep the key under your finger, and Settings shows whether it is learning, active or paused.
 - Settings › Keyboard › Layouts lets you edit, reset and create keyboard layouts; a layout's row slides its buttons open beneath it, and a new layout shows at once on its first swap.
 - Terminal programs that ask for touch events receive your taps, long presses and swipes.
