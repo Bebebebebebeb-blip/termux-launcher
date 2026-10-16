@@ -46,6 +46,8 @@ final class AppearanceSnapshot {
     private final String mTintHue;
     private final int mShade;
     private final int mVibrancy;
+    /** Where Base's Glass slider and each surface's were left; -1 for none stored. */
+    private final int[] mGlassPositions;
     private final int mBend;
     private final int mEdgeWidth;
     private final int mEdgeLight;
@@ -97,6 +99,11 @@ final class AppearanceSnapshot {
         mTintHue = prefs.getSurfaceGlassTintHue();
         mShade = prefs.getSurfaceGlassShade();
         mVibrancy = prefs.getSurfaceGlassVibrancy();
+        SurfaceSlot[] slots = SurfaceSlot.values();
+        mGlassPositions = new int[slots.length + 1];
+        mGlassPositions[0] = prefs.getSurfaceGlassPosition(null);
+        for (SurfaceSlot slot : slots)
+            mGlassPositions[slot.ordinal() + 1] = prefs.getSurfaceGlassPosition(slot);
         mBend = prefs.getFancierGlassBendDp();
         mEdgeWidth = prefs.getFancierGlassEdgeWidthDp();
         mEdgeLight = prefs.getFancierGlassEdgeLightPercent();
@@ -150,6 +157,9 @@ final class AppearanceSnapshot {
         prefs.setSurfaceGlassTintHue(mTintHue);
         prefs.setSurfaceGlassShade(mShade);
         prefs.setSurfaceGlassVibrancy(mVibrancy);
+        prefs.setSurfaceGlassPosition(null, mGlassPositions[0]);
+        for (SurfaceSlot slot : SurfaceSlot.values())
+            prefs.setSurfaceGlassPosition(slot, mGlassPositions[slot.ordinal() + 1]);
         prefs.setFancierGlassBendDp(mBend);
         prefs.setFancierGlassEdgeWidthDp(mEdgeWidth);
         prefs.setFancierGlassEdgeLightPercent(mEdgeLight);
@@ -184,6 +194,7 @@ final class AppearanceSnapshot {
             .append('|').append(mWallpaperTerminalOpacity)
             .append('|').append(mTint).append('|').append(mRim).append('|').append(mMotion)
             .append('|').append(mTintHue).append('|').append(mShade).append('|').append(mVibrancy)
+            .append('|').append(java.util.Arrays.toString(mGlassPositions))
             .append('|').append(mBend).append('|').append(mEdgeWidth).append('|').append(mEdgeLight)
             .append('|').append(mSpecular).append('|').append(mDispersion)
             .append('|').append(mClarity)

@@ -1564,6 +1564,17 @@ public final class TermuxPreferenceConstants {
         public static final int MIN_SURFACE_GLASS_VIBRANCY = 70;
         public static final int MAX_SURFACE_GLASS_VIBRANCY = 150;
 
+        /**
+         * Where the Look editor's Glass slider was left, 0 to 100: Base's under this key, each
+         * surface's under the key plus {@code _} and the surface's name. Blur and grain stay the
+         * stored glass; this only says which of the positions that write the same pair the slider
+         * stood at, and is read only while the pair is still the one it writes. Absent reads as
+         * the nearest position.
+         */
+        public static final String KEY_SURFACE_GLASS_POSITION = "surface_glass_position";
+        public static final int MIN_SURFACE_GLASS_POSITION = 0;
+        public static final int MAX_SURFACE_GLASS_POSITION = 100;
+
         /** The glass controls' storage format an install was last brought up to; absent is 0. */
         public static final String KEY_SURFACE_GLASS_CONTROLS_FORMAT = "surface_glass_controls_format";
 

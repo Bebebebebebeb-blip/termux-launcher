@@ -25,11 +25,16 @@ import java.util.Map;
  *       strengths are its amounts and its family becomes {@code scheme}; any other family's
  *       become 0, its own colour), and every blur and grain pair moves to the nearest Glass
  *       position's ({@link GlassControls#snapped}), Solid's no-blur pair excepted.</li>
+ *   <li>The blur wallpaper mode remembers for its return moves onto the curve beside Base's grain
+ *       ({@link GlassControls#blurWithGrain}),
+ *       and the Glass slider's positions are written for Base and every detached surface.</li>
  *   <li>The saved Custom look is rewritten in format 5 ({@link SurfacePresets#fromLegacy}).</li>
  * </ul>
  *
  * <p>A store that never wrote a tint key read the old default, the full strength; it is pinned
- * first, so nothing reads the new default of 0 in its place.</p>
+ * first, so nothing reads the new default of 0 in its place. Every write, the format marker
+ * included, lands in one editor ({@link SurfacePresets.Batch}): a process killed half way leaves
+ * the store as it was, never a Tint look stripped of its colour with the marker unset.</p>
  */
 public final class GlassControlsMigration {
 
@@ -38,23 +43,69 @@ public final class GlassControlsMigration {
     /** The format this build brings a store to. */
     static final int FORMAT = 1;
 
+    /**
+     * The Looks' start-up work, in its order: this migration first, so a Look it recognises at its
+     * old values is applied as it ships now, then {@link SurfacePresets#readoptMovedLooks} for a
+     * Look whose edge moved. The application calls this, not the two apart.
+     */
+    public static void runAtStartUp(@NonNull TermuxAppSharedPreferences prefs) {
+        run(prefs);
+        SurfacePresets.readoptMovedLooks(prefs);
+    }
+
     public static void run(@NonNull TermuxAppSharedPreferences prefs) {
         SharedPreferences store = prefs.getSharedPreferences();
         if (store == null || store.getInt(TERMUX_APP.KEY_SURFACE_GLASS_CONTROLS_FORMAT, 0) >= FORMAT)
             return;
-        pinLegacyTintStrengths(prefs, store);
-        SurfacePresets.Preset shipped = SurfacePresets.lookAsShippedBeforeFormat5(prefs);
+        SurfacePresets.Batch batch = new SurfacePresets.Batch(store);
+        TermuxAppSharedPreferences into = SurfacePresets.writingInto(prefs, batch);
+        pinLegacyTintStrengths(into, batch);
+        SurfacePresets.Preset shipped = SurfacePresets.lookAsShippedBeforeFormat5(into);
         if (shipped != null)
-            SurfacePresets.apply(prefs, shipped);
+            SurfacePresets.apply(into, shipped);
         else
-            migrateLive(prefs);
-        String custom = prefs.getSurfaceCustomPreset();
+            migrateLive(into);
+        snapRememberedBlur(into, batch);
+        writeGlassPositions(into);
+        String custom = into.getSurfaceCustomPreset();
         if (!custom.isEmpty()) {
             Map<String, Object> look = SurfacePresets.deserialize(custom);
             if (look != null && !look.isEmpty())
-                prefs.setSurfaceCustomPreset(SurfacePresets.serialize(look));
+                into.setSurfaceCustomPreset(SurfacePresets.serialize(look));
         }
-        store.edit().putInt(TERMUX_APP.KEY_SURFACE_GLASS_CONTROLS_FORMAT, FORMAT).apply();
+        batch.edit().putInt(TERMUX_APP.KEY_SURFACE_GLASS_CONTROLS_FORMAT, FORMAT).apply();
+        batch.applyToStore();
+    }
+
+    /**
+     * The blur wallpaper mode puts back when it is turned on again, on the curve: the position
+     * nearest that blur with Base's grain, as it will be worn. No blur stays no blur.
+     */
+    private static void snapRememberedBlur(@NonNull TermuxAppSharedPreferences prefs,
+                                           @NonNull SharedPreferences store) {
+        if (!store.contains(TERMUX_APP.KEY_WALLPAPER_ENABLED_EXTRAKEYS_BLUR_RADIUS))
+            return;
+        int remembered = prefs.getWallpaperEnabledExtraKeysBlurRadius();
+        int blur = GlassControls.blurWithGrain(remembered,
+            prefs.getSurfaceBaseValue(SurfaceProperty.GRAIN));
+        if (blur != remembered)
+            prefs.setWallpaperEnabledExtraKeysBlurRadius(blur);
+    }
+
+    /** The Glass slider's position for Base, and for each surface with its own blur or grain. */
+    private static void writeGlassPositions(@NonNull TermuxAppSharedPreferences prefs) {
+        int blur = prefs.getSurfaceBaseValue(SurfaceProperty.BLUR);
+        int grain = prefs.getSurfaceBaseValue(SurfaceProperty.GRAIN);
+        prefs.setSurfaceGlassPosition(null, GlassControls.glassFor(blur, grain));
+        for (SurfaceSlot slot : SurfaceSlot.values()) {
+            boolean ownBlur = !prefs.isSurfaceInheriting(slot, SurfaceProperty.BLUR);
+            boolean ownGrain = !prefs.isSurfaceInheriting(slot, SurfaceProperty.GRAIN);
+            if (!ownBlur && !ownGrain)
+                continue;
+            prefs.setSurfaceGlassPosition(slot, GlassControls.glassFor(
+                ownBlur ? prefs.getSurfaceOverrideValue(slot, SurfaceProperty.BLUR) : blur,
+                ownGrain ? prefs.getSurfaceOverrideValue(slot, SurfaceProperty.GRAIN) : grain));
+        }
     }
 
     /** Writes the old default strength into every tint key the store never set. */

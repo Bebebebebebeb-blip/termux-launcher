@@ -99,7 +99,7 @@ public class AppearanceLooksTest {
             assertEquals("glass first, so the same columns stay under the thumb", Control.GLASS,
                 AppearanceLooks.controls(target).get(0));
         }
-        assertTrue(AppearanceLooks.controls(null, true).size() <= AppearanceLooks.MAX_CONTROLS);
+        assertEquals(AppearanceLooks.MAX_CONTROLS, AppearanceLooks.controls(null, true).size());
     }
 
     /**

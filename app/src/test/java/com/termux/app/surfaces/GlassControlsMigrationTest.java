@@ -86,14 +86,16 @@ public class GlassControlsMigrationTest {
             .withAccentColors(CONTAINER, ACCENT).tintBase(BASE);
     }
 
-    /** What the old build drew for each Look at the full strength: its ink, or the Material blend. */
+    /**
+     * What the old build drew for each Look at the full strength, as literals read off its
+     * formulas: its ink, or (Tint) the Material blend of BASE toward CONTAINER and ACCENT.
+     */
     private static int oldColour(String id) {
         switch (id) {
             case "frost":
                 return 0xFF161822;
             case "stock":
-                return GlassLook.SCHEME.withAmountPercent(100).withAccentColors(CONTAINER, ACCENT)
-                    .tintBase(BASE);
+                return 0xFF40355B;
             default:
                 return BASE;
         }
@@ -134,8 +136,8 @@ public class GlassControlsMigrationTest {
         preferences.setSurfaceBaseValue(SurfaceProperty.BLUR, 17);
         preferences.setSurfaceBaseValue(SurfaceProperty.TINT, 60);
         preferences.detachSurfaceValue(SurfaceSlot.STATUS, SurfaceProperty.TINT, 30);
-        int before = GlassLook.SCHEME.withAmountPercent(60).withAccentColors(CONTAINER, ACCENT)
-            .tintBase(BASE);
+        // The old Material blend at strength 0.6, read off the old formula.
+        int before = 0xFF2F2742;
 
         GlassControlsMigration.run(preferences);
 
@@ -273,5 +275,154 @@ public class GlassControlsMigrationTest {
         assertEquals(TERMUX_APP.GLASS_TINT_HUE_TERTIARY, preferences.getSurfaceGlassTintHue());
         preferences.setSurfaceGlassTintHue("ultraviolet");
         assertEquals(TERMUX_APP.GLASS_TINT_HUE_PRIMARY, preferences.getSurfaceGlassTintHue());
+        assertEquals("no position stored", -1, preferences.getSurfaceGlassPosition(null));
+        preferences.setSurfaceGlassPosition(null, 250);
+        assertEquals(100, preferences.getSurfaceGlassPosition(null));
+        preferences.setSurfaceGlassPosition(SurfaceSlot.DOCK, 5);
+        assertEquals(5, preferences.getSurfaceGlassPosition(SurfaceSlot.DOCK));
+        preferences.setSurfaceGlassPosition(SurfaceSlot.DOCK, -1);
+        assertEquals("forgotten", -1, preferences.getSurfaceGlassPosition(SurfaceSlot.DOCK));
+    }
+
+    // --------------------------------------------------------------------- one editor, once
+
+    /** A store that counts the editors applied to it, and can die on the next one. */
+    private static final class CountingStore implements SharedPreferences {
+        final SharedPreferences store;
+        int applied;
+        boolean dies;
+
+        CountingStore(SharedPreferences store) {
+            this.store = store;
+        }
+
+        @Override public java.util.Map<String, ?> getAll() { return store.getAll(); }
+        @Override public String getString(String key, String defValue) { return store.getString(key, defValue); }
+        @Override public java.util.Set<String> getStringSet(String key, java.util.Set<String> defValues) { return store.getStringSet(key, defValues); }
+        @Override public int getInt(String key, int defValue) { return store.getInt(key, defValue); }
+        @Override public long getLong(String key, long defValue) { return store.getLong(key, defValue); }
+        @Override public float getFloat(String key, float defValue) { return store.getFloat(key, defValue); }
+        @Override public boolean getBoolean(String key, boolean defValue) { return store.getBoolean(key, defValue); }
+        @Override public boolean contains(String key) { return store.contains(key); }
+        @Override public void registerOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener l) { store.registerOnSharedPreferenceChangeListener(l); }
+        @Override public void unregisterOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener l) { store.unregisterOnSharedPreferenceChangeListener(l); }
+
+        @Override public Editor edit() {
+            final Editor editor = store.edit();
+            return new Editor() {
+                @Override public Editor putString(String k, String v) { editor.putString(k, v); return this; }
+                @Override public Editor putStringSet(String k, java.util.Set<String> v) { editor.putStringSet(k, v); return this; }
+                @Override public Editor putInt(String k, int v) { editor.putInt(k, v); return this; }
+                @Override public Editor putLong(String k, long v) { editor.putLong(k, v); return this; }
+                @Override public Editor putFloat(String k, float v) { editor.putFloat(k, v); return this; }
+                @Override public Editor putBoolean(String k, boolean v) { editor.putBoolean(k, v); return this; }
+                @Override public Editor remove(String k) { editor.remove(k); return this; }
+                @Override public Editor clear() { editor.clear(); return this; }
+                @Override public boolean commit() { apply(); return true; }
+                @Override public void apply() {
+                    if (dies) throw new IllegalStateException("the process died");
+                    applied++;
+                    editor.commit();
+                }
+            };
+        }
+    }
+
+    /** Every write lands in one editor, the format marker with them. */
+    @Test
+    public void everyWriteLandsInOneEditor() {
+        preferences.setSurfaceGlassTint(TERMUX_APP.GLASS_TINT_MATERIAL);
+        preferences.setSurfaceBaseValue(SurfaceProperty.BLUR, 17);
+        preferences.setSurfaceCustomPreset("{\"format_version\":4,\"surface_base_blur\":4,"
+            + "\"surface_base_grain\":4}");
+        CountingStore counting = new CountingStore(store);
+        TermuxAppSharedPreferences over = preferences.over(counting);
+
+        GlassControlsMigration.run(over);
+
+        assertEquals("one editor", 1, counting.applied);
+        assertEquals(GlassControlsMigration.FORMAT,
+            store.getInt(TERMUX_APP.KEY_SURFACE_GLASS_CONTROLS_FORMAT, 0));
+        assertEquals(TERMUX_APP.GLASS_TINT_SCHEME, preferences.getSurfaceGlassTint());
+    }
+
+    /**
+     * A process killed before the one editor lands leaves the store exactly as it was: Tint's
+     * family still material with its strength, the marker unset. The next start migrates it
+     * whole, colour kept.
+     */
+    @Test
+    public void aMigrationKilledHalfWayLeavesTheStoreAsItWas() {
+        preferences.setSurfaceGlassTint(TERMUX_APP.GLASS_TINT_MATERIAL);
+        preferences.setSurfaceBaseValue(SurfaceProperty.BLUR, 17);
+        preferences.setSurfaceBaseValue(SurfaceProperty.TINT, 70);
+        java.util.Map<String, ?> before = new java.util.HashMap<>(store.getAll());
+        CountingStore dying = new CountingStore(store);
+        dying.dies = true;
+        try {
+            GlassControlsMigration.run(preferences.over(dying));
+            throw new AssertionError("the store's editor was never applied");
+        } catch (IllegalStateException expected) {
+            // the process died
+        }
+        assertEquals("nothing written", before, store.getAll());
+
+        GlassControlsMigration.run(preferences);
+        assertEquals(TERMUX_APP.GLASS_TINT_SCHEME, preferences.getSurfaceGlassTint());
+        assertEquals("the colour is kept", 70, preferences.getDockTintStrength());
+    }
+
+    /** The blur wallpaper mode puts back when it is turned on again lands on the curve too. */
+    @Test
+    public void theBlurWallpaperModeRemembersMovesOntoTheCurve() {
+        preferences.setSurfaceBaseValue(SurfaceProperty.BLUR, 10);
+        preferences.setSurfaceBaseValue(SurfaceProperty.GRAIN, 10);
+        preferences.setWallpaperEnabledExtraKeysBlurRadius(10);
+
+        GlassControlsMigration.run(preferences);
+
+        int grain = preferences.getSurfaceBaseValue(SurfaceProperty.GRAIN);
+        int remembered = preferences.getWallpaperEnabledExtraKeysBlurRadius();
+        assertTrue("on the curve with Base's grain: " + remembered + "/" + grain,
+            GlassControls.onCurve(remembered, grain));
+    }
+
+    /** The Glass slider's position is written for Base and each detached surface. */
+    @Test
+    public void theGlassPositionsAreWritten() {
+        preferences.setSurfaceBaseValue(SurfaceProperty.BLUR, 10);
+        preferences.setSurfaceBaseValue(SurfaceProperty.GRAIN, 10);
+        preferences.detachSurfaceValue(SurfaceSlot.STATUS, SurfaceProperty.BLUR, 30);
+        GlassControlsMigration.run(preferences);
+        int base = preferences.getSurfaceGlassPosition(null);
+        assertEquals(preferences.getSurfaceBaseValue(SurfaceProperty.BLUR),
+            GlassControls.blurForGlass(base));
+        assertTrue(preferences.getSurfaceGlassPosition(SurfaceSlot.STATUS) >= 0);
+        assertEquals("a surface that follows Base has none", -1,
+            preferences.getSurfaceGlassPosition(SurfaceSlot.DOCK));
+    }
+
+    /**
+     * At start-up the migration runs, then the moved-Looks re-adoption: an install on Clear as two
+     * builds ago left it (its old blur and grain, the full tint, generation 1's edge) comes up
+     * on Clear as it ships, with both markers written.
+     */
+    @Test
+    public void atStartUpTheMigrationRunsBeforeTheLooksAreReadopted() {
+        storeOldLook("minimal");
+        preferences.setFancierGlassBendDp(11);
+        preferences.setFancierGlassEdgeWidthDp(28);
+        preferences.setFancierGlassEdgeLightPercent(70);
+        preferences.setFancierGlassDispersionPercent(25);
+        preferences.setFancierGlassClarityPercent(100);
+        store.edit().remove(SurfacePresets.KEY_LOOKS_GENERATION).commit();
+
+        GlassControlsMigration.runAtStartUp(preferences);
+
+        assertTrue(SurfacePresets.matches(preferences, preset("minimal")));
+        assertEquals(GlassControlsMigration.FORMAT,
+            store.getInt(TERMUX_APP.KEY_SURFACE_GLASS_CONTROLS_FORMAT, 0));
+        assertEquals(SurfacePresets.LOOKS_GENERATION,
+            store.getInt(SurfacePresets.KEY_LOOKS_GENERATION, 0));
     }
 }

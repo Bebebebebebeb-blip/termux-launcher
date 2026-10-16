@@ -1816,15 +1816,13 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         if (panel == null || prefs == null)
             return;
         panel.showRow2(mTarget == null ? R.string.appearance_editor_target_all : nameOf(mTarget));
-        // The palette Contrast changes is the Material one; with wallpaper colours off the
-        // terminal wears a scheme file, which no contrast level moves (as in Settings).
-        boolean palette = prefs.isTerminalDynamicColorsEnabled();
         // Depth draws nothing while the glass edge is off (below Android 13, no wallpaper set
         // from the launcher, Lazy mode), so the global set only has it while the edge is drawn.
         boolean glassEdge = mTarget == null && mHost.isGlassRefractionActive();
         List<AppearanceEditorPanel.SliderState> states = new ArrayList<>();
         for (Control control : AppearanceLooks.controls(mTarget, glassEdge)) {
-            boolean enabled = control != Control.CONTRAST || palette;
+            // Every control stays live whatever the others say (developer, 2026-10-17).
+            boolean enabled = true;
             if (control == Control.ICON_SIZE) {
                 // The icons the dock can give under this Style on this screen, end to end.
                 int[] range = AppearanceLooks.iconSizeRangeDp(mHost.isFloatingDock(),
@@ -1855,11 +1853,13 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     private int valueOf(@NonNull Control control, @NonNull TermuxAppSharedPreferences prefs) {
         switch (control) {
             case GLASS:
-                // Read back from the blur and grain it writes; nothing is stored for it.
+                // Where it was left, while the blur and grain are still that position's.
                 return mTarget == null
-                    ? GlassControls.glassFor(prefs.getSurfaceBaseValue(SurfaceProperty.BLUR),
+                    ? GlassControls.readBack(prefs.getSurfaceGlassPosition(null),
+                        prefs.getSurfaceBaseValue(SurfaceProperty.BLUR),
                         prefs.getSurfaceBaseValue(SurfaceProperty.GRAIN))
-                    : GlassControls.glassFor(blurOf(prefs, mTarget), grainOf(prefs, mTarget.slot));
+                    : GlassControls.readBack(prefs.getSurfaceGlassPosition(mTarget.slot),
+                        blurOf(prefs, mTarget), grainOf(prefs, mTarget.slot));
             case SHADE:
                 return Control.SHADE.clamp(prefs.getSurfaceGlassShade());
             case VIBRANCY:
@@ -2145,6 +2145,9 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         int glass = Control.GLASS.clamp(value);
         int blur = GlassControls.blurForGlass(glass);
         int grain = GlassControls.grainForGlass(glass);
+        TermuxAppSharedPreferences prefs = prefs();
+        if (prefs != null)
+            prefs.setSurfaceGlassPosition(mTarget == null ? null : mTarget.slot, glass);
         if (mTarget == null) {
             writeBlur(blur);
             writeGlobal(SurfaceProperty.GRAIN, grain);

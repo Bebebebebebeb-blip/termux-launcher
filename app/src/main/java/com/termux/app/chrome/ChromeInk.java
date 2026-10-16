@@ -561,17 +561,18 @@ public final class ChromeInk {
         // The colour the base layer is really drawn in: the tint the surface told, accent and all,
         // so no Tint amount can carry a band past the promise unmeasured.
         int baseColor = baseOf(glass);
-        // The band's flat glass: wallpaper, the launcher's dim, the base layer. No light model, so
-        // the polarity vote is the same number whichever ink is asking. Shade is left out of the
-        // vote, as the film is: a knob that only dims cannot flip the chrome's polarity.
-        int wallpaper = mCache.wallpaperUnder(band, screenRect);
-        int flat = OnGlass.backdrop(wallpaper, mDimColor, OnGlass.withAlpha(baseColor, baseAlpha));
-        vote(band, flat);
         // What the band's own glass is laid on, and nothing of the glass itself: the base layer is
         // part of the tint that gets composited over this, so counting it here too would apply it
         // twice and pick the worst row off a band a shade lighter than the one being drawn. Shade
         // is under the tint, so it is part of what the tint is laid on.
+        int wallpaper = mCache.wallpaperUnder(band, screenRect);
         int under = OnGlass.backdrop(wallpaper, mDimColor, glass.shade);
+        // The band's flat glass: wallpaper, the launcher's dim, the Shade, the base layer in its
+        // tinted colour. No light model, so the polarity vote is the same number whichever ink
+        // is asking. Shade counts: on light glass it whitens, and the ink is chosen for what is
+        // drawn.
+        int flat = OnGlass.composite(OnGlass.withAlpha(baseColor, baseAlpha), under);
+        vote(band, flat);
         int ink = polarity() == Polarity.DARK_INK ? contract.darkInk : contract.paleInk;
 
         int top = DockGlassRendering.topSheenAlpha(glass.opacity);
@@ -615,8 +616,8 @@ public final class ChromeInk {
         int baseAlpha = ChromePolicy.dockGlassBaseAlpha(glass.opacity);
         int baseColor = baseOf(glass);
         int wallpaper = mCache.wallpaperUnder(band, contract.rect);
-        vote(band, OnGlass.backdrop(wallpaper, mDimColor, OnGlass.withAlpha(baseColor, baseAlpha)));
         int under = OnGlass.backdrop(wallpaper, mDimColor, glass.shade);
+        vote(band, OnGlass.composite(OnGlass.withAlpha(baseColor, baseAlpha), under));
         int top = DockGlassRendering.topSheenAlpha(glass.opacity);
         int mid = DockGlassRendering.midSheenAlpha(glass.opacity);
         int foot = DockGlassRendering.footAlpha(glass.opacity, glass.withFoot);
@@ -852,6 +853,37 @@ public final class ChromeInk {
         glass.tinted = true;
         glass.baseColor = baseColor;
         glass.shade = shade;
+    }
+
+    /**
+     * {@code shade}, or as much of it as {@code band}'s content can still read through: where the
+     * band reaches its target without Shade and falls short with it (a dark ink the chrome chose
+     * over light glass that the Shade darkens, say), the Shade is stepped down a quarter at a time
+     * until it reads again, to none at worst. A band that falls short either way keeps the Shade:
+     * it is not what fails it, and the veil and the ink answer as they always did. Leaves the
+     * band's glass noted with the Shade it returns. Before the band's content has asked, nothing
+     * is known and the Shade stands.
+     */
+    @ColorInt
+    int heldShade(@NonNull GlassBackdropCache.Band band, @ColorInt int shade) {
+        int alpha = Color.alpha(shade);
+        if (alpha == 0) return shade;
+        readMode();
+        Contract contract = mContracts.get(band);
+        if (contract == null || !contract.seen) return shade;
+        BandGlass glass = glassFor(band);
+        glass.shade = Color.TRANSPARENT;
+        boolean shortBare = resolveAt(band, contract, 0).shortfall;
+        glass.shade = shade;
+        if (shortBare || !resolveAt(band, contract, 0).shortfall) return shade;
+        int step = Math.max(1, alpha / 4);
+        for (int held = alpha - step; held > 0; held -= step) {
+            int candidate = (held << 24) | (shade & 0x00FFFFFF);
+            glass.shade = candidate;
+            if (!resolveAt(band, contract, 0).shortfall) return candidate;
+        }
+        glass.shade = Color.TRANSPARENT;
+        return Color.TRANSPARENT;
     }
 
     /**

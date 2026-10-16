@@ -252,8 +252,7 @@ final class AppearanceEditorPanel {
         mSliderRow = root.findViewById(R.id.appearance_editor_sliders);
         int[] sliderIds = {R.id.appearance_editor_slider_0, R.id.appearance_editor_slider_1,
             R.id.appearance_editor_slider_2, R.id.appearance_editor_slider_3,
-            R.id.appearance_editor_slider_4, R.id.appearance_editor_slider_5,
-            R.id.appearance_editor_slider_6};
+            R.id.appearance_editor_slider_4, R.id.appearance_editor_slider_5};
         for (int i = 0; i < mSliders.length; i++)
             mSliders[i] = root.findViewById(sliderIds[i]);
         mKeyboardTheme = root.findViewById(R.id.appearance_editor_door_keyboard_theme);
@@ -1227,19 +1226,22 @@ final class AppearanceEditorPanel {
     /**
      * Shows exactly these buttons in the heading row, in the layout's order. The terminal's
      * pills (Cursor trail, Terminal effect) own the row: the name gives way and they share the
-     * width equally, or Cursor trail takes all of it where Terminal effect is not offered.
+     * width equally, or Cursor trail takes all of it where Terminal effect is not offered. The
+     * global set's (Hue, Edge) are the same two cards, after its name, sharing what is left.
      */
     void setDoors(@NonNull List<Door> doors) {
         boolean glassPills = doors.contains(Door.TINT_HUE) || doors.contains(Door.DISPERSION);
         boolean left = doors.contains(Door.TRAIL) || doors.contains(Door.TINT_HUE);
         boolean right = doors.contains(Door.EFFECT) || doors.contains(Door.DISPERSION);
         boolean pills = left || right;
+        // The terminal's pills own the row; the global set's stand beside its name.
+        boolean nameShown = !doors.contains(Door.TRAIL) && !doors.contains(Door.EFFECT);
         if (glassPills != mGlassPills) {
             mGlassPills = glassPills;
             restateTrail();
             restateEffect();
         }
-        mRow2Name.setVisibility(pills ? View.GONE : View.VISIBLE);
+        mRow2Name.setVisibility(nameShown ? View.VISIBLE : View.GONE);
         mKeyboardTheme.setVisibility(doors.contains(Door.KEYBOARD_THEME) ? View.VISIBLE : View.GONE);
         mClock.setVisibility(doors.contains(Door.CLOCK) ? View.VISIBLE : View.GONE);
         mTrail.setVisibility(left ? View.VISIBLE : View.GONE);
@@ -1247,8 +1249,9 @@ final class AppearanceEditorPanel {
         if (space != null)
             space.setVisibility(pills ? View.GONE : View.VISIBLE);
         mEffect.setVisibility(right ? View.VISIBLE : View.GONE);
-        // The first pill leads the row; the second alone does too.
-        setMarginStart(mEffect, left ? Math.round(dp(8)) : 0);
+        // The first pill leads the row, or follows the name 8dp on; the second, 8dp after it.
+        setMarginStart(mTrail, nameShown && left ? Math.round(dp(8)) : 0);
+        setMarginStart(mEffect, left || nameShown ? Math.round(dp(8)) : 0);
     }
 
     private static void setMarginStart(@NonNull View view, int marginPx) {

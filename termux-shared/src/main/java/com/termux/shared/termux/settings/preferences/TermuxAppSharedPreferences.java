@@ -3317,6 +3317,35 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
             known ? hue : TERMUX_APP.DEFAULT_SURFACE_GLASS_TINT_HUE, false);
     }
 
+    /** The key Base's (null) or a surface's Glass slider position is stored under. */
+    @NonNull
+    public static String surfaceGlassPositionKey(@Nullable SurfaceSlot slot) {
+        return slot == null ? TERMUX_APP.KEY_SURFACE_GLASS_POSITION
+            : TERMUX_APP.KEY_SURFACE_GLASS_POSITION + "_" + slot.key;
+    }
+
+    /**
+     * Where Base's (null) or a surface's Glass slider was left, clamped to 0..100, or -1 when
+     * none is stored. See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_SURFACE_GLASS_POSITION}.
+     */
+    public int getSurfaceGlassPosition(@Nullable SurfaceSlot slot) {
+        String key = surfaceGlassPositionKey(slot);
+        if (mSharedPreferences == null || !mSharedPreferences.contains(key)) return -1;
+        return DataUtils.clamp(SharedPreferenceUtils.getInt(mSharedPreferences, key, -1),
+            TERMUX_APP.MIN_SURFACE_GLASS_POSITION, TERMUX_APP.MAX_SURFACE_GLASS_POSITION);
+    }
+
+    /** Stores a Glass slider position, clamped; a negative one forgets it. */
+    public void setSurfaceGlassPosition(@Nullable SurfaceSlot slot, int value) {
+        String key = surfaceGlassPositionKey(slot);
+        if (value < 0) {
+            if (mSharedPreferences != null) mSharedPreferences.edit().remove(key).apply();
+            return;
+        }
+        SharedPreferenceUtils.setInt(mSharedPreferences, key, DataUtils.clamp(value,
+            TERMUX_APP.MIN_SURFACE_GLASS_POSITION, TERMUX_APP.MAX_SURFACE_GLASS_POSITION), false);
+    }
+
     /** See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_SURFACE_GLASS_SHADE}. Clamped. */
     public int getSurfaceGlassShade() {
         return DataUtils.clamp(SharedPreferenceUtils.getInt(mSharedPreferences,

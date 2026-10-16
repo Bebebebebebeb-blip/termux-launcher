@@ -14,9 +14,10 @@ import androidx.annotation.NonNull;
  * blur 0 and grain 0 are off it (no frost at all, the cheapest glass), and the slider still moves
  * from there: its first step writes the curve.</p>
  *
- * <p>The storage keeps blur and grain, which every renderer reads; Glass is only how the slider
- * reads them back: the position whose pair is nearest, squared differences summed, the lower
- * position on a tie ({@link #glassFor}). Reading never writes.</p>
+ * <p>The storage keeps blur and grain, which every renderer reads, and the position the slider
+ * was left at, which it reads back while the pair is still that position's ({@link #readBack});
+ * otherwise the slider stands at the position whose pair is nearest, squared differences summed,
+ * the lower position on a tie ({@link #glassFor}). Reading never writes.</p>
  */
 public final class GlassControls {
 
@@ -71,6 +72,19 @@ public final class GlassControls {
         return db * db + dg * dg;
     }
 
+    /**
+     * Where Glass stands: {@code stored}, the position the slider was left at, while the stored
+     * pair is still the one it writes, so a release at 5 reads 5 even where 0 to 7 write the same
+     * pair; else, with none stored or a pair something else wrote (a Look, wallpaper mode, an
+     * older build), the nearest position ({@link #glassFor}).
+     */
+    public static int readBack(int stored, int blur, int grain) {
+        if (stored >= GLASS_MIN && stored <= GLASS_MAX && blurForGlass(stored) == blur
+            && grainForGlass(stored) == grain)
+            return stored;
+        return glassFor(blur, grain);
+    }
+
     /** Whether a stored pair is one some Glass position writes. */
     public static boolean onCurve(int blur, int grain) {
         int g = glassFor(blur, grain);
@@ -88,6 +102,27 @@ public final class GlassControls {
         if (blur <= 0) return new int[] {blur, grain};
         int g = glassFor(blur, grain);
         return new int[] {blurForGlass(g), grainForGlass(g)};
+    }
+
+    /**
+     * The curve's blur nearest {@code blur} among the positions that write {@code grain}, the
+     * lower on a tie: for a blur that is put back on its own over a grain already on the curve
+     * (wallpaper mode's remembered blur), so the pair it makes is on the curve. Where no position
+     * writes that grain, the nearest pair's blur; no blur stays no blur.
+     */
+    public static int blurWithGrain(int blur, int grain) {
+        if (blur <= 0) return blur;
+        int best = -1;
+        int bestError = Integer.MAX_VALUE;
+        for (int g = GLASS_MIN; g <= GLASS_MAX; g++) {
+            if (grainForGlass(g) != grain) continue;
+            int error = Math.abs(blurForGlass(g) - blur);
+            if (error < bestError) {
+                bestError = error;
+                best = g;
+            }
+        }
+        return best >= 0 ? blurForGlass(best) : snapped(blur, grain)[0];
     }
 
     private static int clampGlass(int glass) {

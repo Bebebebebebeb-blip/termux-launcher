@@ -104,11 +104,13 @@ public abstract class AppearanceEditorPanelFitBase {
                 }
             }
             View name = mPanel.view().findViewById(R.id.appearance_editor_row2_name);
-            if (target == AppearanceLooks.Target.TERMINAL || target == null) {
-                assertEquals(selection + ": the pills own the heading row: no name", View.GONE,
+            if (target == AppearanceLooks.Target.TERMINAL) {
+                assertEquals("the terminal's pills own the heading row: no name", View.GONE,
                     name.getVisibility());
-                if (AppearanceLooks.doors(target, selection.glassEdge).size() == 2)
-                    assertPillsShareTheRow();
+                assertPillsShareTheRow();
+            } else if (target == null) {
+                assertEquals(selection + " keeps its name", View.VISIBLE, name.getVisibility());
+                assertGlassPillsFollowTheName(AppearanceLooks.doors(null, selection.glassEdge));
             } else {
                 assertEquals(String.valueOf(target) + " keeps its name", View.VISIBLE,
                     name.getVisibility());
@@ -150,6 +152,33 @@ public abstract class AppearanceEditorPanelFitBase {
         assertEquals("the row starts with Cursor trail", 0, trail.getLeft());
         assertEquals("8dp between them", Math.round(8 * density), effect.getLeft() - trail.getRight(), 1);
         assertEquals("the row ends with Terminal effect", head.getWidth(), effect.getRight(), 1);
+    }
+
+    /**
+     * The global set's pills stand after its name, 8dp on, and share the rest of the row: the
+     * first 8dp after the name, a second 8dp after the first and ending at the row's end, or the
+     * one alone running to it; the name and their headings whole.
+     */
+    private void assertGlassPillsFollowTheName(List<AppearanceLooks.Door> doors) {
+        View root = mPanel.view();
+        View head = root.findViewById(R.id.appearance_editor_row2_head);
+        View name = root.findViewById(R.id.appearance_editor_row2_name);
+        View trail = root.findViewById(R.id.appearance_editor_trail);
+        View effect = root.findViewById(R.id.appearance_editor_effect);
+        int gap = Math.round(8 * root.getResources().getDisplayMetrics().density);
+        assertEquals(View.VISIBLE, name.getVisibility());
+        assertEquals("Hue follows the name", name.getRight() + gap, trail.getLeft(), 1);
+        View last = trail;
+        if (doors.contains(AppearanceLooks.Door.DISPERSION)) {
+            assertEquals("Edge follows Hue", trail.getRight() + gap, effect.getLeft(), 1);
+            assertEquals("equal widths", trail.getWidth(), effect.getWidth(), 1);
+            last = effect;
+        } else {
+            assertEquals(View.GONE, effect.getVisibility());
+        }
+        assertEquals("the row ends with the last pill", head.getWidth(), last.getRight(), 1);
+        for (AppearanceLooks.Door door : doors)
+            assertPillLinesFit(door);
     }
 
     /**
@@ -250,6 +279,7 @@ public abstract class AppearanceEditorPanelFitBase {
             mPanel.shownDoors());
         assertFits();
         assertPillLinesFit(AppearanceLooks.Door.TINT_HUE);
+        assertGlassPillsFollowTheName(AppearanceLooks.doors(null, false));
         showControls(null, true);
         layOut(mPanel.measureFor(EditorMode.LOOK, mWidthPx));
         List<AppearanceLooks.Control> shown = mPanel.shownControls();
@@ -259,7 +289,7 @@ public abstract class AppearanceEditorPanelFitBase {
         assertEquals(java.util.Arrays.asList(AppearanceLooks.Door.TINT_HUE,
             AppearanceLooks.Door.DISPERSION), mPanel.shownDoors());
         assertFits();
-        assertPillsShareTheRow();
+        assertGlassPillsFollowTheName(AppearanceLooks.doors(null, true));
         for (AppearanceLooks.Target target : AppearanceLooks.Target.values()) {
             showControls(target, true);
             assertTrue(target + " never shows Depth",
@@ -307,7 +337,11 @@ public abstract class AppearanceEditorPanelFitBase {
                     instanceof com.google.android.material.button.MaterialButtonToggleGroup));
             if (selection.target != null)
                 continue;
-            // The global set's heading row is its two pills, whole.
+            TextView name = mPanel.view().findViewById(R.id.appearance_editor_row2_name);
+            Layout nameLayout = name.getLayout();
+            assertNotNull(nameLayout);
+            assertEquals("\"" + name.getText() + "\" is whole", 0,
+                nameLayout.getEllipsisCount(0));
             for (AppearanceLooks.Door door : AppearanceLooks.doors(null, selection.glassEdge))
                 assertPillLinesFit(door);
         }

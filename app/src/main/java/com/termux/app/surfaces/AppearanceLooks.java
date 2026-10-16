@@ -251,10 +251,10 @@ public final class AppearanceLooks {
     }
 
     /**
-     * The sheet's slider columns: at most seven fit a 360 dp phone at the 36 dp floor. The most any
-     * selection has today is the global set with Depth, six.
+     * The most sliders any selection has (the global set with Depth): the sheet's columns. Seven
+     * would still fit a 360 dp phone at the 36 dp floor; eight would not.
      */
-    public static final int MAX_CONTROLS = 7;
+    public static final int MAX_CONTROLS = 6;
 
     /** The name in a legend such as "Blur · 12 dp": the part before the separator. */
     @NonNull

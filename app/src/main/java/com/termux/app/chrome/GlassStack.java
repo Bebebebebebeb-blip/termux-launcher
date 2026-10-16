@@ -224,8 +224,9 @@ public final class GlassStack {
             backdrop.setColorFilter(GlassFilters.frost(Math.round(spec.tintAlpha * 100f)));
             // The gathered light is drawn under the tint and the Shade, so it is raised by what
             // they cover and every surface shows a like outline.
-            backdrop.setRefraction(spec.look.withCover(glass.cover(spec.tintColor != null
-                    ? android.graphics.Color.alpha(spec.tintColor) / 255f : spec.tintAlpha)),
+            backdrop.setRefraction(spec.look.withCover(spec.tintColor != null
+                    ? glass.cover(android.graphics.Color.alpha(spec.tintColor) / 255f, spec.tintColor)
+                    : glass.cover(spec.tintAlpha, glass.tintBase(spec.tintStrengthPercent))),
                 density, spec.cornerRadiusPx, spec.seams);
             programEdge = probe.drawsEdge(backdrop);
             layers.add(backdrop);
@@ -233,7 +234,7 @@ public final class GlassStack {
         boolean rim = wearsRim(spec.rim, programEdge);
         if (spec.tintColor != null) {
             // Shade under the scheme colour, as under the glass tint.
-            int shade = glass.shadeColor();
+            int shade = glass.shadeColorOver(spec.tintColor);
             if (android.graphics.Color.alpha(shade) > 0)
                 layers.add(new android.graphics.drawable.ColorDrawable(shade));
             layers.add(new android.graphics.drawable.ColorDrawable(spec.tintColor));

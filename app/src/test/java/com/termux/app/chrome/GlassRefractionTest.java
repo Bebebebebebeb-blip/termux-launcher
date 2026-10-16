@@ -685,15 +685,20 @@ public class GlassRefractionTest {
 
     /**
      * The gathered light is drawn under the tint and Shade, which let {@code 1 - cover} of it
-     * through. Up to Clear's 10% it is at its tuned strength; above, it is raised by the ratio, so
-     * Mist's 60% shows like Clear's outline, and the opaque slabs are held at the cap.
+     * through. Up to Clear's 10% it is at its tuned strength; above, it is raised by the ratio, and
+     * held at a cap low enough that a mid backdrop's ring stays near the headroom's knee: Mist's
+     * 60% asks 2.25 and, like the opaque slabs, gets the cap.
      */
     @Test
     public void theEdgeGainFollowsWhatCoversIt() {
         assertEquals(1f, GlassRefraction.Look.edgeGainFor(0f), 0f);
         assertEquals("Clear is the reference", 1f, GlassRefraction.Look.edgeGainFor(0.10f), 1e-6f);
         assertEquals("Tint, 46%", 0.9f / 0.54f, GlassRefraction.Look.edgeGainFor(0.46f), 1e-5f);
-        assertEquals("Mist, 60%", 2.25f, GlassRefraction.Look.edgeGainFor(0.60f), 1e-5f);
+        assertEquals("the cap is 2", 2f, GlassRefraction.Look.MAX_EDGE_GAIN, 0f);
+        assertEquals("Mist, 60%, at the cap", GlassRefraction.Look.MAX_EDGE_GAIN,
+            GlassRefraction.Look.edgeGainFor(0.60f), 0f);
+        assertEquals("half cover is the plain ratio", 1.8f,
+            GlassRefraction.Look.edgeGainFor(0.50f), 1e-5f);
         assertEquals("Solid, 92%, held at the cap", GlassRefraction.Look.MAX_EDGE_GAIN,
             GlassRefraction.Look.edgeGainFor(0.92f), 0f);
         assertEquals(GlassRefraction.Look.MAX_EDGE_GAIN, GlassRefraction.Look.edgeGainFor(1f), 0f);
@@ -716,7 +721,7 @@ public class GlassRefractionTest {
         assertEquals(1f, look.edgeGain(), 0f);
         GlassRefraction.Look mist = look.withCover(0.6f);
         assertEquals(60, mist.coverPercent);
-        assertEquals(2.25f, mist.edgeGain(), 1e-5f);
+        assertEquals(GlassRefraction.Look.MAX_EDGE_GAIN, mist.edgeGain(), 0f);
         assertNotEquals(look, mist);
         assertEquals(mist, look.withCover(0.6001f));
         assertTrue("the same cover writes nothing new", mist == mist.withCover(0.6f));
@@ -760,5 +765,23 @@ public class GlassRefractionTest {
         GlassRefraction.Look prism = new GlassRefraction.Look(27, 18, 10, 0, 80, 76);
         assertEquals(2f * glint.dispersion(), prism.dispersion(), 1e-6f);
         assertTrue(prism.dispersion() <= GlassRefraction.Look.MAX_DISPERSION_SHARE);
+    }
+
+    /**
+     * At the cap the ambient sides of a mid-grey backdrop sit at about the headroom's knee, and a
+     * dark backdrop's well inside the straight part: the ring keeps its falloff.
+     */
+    @Test
+    public void theCapKeepsTheRingNearTheKnee() {
+        float mid = 0.5f;
+        float k = GlassRefraction.gatherK(0f, DENSITY, GlassRefraction.Look.AMBIENT, mid)
+            * GlassRefraction.Look.MAX_EDGE_GAIN;
+        float knee = GlassRefraction.Look.HEADROOM_KNEE * GlassRefraction.headroomK(mid, 1f);
+        assertEquals("mid grey's sides at about the knee", knee, k, 0.03f);
+        float dark = 0.2f;
+        float kDark = GlassRefraction.gatherK(0f, DENSITY, GlassRefraction.Look.AMBIENT, dark)
+            * GlassRefraction.Look.MAX_EDGE_GAIN;
+        assertTrue("a dark backdrop's inside the straight part",
+            kDark < GlassRefraction.Look.HEADROOM_KNEE * GlassRefraction.headroomK(dark, 1f));
     }
 }

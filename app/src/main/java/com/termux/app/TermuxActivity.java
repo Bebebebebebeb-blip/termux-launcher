@@ -3614,13 +3614,15 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 // Under both Styles the pane is the frame's glass until Darkness is raised: the
                 // Docked insert reads as a window by the hairline round its opening, not by tone.
                 // Shade lies under the pane's tint as under every glass tint, folded into the one
-                // paint the slab draws; a pane with no slab of its own takes none.
-                return shouldShowTerminalOverlaySurface()
-                    ? com.termux.app.chrome.GlassShade.under(mChrome.glass().look(mPreferences != null
+                // paint the slab draws, black or white by the pane's own tint (a dark scheme under
+                // light chrome dims, never mists); a pane with no slab of its own takes none.
+                if (!shouldShowTerminalOverlaySurface()) return Color.TRANSPARENT;
+                int tint = mChrome.glass().look(mPreferences != null
                         ? mPreferences.getTerminalTintStrength()
                         : TermuxPreferenceConstants.TERMUX_APP.DEFAULT_SURFACE_BASE_TINT)
-                        .flatTint(resolveTerminalSurfaceColor()), mChrome.glass().shadeColor())
-                    : Color.TRANSPARENT;
+                    .flatTint(resolveTerminalSurfaceColor());
+                return com.termux.app.chrome.GlassShade.under(tint,
+                    mChrome.glass().shadeColorOver(tint));
             }
 
             @Override public int paneGlassVeil(@NonNull Rect rootRect) {
@@ -4249,6 +4251,22 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private float mKeyLensCx, mKeyLensCy;            // centre in backdrop fragCoord space
     private float mKeyLensHx, mKeyLensHy;            // half extents
     private float mKeyLensRadius;                    // corner radius
+    /**
+     * What the dock's and the strip's tint and Shade cover of their backdrops, as their last
+     * dress passes worked it out ({@link #dockGlassCover}); -1 before the first. A change re-dresses
+     * the backdrop, so its edge follows an opacity or Shade change.
+     */
+    private float mDockGlassCover = -1f;
+    private float mNavStripGlassCover = -1f;
+
+    /** What the dock material's tint and Shade cover of the frost under them, 0..1. */
+    private float dockGlassCover() {
+        if (mPreferences == null) return 0f;
+        com.termux.app.chrome.GlassSurfaceFactory glass = mChrome.glass();
+        return glass.cover(mPreferences.getAppBarOpacity() / 100f,
+            glass.tintBase(mPreferences.getDockTintStrength()));
+    }
+
     // Last dock-glass params, so the lens can rebuild the backdrop effect without recapturing.
     private boolean mGlassParamsValid = false;
     private float mGlassBlurPx, mGlassCapLeft, mGlassCapTop, mGlassCapRight, mGlassCapBottom, mGlassRadiusPx;
@@ -4292,12 +4310,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             // The view's own pixels are the content here, so the aim is identity.
             program.setAim(1f, 1f, 0f, 0f);
             program.setRect(capLeft, capTop, capRight, capBottom, radiusPx);
-            // The user's knobs while Fancier Glass is on; the numbers this dock always ran with
-            // otherwise, so the default mode's dock and strip are pixel for pixel what they were.
-            // Raised by what the dock's tint and Shade cover of it, as every glass surface's edge.
+            // The user's knobs while Fancier Glass is on, the numbers this dock always ran with
+            // otherwise; either way its gathered edge is raised by what the dock's tint and Shade
+            // cover of it, the one rule every glass surface's edge follows. The cover is the one
+            // the last dress pass worked out, so a key's lens rebuilding this per frame reads no
+            // preference.
             program.setLook(com.termux.app.chrome.GlassStack.lookFor(mFancierGlassLook)
-                .withCover(mChrome == null || mPreferences == null ? 0f
-                    : mChrome.glass().cover(mPreferences.getAppBarOpacity() / 100f)));
+                .withCover(Math.max(0f, navStrip ? mNavStripGlassCover : mDockGlassCover)));
             // Per-key lens state (0 intensity == no lens, dock refraction unchanged).
             if (!navStrip && mKeyLensActive && mKeyLensIntensity > 0f) {
                 program.setLens(mKeyLensCx, mKeyLensCy, mKeyLensHx, mKeyLensHy, mKeyLensRadius,
@@ -7059,7 +7078,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
 
         boolean usingManagedWallpaperSource = shouldUseManagedWallpaperBlurSource();
+        float stripCover = dockGlassCover();
         if (!mChrome.ledger().isDirty(SurfaceDirtyLedger.Backdrop.DECOR_NAV_BAR) &&
+            stripCover == mNavStripGlassCover &&
             mChrome.ledger().lastRadiusDp(SurfaceDirtyLedger.Backdrop.DECOR_NAV_BAR) == stripRadiusDp &&
             mChrome.ledger().lastManagedSource(SurfaceDirtyLedger.Backdrop.DECOR_NAV_BAR) == usingManagedWallpaperSource &&
             mChrome.ledger().matchesLastRect(SurfaceDirtyLedger.Backdrop.DECOR_NAV_BAR, targetRect) &&
@@ -7092,6 +7113,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 mWallpaperParallax, com.termux.app.chrome.GlassAnchor.screen(backdrop)));
         }
         backdrop.invalidate();
+        mNavStripGlassCover = stripCover;
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             // Use the SAME AGSL glass refraction the content dock/keyboard backdrop uses (API 33+),
@@ -7650,7 +7672,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             seamOverscanPx);
         com.termux.app.chrome.SharedFrameDrawable installed =
             com.termux.app.chrome.SharedFrameDrawable.of(backdrop.getDrawable());
+        float dockCover = dockGlassCover();
         if (!mChrome.ledger().isDirty(SurfaceDirtyLedger.Backdrop.ACCESSORY) &&
+            dockCover == mDockGlassCover &&
             mChrome.ledger().lastRadiusDp(SurfaceDirtyLedger.Backdrop.ACCESSORY) == state.blurRadiusDp &&
             mChrome.ledger().lastManagedSource(SurfaceDirtyLedger.Backdrop.ACCESSORY) == usingManagedWallpaperSource &&
             mChrome.ledger().matchesLastRect(SurfaceDirtyLedger.Backdrop.ACCESSORY, backdropTargetRect) &&
@@ -7678,6 +7702,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
 
         installAccessoryBackdropFrame(backdrop, installed, frame, frameRect, state.blurRadiusDp);
+        mDockGlassCover = dockCover;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             // The capsule sits inside the (horizontally overscanned) backdrop bitmap: left/right are
             // inset by the overscan, top/bottom span the full height. Hand that rect to the shader so

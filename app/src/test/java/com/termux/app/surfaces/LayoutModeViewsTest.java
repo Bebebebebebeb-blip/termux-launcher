@@ -395,14 +395,14 @@ public class LayoutModeViewsTest {
         panel.setDoors(AppearanceLooks.doors(null, true));
         assertEquals(java.util.Arrays.asList(AppearanceLooks.Door.TINT_HUE,
             AppearanceLooks.Door.DISPERSION), panel.shownDoors());
-        assertFalse("the global set's pills take the name's place", panel.isRow2NameShown());
+        assertTrue("the global set's pills stand beside its name", panel.isRow2NameShown());
         panel.setGlassLooks("tertiary", "glint");
         TextView trailTitle = panel.view().findViewById(R.id.appearance_editor_trail_title);
         TextView effectTitle = panel.view().findViewById(R.id.appearance_editor_effect_title);
         TextView effectValue = panel.view().findViewById(R.id.appearance_editor_effect_value);
-        assertEquals("Tint colour", trailTitle.getText().toString());
+        assertEquals("Hue", trailTitle.getText().toString());
         assertEquals("Tertiary", trailValue.getText().toString());
-        assertEquals("Edge colour", effectTitle.getText().toString());
+        assertEquals("Edge", effectTitle.getText().toString());
         assertEquals("Glint", effectValue.getText().toString());
         assertEquals("Tint colour, Tertiary", trail.getContentDescription().toString());
         panel.setDoors(AppearanceLooks.doors(null, false));

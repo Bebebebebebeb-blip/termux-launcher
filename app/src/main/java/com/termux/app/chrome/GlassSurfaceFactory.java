@@ -101,22 +101,30 @@ public final class GlassSurfaceFactory {
     }
 
     /**
-     * The Shade layer every glass surface lays under its tint: black or white at the stored
-     * share of the theme's cap ({@link GlassShade}), transparent at 0.
+     * The Shade layer a glass surface lays under its tint {@code tint}: black where that tint is
+     * dark and white where it is light, at the stored share of that side's cap
+     * ({@link GlassShade}); transparent at 0. Decided by the surface's own tint, never the
+     * chrome's, so a dark pane under light chrome dims rather than turning milky.
      */
-    public int shadeColor() {
+    public int shadeColorOver(int tint) {
         TermuxAppSharedPreferences preferences = mSurfaces.preferences();
         int percent = preferences != null ? preferences.getSurfaceGlassShade()
             : TermuxPreferenceConstants.TERMUX_APP.DEFAULT_SURFACE_GLASS_SHADE;
-        return GlassShade.color(mSurfaces.glassBaseColor(), percent);
+        return GlassShade.color(tint, percent);
+    }
+
+    /** The colour a surface mixing in {@code tintAmountPercent} of the accent draws its tint in. */
+    public int tintBase(int tintAmountPercent) {
+        return look(tintAmountPercent).tintBase(mSurfaces.glassBaseColor());
     }
 
     /**
-     * How much the layers over a frost at {@code tintAlpha} cover it, Shade included: what the
-     * frost's gathered light is scaled by so it reads through them ({@link GlassRefraction.Look#withCover}).
+     * How much the layers over a frost cover it: a tint of {@code tint}'s colour at
+     * {@code tintAlpha} with its Shade under it. What the frost's gathered light is scaled by so it
+     * reads through them ({@link GlassRefraction.Look#withCover}).
      */
-    public float cover(float tintAlpha) {
-        return GlassShade.cover(tintAlpha, shadeColor());
+    public float cover(float tintAlpha, int tint) {
+        return GlassShade.cover(tintAlpha, shadeColorOver(tint));
     }
 
     /** The dock's tint strength, percent: what every dock-material surface wears. */
@@ -348,7 +356,7 @@ public final class GlassSurfaceFactory {
         GlassLook look = look(tintStrengthPercent);
         int base = look.tintBase(mSurfaces.glassBaseColor());
         int accent = mSurfaces.accentColor();
-        int shade = shadeColor();
+        int shade = shadeColorOver(base);
         float clamped = barAlpha < 0f ? 0f : (barAlpha > 1f ? 1f : barAlpha);
         // Opacity controls the colored material wash and its lighting. The wallpaper blur and
         // grain are independent physical layers: reducing tint should reveal more frost/texture,
@@ -359,6 +367,9 @@ public final class GlassSurfaceFactory {
         int bottomFootAlpha = DockGlassRendering.footAlpha(clamped, withFoot);
         if (glassBand != null && mInk != null) {
             mInk.noteBandGlass(glassBand, clamped, withFoot, sliceStart, sliceEnd, base, shade);
+            // Never more Shade than the band's content can read through: held back where it
+            // alone would leave the ink short of its target.
+            shade = mInk.heldShade(glassBand, shade);
         }
         GradientDrawable baseLayer = new GradientDrawable();
         baseLayer.setColor(SchemeTone.withAlpha(base, baseAlpha / 255f));
@@ -438,8 +449,9 @@ public final class GlassSurfaceFactory {
                                   float sliceStart, float sliceEnd, boolean withFoot) {
         if (mInk == null) return null;
         float clamped = barAlpha < 0f ? 0f : (barAlpha > 1f ? 1f : barAlpha);
-        mInk.noteBandGlass(band, clamped, withFoot, sliceStart, sliceEnd,
-            look(dockTintStrength()).tintBase(mSurfaces.glassBaseColor()), shadeColor());
+        int base = tintBase(dockTintStrength());
+        mInk.noteBandGlass(band, clamped, withFoot, sliceStart, sliceEnd, base,
+            shadeColorOver(base));
         int veil = mInk.bandVeil(band);
         if (Color.alpha(veil) <= 0) return null;
         GradientDrawable layer = new GradientDrawable();

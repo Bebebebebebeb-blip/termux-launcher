@@ -57,20 +57,20 @@ public class GlassLookTest {
     @Test
     public void everyShippedLookRendersAsBefore() {
         int[] bases = {0x80202A44, 0xFF141218, 0x99F2F2F2, 0x2EE6E1E5};
-        for (int base : bases) {
+        // What the build before the amount drew, read off its formulas (Obsidian's ink by the
+        // scheme's brightness; the Material blend at strength 1, float for float), as literals.
+        int[] oldMist = {0x80161822, 0xFF161822, 0x99FFFFFF, 0x2EFFFFFF};
+        int[] oldTint = {0x80334684, 0xFF2C396B, 0x99A8B6E5, 0x2EA1ADDE};
+        for (int i = 0; i < bases.length; i++) {
+            int base = bases[i];
             assertEquals("Clear and Solid", base, GlassLook.SCHEME.withAmountPercent(0)
                 .withAccentColors(CONTAINER, ACCENT).tintBase(base));
-            GlassLook mist = GlassLook.of("obsidian", "gradient");
-            int ink = GlassLook.isDark(base) ? 0x161822 : 0xFFFFFF;
-            assertEquals("Mist", (base & 0xFF000000) | ink, mist.withAccentColors(CONTAINER, ACCENT)
-                .tintBase(base));
-            assertEquals("Mist's flat tint",
-                mist.flatTint(base), mist.withAccentColors(CONTAINER, ACCENT).flatTint(base));
+            GlassLook mist = GlassLook.of("obsidian", "gradient").withAccentColors(CONTAINER, ACCENT);
+            assertEquals("Mist", oldMist[i], mist.tintBase(base));
             GlassLook tint = GlassLook.SCHEME.withAmountPercent(100)
                 .withAccentColors(CONTAINER, ACCENT);
-            assertEquals("Tint", oldMaterial(base, 1f), tint.tintBase(base));
-            if ((base >>> 24) != 0)
-                assertEquals("Tint's flat tint", oldMaterial(base, 1f), tint.flatTint(base));
+            assertEquals("Tint", oldTint[i], tint.tintBase(base));
+            assertEquals("Tint's flat tint", oldTint[i], tint.flatTint(base));
         }
     }
 

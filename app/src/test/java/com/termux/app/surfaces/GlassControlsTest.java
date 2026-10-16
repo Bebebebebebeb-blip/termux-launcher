@@ -112,4 +112,32 @@ public class GlassControlsTest {
         assertEquals("glint", GlassControls.Dispersion.GLINT.id());
         assertEquals(GlassControls.Dispersion.OFF, GlassControls.Dispersion.ofId("rainbow"));
     }
+
+    /** The slider reads back where it was left while the pair is still that position's. */
+    @Test
+    public void aReleaseAtFiveStaysAtFive() {
+        int blur = GlassControls.blurForGlass(5);
+        int grain = GlassControls.grainForGlass(5);
+        assertEquals("0 to 7 write this pair", blur, GlassControls.blurForGlass(0));
+        assertEquals(5, GlassControls.readBack(5, blur, grain));
+        assertEquals("none stored: the nearest", GlassControls.glassFor(blur, grain),
+            GlassControls.readBack(-1, blur, grain));
+        assertEquals("a pair something else wrote: the nearest", 40,
+            GlassControls.readBack(5, 12, 4));
+        assertEquals("out of range: the nearest", GlassControls.glassFor(blur, grain),
+            GlassControls.readBack(140, blur, grain));
+    }
+
+    /** A blur put back on its own lands on the curve beside the grain it will be worn with. */
+    @Test
+    public void aBlurBesideAGrainLandsOnTheCurve() {
+        for (int grain = 2; grain <= 8; grain++) {
+            for (int blur = 1; blur <= 48; blur++) {
+                int snapped = GlassControls.blurWithGrain(blur, grain);
+                assertTrue(blur + "/" + grain + " -> " + snapped,
+                    GlassControls.onCurve(snapped, grain));
+            }
+        }
+        assertEquals("no blur stays no blur", 0, GlassControls.blurWithGrain(0, 5));
+    }
 }

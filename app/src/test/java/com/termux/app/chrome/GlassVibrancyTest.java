@@ -27,6 +27,7 @@ public class GlassVibrancyTest {
         assertFalse("the bare wallpaper never takes it", GlassVibrancy.bakes(0, 150));
         assertTrue(GlassVibrancy.bakes(12, 130));
         assertTrue(GlassVibrancy.bakes(4, 70));
-        assertFalse("an out-of-range 100 is still today", GlassVibrancy.bakes(12, 100));
+        assertTrue("an out-of-range value bakes at its clamp", GlassVibrancy.bakes(12, 900));
+        assertFalse("no blur, no frame to bake", GlassVibrancy.bakes(-1, 130));
     }
 }
