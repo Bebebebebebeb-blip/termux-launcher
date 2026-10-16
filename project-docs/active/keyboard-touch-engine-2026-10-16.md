@@ -1,7 +1,7 @@
 # Keyboard touch engine (2026-10-16)
 
-Status: spec, settled with the developer on 2026-10-16. Nothing here is built. It ships as one drop
-on a branch from `pre`.
+Status: decisions 1–13 built (27a6ceebb on `pre`), on pong since 2026-10-16. Round 2 below is
+settled and not built.
 
 The in-app keyboard learns where this user's thumbs actually land and moves key borders to match.
 The first acceptance case is the developer's own: aiming at the space bar and landing on `b` or `v`
@@ -31,7 +31,7 @@ is parked and out of scope.
 |---|---|
 | Raw key | The key whose rectangle contains the finger-down point. |
 | Committed key | The key that is sent. It differs from the raw key only on a corrected tap. |
-| Take-back | Key X, exactly one Backspace, then key Y, where Y is a grid neighbour of X: all within 2 s with nothing in between. It means "meant Y, hit X". |
+| Take-back | Backspace pressed k times (1–8) in a row, then k keys retyped, where the retyped keys match the erased ones except at exactly one place, and there the erased key X and the retyped key Y are grid neighbours. It means "meant Y, hit X". Round 2; before it, k was always 1. |
 | Group | A set of keys that pool their offsets until each key has taps of its own. |
 | Warm-up | The first 1,000 taps after the feature is switched on: it learns and counts but never corrects. |
 | Take-back rate | Take-backs per 100 taps. It is both the metric and the drift alarm's input. |
@@ -89,10 +89,63 @@ is parked and out of scope.
 13. **Migration.** The existing learned file is discarded once: changing which keys count changes
     every stored geometry signature. Bump the store version so the old file is dropped cleanly.
 
+## Round 2: late fixes (settled 2026-10-16)
+
+The developer often notices a miss only a few keys later and presses Backspace 3–5 times, back
+into the previous word, before retyping. Round 1 missed this in two ways, and the file pulled
+from pong after about two hours confirmed it:
+
+- The warm-up saw 0 take-backs in 1,000 taps, and the corrected phase saw 15 in about 6,900.
+  None were into space, so the pass bar had nothing to measure.
+- Only one tap was held, so a miss noticed late had already been filed as a correct tap on the key
+  that was hit. That pulls the border the wrong way.
+
+The same file also showed the following:
+
+- **Space taps land high.** The median space tap is 0.21 key widths above the centre. The learned
+  border had risen only about 0.1 key width.
+- **Two take-backs went the other way.** They were meant for `n` and hit space: watch for
+  over-correction.
+- **Contact size is real on pong.** `getTouchMajor` gives 24 distinct values, 0.22–0.36 key
+  widths.
+- **A resize started learning from zero.** The layout's key width changed from 106 px to 100 px,
+  which gave it a new grid. The old grid kept the warm-up counts and the new one kept everything
+  since, so the pass bar's two phases ended up in different grids.
+
+Decisions:
+
+14. **Never learn from erased taps (Gboard's rule).** Sivek & Riley learn only from text that
+    survived. Hold the last 8 taps before filing them. A Backspace erases the newest held tap,
+    and an erased tap is never filed as landed. Held taps that were not erased are filed when the
+    text is final, or when they drop out of the 8:
+    - Enter or another key that is never corrected, apart from Backspace.
+    - A Ctrl or Alt chord.
+    - Paste or a hardware key.
+    - A gap of more than 2 s.
+    - The keyboard going away.
+15. **Retype match.** This is our own extension; no keyboard has published one. Take k
+    consecutive Backspaces, 1 to 8, that erase held taps, followed by k plain taps:
+    - **Match:** the retyped keys equal the erased ones except at exactly one place, where the
+      erased key X and the retyped key Y are grid neighbours, both characters or space. That place
+      is a take-back: X's landing point is filed as meant for Y, at weight 3.
+    - **Erased correct taps:** the other erased taps are dropped, not filed.
+    - **No match:** anything else (more than one difference, keys that are not neighbours, a
+      longer or shorter retype, a gap over 2 s between keystrokes, other input in between) means
+      editing, and all the erased taps are dropped.
+    - **Not caught:** a held Backspace that auto-repeats, and doubled or skipped letters.
+16. **The pass bar counts by both keys.** Take-backs are counted by the key meant and also by the
+    key hit, so "missed into `b`, `v` or `n`, meant space" can be read straight from the file.
+17. **A resize keeps what was learned.** Vertical offsets are stored in key heights and horizontal
+    ones in key widths (Gboard's normalisation). A grid is identified by the layout and its key
+    structure (rows, relative widths and roles), not by pixel size, so a resize or edge-gap change
+    keeps both the model and the pass-bar counts. Editing the layout's keys still restarts it.
+18. **Fresh start.** Bump the store version: everything learned so far is dropped, with the
+    developer's agreement, so the warm-up and baseline are taken under the new take-back rule.
+
 ## Pass bar
 
-On pong, over a few days of the developer's normal use: space take-backs (`b`, `v` or `n`, then
-Backspace, then space) drop by at least 30% against the warm-up baseline, and the take-back rate
+On pong, over a few days of the developer's normal use: space take-backs (hit `b`, `v` or `n`, meant
+space, under the round 2 rule) drop by at least 30% against the warm-up baseline, and the take-back rate
 for other keys does not rise.
 
 ## Device checks owed
