@@ -693,6 +693,18 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
         SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_FANCIER_GLASS, value, false);
     }
 
+    /** See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_FANCIER_GLASS_ADAPTIVE}. The switch alone, as {@link #isFancierGlassEnabled}. */
+    public boolean isFancierGlassAdaptiveEnabled() {
+        return SharedPreferenceUtils.getBoolean(mSharedPreferences,
+            TERMUX_APP.KEY_FANCIER_GLASS_ADAPTIVE, TERMUX_APP.DEFAULT_VALUE_FANCIER_GLASS_ADAPTIVE);
+    }
+
+    /** See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_FANCIER_GLASS_ADAPTIVE}. */
+    public void setFancierGlassAdaptiveEnabled(boolean value) {
+        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_FANCIER_GLASS_ADAPTIVE,
+            value, false);
+    }
+
     /** See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_FANCIER_GLASS_BEND}. Clamped, in dp. */
     public int getFancierGlassBendDp() {
         return DataUtils.clamp(SharedPreferenceUtils.getInt(mSharedPreferences,

@@ -1580,6 +1580,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return mFancierGlassLook;
         }
 
+        @Override public boolean adaptiveGlass() {
+            return mAdaptiveGlass;
+        }
+
         @Override public float planeGlassCornerRadiusPx() {
             // The planes are clipped to the terminal's own edge shape, capsule or knob.
             return terminalEdgeCornerRadiusPx();
@@ -3410,7 +3414,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // reset that runs just before leaves a transparent colour drawable and hides the view, and
         // taking that for the glass left the gutter bare from the second pass on.
         List<Object> key = Arrays.asList(frame, blurRadiusDp, mPreferences.getAppBarOpacity(),
-            mPreferences.getDockGlassGrain(), mFancierGlassLook, mPreferences.getDockTintStrength());
+            mPreferences.getDockGlassGrain(), mFancierGlassLook, mPreferences.getDockTintStrength(),
+            mAdaptiveGlass);
         if (mFrameGutterShown && mFrameGutterDrawable != null
                 && body.getBackground() == mFrameGutterDrawable && key.equals(mFrameGutterKey)) {
             body.setVisibility(View.VISIBLE);
@@ -3426,7 +3431,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         com.termux.app.chrome.GlassStack.Spec spec = com.termux.app.chrome.GlassStack.Spec.of(
             blurRadiusDp, mPreferences.getAppBarOpacity() / 100f,
             mPreferences.getDockGlassGrain(), 0f, mFancierGlassLook).withRim(false)
-            .withTintStrength(mPreferences.getDockTintStrength());
+            .withTintStrength(mPreferences.getDockTintStrength())
+            // Every edge of this sheet is the screen's own. The hairline there is a hair of shade
+            // nobody sees; the gathered light, which every side takes a share of, would run a
+            // glow round the screen, so with Adaptive glass all four are seams.
+            .withSeams(mAdaptiveGlass ? com.termux.app.chrome.ChromeEdgeRule.ALL : 0);
         mFrameGutterDrawable =
             com.termux.app.chrome.GlassStack.build(mChrome.glass(), spec, density, backdrop);
         body.setBackground(mFrameGutterDrawable);
@@ -3570,6 +3579,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     return new com.termux.app.chrome.GlassRefraction.Look(0,
                         mFancierGlassLook.edgeWidthDp, mFancierGlassLook.edgeLightPercent);
                 return mFancierGlassLook;
+            }
+
+            @Override public boolean adaptiveGlass() {
+                return mAdaptiveGlass;
             }
 
             @Override @Nullable public Bitmap paneGlassClearFrame() {
@@ -3792,8 +3805,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      */
     private void syncFancierGlassLook() {
         com.termux.app.chrome.GlassRefraction.Look look = currentFancierGlassLook();
-        if (java.util.Objects.equals(look, mFancierGlassLook)) return;
+        // Adaptive glass rides on the look: no look, no program to draw the gathered edge.
+        boolean adaptive = look != null && mPreferences != null
+            && mPreferences.isFancierGlassAdaptiveEnabled();
+        if (java.util.Objects.equals(look, mFancierGlassLook) && adaptive == mAdaptiveGlass) return;
         mFancierGlassLook = look;
+        mAdaptiveGlass = adaptive;
         mChrome.ledger().markAllBackdropsDirty();
         mAppliedPaneStyleKey = null;
     }
@@ -4223,6 +4240,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      */
     @Nullable private com.termux.app.chrome.GlassRefraction.Look mFancierGlassLook;
 
+    /**
+     * Adaptive glass as it stands this instant: its switch, while {@link #mFancierGlassLook} is
+     * set. Every glass outline then gathers the wallpaper's light in place of the hairline and
+     * the gradient rim. Re-read with the look ({@link #syncFancierGlassLook}).
+     */
+    private boolean mAdaptiveGlass;
+
     // --- Active extra-key lens state (drives the per-key refraction in the backdrop shader). ---
     private boolean mKeyLensActive = false;
     private float mKeyLensIntensity = 0f;            // 0..1 fade
@@ -4275,6 +4299,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             // The user's knobs while Fancier Glass is on; the numbers this dock always ran with
             // otherwise, so the default mode's dock and strip are pixel for pixel what they were.
             program.setLook(com.termux.app.chrome.GlassStack.lookFor(mFancierGlassLook));
+            program.setGathered(mAdaptiveGlass);
             // Per-key lens state (0 intensity == no lens, dock refraction unchanged).
             if (!navStrip && mKeyLensActive && mKeyLensIntensity > 0f) {
                 program.setLens(mKeyLensCx, mKeyLensCy, mKeyLensHx, mKeyLensHy, mKeyLensRadius,
@@ -7048,7 +7073,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 capsuleOverlay ? 0 : com.termux.app.chrome.ChromeEdgeRule.TOP);
             float reachPx = com.termux.app.chrome.GlassRefraction.seamReachPx(
                 com.termux.app.chrome.GlassStack.lookFor(mFancierGlassLook),
-                getResources().getDisplayMetrics().density, 0f);
+                getResources().getDisplayMetrics().density, 0f, mAdaptiveGlass);
             float[] rect = new float[4];
             com.termux.app.chrome.GlassRefraction.rimRect(rect, 0f, 0f,
                 Math.max(1, targetRect.width()), Math.max(1, targetRect.height()), reachPx,
@@ -7635,7 +7660,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             com.termux.app.chrome.GlassRefraction.rimRect(capRect, capLeft, 0f, capRight, capBottom,
                 com.termux.app.chrome.GlassRefraction.seamReachPx(
                     com.termux.app.chrome.GlassStack.lookFor(mFancierGlassLook),
-                    getResources().getDisplayMetrics().density, radiusPx),
+                    getResources().getDisplayMetrics().density, radiusPx, mAdaptiveGlass),
                 dockSeams);
             RenderEffect glass = buildGlassRefractionEffect(0f, capRect[0], capRect[1], capRect[2],
                 capRect[3], radiusPx);

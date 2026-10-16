@@ -319,7 +319,8 @@ public final class WallpaperFrostPainter {
     /** Fancier Glass on one frost, or the plain frost while the look is null. */
     private void refract(@NonNull SharedFrameDrawable frost, float cornerRadiusPx, int seams) {
         frost.setRefraction(mSurfaces.fancierGlassLook(),
-            mSurfaces.context().getResources().getDisplayMetrics().density, cornerRadiusPx, seams);
+            mSurfaces.context().getResources().getDisplayMetrics().density, cornerRadiusPx, seams,
+            mSurfaces.adaptiveGlass());
     }
 
     /**

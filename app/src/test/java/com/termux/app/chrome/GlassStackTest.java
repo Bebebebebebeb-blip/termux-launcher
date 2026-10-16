@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import com.termux.app.DockGlassRendering;
 import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.os.Build;
@@ -22,6 +23,7 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
@@ -39,6 +41,7 @@ public class GlassStackTest {
     private static final GlassRefraction.Look FANCIER = new GlassRefraction.Look(9, 14, 60);
 
     private TermuxAppSharedPreferences preferences;
+    private FakeChromeSurfaces surfaces;
     private GlassSurfaceFactory glass;
 
     @Before
@@ -51,7 +54,8 @@ public class GlassStackTest {
         preferences.migrateSurfaceInheritance();
         for (SurfaceSlot slot : SurfaceSlot.values())
             preferences.reattachSurface(slot);
-        glass = new GlassSurfaceFactory(new FakeChromeSurfaces(context));
+        surfaces = new FakeChromeSurfaces(context);
+        glass = new GlassSurfaceFactory(surfaces);
     }
 
     /** What the dock draws with the same Base: its own getters, its rim, its refraction rule. */
@@ -129,6 +133,49 @@ public class GlassStackTest {
         GradientRimDrawable rim = (GradientRimDrawable) tint.getDrawable(3);
         assertEquals(RADIUS_PX, rim.radiusPx(), 0f);
         assertEquals(Math.round(255f * 50 / 100f), backdrop.getAlpha());
+    }
+
+    @Test
+    public void withAdaptiveGlassTheProgramDrawsTheEdgeAndNoRimIsLaidOverIt() {
+        // Glass plan 2026-10-16, Round 1: the gathered light replaces the white gradient stroke
+        // wherever the program draws the glass.
+        surfaces.adaptive = true;
+        Bitmap frame = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888);
+        SharedFrameDrawable backdrop = new SharedFrameDrawable(frame, new Rect(0, 0, 40, 40), null,
+            out -> { out[0] = 0; out[1] = 0; });
+
+        Drawable stack = GlassStack.build(glass, keyboardSpec(FANCIER), 2f, backdrop);
+
+        assertEquals(0, rimsIn(stack));
+        assertTrue("the frame is told to gather its edge", backdrop.refractionGathered());
+        assertEquals("the look itself is what is stored", FANCIER, backdrop.refractionLook());
+        // The scheme-colour stack the same way.
+        assertEquals(0, rimsIn(GlassStack.build(glass,
+            keyboardSpec(null).withTintColor(0x80112233), 2f, null)));
+    }
+
+    @Test
+    public void withAdaptiveGlassOffTheStackIsExactlyTodays() {
+        Bitmap frame = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888);
+        SharedFrameDrawable backdrop = new SharedFrameDrawable(frame, new Rect(0, 0, 40, 40), null,
+            out -> { out[0] = 0; out[1] = 0; });
+
+        Drawable stack = GlassStack.build(glass, keyboardSpec(FANCIER), 2f, backdrop);
+
+        assertEquals(1, rimsIn(stack));
+        assertFalse(backdrop.refractionGathered());
+        assertEquals(1, rimsIn(GlassStack.build(glass,
+            keyboardSpec(null).withTintColor(0x80112233), 2f, null)));
+    }
+
+    /** How many {@link GradientRimDrawable} layers a stack holds, at any depth. */
+    private static int rimsIn(Drawable drawable) {
+        if (drawable instanceof GradientRimDrawable) return 1;
+        if (!(drawable instanceof LayerDrawable)) return 0;
+        LayerDrawable layers = (LayerDrawable) drawable;
+        int rims = 0;
+        for (int i = 0; i < layers.getNumberOfLayers(); i++) rims += rimsIn(layers.getDrawable(i));
+        return rims;
     }
 
     @Test

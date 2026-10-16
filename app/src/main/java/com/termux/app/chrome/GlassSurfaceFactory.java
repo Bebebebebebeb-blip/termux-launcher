@@ -338,7 +338,7 @@ public final class GlassSurfaceFactory {
         if (grain > 0) {
             layers.add(grainLayer(grain));
         }
-        Drawable rim = rimDrawable(cornerRadiusPx, strokeEdges);
+        Drawable rim = gathersEdge() ? null : rimDrawable(cornerRadiusPx, strokeEdges);
         if (rim != null) layers.add(rim);
         if (cornerRadiusPx > 0f) {
             baseLayer.setCornerRadius(cornerRadiusPx);
@@ -393,6 +393,16 @@ public final class GlassSurfaceFactory {
         rim.setStroke(Math.max(1, Math.round(mSurfaces.dpToPx(1))),
             SchemeTone.withAlpha(mSurfaces.outlineColor(), RIM_ALPHA / 255f));
         return rim;
+    }
+
+    /**
+     * Whether the program draws the glass's outline as gathered light (Adaptive glass), so the
+     * surfaces built here lay no rim over it: {@link #surface} drops its {@link #rimDrawable},
+     * and so does {@link GlassStack#build}. The dock's {@link #rimUnderGlass} is its outline and
+     * stays.
+     */
+    public boolean gathersEdge() {
+        return mSurfaces.adaptiveGlass();
     }
 
     /**

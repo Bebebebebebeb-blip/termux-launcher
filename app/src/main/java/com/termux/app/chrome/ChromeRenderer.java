@@ -156,6 +156,15 @@ public final class ChromeRenderer {
         }
 
         /**
+         * Adaptive glass: the program draws every glass outline as gathered light, so no surface
+         * lays the white gradient rim over it. True only while {@link #fancierGlassLook()} answers
+         * a look and the switch is on; false, the default, is the hairline and the rim as before.
+         */
+        default boolean adaptiveGlass() {
+            return false;
+        }
+
+        /**
          * The corner a full-pane plane's glass — the palette, the sheet, the drawer — is clipped
          * to, in px, so a plane's rim can follow its outline. 0 where the planes are square.
          */

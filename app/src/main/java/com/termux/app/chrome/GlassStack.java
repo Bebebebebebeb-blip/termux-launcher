@@ -189,7 +189,9 @@ public final class GlassStack {
     /**
      * The stack itself, bottom to top: {@code backdrop} (the caller's view onto the shared frame,
      * or null where there is nothing to blur) dressed with the frost and the refraction, the tint
-     * with its grain and rim, all under the spec's one stack alpha.
+     * with its grain and rim, all under the spec's one stack alpha. With Adaptive glass
+     * ({@link GlassSurfaceFactory#gathersEdge}) the program draws the outline as gathered light
+     * and the spec's rim is left out.
      */
     @NonNull
     public static Drawable build(@NonNull GlassSurfaceFactory glass, @NonNull Spec spec,
@@ -198,7 +200,8 @@ public final class GlassStack {
         if (backdrop != null) {
             // The content-aware light scatter every glass surface's frame wears.
             backdrop.setColorFilter(GlassFilters.frost(Math.round(spec.tintAlpha * 100f)));
-            backdrop.setRefraction(spec.look, density, spec.cornerRadiusPx, spec.seams);
+            backdrop.setRefraction(spec.look, density, spec.cornerRadiusPx, spec.seams,
+                glass.gathersEdge());
             layers.add(backdrop);
         }
         if (spec.tintColor != null) {
@@ -210,7 +213,7 @@ public final class GlassStack {
                 layers.add(new android.graphics.drawable.ColorDrawable(veil));
             // The scheme tint wears the surface's grain like every other glass stack.
             if (spec.grainPercent > 0) layers.add(glass.grainLayer(spec.grainPercent));
-            if (spec.rim) layers.add(glass.rimDrawable(spec.cornerRadiusPx));
+            if (spec.rim && !glass.gathersEdge()) layers.add(glass.rimDrawable(spec.cornerRadiusPx));
         } else {
             layers.add(glass.surface(spec.tintAlpha, 0f, spec.sliceEnd, spec.foot,
                 spec.grainPercent, spec.cornerRadiusPx, spec.rim, spec.band,
