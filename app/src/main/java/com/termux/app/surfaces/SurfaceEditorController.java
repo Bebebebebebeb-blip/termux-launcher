@@ -1837,7 +1837,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                 enabled, legendFor(control, enabled)));
         }
         panel.setSliders(states);
-        List<Door> doors = new ArrayList<>(AppearanceLooks.doors(mTarget));
+        List<Door> doors = new ArrayList<>(AppearanceLooks.doors(mTarget, glassEdge));
         if (!PaneRetroEffect.available())
             doors.remove(Door.EFFECT);
         panel.setDoors(doors);
@@ -1845,18 +1845,26 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             panel.setTerminalLooks(prefs.isTerminalCursorTrailEnabled(),
                 prefs.getTerminalCursorTrailStyle(),
                 prefs.getTerminalRetroEffect());
+        if (mTarget == null)
+            panel.setGlassLooks(prefs.getSurfaceGlassTintHue(),
+                GlassControls.Dispersion.of(prefs.getFancierGlassDispersionPercent()).id());
     }
+
 
     /** What a control's slider stands at now, in the control's own units. */
     private int valueOf(@NonNull Control control, @NonNull TermuxAppSharedPreferences prefs) {
         switch (control) {
-            case BLUR:
-                return AppearanceLooks.blurDp(mTarget == null
-                    ? prefs.getSurfaceBaseValue(SurfaceProperty.BLUR) : blurOf(prefs, mTarget));
-            case GRAIN:
-                return AppearanceLooks.grainPercent(mTarget == null
-                    ? prefs.getSurfaceBaseValue(SurfaceProperty.GRAIN)
-                    : grainOf(prefs, mTarget.slot));
+            case GLASS:
+                // Read back from the blur and grain it writes; nothing is stored for it.
+                return mTarget == null
+                    ? GlassControls.glassFor(prefs.getSurfaceBaseValue(SurfaceProperty.BLUR),
+                        prefs.getSurfaceBaseValue(SurfaceProperty.GRAIN))
+                    : GlassControls.glassFor(blurOf(prefs, mTarget), grainOf(prefs, mTarget.slot));
+            case SHADE:
+                return Control.SHADE.clamp(prefs.getSurfaceGlassShade());
+            case VIBRANCY:
+                return Control.VIBRANCY.clamp(mHeldVibrancy != NO_HELD_VIBRANCY
+                    ? mHeldVibrancy : prefs.getSurfaceGlassVibrancy());
             case OPACITY:
                 return AppearanceLooks.opacityPercent(mTarget == null
                     ? prefs.getSurfaceBaseValue(SurfaceProperty.OPACITY)
@@ -1865,13 +1873,6 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                 return AppearanceLooks.tintPercent(mTarget == null
                     ? prefs.getSurfaceBaseValue(SurfaceProperty.TINT)
                     : tintOf(prefs, mTarget.slot));
-            case MARGIN:
-                return AppearanceLooks.marginValueFor(mHost.isFloatingDock(),
-                    prefs.getSurfaceBaseValue(SurfaceProperty.SIDE_GAP),
-                    prefs.getTerminalPaneGap());
-            case CORNER_RADIUS:
-                return AppearanceLooks.cornersDp(
-                    prefs.getSurfaceBaseValue(SurfaceProperty.CORNER_RADIUS));
             case KEY_RADIUS:
                 return AppearanceLooks.keyCornersValueFor(
                     prefs.getInAppKeyboardKeyCornerRadiusDp());
@@ -1902,12 +1903,13 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     @NonNull
     private String legendText(@NonNull Control control, int value, boolean enabled) {
         switch (control) {
-            case BLUR: return getString(R.string.appearance_editor_blur, value);
-            case GRAIN: return getString(R.string.appearance_editor_grain, value);
+            case GLASS: return getString(R.string.appearance_editor_glass, value);
             case OPACITY: return getString(R.string.appearance_editor_opacity, value);
             case TINT: return getString(R.string.appearance_editor_tint, value);
-            case MARGIN: return getString(R.string.appearance_editor_margin, value);
-            case CORNER_RADIUS: return getString(R.string.appearance_editor_corners, value);
+            case SHADE: return getString(R.string.appearance_editor_shade, value);
+            case VIBRANCY:
+                return getString(R.string.appearance_editor_vibrancy,
+                    String.format(Locale.getDefault(), "%.2f", value / 100f));
             case KEY_RADIUS: return getString(R.string.appearance_editor_key_corners, value);
             case KEY_SPACING:
                 return getString(R.string.appearance_editor_key_spacing,
@@ -2064,26 +2066,34 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             if (mTarget == Target.TERMINAL) writeRetroEffect(id);
         }
 
+        @Override public void onTintHue(@NonNull String id) {
+            if (mTarget == null) writeTintHue(id);
+        }
+
+        @Override public void onDispersion(@NonNull String id) {
+            if (mTarget == null) writeDispersion(GlassControls.Dispersion.ofId(id));
+        }
+
         @Override public void onSliderReleased() {
             endDrag();
         }
     }
 
     /**
-     * One of the Custom row's sliders moved. Blur, Grain and Opacity are the shared glass with
-     * nothing tapped and the element's own values with one tapped; Margin and Corner radius are
-     * Layout mode's own writes; Depth is the glass edge's, global; the
-     * rest are the element's.
+     * One of the Custom row's sliders moved. Glass, Opacity and Tint are the shared glass with
+     * nothing tapped and the element's own values with one tapped; Shade, Vibrancy and Depth are
+     * global; the rest are the element's.
      */
     private void writeControl(@NonNull Control control, int value) {
         switch (control) {
-            case BLUR:
-                if (mTarget == null) writeBlur(value);
-                else writeElement(mTarget, SurfaceProperty.BLUR, value);
+            case GLASS:
+                writeGlass(value);
                 break;
-            case GRAIN:
-                if (mTarget == null) writeGlobal(SurfaceProperty.GRAIN, value);
-                else writeElement(mTarget, SurfaceProperty.GRAIN, value);
+            case SHADE:
+                writeShade(value);
+                break;
+            case VIBRANCY:
+                writeVibrancy(value);
                 break;
             case OPACITY:
                 if (mTarget == null) writeGlobal(SurfaceProperty.OPACITY, value);
@@ -2093,8 +2103,6 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                 if (mTarget == null) writeGlobal(SurfaceProperty.TINT, value);
                 else writeElement(mTarget, SurfaceProperty.TINT, value);
                 break;
-            case MARGIN: writeMargin(value); break;
-            case CORNER_RADIUS: writeCorners(value); break;
             case KEY_RADIUS: writeKeyCorners(value); break;
             case KEY_SPACING: writeKeySpacing(value); break;
             case ICON_SIZE: writeIconSize(value); break;
@@ -2127,6 +2135,75 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
 
     private void forgetGlassEdgePositions() {
         mDepthSet = GlassEdgeControls.NONE;
+    }
+
+    /**
+     * Glass: blur and grain together along {@link GlassControls}' curve, as the shared glass with
+     * nothing tapped (every surface re-attached, as Blur always did) or the tapped element's own.
+     */
+    private void writeGlass(int value) {
+        int glass = Control.GLASS.clamp(value);
+        int blur = GlassControls.blurForGlass(glass);
+        int grain = GlassControls.grainForGlass(glass);
+        if (mTarget == null) {
+            writeBlur(blur);
+            writeGlobal(SurfaceProperty.GRAIN, grain);
+        } else {
+            writeElement(mTarget, SurfaceProperty.BLUR, blur);
+            writeElement(mTarget, SurfaceProperty.GRAIN, grain);
+        }
+    }
+
+    /** Shade, global: the tint stacks rebuild with the layer under them, and the ink re-measures. */
+    private void writeShade(int value) {
+        TermuxAppSharedPreferences prefs = prefs();
+        if (prefs == null)
+            return;
+        prefs.setSurfaceGlassShade(Control.SHADE.clamp(value));
+        requestPreview(SurfaceEditorProperties.PREVIEW_SURFACES
+            | SurfaceEditorProperties.PREVIEW_KEYBOARD);
+    }
+
+    /** No Vibrancy held for a drag's release. */
+    private static final int NO_HELD_VIBRANCY = Integer.MIN_VALUE;
+    /**
+     * The Vibrancy a slider drag stands at, written on release: every value re-bakes the blurred
+     * frames, which is the work a drag can least afford, so a drag bakes once.
+     */
+    private int mHeldVibrancy = NO_HELD_VIBRANCY;
+
+    private void writeVibrancy(int value) {
+        int clamped = Control.VIBRANCY.clamp(value);
+        if (mSliderDragActive) {
+            mHeldVibrancy = clamped;
+            return;
+        }
+        mHeldVibrancy = NO_HELD_VIBRANCY;
+        TermuxAppSharedPreferences prefs = prefs();
+        if (prefs == null)
+            return;
+        prefs.setSurfaceGlassVibrancy(clamped);
+        requestPreview(SurfaceEditorProperties.PREVIEW_BLUR
+            | SurfaceEditorProperties.PREVIEW_SURFACES);
+    }
+
+    /** The Tint colour pill: which accent the Tint amount mixes in, global. */
+    private void writeTintHue(@NonNull String id) {
+        TermuxAppSharedPreferences prefs = prefs();
+        if (prefs == null)
+            return;
+        prefs.setSurfaceGlassTintHue(id);
+        requestPreview(SurfaceEditorProperties.PREVIEW_SURFACES
+            | SurfaceEditorProperties.PREVIEW_KEYBOARD);
+    }
+
+    /** The Edge colour pill: the stored dispersion at the step's value, global like Depth. */
+    private void writeDispersion(@NonNull GlassControls.Dispersion step) {
+        TermuxAppSharedPreferences prefs = prefs();
+        if (prefs == null)
+            return;
+        prefs.setFancierGlassDispersionPercent(step.percent);
+        requestPreview(SurfaceEditorProperties.PREVIEW_SURFACES);
     }
 
     /** The six stored glass edge values. */
@@ -2297,16 +2374,16 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         }
     }
 
-    /** The tint strength a surface draws with now, in percent. */
+    /** The tint amount a surface draws with now, in percent. */
     private static int tintOf(@NonNull TermuxAppSharedPreferences prefs, @Nullable SurfaceSlot slot) {
         if (slot == null)
-            return AppearanceLooks.TINT_MAX;
+            return 0;
         switch (slot) {
             case STATUS: return AppearanceLooks.tintPercent(prefs.getStatusBarTintStrength());
             case CANVAS: return AppearanceLooks.tintPercent(prefs.getTerminalTintStrength());
             case KEYBOARD: return AppearanceLooks.tintPercent(prefs.getInAppKeyboardTintStrength());
             case DOCK: return AppearanceLooks.tintPercent(prefs.getDockTintStrength());
-            default: return AppearanceLooks.TINT_MAX;
+            default: return 0;
         }
     }
 
@@ -3555,6 +3632,8 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
 
     private void endDrag() {
         mSliderDragActive = false;
+        if (mHeldVibrancy != NO_HELD_VIBRANCY)
+            writeVibrancy(mHeldVibrancy);
         settleLookDrag();
         if (mDockSizeHeld) {
             mDockSizeHeld = false;

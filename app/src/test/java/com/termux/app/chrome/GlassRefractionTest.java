@@ -127,7 +127,7 @@ public class GlassRefractionTest {
             "uFrameScale", "uFrameOffset", "uLocalX", "uLocalY", "uLocalW", "uRectMin", "uRectMax",
             "uRadius", "uBand", "uStrength", "uDisp", "uDensity",
             "uLensActive", "uLensCenter", "uLensHalf", "uLensRadius", "uLensStrength", "uLensFeather",
-            "uClarity", "uTouchActive", "uTouch", "uTouchRadius", "uTouchLens",
+            "uClarity", "uTouchActive", "uTouch", "uTouchRadius", "uTouchLens", "uEdgeGain",
         };
         for (String name : written) {
             assertTrue(name + " is declared",
@@ -462,7 +462,7 @@ public class GlassRefractionTest {
         assertTrue(GlassRefraction.AGSL.contains(
             "return kAmbient + (1.0 - kAmbient) * (c > 0.0 ? pow(c, kKeyExp) : 0.0);"));
         assertTrue(GlassRefraction.AGSL.contains(
-            "float k = glow * (gatherShare(n) + 1.5 * touchG) * (1.0 - kPaleCut * pale);"));
+            "float k = glow * (gatherShare(n) + 1.5 * touchG) * (1.0 - kPaleCut * pale) * uEdgeGain;"));
         assertTrue(GlassRefraction.AGSL.contains("float pale = dot(float3(col.rgb), kLumaW);"));
         assertTrue(GlassRefraction.AGSL.contains("col.rgb = col.rgb * half(1.0 - glow * kEdgeShade);"));
         assertTrue(GlassRefraction.AGSL.contains(
@@ -679,5 +679,86 @@ public class GlassRefractionTest {
         assertTrue("a square seam still clears the band and the pull",
             GlassRefraction.seamReachPx(look, DENSITY, 0f)
                 > look.bandPx(DENSITY) + look.strengthPx(DENSITY));
+    }
+
+    // ------------------------------------------------------------- the edge follows the cover
+
+    /**
+     * The gathered light is drawn under the tint and Shade, which let {@code 1 - cover} of it
+     * through. Up to Clear's 10% it is at its tuned strength; above, it is raised by the ratio, so
+     * Mist's 60% shows like Clear's outline, and the opaque slabs are held at the cap.
+     */
+    @Test
+    public void theEdgeGainFollowsWhatCoversIt() {
+        assertEquals(1f, GlassRefraction.Look.edgeGainFor(0f), 0f);
+        assertEquals("Clear is the reference", 1f, GlassRefraction.Look.edgeGainFor(0.10f), 1e-6f);
+        assertEquals("Tint, 46%", 0.9f / 0.54f, GlassRefraction.Look.edgeGainFor(0.46f), 1e-5f);
+        assertEquals("Mist, 60%", 2.25f, GlassRefraction.Look.edgeGainFor(0.60f), 1e-5f);
+        assertEquals("Solid, 92%, held at the cap", GlassRefraction.Look.MAX_EDGE_GAIN,
+            GlassRefraction.Look.edgeGainFor(0.92f), 0f);
+        assertEquals(GlassRefraction.Look.MAX_EDGE_GAIN, GlassRefraction.Look.edgeGainFor(1f), 0f);
+        float last = 0f;
+        for (int percent = 0; percent <= 100; percent++) {
+            float gain = GlassRefraction.Look.edgeGainFor(percent / 100f);
+            assertTrue("never below the tuned light at " + percent, gain >= 1f);
+            assertTrue("never above the cap at " + percent,
+                gain <= GlassRefraction.Look.MAX_EDGE_GAIN);
+            assertTrue("rising at " + percent, gain >= last);
+            last = gain;
+        }
+    }
+
+    /** A surface states its cover on its look; read from the preferences a look has none. */
+    @Test
+    public void theCoverIsPartOfALooksIdentityAndRoundsToAPercent() {
+        GlassRefraction.Look look = new GlassRefraction.Look(27, 18, 10, 0, 40, 76);
+        assertEquals(0, look.coverPercent);
+        assertEquals(1f, look.edgeGain(), 0f);
+        GlassRefraction.Look mist = look.withCover(0.6f);
+        assertEquals(60, mist.coverPercent);
+        assertEquals(2.25f, mist.edgeGain(), 1e-5f);
+        assertNotEquals(look, mist);
+        assertEquals(mist, look.withCover(0.6001f));
+        assertTrue("the same cover writes nothing new", mist == mist.withCover(0.6f));
+        assertEquals("clamped", 100, look.withCover(3f).coverPercent);
+        assertEquals("clamped", 0, look.withCover(-1f).coverPercent);
+        assertEquals("the stored knobs are kept", look.dispersionPercent,
+            mist.dispersionPercent);
+    }
+
+    /**
+     * Raised however far, the light is still held under the headroom the sample has left: no
+     * channel clips and the hue's order is kept, over a dark, a mid and a pale backdrop.
+     */
+    @Test
+    public void aRaisedEdgeNeverClips() {
+        float[][] samples = {{0.05f, 0.08f, 0.2f}, {0.5f, 0.3f, 0.2f}, {0.6f, 0.75f, 0.95f},
+            {0.98f, 0.98f, 0.98f}};
+        float[] plain = new float[3];
+        float[] raised = new float[3];
+        for (float[] c : samples) {
+            for (float inside = 0f; inside <= 4f * DENSITY; inside += 0.5f * DENSITY) {
+                GlassRefraction.gatheredLit(c[0], c[1], c[2], 1f, inside, DENSITY, -0.552f,
+                    -0.834f, plain);
+                GlassRefraction.gatheredLit(c[0], c[1], c[2], 1f, inside, DENSITY, -0.552f,
+                    -0.834f, GlassRefraction.Look.MAX_EDGE_GAIN, raised);
+                String at = java.util.Arrays.toString(c) + " at " + inside + " px";
+                for (int i = 0; i < 3; i++) {
+                    assertTrue("no clip " + at, raised[i] <= 1f);
+                    assertTrue("raised, never dimmer " + at, raised[i] >= plain[i] - 1e-6f);
+                }
+                assertTrue("the hue's order is kept " + at,
+                    (raised[2] >= raised[0]) == (c[2] >= c[0]));
+            }
+        }
+    }
+
+    /** The Edge colour pill's Prism is twice Glint and stays under the program's share cap. */
+    @Test
+    public void prismSplitsTwiceGlintAndUnderTheCap() {
+        GlassRefraction.Look glint = new GlassRefraction.Look(27, 18, 10, 0, 40, 76);
+        GlassRefraction.Look prism = new GlassRefraction.Look(27, 18, 10, 0, 80, 76);
+        assertEquals(2f * glint.dispersion(), prism.dispersion(), 1e-6f);
+        assertTrue(prism.dispersion() <= GlassRefraction.Look.MAX_DISPERSION_SHARE);
     }
 }

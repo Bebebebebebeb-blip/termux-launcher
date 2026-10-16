@@ -125,7 +125,9 @@ public class GlassStackTest {
 
         assertEquals(2, stack.getNumberOfLayers());
         assertSame(backdrop, stack.getDrawable(0));
-        assertEquals(FANCIER, backdrop.refractionLook());
+        // The look as stored, raised by what the tint over it covers (its opacity, no Shade).
+        assertEquals(FANCIER.withCover(spec.tintAlpha), backdrop.refractionLook());
+        assertEquals(FANCIER, backdrop.refractionLook().withCover(0f));
         assertEquals(RADIUS_PX, backdrop.refractionRadiusPx(), 0f);
         LayerDrawable tint = (LayerDrawable) stack.getDrawable(1);
         // base, light, grain, rim: the one rim the factory draws.
@@ -158,7 +160,8 @@ public class GlassStackTest {
 
         assertFalse(backdrop.refracts());
         assertEquals(1, rimsIn(stack));
-        assertEquals("the look itself is what is stored", FANCIER, backdrop.refractionLook());
+        assertEquals("the look itself is what is stored, with the tint's cover", FANCIER,
+            backdrop.refractionLook().withCover(0f));
         // A stack with no backdrop at all, the scheme-colour one, the same way.
         assertEquals(1, rimsIn(GlassStack.build(glass,
             keyboardSpec(null).withTintColor(0x80112233), 2f, null)));
@@ -175,7 +178,8 @@ public class GlassStackTest {
 
         Drawable stack = GlassStack.build(glass, keyboardSpec(FANCIER), 2f, backdrop, b -> {
             asked[0] = true;
-            assertEquals("asked after the look is handed over", FANCIER, b.refractionLook());
+            assertEquals("asked after the look is handed over", FANCIER,
+                b.refractionLook().withCover(0f));
             return true;
         });
 
@@ -340,7 +344,7 @@ public class GlassStackTest {
 
     @Test
     public void theKeyboardSpecWearsItsOwnTintStrength() {
-        assertEquals("the shipped tint", 100, keyboardSpec(null).tintStrengthPercent);
+        assertEquals("no accent ships", 0, keyboardSpec(null).tintStrengthPercent);
         preferences.setSurfaceBaseValue(SurfaceProperty.TINT, 60);
         assertEquals(60, keyboardSpec(null).tintStrengthPercent);
 
@@ -348,6 +352,6 @@ public class GlassStackTest {
         assertEquals(25, keyboardSpec(null).tintStrengthPercent);
         assertEquals("the dock keeps following Base", 60, preferences.getDockTintStrength());
         assertNotEquals(keyboardSpec(null).withTintStrength(60), keyboardSpec(null));
-        assertEquals(100, dockSpec(null).tintStrengthPercent);
+        assertEquals("the plain spec mixes in no accent", 0, dockSpec(null).tintStrengthPercent);
     }
 }

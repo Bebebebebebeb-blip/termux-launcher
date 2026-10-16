@@ -174,12 +174,27 @@ public final class ChromeInk {
     /** Panes a window can hold at once, and then some; an older rect is dropped, not an error. */
     static final int MAX_PANE_ANSWERS = 8;
 
-    /** What a band's glass is, as far as measuring it goes: opacity, foot, and the slice it draws. */
+    /**
+     * What a band's glass is, as far as measuring it goes: opacity, foot, the slice it draws, the
+     * base colour its tint is really drawn in (the Look's ink with the Tint control's accent mixed
+     * in) and the Shade laid under it.
+     */
     private static final class BandGlass {
         float opacity;
         boolean withFoot = true;
         float sliceStart;
         float sliceEnd = 1f;
+        /** Whether {@link #baseColor} was told; until then the mode's untinted base stands in. */
+        boolean tinted;
+        @ColorInt int baseColor;
+        /** The Shade under the tint, alpha included; transparent for none. */
+        @ColorInt int shade = Color.TRANSPARENT;
+    }
+
+    /** The base colour {@code glass}'s tint is drawn in: the tinted one it told, or the mode's. */
+    @ColorInt
+    private int baseOf(@NonNull BandGlass glass) {
+        return glass.tinted ? glass.baseColor : mBaseColor;
     }
 
     @NonNull private final ChromeRenderer.Surfaces mSurfaces;
@@ -543,15 +558,20 @@ public final class ChromeInk {
         if (contract.fixedInk) return resolveFixedAt(band, contract, target);
         BandGlass glass = glassFor(band);
         int baseAlpha = ChromePolicy.dockGlassBaseAlpha(glass.opacity);
+        // The colour the base layer is really drawn in: the tint the surface told, accent and all,
+        // so no Tint amount can carry a band past the promise unmeasured.
+        int baseColor = baseOf(glass);
         // The band's flat glass: wallpaper, the launcher's dim, the base layer. No light model, so
-        // the polarity vote is the same number whichever ink is asking.
+        // the polarity vote is the same number whichever ink is asking. Shade is left out of the
+        // vote, as the film is: a knob that only dims cannot flip the chrome's polarity.
         int wallpaper = mCache.wallpaperUnder(band, screenRect);
-        int flat = OnGlass.backdrop(wallpaper, mDimColor, OnGlass.withAlpha(mBaseColor, baseAlpha));
+        int flat = OnGlass.backdrop(wallpaper, mDimColor, OnGlass.withAlpha(baseColor, baseAlpha));
         vote(band, flat);
         // What the band's own glass is laid on, and nothing of the glass itself: the base layer is
         // part of the tint that gets composited over this, so counting it here too would apply it
-        // twice and pick the worst row off a band a shade lighter than the one being drawn.
-        int under = OnGlass.backdrop(wallpaper, mDimColor, Color.TRANSPARENT);
+        // twice and pick the worst row off a band a shade lighter than the one being drawn. Shade
+        // is under the tint, so it is part of what the tint is laid on.
+        int under = OnGlass.backdrop(wallpaper, mDimColor, glass.shade);
         int ink = polarity() == Polarity.DARK_INK ? contract.darkInk : contract.paleInk;
 
         int top = DockGlassRendering.topSheenAlpha(glass.opacity);
@@ -567,16 +587,16 @@ public final class ChromeInk {
         // the row is re-checked against the ink that came back, and a second pass settles it: that
         // pass measures at the resolved ink's own worst row, and a dark ink's worst row is the
         // foot, which is the extreme of the model.
-        float worst = DockGlassRendering.worstLightModelStop(ink, under, mBaseColor, baseAlpha,
+        float worst = DockGlassRendering.worstLightModelStop(ink, under, baseColor, baseAlpha,
             mAccentColor, top, mid, foot, glass.sliceStart, glass.sliceEnd);
-        OnGlass.Resolution resolved = resolveAtStop(band, screenRect, worst, under, mBaseColor,
+        OnGlass.Resolution resolved = resolveAtStop(band, screenRect, worst, under, baseColor,
             baseAlpha, top, mid, foot, ink, target, floorAlpha);
         for (int pass = 0; pass < 2; pass++) {
-            float again = DockGlassRendering.worstLightModelStop(resolved.ink, under, mBaseColor,
+            float again = DockGlassRendering.worstLightModelStop(resolved.ink, under, baseColor,
                 baseAlpha, mAccentColor, top, mid, foot, glass.sliceStart, glass.sliceEnd);
             if (again == worst) break;
             worst = again;
-            resolved = resolveAtStop(band, screenRect, worst, under, mBaseColor, baseAlpha, top,
+            resolved = resolveAtStop(band, screenRect, worst, under, baseColor, baseAlpha, top,
                 mid, foot, ink, target, floorAlpha);
         }
         return resolved;
@@ -593,29 +613,30 @@ public final class ChromeInk {
                                               @NonNull Contract contract, double target) {
         BandGlass glass = glassFor(band);
         int baseAlpha = ChromePolicy.dockGlassBaseAlpha(glass.opacity);
+        int baseColor = baseOf(glass);
         int wallpaper = mCache.wallpaperUnder(band, contract.rect);
-        vote(band, OnGlass.backdrop(wallpaper, mDimColor, OnGlass.withAlpha(mBaseColor, baseAlpha)));
-        int under = OnGlass.backdrop(wallpaper, mDimColor, Color.TRANSPARENT);
+        vote(band, OnGlass.backdrop(wallpaper, mDimColor, OnGlass.withAlpha(baseColor, baseAlpha)));
+        int under = OnGlass.backdrop(wallpaper, mDimColor, glass.shade);
         int top = DockGlassRendering.topSheenAlpha(glass.opacity);
         int mid = DockGlassRendering.midSheenAlpha(glass.opacity);
         int foot = DockGlassRendering.footAlpha(glass.opacity, glass.withFoot);
-        float worst = DockGlassRendering.worstLightModelStop(contract.darkInk, under, mBaseColor,
+        float worst = DockGlassRendering.worstLightModelStop(contract.darkInk, under, baseColor,
             baseAlpha, mAccentColor, top, mid, foot, glass.sliceStart, glass.sliceEnd);
-        int backdrop = DockGlassRendering.glassSurfaceAt(worst, under, mBaseColor, baseAlpha,
+        int backdrop = DockGlassRendering.glassSurfaceAt(worst, under, baseColor, baseAlpha,
             mAccentColor, top, mid, foot);
         OnGlass.Resolution known = contract.fixedAnswer;
         if (known != null && contract.fixedBackdrop == backdrop
-                && contract.fixedVeilColor == mBaseColor && contract.fixedCap == contract.cap
+                && contract.fixedVeilColor == baseColor && contract.fixedCap == contract.cap
                 && contract.fixedInkAsked == contract.darkInk
                 && contract.fixedSecondInkAsked == contract.secondInk
                 && Double.compare(contract.fixedTarget, target) == 0) {
             return known;
         }
         OnGlass.Resolution resolved = OnGlass.resolveFixedInk(backdrop, contract.cap,
-            contract.darkInk, contract.secondInk, mBaseColor, target);
+            contract.darkInk, contract.secondInk, baseColor, target);
         contract.fixedAnswer = resolved;
         contract.fixedBackdrop = backdrop;
-        contract.fixedVeilColor = mBaseColor;
+        contract.fixedVeilColor = baseColor;
         contract.fixedCap = contract.cap;
         contract.fixedInkAsked = contract.darkInk;
         contract.fixedSecondInkAsked = contract.secondInk;
@@ -813,6 +834,24 @@ public final class ChromeInk {
         glass.withFoot = withFoot;
         glass.sliceStart = sliceStart;
         glass.sliceEnd = sliceEnd;
+        glass.tinted = false;
+        glass.shade = Color.TRANSPARENT;
+    }
+
+    /**
+     * {@link #noteBandGlass(GlassBackdropCache.Band, float, boolean, float, float)} with the colour
+     * the band's base layer is really drawn in ({@code baseColor}, the tinted one; its alpha is
+     * ignored, the opacity says it) and the Shade under it ({@code shade}, alpha included). Both
+     * are inputs of every answer's search, so the next ask measures what is now drawn.
+     */
+    void noteBandGlass(@NonNull GlassBackdropCache.Band band, float opacity, boolean withFoot,
+                       float sliceStart, float sliceEnd, @ColorInt int baseColor,
+                       @ColorInt int shade) {
+        noteBandGlass(band, opacity, withFoot, sliceStart, sliceEnd);
+        BandGlass glass = glassFor(band);
+        glass.tinted = true;
+        glass.baseColor = baseColor;
+        glass.shade = shade;
     }
 
     /**

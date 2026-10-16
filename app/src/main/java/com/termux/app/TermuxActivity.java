@@ -3613,11 +3613,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             @Override public int paneGlassTintColor() {
                 // Under both Styles the pane is the frame's glass until Darkness is raised: the
                 // Docked insert reads as a window by the hairline round its opening, not by tone.
+                // Shade lies under the pane's tint as under every glass tint, folded into the one
+                // paint the slab draws; a pane with no slab of its own takes none.
                 return shouldShowTerminalOverlaySurface()
-                    ? mChrome.glass().look(mPreferences != null
+                    ? com.termux.app.chrome.GlassShade.under(mChrome.glass().look(mPreferences != null
                         ? mPreferences.getTerminalTintStrength()
                         : TermuxPreferenceConstants.TERMUX_APP.DEFAULT_SURFACE_BASE_TINT)
-                        .flatTint(resolveTerminalSurfaceColor())
+                        .flatTint(resolveTerminalSurfaceColor()), mChrome.glass().shadeColor())
                     : Color.TRANSPARENT;
             }
 
@@ -4292,7 +4294,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             program.setRect(capLeft, capTop, capRight, capBottom, radiusPx);
             // The user's knobs while Fancier Glass is on; the numbers this dock always ran with
             // otherwise, so the default mode's dock and strip are pixel for pixel what they were.
-            program.setLook(com.termux.app.chrome.GlassStack.lookFor(mFancierGlassLook));
+            // Raised by what the dock's tint and Shade cover of it, as every glass surface's edge.
+            program.setLook(com.termux.app.chrome.GlassStack.lookFor(mFancierGlassLook)
+                .withCover(mChrome == null || mPreferences == null ? 0f
+                    : mChrome.glass().cover(mPreferences.getAppBarOpacity() / 100f)));
             // Per-key lens state (0 intensity == no lens, dock refraction unchanged).
             if (!navStrip && mKeyLensActive && mKeyLensIntensity > 0f) {
                 program.setLens(mKeyLensCx, mKeyLensCy, mKeyLensHx, mKeyLensHy, mKeyLensRadius,

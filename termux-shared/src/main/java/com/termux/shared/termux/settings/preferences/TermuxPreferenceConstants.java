@@ -1476,7 +1476,12 @@ public final class TermuxPreferenceConstants {
         public static final String KEY_SURFACE_BASE_BLUR = "surface_base_blur";
         public static final String KEY_SURFACE_BASE_OPACITY = "surface_base_opacity";
         public static final String KEY_SURFACE_BASE_GRAIN = "surface_base_grain";
-        /** How much of the Material colour tint the glass wears, percent; 100 is the shipped tint. */
+        /**
+         * How much accent colour is mixed into the glass, percent: 0 is the Look's own colour
+         * untouched, 100 the full Material blend (the Tint Look). Until the glass controls'
+         * format 1 it was how much of the Look's own tint family the glass wore, 100 the shipped
+         * tint; the app's {@code GlassControlsMigration} maps every stored value once.
+         */
         public static final String KEY_SURFACE_BASE_TINT = "surface_base_tint";
         public static final String KEY_SURFACE_BASE_CORNER_RADIUS = "surface_base_corner_radius";
         public static final String KEY_SURFACE_BASE_SIDE_GAP = "surface_base_side_gap";
@@ -1489,8 +1494,8 @@ public final class TermuxPreferenceConstants {
         public static final int DEFAULT_SURFACE_BASE_BLUR = 8;
         public static final int DEFAULT_SURFACE_BASE_OPACITY = 34;
         public static final int DEFAULT_SURFACE_BASE_GRAIN = 18;
-        public static final int DEFAULT_SURFACE_BASE_TINT = 100;
-        /** Each surface's own tint strength, consulted once it has detached from Base. */
+        public static final int DEFAULT_SURFACE_BASE_TINT = 0;
+        /** Each surface's own tint amount, consulted once it has detached from Base. */
         public static final String KEY_DOCK_TINT_STRENGTH = "dock_tint_strength";
         public static final String KEY_STATUS_BAR_TINT_STRENGTH = "status_bar_tint_strength";
         public static final String KEY_TERMINAL_TINT_STRENGTH = "terminal_tint_strength";
@@ -1525,9 +1530,42 @@ public final class TermuxPreferenceConstants {
         public static final String GLASS_TINT_SCHEME = "scheme";
         /** Obsidian-Music's ink-blue glass, a white wash over it; white in a light theme. */
         public static final String GLASS_TINT_OBSIDIAN = "obsidian";
-        /** Glass in Material colours: the scheme tint toward primary container, a surface-tint wash. */
+        /**
+         * Glass in Material colours. Legacy: since the glass controls' format 1 the Material blend
+         * is the tint amount ({@link #KEY_SURFACE_BASE_TINT}) on the scheme tint, so a stored
+         * {@code material} is read as {@code scheme} and migrated to it once.
+         */
         public static final String GLASS_TINT_MATERIAL = "material";
         public static final String DEFAULT_SURFACE_GLASS_TINT = GLASS_TINT_SCHEME;
+
+        /** Which accent the tint amount mixes in: the primary, secondary or tertiary pair. */
+        public static final String KEY_SURFACE_GLASS_TINT_HUE = "surface_glass_tint_hue";
+        public static final String GLASS_TINT_HUE_PRIMARY = "primary";
+        public static final String GLASS_TINT_HUE_SECONDARY = "secondary";
+        public static final String GLASS_TINT_HUE_TERTIARY = "tertiary";
+        public static final String DEFAULT_SURFACE_GLASS_TINT_HUE = GLASS_TINT_HUE_PRIMARY;
+
+        /**
+         * Shade: a flat layer under the glass's tint, black where the glass is dark and white
+         * where it is light, as a percentage of that theme's cap (the app's {@code GlassShade}).
+         * 0, the default and every Look's value, draws nothing.
+         */
+        public static final String KEY_SURFACE_GLASS_SHADE = "surface_glass_shade";
+        public static final int DEFAULT_SURFACE_GLASS_SHADE = 0;
+        public static final int MIN_SURFACE_GLASS_SHADE = 0;
+        public static final int MAX_SURFACE_GLASS_SHADE = 100;
+
+        /**
+         * Vibrancy: the saturation of the blurred frame the glass samples, percent of today's
+         * (100). Baked once into each frame as it is blurred; the bare wallpaper never takes it.
+         */
+        public static final String KEY_SURFACE_GLASS_VIBRANCY = "surface_glass_vibrancy";
+        public static final int DEFAULT_SURFACE_GLASS_VIBRANCY = 100;
+        public static final int MIN_SURFACE_GLASS_VIBRANCY = 70;
+        public static final int MAX_SURFACE_GLASS_VIBRANCY = 150;
+
+        /** The glass controls' storage format an install was last brought up to; absent is 0. */
+        public static final String KEY_SURFACE_GLASS_CONTROLS_FORMAT = "surface_glass_controls_format";
 
         public static final String KEY_SURFACE_GLASS_RIM = "surface_glass_rim";
         /** The 1dp containing stroke in the outline colour: what every install has always drawn. */

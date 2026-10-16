@@ -131,6 +131,20 @@ public final class GlassRefraction {
         static final float PALE_CUT = 0.75f;
         /** How much the light brightens the backdrop's own colour. {@code kGain}. */
         static final float GAIN = 1.6f;
+        /**
+         * The cover the light's strength is tuned at: Clear's 10% tint. The light is drawn under a
+         * surface's tint and Shade, which let {@code 1 - cover} of it through, so a surface under
+         * more cover has its light raised by {@code (1 - REFERENCE_COVER) / (1 - cover)}, never
+         * lowered below the tuned strength and never above {@link #MAX_EDGE_GAIN}
+         * ({@link #edgeGain}). {@code uEdgeGain}.
+         */
+        static final float REFERENCE_COVER = 0.10f;
+        /**
+         * The most the light is raised: at Solid's 92% the full ratio would be over eleven, and
+         * the headroom hold ({@link GlassRefraction#heldK}) already keeps any gain from clipping,
+         * so this only stops every edge under an opaque slab from riding the headroom's ceiling.
+         */
+        static final float MAX_EDGE_GAIN = 8f;
         /** A little grey light, so a black wallpaper still shows an edge. {@code kLift}. */
         static final float LIFT = 0.07f;
         /** The faint dark under the light. {@code kEdgeShade}. */
@@ -165,6 +179,12 @@ public final class GlassRefraction {
         public final int dispersionPercent;
         /** How clear the wallpaper shows through the bent edge, a percentage; 0 keeps the frost. */
         public final int clarityPercent;
+        /**
+         * How much the layers drawn over this frost cover it, a percentage: the surface's tint and
+         * Shade ({@link GlassShade#cover}). Not stored; each surface states its own. 0 (as read
+         * from the preferences) leaves the light at its tuned strength.
+         */
+        public final int coverPercent;
 
         public Look(int bendDp, int edgeWidthDp, int edgeLightPercent) {
             this(bendDp, edgeWidthDp, edgeLightPercent, 0, 0, 0);
@@ -177,12 +197,47 @@ public final class GlassRefraction {
 
         public Look(int bendDp, int edgeWidthDp, int edgeLightPercent,
                     int specularPercent, int dispersionPercent, int clarityPercent) {
+            this(bendDp, edgeWidthDp, edgeLightPercent, specularPercent, dispersionPercent,
+                clarityPercent, 0);
+        }
+
+        private Look(int bendDp, int edgeWidthDp, int edgeLightPercent, int specularPercent,
+                     int dispersionPercent, int clarityPercent, int coverPercent) {
             this.bendDp = bendDp;
             this.edgeWidthDp = edgeWidthDp;
             this.edgeLightPercent = edgeLightPercent;
             this.specularPercent = specularPercent;
             this.dispersionPercent = dispersionPercent;
             this.clarityPercent = clarityPercent;
+            this.coverPercent = Math.max(0, Math.min(100, coverPercent));
+        }
+
+        /**
+         * This look on a surface whose tint and Shade cover the frost by {@code cover} (0..1): the
+         * gathered light is raised to read through them ({@link #edgeGain}). Rounded to a percent,
+         * so a surface re-dressed at the same opacity compares equal and writes nothing.
+         */
+        @NonNull
+        public Look withCover(float cover) {
+            int percent = Math.round(Math.max(0f, Math.min(1f, cover)) * 100f);
+            if (percent == coverPercent) return this;
+            return new Look(bendDp, edgeWidthDp, edgeLightPercent, specularPercent,
+                dispersionPercent, clarityPercent, percent);
+        }
+
+        /**
+         * {@code uEdgeGain}: what the gathered light's strength is multiplied by under this
+         * look's cover, 1 at or under {@link #REFERENCE_COVER} and at most {@link #MAX_EDGE_GAIN}.
+         * The program then holds the raised light under the headroom as ever, so no channel clips.
+         */
+        public float edgeGain() {
+            return edgeGainFor(coverPercent / 100f);
+        }
+
+        /** {@link #edgeGain} for a cover of {@code cover}, 0..1. */
+        static float edgeGainFor(float cover) {
+            float through = Math.max(1f - Math.max(0f, Math.min(1f, cover)), 1e-3f);
+            return Math.max(1f, Math.min(MAX_EDGE_GAIN, (1f - REFERENCE_COVER) / through));
         }
 
         /** The user's knobs, already clamped by their accessors. */
@@ -251,20 +306,22 @@ public final class GlassRefraction {
                 && edgeLightPercent == that.edgeLightPercent
                 && specularPercent == that.specularPercent
                 && dispersionPercent == that.dispersionPercent
-                && clarityPercent == that.clarityPercent;
+                && clarityPercent == that.clarityPercent
+                && coverPercent == that.coverPercent;
         }
 
         @Override
         public int hashCode() {
-            return ((((bendDp * 31 + edgeWidthDp) * 31 + edgeLightPercent) * 31 + specularPercent) * 31
-                + dispersionPercent) * 31 + clarityPercent;
+            return (((((bendDp * 31 + edgeWidthDp) * 31 + edgeLightPercent) * 31 + specularPercent) * 31
+                + dispersionPercent) * 31 + clarityPercent) * 31 + coverPercent;
         }
 
         @NonNull
         @Override
         public String toString() {
             return "Look{bend=" + bendDp + "dp, edge=" + edgeWidthDp + "dp, light=" + edgeLightPercent + "%, specular="
-                + specularPercent + "%, dispersion=" + dispersionPercent + "%, clarity=" + clarityPercent + "%}";
+                + specularPercent + "%, dispersion=" + dispersionPercent + "%, clarity=" + clarityPercent
+                + "%, cover=" + coverPercent + "%}";
         }
     }
 
@@ -338,6 +395,9 @@ public final class GlassRefraction {
         "uniform float uDisp;\n" +
         "uniform float uClarity;\n" +
         "uniform float uDensity;\n" +
+        // How much the gathered light is raised to read through the tint and Shade drawn over it;
+        // 1 at Clear's cover. Look.edgeGain in Java.
+        "uniform float uEdgeGain;\n" +
         // A finger on the glass: where it rests, how far its light reaches, and its 0..1 fade.
         "uniform float uTouchActive;\n" +
         "uniform float2 uTouch;\n" +
@@ -515,7 +575,7 @@ public final class GlassRefraction {
         "    if (inside < kGlowReachDp * uDensity) {\n" +
         "        float glow = exp(-max(inside, 0.0) / (kGlowDp * uDensity));\n" +
         "        float pale = dot(float3(col.rgb), kLumaW);\n" +
-        "        float k = glow * (gatherShare(n) + 1.5 * touchG) * (1.0 - kPaleCut * pale);\n" +
+        "        float k = glow * (gatherShare(n) + 1.5 * touchG) * (1.0 - kPaleCut * pale) * uEdgeGain;\n" +
         "        col.rgb = col.rgb * half(1.0 - glow * kEdgeShade);\n" +
         "        float peak = float(max(col.r, max(col.g, col.b)));\n" +
         "        k = heldK(k, max(float(col.a) - peak, 0.0) / (kGain * peak + kLift));\n" +
@@ -648,8 +708,14 @@ public final class GlassRefraction {
      */
     static void gatheredLit(float r, float g, float b, float a, float insidePx, float density,
                             float nx, float ny, @NonNull float[] out) {
+        gatheredLit(r, g, b, a, insidePx, density, nx, ny, 1f, out);
+    }
+
+    /** {@link #gatheredLit(float, float, float, float, float, float, float, float, float[])} raised by {@code edgeGain} ({@code uEdgeGain}). */
+    static void gatheredLit(float r, float g, float b, float a, float insidePx, float density,
+                            float nx, float ny, float edgeGain, @NonNull float[] out) {
         float luma = r * LUMA_R + g * LUMA_G + b * LUMA_B;
-        float k = gatherK(insidePx, density, gatherShare(nx, ny), luma);
+        float k = gatherK(insidePx, density, gatherShare(nx, ny), luma) * edgeGain;
         float shade = 1f - glow(insidePx, density) * Look.EDGE_SHADE;
         float sr = r * shade, sg = g * shade, sb = b * shade;
         if (k > 0f) k = heldK(k, headroomK(Math.max(sr, Math.max(sg, sb)), a));
@@ -857,6 +923,7 @@ public final class GlassRefraction {
             mShader.setFloatUniform("uBand", look.bandPx(mDensity));
             mShader.setFloatUniform("uStrength", look.strengthPx(mDensity));
             mShader.setFloatUniform("uDisp", look.dispersion());
+            mShader.setFloatUniform("uEdgeGain", look.edgeGain());
             syncClarity();
         }
 

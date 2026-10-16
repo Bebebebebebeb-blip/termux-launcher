@@ -424,7 +424,7 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
             TERMUX_APP.KEY_STATUS_BAR_TINT_STRENGTH, DataUtils.clamp(value, 0, 100));
     }
 
-    /** How much of the Material colour tint the terminal's glass wears, percent. */
+    /** How much accent colour the terminal's glass mixes in, percent. */
     public int getTerminalTintStrength() {
         return DataUtils.clamp(resolveSurfaceValue(SurfaceSlot.CANVAS, SurfaceProperty.TINT,
             TERMUX_APP.KEY_TERMINAL_TINT_STRENGTH, TERMUX_APP.DEFAULT_SURFACE_BASE_TINT), 0, 100);
@@ -435,7 +435,7 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
             TERMUX_APP.KEY_TERMINAL_TINT_STRENGTH, DataUtils.clamp(value, 0, 100));
     }
 
-    /** How much of the Material colour tint the keyboard's glass wears, percent. */
+    /** How much accent colour the keyboard's glass mixes in, percent. */
     public int getInAppKeyboardTintStrength() {
         return DataUtils.clamp(resolveSurfaceValue(SurfaceSlot.KEYBOARD, SurfaceProperty.TINT,
             TERMUX_APP.KEY_IN_APP_KEYBOARD_TINT_STRENGTH, TERMUX_APP.DEFAULT_SURFACE_BASE_TINT),
@@ -447,7 +447,7 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
             TERMUX_APP.KEY_IN_APP_KEYBOARD_TINT_STRENGTH, DataUtils.clamp(value, 0, 100));
     }
 
-    /** How much of the Material colour tint the dock's glass wears, percent. */
+    /** How much accent colour the dock's glass mixes in, percent. */
     public int getDockTintStrength() {
         return DataUtils.clamp(resolveSurfaceValue(SurfaceSlot.DOCK, SurfaceProperty.TINT,
             TERMUX_APP.KEY_DOCK_TINT_STRENGTH, TERMUX_APP.DEFAULT_SURFACE_BASE_TINT), 0, 100);
@@ -2949,9 +2949,10 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
      * SurfacePresets holds Clear itself, out of reach here; a test there checks that a fresh
      * store matches it.
      */
-    private static final int FRESH_INSTALL_BASE_BLUR = 4;
+    // Clear's blur and grain are its point on the editor's Glass curve (Glass 20).
+    private static final int FRESH_INSTALL_BASE_BLUR = 7;
     private static final int FRESH_INSTALL_BASE_OPACITY = 10;
-    private static final int FRESH_INSTALL_BASE_GRAIN = 4;
+    private static final int FRESH_INSTALL_BASE_GRAIN = 3;
     private static final int FRESH_INSTALL_GLASS_BEND = 27;
     private static final int FRESH_INSTALL_GLASS_EDGE_WIDTH = 18;
     private static final int FRESH_INSTALL_GLASS_EDGE_LIGHT = 10;
@@ -3297,6 +3298,49 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
     public void setSurfaceGlassMotion(@Nullable String motion) {
         SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_SURFACE_GLASS_MOTION,
             motion == null ? TERMUX_APP.DEFAULT_SURFACE_GLASS_MOTION : motion, false);
+    }
+
+    /** The accent the tint amount mixes in; {@code primary} unless another known one is stored. */
+    @NonNull
+    public String getSurfaceGlassTintHue() {
+        return knownOrDefault(TERMUX_APP.KEY_SURFACE_GLASS_TINT_HUE,
+            TERMUX_APP.DEFAULT_SURFACE_GLASS_TINT_HUE, TERMUX_APP.GLASS_TINT_HUE_PRIMARY,
+            TERMUX_APP.GLASS_TINT_HUE_SECONDARY, TERMUX_APP.GLASS_TINT_HUE_TERTIARY);
+    }
+
+    /** Writes a known hue; anything else writes the default. */
+    public void setSurfaceGlassTintHue(@Nullable String hue) {
+        boolean known = TERMUX_APP.GLASS_TINT_HUE_PRIMARY.equals(hue)
+            || TERMUX_APP.GLASS_TINT_HUE_SECONDARY.equals(hue)
+            || TERMUX_APP.GLASS_TINT_HUE_TERTIARY.equals(hue);
+        SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_SURFACE_GLASS_TINT_HUE,
+            known ? hue : TERMUX_APP.DEFAULT_SURFACE_GLASS_TINT_HUE, false);
+    }
+
+    /** See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_SURFACE_GLASS_SHADE}. Clamped. */
+    public int getSurfaceGlassShade() {
+        return DataUtils.clamp(SharedPreferenceUtils.getInt(mSharedPreferences,
+                TERMUX_APP.KEY_SURFACE_GLASS_SHADE, TERMUX_APP.DEFAULT_SURFACE_GLASS_SHADE),
+            TERMUX_APP.MIN_SURFACE_GLASS_SHADE, TERMUX_APP.MAX_SURFACE_GLASS_SHADE);
+    }
+
+    public void setSurfaceGlassShade(int value) {
+        SharedPreferenceUtils.setInt(mSharedPreferences, TERMUX_APP.KEY_SURFACE_GLASS_SHADE,
+            DataUtils.clamp(value, TERMUX_APP.MIN_SURFACE_GLASS_SHADE,
+                TERMUX_APP.MAX_SURFACE_GLASS_SHADE), false);
+    }
+
+    /** See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_SURFACE_GLASS_VIBRANCY}. Clamped. */
+    public int getSurfaceGlassVibrancy() {
+        return DataUtils.clamp(SharedPreferenceUtils.getInt(mSharedPreferences,
+                TERMUX_APP.KEY_SURFACE_GLASS_VIBRANCY, TERMUX_APP.DEFAULT_SURFACE_GLASS_VIBRANCY),
+            TERMUX_APP.MIN_SURFACE_GLASS_VIBRANCY, TERMUX_APP.MAX_SURFACE_GLASS_VIBRANCY);
+    }
+
+    public void setSurfaceGlassVibrancy(int value) {
+        SharedPreferenceUtils.setInt(mSharedPreferences, TERMUX_APP.KEY_SURFACE_GLASS_VIBRANCY,
+            DataUtils.clamp(value, TERMUX_APP.MIN_SURFACE_GLASS_VIBRANCY,
+                TERMUX_APP.MAX_SURFACE_GLASS_VIBRANCY), false);
     }
 
     /** A stored enum-like string if it is one of {@code known}, else the default. */

@@ -48,7 +48,7 @@ public final class GlassStack {
          * resolves for it; null for glass no content is measured against.
          */
         @Nullable public final GlassBackdropCache.Band band;
-        /** How much of the tint the glass wears, in percent; 100 is the shipped tint. */
+        /** How much accent the glass mixes in, in percent (the Tint control). */
         public final int tintStrengthPercent;
 
         private Spec(int blurRadiusDp, float tintAlpha, int grainPercent, float cornerRadiusPx,
@@ -75,7 +75,9 @@ public final class GlassStack {
         public static Spec of(int blurRadiusDp, float tintAlpha, int grainPercent,
                               float cornerRadiusPx, @Nullable GlassRefraction.Look fancierLook) {
             return new Spec(blurRadiusDp, tintAlpha, grainPercent, cornerRadiusPx, false,
-                lookFor(fancierLook), 0, 1f, false, 100, null, null, 100);
+                lookFor(fancierLook), 0, 1f, false, 100, null, null,
+                com.termux.shared.termux.settings.preferences.TermuxPreferenceConstants.TERMUX_APP
+                    .DEFAULT_SURFACE_BASE_TINT);
         }
 
         @NonNull public Spec withBlur(int dp) {
@@ -108,7 +110,7 @@ public final class GlassStack {
                 sliceEnd, foot, stackAlphaPercent, argb, band, tintStrengthPercent);
         }
 
-        /** This glass wearing {@code percent} of its tint (the Tint control). */
+        /** This glass mixing in {@code percent} of the accent (the Tint control). */
         @NonNull public Spec withTintStrength(int percent) {
             return new Spec(blurRadiusDp, tintAlpha, grainPercent, cornerRadiusPx, rim, look, seams,
                 sliceEnd, foot, stackAlphaPercent, tintColor, band,
@@ -220,12 +222,20 @@ public final class GlassStack {
         if (backdrop != null) {
             // The content-aware light scatter every glass surface's frame wears.
             backdrop.setColorFilter(GlassFilters.frost(Math.round(spec.tintAlpha * 100f)));
-            backdrop.setRefraction(spec.look, density, spec.cornerRadiusPx, spec.seams);
+            // The gathered light is drawn under the tint and the Shade, so it is raised by what
+            // they cover and every surface shows a like outline.
+            backdrop.setRefraction(spec.look.withCover(glass.cover(spec.tintColor != null
+                    ? android.graphics.Color.alpha(spec.tintColor) / 255f : spec.tintAlpha)),
+                density, spec.cornerRadiusPx, spec.seams);
             programEdge = probe.drawsEdge(backdrop);
             layers.add(backdrop);
         }
         boolean rim = wearsRim(spec.rim, programEdge);
         if (spec.tintColor != null) {
+            // Shade under the scheme colour, as under the glass tint.
+            int shade = glass.shadeColor();
+            if (android.graphics.Color.alpha(shade) > 0)
+                layers.add(new android.graphics.drawable.ColorDrawable(shade));
             layers.add(new android.graphics.drawable.ColorDrawable(spec.tintColor));
             // A scheme colour stands in for the glass tint, and the band's veil still goes over
             // it, under the rim, exactly where the glass path puts it.

@@ -50,6 +50,15 @@ public final class ChromeRenderer {
 
         @Nullable TermuxAppSharedPreferences preferences();
 
+        /** The frames' Vibrancy: the stored glass Vibrancy, today's frame without preferences. */
+        @Override
+        default int glassVibrancyPercent() {
+            TermuxAppSharedPreferences preferences = preferences();
+            return preferences != null ? preferences.getSurfaceGlassVibrancy()
+                : com.termux.shared.termux.settings.preferences.TermuxPreferenceConstants
+                    .TERMUX_APP.DEFAULT_SURFACE_GLASS_VIBRANCY;
+        }
+
         /**
          * The user's one legibility control, which multiplies every band's contrast target. Read
          * from the preferences' "Terminal contrast" choice; default while there are none.

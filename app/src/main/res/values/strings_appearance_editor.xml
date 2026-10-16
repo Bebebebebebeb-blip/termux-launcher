@@ -33,7 +33,6 @@
     <string name="appearance_editor_target_description">Tune %1$s</string>
 
     <!-- Row 2's controls; the number is the control's own read-out. -->
-    <string name="appearance_editor_blur">Blur · %1$d dp</string>
     <string name="appearance_editor_legibility_low">Contrast · Softer</string>
     <string name="appearance_editor_legibility_unavailable">Contrast · off</string>
     <string name="appearance_editor_key_corners">Radius · %1$d dp</string>
@@ -42,6 +41,11 @@
     <!-- The terminal's two menu pills: the heading over the chosen option. -->
     <string name="appearance_editor_trail_title">Cursor trail</string>
     <string name="appearance_editor_effect_title">Terminal effect</string>
+    <!-- The global set's two menu pills: which accent Tint mixes in, and the edge's colour split. -->
+    <string name="appearance_editor_tint_hue_title">Tint colour</string>
+    <string name="appearance_editor_dispersion_title">Edge colour</string>
+    <string name="appearance_editor_tint_hue_description">Tint colour, %1$s</string>
+    <string name="appearance_editor_dispersion_description">Edge colour, %1$s</string>
     <!-- The status bar's button: opens the clock face and position popup. -->
     <string name="appearance_editor_clock">Clock</string>
     <!-- The Custom row's own legends; the number is the slider's read-out. -->
@@ -51,10 +55,15 @@
     <string name="appearance_editor_trail_description">Cursor trail, %1$s</string>
     <string name="appearance_editor_effect_description">Terminal effect, %1$s</string>
     <!-- The global row (layout editor v2): the base values every surface follows. -->
+    <!-- Clear to frosted: how much the glass blurs what is behind it, and its grain with it. -->
+    <string name="appearance_editor_glass">Glass · %1$d%%</string>
     <string name="appearance_editor_opacity">Opacity · %1$d%%</string>
-    <string name="appearance_editor_grain">Grain · %1$d%%</string>
     <string name="appearance_editor_tint">Tint · %1$d%%</string>
     <string name="appearance_editor_tint_name">Tint</string>
+    <!-- Dims the glass behind the content (on light glass, lifts it toward white). -->
+    <string name="appearance_editor_shade">Shade · %1$d%%</string>
+    <!-- How colourful the wallpaper looks through the glass; 1.00× is as it is. -->
+    <string name="appearance_editor_vibrancy">Vibrancy · %1$s×</string>
     <!-- The global set's last slider, while the glass edge is drawn: how thick it looks. -->
     <string name="appearance_editor_depth">Depth · %1$d%%</string>
     <!-- The keyboard's door to its theme page in Settings; also that page's title. -->

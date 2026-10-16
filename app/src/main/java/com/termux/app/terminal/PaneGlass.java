@@ -139,7 +139,11 @@ public final class PaneGlass {
         // gradient rim here as well would put two borders on a lone pane.
         backdrop.setRim(NO_RIM, style);
         backdrop.setParallax(style.wallpaperParallax());
-        backdrop.setRefraction(style.paneGlassRefraction());
+        // The slab's gathered light is drawn under its tint (Shade folded in), so it is raised by
+        // what that tint covers.
+        com.termux.app.chrome.GlassRefraction.Look refraction = style.paneGlassRefraction();
+        backdrop.setRefraction(refraction == null ? null
+            : refraction.withCover((style.paneGlassTintColor() >>> 24) / 255f));
         backdrop.setClearFrame(style.paneGlassClearFrame());
         backdrop.setVisibility(View.VISIBLE);
         backdrop.setVeilSource(terminalPane ? style : null);

@@ -43,6 +43,9 @@ final class AppearanceSnapshot {
     private final String mTint;
     private final String mRim;
     private final String mMotion;
+    private final String mTintHue;
+    private final int mShade;
+    private final int mVibrancy;
     private final int mBend;
     private final int mEdgeWidth;
     private final int mEdgeLight;
@@ -91,6 +94,9 @@ final class AppearanceSnapshot {
         mTint = prefs.getSurfaceGlassTint();
         mRim = prefs.getSurfaceGlassRim();
         mMotion = prefs.getSurfaceGlassMotion();
+        mTintHue = prefs.getSurfaceGlassTintHue();
+        mShade = prefs.getSurfaceGlassShade();
+        mVibrancy = prefs.getSurfaceGlassVibrancy();
         mBend = prefs.getFancierGlassBendDp();
         mEdgeWidth = prefs.getFancierGlassEdgeWidthDp();
         mEdgeLight = prefs.getFancierGlassEdgeLightPercent();
@@ -141,6 +147,9 @@ final class AppearanceSnapshot {
         prefs.setSurfaceGlassTint(mTint);
         prefs.setSurfaceGlassRim(mRim);
         prefs.setSurfaceGlassMotion(mMotion);
+        prefs.setSurfaceGlassTintHue(mTintHue);
+        prefs.setSurfaceGlassShade(mShade);
+        prefs.setSurfaceGlassVibrancy(mVibrancy);
         prefs.setFancierGlassBendDp(mBend);
         prefs.setFancierGlassEdgeWidthDp(mEdgeWidth);
         prefs.setFancierGlassEdgeLightPercent(mEdgeLight);
@@ -174,6 +183,7 @@ final class AppearanceSnapshot {
             .append('|').append(mTerminalRadius).append('|').append(mPaneGap)
             .append('|').append(mWallpaperTerminalOpacity)
             .append('|').append(mTint).append('|').append(mRim).append('|').append(mMotion)
+            .append('|').append(mTintHue).append('|').append(mShade).append('|').append(mVibrancy)
             .append('|').append(mBend).append('|').append(mEdgeWidth).append('|').append(mEdgeLight)
             .append('|').append(mSpecular).append('|').append(mDispersion)
             .append('|').append(mClarity)

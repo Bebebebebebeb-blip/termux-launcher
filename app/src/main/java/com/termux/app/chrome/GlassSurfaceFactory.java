@@ -54,25 +54,69 @@ public final class GlassSurfaceFactory {
         return new GlassSurfaceFactory(mSurfaces, mInk, look);
     }
 
-    /** The tint colour and rim every surface built here wears: the preset's, or the live one. */
+    /**
+     * The ink, rim and accent hue every surface built here wears: the preset's, or the live one,
+     * at amount 0. Its accent colours are resolved only once an amount asks for them
+     * ({@link #look(int)}).
+     */
     @NonNull
     public GlassLook look() {
-        GlassLook look = mLookOverride != null ? mLookOverride : GlassLook.of(mSurfaces.preferences());
-        if (!look.isMaterialRequested() || look.materialTint) return look;
-        android.content.Context context = mSurfaces.context();
-        int accent = mSurfaces.accentColor();
-        int container = com.google.android.material.color.MaterialColors.getColor(
-            context, com.google.android.material.R.attr.colorPrimaryContainer, accent);
-        int primary = com.google.android.material.color.MaterialColors.getColor(
-            context, androidx.appcompat.R.attr.colorPrimary, accent);
-        // M3's surface tint is the primary role; MDC exposes no colorSurfaceTint attribute.
-        return look.withMaterialColors(container, primary);
+        return mLookOverride != null ? mLookOverride : GlassLook.of(mSurfaces.preferences());
     }
 
-    /** This factory's look wearing {@code tintStrengthPercent} of its tint (the Tint control). */
+    /**
+     * This factory's look mixing in {@code tintAmountPercent} of its accent (the Tint control),
+     * with the accent's colours resolved from the theme whenever the amount is above 0, whatever
+     * the Look's ink: Clear and Mist take the accent exactly as the Tint Look does.
+     */
     @NonNull
-    public GlassLook look(int tintStrengthPercent) {
-        return look().withStrengthPercent(tintStrengthPercent);
+    public GlassLook look(int tintAmountPercent) {
+        GlassLook look = look().withAmountPercent(tintAmountPercent);
+        if (!look.needsAccentColors()) return look;
+        android.content.Context context = mSurfaces.context();
+        int accent = mSurfaces.accentColor();
+        int containerAttr;
+        int roleAttr;
+        switch (look.hue) {
+            case SECONDARY:
+                containerAttr = com.google.android.material.R.attr.colorSecondaryContainer;
+                roleAttr = com.google.android.material.R.attr.colorSecondary;
+                break;
+            case TERTIARY:
+                containerAttr = com.google.android.material.R.attr.colorTertiaryContainer;
+                roleAttr = com.google.android.material.R.attr.colorTertiary;
+                break;
+            case PRIMARY:
+            default:
+                containerAttr = com.google.android.material.R.attr.colorPrimaryContainer;
+                // M3's surface tint is the primary role; MDC exposes no colorSurfaceTint attribute.
+                roleAttr = androidx.appcompat.R.attr.colorPrimary;
+                break;
+        }
+        int container = com.google.android.material.color.MaterialColors.getColor(
+            context, containerAttr, accent);
+        int role = com.google.android.material.color.MaterialColors.getColor(
+            context, roleAttr, accent);
+        return look.withAccentColors(container, role);
+    }
+
+    /**
+     * The Shade layer every glass surface lays under its tint: black or white at the stored
+     * share of the theme's cap ({@link GlassShade}), transparent at 0.
+     */
+    public int shadeColor() {
+        TermuxAppSharedPreferences preferences = mSurfaces.preferences();
+        int percent = preferences != null ? preferences.getSurfaceGlassShade()
+            : TermuxPreferenceConstants.TERMUX_APP.DEFAULT_SURFACE_GLASS_SHADE;
+        return GlassShade.color(mSurfaces.glassBaseColor(), percent);
+    }
+
+    /**
+     * How much the layers over a frost at {@code tintAlpha} cover it, Shade included: what the
+     * frost's gathered light is scaled by so it reads through them ({@link GlassRefraction.Look#withCover}).
+     */
+    public float cover(float tintAlpha) {
+        return GlassShade.cover(tintAlpha, shadeColor());
     }
 
     /** The dock's tint strength, percent: what every dock-material surface wears. */
@@ -304,6 +348,7 @@ public final class GlassSurfaceFactory {
         GlassLook look = look(tintStrengthPercent);
         int base = look.tintBase(mSurfaces.glassBaseColor());
         int accent = mSurfaces.accentColor();
+        int shade = shadeColor();
         float clamped = barAlpha < 0f ? 0f : (barAlpha > 1f ? 1f : barAlpha);
         // Opacity controls the colored material wash and its lighting. The wallpaper blur and
         // grain are independent physical layers: reducing tint should reveal more frost/texture,
@@ -313,7 +358,7 @@ public final class GlassSurfaceFactory {
         int midSheenAlpha = DockGlassRendering.midSheenAlpha(clamped);
         int bottomFootAlpha = DockGlassRendering.footAlpha(clamped, withFoot);
         if (glassBand != null && mInk != null) {
-            mInk.noteBandGlass(glassBand, clamped, withFoot, sliceStart, sliceEnd);
+            mInk.noteBandGlass(glassBand, clamped, withFoot, sliceStart, sliceEnd, base, shade);
         }
         GradientDrawable baseLayer = new GradientDrawable();
         baseLayer.setColor(SchemeTone.withAlpha(base, baseAlpha / 255f));
@@ -323,12 +368,21 @@ public final class GlassSurfaceFactory {
         int[] sliceColors = look.obsidianTint
             ? new int[] {GlassLook.wash(), GlassLook.wash()}
             : DockGlassRendering.lightModelSlice(accent, topSheenAlpha, midSheenAlpha,
-                bottomFootAlpha, sliceStart, sliceEnd, look.strength());
+                bottomFootAlpha, sliceStart, sliceEnd);
         GradientDrawable lightLayer = new GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM, sliceColors);
         lightLayer.setDither(true);
 
         List<Drawable> layers = new ArrayList<>();
+        // Shade, when it is on: under the tint and over the frost, so the face behind the content
+        // dims (or, on light glass, lifts) and the tint, its light and its veil sit on top as ever.
+        GradientDrawable shadeLayer = null;
+        if (Color.alpha(shade) > 0) {
+            shadeLayer = new GradientDrawable();
+            shadeLayer.setColor(shade);
+            shadeLayer.setDither(true);
+            layers.add(shadeLayer);
+        }
         layers.add(baseLayer);
         layers.add(lightLayer);
         // The band's veil, when it needs one: another pane of its own base colour, never a white
@@ -355,6 +409,7 @@ public final class GlassSurfaceFactory {
         if (cornerRadiusPx > 0f) {
             baseLayer.setCornerRadius(cornerRadiusPx);
             lightLayer.setCornerRadius(cornerRadiusPx);
+            if (shadeLayer != null) shadeLayer.setCornerRadius(cornerRadiusPx);
         }
         return new LayerDrawable(layers.toArray(new Drawable[0]));
     }
@@ -383,7 +438,8 @@ public final class GlassSurfaceFactory {
                                   float sliceStart, float sliceEnd, boolean withFoot) {
         if (mInk == null) return null;
         float clamped = barAlpha < 0f ? 0f : (barAlpha > 1f ? 1f : barAlpha);
-        mInk.noteBandGlass(band, clamped, withFoot, sliceStart, sliceEnd);
+        mInk.noteBandGlass(band, clamped, withFoot, sliceStart, sliceEnd,
+            look(dockTintStrength()).tintBase(mSurfaces.glassBaseColor()), shadeColor());
         int veil = mInk.bandVeil(band);
         if (Color.alpha(veil) <= 0) return null;
         GradientDrawable layer = new GradientDrawable();
