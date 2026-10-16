@@ -76,6 +76,12 @@ under twenty items; past that, the oldest are re-judged first.
   still reads 92; pick a Look and it reads that Look's position. A Custom saved with the old six values (e.g.
   13/32/60/20/20/90) opens without changing any key until Depth moves · emulator, with a
   wallpaper set from the launcher.
+- 2026-10-16 · commit "test(surfaces): pin the first run on Clear, on Depth's curve" (glass plan
+  Round 0) · Fresh install (`ad clear`, then a wallpaper set through the picker): the Look page
+  shows Clear selected and Depth reads 90, and `run-as` the prefs holds `fancier_glass_bend` 27
+  and `fancier_glass_edge_width` 18; one Depth step down writes 26/17 and the dock's bend ring
+  narrows by a step, not to a third. Fails if the page says Custom with Depth 34: something wrote
+  a preference before the first-run check, and the install was taken for an upgrade · emulator.
 
 ## Developer
 
