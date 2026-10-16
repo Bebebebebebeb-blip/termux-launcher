@@ -127,7 +127,7 @@ public class GlassRefractionTest {
             "uFrameScale", "uFrameOffset", "uLocalX", "uLocalY", "uLocalW", "uRectMin", "uRectMax",
             "uRadius", "uBand", "uStrength", "uDisp", "uDensity",
             "uLensActive", "uLensCenter", "uLensHalf", "uLensRadius", "uLensStrength", "uLensFeather",
-            "uClarity", "uTouchActive", "uTouch", "uTouchRadius", "uTouchLens", "uGathered",
+            "uClarity", "uTouchActive", "uTouch", "uTouchRadius", "uTouchLens", "uEdgeGain",
         };
         for (String name : written) {
             assertTrue(name + " is declared",
@@ -137,8 +137,11 @@ public class GlassRefractionTest {
         assertTrue("the clearer picture is a second input", GlassRefraction.AGSL.contains("uniform shader sharp;"));
         // The knobs the hairline no longer takes, and the slab lens and thickness shading neither
         // reference draws, are gone from the program.
+        // The white hairline the gathered light replaced, and the switch that chose between them,
+        // are gone as well.
         for (String gone : new String[] {"uRim", "uLobeK", "uShade", "uThick", "uSlab", "uRimW",
-            "slabOffset", "softClamp", "kKnee"}) {
+            "slabOffset", "softClamp", "kKnee", "uGathered", "kRim", "kShade", "kLobeK", "kLight",
+            "lobe"}) {
             assertFalse(gone + " is gone", Pattern.compile("\\b" + gone + "\\b").matcher(GlassRefraction.AGSL).find());
         }
     }
@@ -278,34 +281,29 @@ public class GlassRefractionTest {
     }
 
     @Test
-    public void theRimLightPeaksTowardTheLightAndIsDarkOppositeIt() {
-        float k = GlassRefraction.Look.LOBE_K;
-        assertEquals(8f, k, 0f);
-        float d = (float) Math.sqrt(0.5);
-        assertEquals("full along the top edge, which faces the light", 1f, GlassRefraction.lobe(0f, -1f, k), 1e-4f);
-        assertEquals("a sixteenth round the corner", 0.0625f, GlassRefraction.lobe(-d, -d, k), 1e-3f);
-        assertEquals("nothing on the bottom edge", 0f, GlassRefraction.lobe(0f, 1f, k), 0f);
-        assertEquals("nothing on the right edge", 0f, GlassRefraction.lobe(1f, 0f, k), 0f);
-        assertEquals("nothing on the left edge", 0f, GlassRefraction.lobe(-1f, 0f, k), 0f);
-        // Falling off from the top edge round the corner arc to the side.
+    public void theLightRunsRoundTheWholeOutlineAndPeaksTowardTheKeyLight() {
+        // The one directional light left is the gathered light's key light: every side keeps the
+        // ambient share, so the outline is never dark down a side as the hairline's was.
         float last = 2f;
-        for (int deg = 0; deg <= 90; deg += 5) {
-            double a = Math.toRadians(270 + deg);
-            float l = GlassRefraction.lobe((float) Math.cos(a), (float) Math.sin(a), k);
-            assertTrue("falls off at " + deg, l <= last);
-            last = l;
+        for (int deg = 0; deg <= 180; deg += 5) {
+            // From facing the key light squarely round to facing away from it.
+            double a = Math.atan2(GlassRefraction.KEY_LIGHT_Y, GlassRefraction.KEY_LIGHT_X)
+                + Math.toRadians(deg);
+            float share = GlassRefraction.gatherShare((float) Math.cos(a), (float) Math.sin(a));
+            assertTrue("falls off at " + deg, share <= last + 1e-6f);
+            assertTrue("never under the ambient share at " + deg,
+                share >= GlassRefraction.Look.AMBIENT - 1e-6f);
+            last = share;
         }
-        assertTrue(GlassRefraction.AGSL.contains("const float2 kLight = float2(0.0, -1.0);"));
-        assertTrue(GlassRefraction.AGSL.contains("const float kLobeK = 8.0;"));
-        assertTrue(GlassRefraction.AGSL.contains("return c > 0.0 ? pow(c, k) : 0.0;"));
+        assertEquals(1f, GlassRefraction.gatherShare(GlassRefraction.KEY_LIGHT_X,
+            GlassRefraction.KEY_LIGHT_Y), 1e-3f);
+        assertTrue("the program has one light", GlassRefraction.AGSL.contains(
+            "float c = max(dot(n, kKeyLight), 0.0);"));
+        assertFalse(GlassRefraction.AGSL.contains("dot(n, kLight)"));
     }
 
     @Test
-    public void theHairlineIsFixedMaterialWhateverTheStoredLightSays() {
-        assertEquals(0.45f, GlassRefraction.Look.LIGHT_ALPHA, 0f);
-        assertEquals(0.12f, GlassRefraction.Look.SHADE, 0f);
-        assertTrue(GlassRefraction.AGSL.contains("const float kRim = 0.45;"));
-        assertTrue(GlassRefraction.AGSL.contains("const float kShade = 0.12;"));
+    public void theEdgeIsFixedMaterialWhateverTheStoredLightSays() {
         // Two looks that differ only in the stored light and specular draw the same uniforms.
         GlassRefraction.Look faint = new GlassRefraction.Look(24, 16, 10, 0, 0, 0);
         GlassRefraction.Look loud = new GlassRefraction.Look(24, 16, 90, 80, 0, 0);
@@ -316,30 +314,29 @@ public class GlassRefractionTest {
     }
 
     @Test
-    public void theRimLightIsBoundedAndTheDarkEdgeSitsUnderIt() {
-        float rimW = GlassRefraction.Look.rimWidthPx(DENSITY);
+    public void theGatheredLightIsBoundedAndTheShadeSitsUnderIt() {
+        float d = (float) Math.sqrt(0.5);
+        float[] out = new float[3];
         for (int i = 0; i <= 20; i++) {
             float face = i / 20f;
-            float lit = GlassRefraction.edgeLit(face, 0f, rimW, 1f);
-            assertTrue("never past white at " + face, lit <= 1f);
-            assertTrue("never more than the ceiling of white over the face at " + face,
-                lit <= face + GlassRefraction.Look.LIGHT_ALPHA + 1e-6f);
-            float dark = GlassRefraction.edgeLit(face, 0f, rimW, 0f);
-            assertEquals("where the light does not reach, only the dark edge",
-                face * (1f - GlassRefraction.Look.SHADE), dark, 1e-6f);
-            assertTrue(lit >= dark);
+            // The brightest spot on the outline: facing the key light, at the outline itself.
+            GlassRefraction.gatheredLit(face, face, face, 1f, 0f, DENSITY, -d, -d, out);
+            float shaded = face * (1f - GlassRefraction.Look.EDGE_SHADE);
+            assertTrue("never past white at " + face, out[0] < 1f || face >= 1f);
+            assertTrue("never under the faint shade at " + face, out[0] >= shaded - 1e-6f);
+            assertTrue("never more than the gain and the lift allow at " + face,
+                out[0] <= shaded * (1f + GlassRefraction.Look.GAIN) + GlassRefraction.Look.LIFT + 1e-6f);
         }
-        // A hairline in, the picture is untouched.
-        assertEquals(0.4f, GlassRefraction.edgeLit(0.4f, rimW, rimW, 1f), 0f);
-        assertEquals(0.4f, GlassRefraction.edgeLit(0.4f, 5f * rimW, rimW, 1f), 0f);
-        assertTrue(GlassRefraction.AGSL.contains("float rim = 1.0 - edge;"));
-        assertTrue(GlassRefraction.AGSL.contains("col.rgb = col.rgb * half(1.0 - rim * kShade);"));
-        assertTrue(GlassRefraction.AGSL.contains("float light = rim * kRim * (lobe(n, kLobeK) + 1.5 * touchG);"));
-        assertTrue(GlassRefraction.AGSL.contains("col.rgb = mix(col.rgb, half3(1.0), half(clamp(light, 0.0, 1.0)));"));
+        // Past the light's reach the picture is untouched.
+        float reach = GlassRefraction.Look.GLOW_REACH_DP * DENSITY;
+        GlassRefraction.gatheredLit(0.4f, 0.4f, 0.4f, 1f, reach, DENSITY, 0f, -1f, out);
+        assertEquals(0.4f, out[0], 0f);
+        GlassRefraction.gatheredLit(0.4f, 0.4f, 0.4f, 1f, 5f * reach, DENSITY, 0f, -1f, out);
+        assertEquals(0.4f, out[0], 0f);
     }
 
     @Test
-    public void theHairlineIsADpAndNeverUnderTwoPixels() {
+    public void theEasedPullIsADpAndNeverUnderTwoPixels() {
         assertEquals(DENSITY, GlassRefraction.Look.rimWidthPx(DENSITY), 1e-4f);
         assertEquals("never under two pixels", 2f, GlassRefraction.Look.rimWidthPx(1f), 1e-4f);
         assertEquals(2f, GlassRefraction.Look.rimWidthPx(0.4f), 1e-4f);
@@ -358,11 +355,13 @@ public class GlassRefractionTest {
     }
 
     @Test
-    public void aSeamClearsTheHairlineAndItsContourOnANarrowBand() {
-        // Solid's 1 dp edge ends inside the hairline; the seam is pushed past both regardless.
+    public void aSeamClearsTheGlowOnANarrowBand() {
+        // Solid's 1 dp edge ends well inside the light's reach; the seam is pushed past the light.
         GlassRefraction.Look narrow = new GlassRefraction.Look(0, 1, 100);
         assertTrue(GlassRefraction.seamReachPx(narrow, DENSITY, 0f) > GlassRefraction.Look.rimReachPx(DENSITY));
         assertTrue(GlassRefraction.seamReachPx(narrow, 1f, 0f) > GlassRefraction.Look.rimReachPx(1f));
+        assertTrue(GlassRefraction.seamReachPx(narrow, DENSITY, 0f)
+            > GlassRefraction.Look.GLOW_REACH_DP * DENSITY);
     }
 
     @Test
@@ -429,23 +428,17 @@ public class GlassRefractionTest {
     // --------------------------------------------- the gathered light (glass plan 2026-10-16, E-1)
 
     @Test
-    public void theGatheredEdgeIsOffByDefault() {
-        assertTrue(Pattern.compile("uniform float uGathered;").matcher(GlassRefraction.AGSL).find());
-        // The program's first write, and the uniform's own default, is the hairline.
-        assertEquals(0f, GlassRefraction.gatheredUniform(false), 0f);
-        assertEquals(1f, GlassRefraction.gatheredUniform(true), 0f);
-        // One program: the hairline is the branch taken at 0, with today's very lines in it (the
-        // hairline tests above read them), and the gathered light the branch taken at 1.
+    public void theGatheredLightIsTheOnlyEdge() {
+        // No switch and no hairline left to fall back to: every surface that runs the program,
+        // a look or none (the dock and the strip draw Look.DEFAULT), wears the gathered light.
         String agsl = GlassRefraction.AGSL;
-        int branch = agsl.indexOf("if (uGathered > 0.5) {");
-        int otherwise = agsl.indexOf("} else {", branch);
-        assertTrue(branch > 0 && otherwise > branch);
-        assertTrue(agsl.indexOf("float rim = 1.0 - edge;") > otherwise);
-        assertTrue(agsl.indexOf("float light = rim * kRim * (lobe(n, kLobeK) + 1.5 * touchG);") > otherwise);
-        assertTrue(agsl.indexOf("float glow = exp(-max(inside, 0.0) / (kGlowDp * uDensity));") > branch);
-        assertTrue(agsl.indexOf("float glow = exp(") < otherwise);
-        // The pull's ease across the outermost dp is the same either way.
-        assertTrue(agsl.indexOf("float edge = smoothstep(0.0, rimW, inside);") < branch);
+        assertFalse(agsl.contains("uGathered"));
+        int light = agsl.indexOf("    if (inside < kGlowReachDp * uDensity) {");
+        assertTrue(light > 0);
+        assertTrue(agsl.indexOf("float glow = exp(-max(inside, 0.0) / (kGlowDp * uDensity));") > light);
+        assertFalse("no other branch beside it", agsl.substring(light).contains("} else {\n        float rim"));
+        // The pull's ease across the outermost dp is still there, before the light.
+        assertTrue(agsl.indexOf("float edge = smoothstep(0.0, rimW, inside);") < light);
     }
 
     @Test
@@ -469,12 +462,21 @@ public class GlassRefractionTest {
         assertTrue(GlassRefraction.AGSL.contains(
             "return kAmbient + (1.0 - kAmbient) * (c > 0.0 ? pow(c, kKeyExp) : 0.0);"));
         assertTrue(GlassRefraction.AGSL.contains(
-            "float k = glow * (gatherShare(n) + 1.5 * touchG) * (1.0 - kPaleCut * pale);"));
+            "float k = glow * (gatherShare(n) + 1.5 * touchG) * (1.0 - kPaleCut * pale) * uEdgeGain;"));
         assertTrue(GlassRefraction.AGSL.contains("float pale = dot(float3(col.rgb), kLumaW);"));
         assertTrue(GlassRefraction.AGSL.contains("col.rgb = col.rgb * half(1.0 - glow * kEdgeShade);"));
         assertTrue(GlassRefraction.AGSL.contains(
             "col.rgb = min(half3(col.a), col.rgb * half(1.0 + kGain * k) + half3(kLift * k));"));
         assertTrue(GlassRefraction.AGSL.contains("if (inside < kGlowReachDp * uDensity) {"));
+        // The headroom the light is held under, after the shade and before the brightening.
+        String agsl = GlassRefraction.AGSL;
+        String held = "k = heldK(k, max(float(col.a) - peak, 0.0) / (kGain * peak + kLift));";
+        assertTrue(agsl.contains("float peak = float(max(col.r, max(col.g, col.b)));"));
+        assertTrue(agsl.contains(held));
+        assertTrue(agsl.indexOf(held) > agsl.indexOf("col.rgb = col.rgb * half(1.0 - glow * kEdgeShade);"));
+        assertTrue(agsl.indexOf(held) < agsl.indexOf("col.rgb = min(half3(col.a), col.rgb * half(1.0 + kGain * k)"));
+        assertTrue(agsl.contains("return r <= 0.5 ? k : kMax * (1.0 - 0.25 / r);"));
+        assertEquals(0.5f, GlassRefraction.Look.HEADROOM_KNEE, 0f);
     }
 
     private static void assertConst(String name, float java) {
@@ -501,19 +503,15 @@ public class GlassRefractionTest {
                     + GlassRefraction.Look.LIFT * k + 1e-6f);
             assertTrue("never past white", out[c] <= 1f);
         }
-        // Where no channel is held at white, the hue stays: blue over red within 10%. At the
-        // outline itself this sample's blue reaches white and is held there (0.48, 0.69, 1.0),
-        // so the ratio is read from where the light has faded enough for nothing to clip.
-        int unclipped = 0;
+        // The hue stays all the way in, the outline itself included: the light is held under the
+        // blue's headroom rather than clipping it at white. Blue over red within 10%.
         for (int i = 0; i <= 40; i++) {
             float inside = i * 0.25f * DENSITY;
             GlassRefraction.gatheredLit(r, g, b, 1f, inside, DENSITY, nx, ny, out);
-            if (out[2] >= 1f) continue;
-            unclipped++;
+            assertTrue("blue held under white at " + (i * 0.25f) + " dp", out[2] < 1f);
             float ratio = (out[2] / out[0]) / (b / r);
             assertTrue("blue over red at " + (i * 0.25f) + " dp: " + ratio, ratio > 0.9f && ratio < 1.1f);
         }
-        assertTrue(unclipped > 25);
         // A premultiplied sample is held under its own alpha.
         GlassRefraction.gatheredLit(0.4f, 0.4f, 0.4f, 0.5f, 0f, DENSITY, nx, ny, out);
         for (float channel : out) assertTrue(channel <= 0.5f);
@@ -583,30 +581,92 @@ public class GlassRefractionTest {
             new GlassRefraction.Look(6, 4, 10)};
         for (GlassRefraction.Look look : looks) {
             for (float radius : new float[] {0f, 60f}) {
-                float reach = GlassRefraction.seamReachPx(look, DENSITY, radius, true);
+                float reach = GlassRefraction.seamReachPx(look, DENSITY, radius);
                 assertTrue(look + " at " + radius, reach >= GlassRefraction.Look.GLOW_REACH_DP * DENSITY
                     + look.strengthPx(DENSITY) + radius + 2f * DENSITY - 1e-3f);
-                assertEquals("the hairline's reach is today's",
-                    GlassRefraction.seamReachPx(look, DENSITY, radius),
-                    GlassRefraction.seamReachPx(look, DENSITY, radius, false), 0f);
             }
         }
-        assertEquals(GlassRefraction.Look.rimReachPx(DENSITY),
-            GlassRefraction.Look.rimReachPx(DENSITY, false), 0f);
-        assertEquals(GlassRefraction.Look.GLOW_REACH_DP * DENSITY,
-            GlassRefraction.Look.rimReachPx(DENSITY, true), 0f);
+        // The rim's reach is the light's, at every density: it reaches much further than the
+        // eased pull's width does.
+        for (float density : new float[] {0.4f, 1f, DENSITY, 4f}) {
+            assertEquals(GlassRefraction.Look.GLOW_REACH_DP * density,
+                GlassRefraction.Look.rimReachPx(density), 1e-4f);
+            assertTrue(GlassRefraction.Look.rimReachPx(density)
+                >= GlassRefraction.Look.rimWidthPx(density));
+        }
     }
 
     @Test
     public void theShippedLooksSeamsDoNotMoveWithTheGlow() {
         // Clear, Mist and Tint (and the default mode's dock) have bands wider than the glow's
-        // reach, so their seams sit where they did: the switch moves no geometry for them.
+        // reach, so their seams sit where the hairline's sat: the band, the pull, the corner and
+        // a little to spare, the glow adding nothing.
         GlassRefraction.Look[] shipped = {GlassRefraction.Look.DEFAULT,
             new GlassRefraction.Look(27, 18, 10), new GlassRefraction.Look(24, 16, 10),
             new GlassRefraction.Look(21, 14, 10)};
-        for (GlassRefraction.Look look : shipped)
-            assertEquals(look.toString(), GlassRefraction.seamReachPx(look, DENSITY, 40f),
-                GlassRefraction.seamReachPx(look, DENSITY, 40f, true), 0f);
+        for (GlassRefraction.Look look : shipped) {
+            assertTrue(look.toString(),
+                look.bandPx(DENSITY) >= GlassRefraction.Look.GLOW_REACH_DP * DENSITY);
+            assertEquals(look.toString(), look.bandPx(DENSITY) + look.strengthPx(DENSITY) + 40f
+                    + 2f * DENSITY, GlassRefraction.seamReachPx(look, DENSITY, 40f), 1e-3f);
+        }
+    }
+
+    @Test
+    public void aPaleBackdropsOutlineNeverClipsAndKeepsItsHue() {
+        // The review's cases: a mid grey and a pale grey went to 0.98 and 1.0 at the outline, and
+        // a pale blue sky clipped its green and blue to cyan-white. Held under the brightest
+        // channel's headroom, no channel reaches the alpha and the channels keep their ratios.
+        float d = (float) Math.sqrt(0.5);
+        float[][] backdrops = {{0.5f, 0.5f, 0.5f}, {0.6f, 0.6f, 0.6f}, {0.4f, 0.7f, 0.95f},
+            {0.9f, 0.9f, 0.9f}, {0.95f, 0.2f, 0.1f}, {0.98f, 0.98f, 0.99f}};
+        float[] out = new float[3];
+        for (float[] c : backdrops) {
+            for (float[] n : new float[][] {{-d, -d}, {GlassRefraction.KEY_LIGHT_X,
+                GlassRefraction.KEY_LIGHT_Y}, {0f, -1f}, {1f, 0f}}) {
+                for (int i = 0; i <= 12; i++) {
+                    float inside = i * 0.25f * DENSITY;
+                    GlassRefraction.gatheredLit(c[0], c[1], c[2], 1f, inside, DENSITY, n[0], n[1], out);
+                    String at = java.util.Arrays.toString(c) + " at " + (i * 0.25f) + " dp";
+                    for (int ch = 0; ch < 3; ch++)
+                        assertTrue("channel " + ch + " clips: " + at + " " + out[ch], out[ch] < 1f);
+                    // The hue: every channel moves by the same gain, so their ratios hold but for
+                    // the small grey lift.
+                    float ratio = (out[2] / out[1]) / (c[2] / c[1]);
+                    assertTrue("hue kept " + at + ": " + ratio, ratio > 0.97f && ratio < 1.03f);
+                }
+            }
+        }
+        // Over the pale sky the outline is still brighter than the backdrop, only less so.
+        GlassRefraction.gatheredLit(0.4f, 0.7f, 0.95f, 1f, 0f, DENSITY, -d, -d, out);
+        assertTrue(out[2] > 0.95f * (1f - GlassRefraction.Look.EDGE_SHADE));
+        assertTrue(out[1] > 0.7f);
+    }
+
+    @Test
+    public void theHeadroomHoldIsExactBelowItsKneeAndOnlyNearsTheHeadroom() {
+        float kMax = 0.4f;
+        float last = 0f;
+        for (int i = 0; i <= 400; i++) {
+            float k = i * 0.01f;
+            float held = GlassRefraction.heldK(k, kMax);
+            if (k <= GlassRefraction.Look.HEADROOM_KNEE * kMax) assertEquals(k, held, 0f);
+            assertTrue("under the headroom at " + k, held < kMax);
+            assertTrue("never more than asked at " + k, held <= k + 1e-7f);
+            assertTrue("rising at " + k, held >= last - 1e-7f);
+            last = held;
+        }
+        // The two pieces meet with the same slope: no kink at the knee.
+        float knee = GlassRefraction.Look.HEADROOM_KNEE * kMax;
+        float e = 1e-4f;
+        float below = (GlassRefraction.heldK(knee, kMax) - GlassRefraction.heldK(knee - e, kMax)) / e;
+        float above = (GlassRefraction.heldK(knee + e, kMax) - GlassRefraction.heldK(knee, kMax)) / e;
+        assertEquals(below, above, 0.01f);
+        // No headroom, no light; none asked, none given.
+        assertEquals(0f, GlassRefraction.heldK(0.5f, 0f), 1e-6f);
+        assertEquals(0f, GlassRefraction.heldK(0f, 0.3f), 0f);
+        // A dark backdrop's light is exactly as before: the hold never reaches it.
+        assertEquals(0.77f, GlassRefraction.heldK(0.77f, GlassRefraction.headroomK(0f, 1f)), 0f);
     }
 
     @Test
@@ -619,5 +679,109 @@ public class GlassRefractionTest {
         assertTrue("a square seam still clears the band and the pull",
             GlassRefraction.seamReachPx(look, DENSITY, 0f)
                 > look.bandPx(DENSITY) + look.strengthPx(DENSITY));
+    }
+
+    // ------------------------------------------------------------- the edge follows the cover
+
+    /**
+     * The gathered light is drawn under the tint and Shade, which let {@code 1 - cover} of it
+     * through. Up to Clear's 10% it is at its tuned strength; above, it is raised by the ratio, and
+     * held at a cap low enough that a mid backdrop's ring stays near the headroom's knee: Mist's
+     * 60% asks 2.25 and, like the opaque slabs, gets the cap.
+     */
+    @Test
+    public void theEdgeGainFollowsWhatCoversIt() {
+        assertEquals(1f, GlassRefraction.Look.edgeGainFor(0f), 0f);
+        assertEquals("Clear is the reference", 1f, GlassRefraction.Look.edgeGainFor(0.10f), 1e-6f);
+        assertEquals("Tint, 46%", 0.9f / 0.54f, GlassRefraction.Look.edgeGainFor(0.46f), 1e-5f);
+        assertEquals("the cap is 2", 2f, GlassRefraction.Look.MAX_EDGE_GAIN, 0f);
+        assertEquals("Mist, 60%, at the cap", GlassRefraction.Look.MAX_EDGE_GAIN,
+            GlassRefraction.Look.edgeGainFor(0.60f), 0f);
+        assertEquals("half cover is the plain ratio", 1.8f,
+            GlassRefraction.Look.edgeGainFor(0.50f), 1e-5f);
+        assertEquals("Solid, 92%, held at the cap", GlassRefraction.Look.MAX_EDGE_GAIN,
+            GlassRefraction.Look.edgeGainFor(0.92f), 0f);
+        assertEquals(GlassRefraction.Look.MAX_EDGE_GAIN, GlassRefraction.Look.edgeGainFor(1f), 0f);
+        float last = 0f;
+        for (int percent = 0; percent <= 100; percent++) {
+            float gain = GlassRefraction.Look.edgeGainFor(percent / 100f);
+            assertTrue("never below the tuned light at " + percent, gain >= 1f);
+            assertTrue("never above the cap at " + percent,
+                gain <= GlassRefraction.Look.MAX_EDGE_GAIN);
+            assertTrue("rising at " + percent, gain >= last);
+            last = gain;
+        }
+    }
+
+    /** A surface states its cover on its look; read from the preferences a look has none. */
+    @Test
+    public void theCoverIsPartOfALooksIdentityAndRoundsToAPercent() {
+        GlassRefraction.Look look = new GlassRefraction.Look(27, 18, 10, 0, 40, 76);
+        assertEquals(0, look.coverPercent);
+        assertEquals(1f, look.edgeGain(), 0f);
+        GlassRefraction.Look mist = look.withCover(0.6f);
+        assertEquals(60, mist.coverPercent);
+        assertEquals(GlassRefraction.Look.MAX_EDGE_GAIN, mist.edgeGain(), 0f);
+        assertNotEquals(look, mist);
+        assertEquals(mist, look.withCover(0.6001f));
+        assertTrue("the same cover writes nothing new", mist == mist.withCover(0.6f));
+        assertEquals("clamped", 100, look.withCover(3f).coverPercent);
+        assertEquals("clamped", 0, look.withCover(-1f).coverPercent);
+        assertEquals("the stored knobs are kept", look.dispersionPercent,
+            mist.dispersionPercent);
+    }
+
+    /**
+     * Raised however far, the light is still held under the headroom the sample has left: no
+     * channel clips and the hue's order is kept, over a dark, a mid and a pale backdrop.
+     */
+    @Test
+    public void aRaisedEdgeNeverClips() {
+        float[][] samples = {{0.05f, 0.08f, 0.2f}, {0.5f, 0.3f, 0.2f}, {0.6f, 0.75f, 0.95f},
+            {0.98f, 0.98f, 0.98f}};
+        float[] plain = new float[3];
+        float[] raised = new float[3];
+        for (float[] c : samples) {
+            for (float inside = 0f; inside <= 4f * DENSITY; inside += 0.5f * DENSITY) {
+                GlassRefraction.gatheredLit(c[0], c[1], c[2], 1f, inside, DENSITY, -0.552f,
+                    -0.834f, plain);
+                GlassRefraction.gatheredLit(c[0], c[1], c[2], 1f, inside, DENSITY, -0.552f,
+                    -0.834f, GlassRefraction.Look.MAX_EDGE_GAIN, raised);
+                String at = java.util.Arrays.toString(c) + " at " + inside + " px";
+                for (int i = 0; i < 3; i++) {
+                    assertTrue("no clip " + at, raised[i] <= 1f);
+                    assertTrue("raised, never dimmer " + at, raised[i] >= plain[i] - 1e-6f);
+                }
+                assertTrue("the hue's order is kept " + at,
+                    (raised[2] >= raised[0]) == (c[2] >= c[0]));
+            }
+        }
+    }
+
+    /** The Edge colour pill's Prism is twice Glint and stays under the program's share cap. */
+    @Test
+    public void prismSplitsTwiceGlintAndUnderTheCap() {
+        GlassRefraction.Look glint = new GlassRefraction.Look(27, 18, 10, 0, 40, 76);
+        GlassRefraction.Look prism = new GlassRefraction.Look(27, 18, 10, 0, 80, 76);
+        assertEquals(2f * glint.dispersion(), prism.dispersion(), 1e-6f);
+        assertTrue(prism.dispersion() <= GlassRefraction.Look.MAX_DISPERSION_SHARE);
+    }
+
+    /**
+     * At the cap the ambient sides of a mid-grey backdrop sit at about the headroom's knee, and a
+     * dark backdrop's well inside the straight part: the ring keeps its falloff.
+     */
+    @Test
+    public void theCapKeepsTheRingNearTheKnee() {
+        float mid = 0.5f;
+        float k = GlassRefraction.gatherK(0f, DENSITY, GlassRefraction.Look.AMBIENT, mid)
+            * GlassRefraction.Look.MAX_EDGE_GAIN;
+        float knee = GlassRefraction.Look.HEADROOM_KNEE * GlassRefraction.headroomK(mid, 1f);
+        assertEquals("mid grey's sides at about the knee", knee, k, 0.03f);
+        float dark = 0.2f;
+        float kDark = GlassRefraction.gatherK(0f, DENSITY, GlassRefraction.Look.AMBIENT, dark)
+            * GlassRefraction.Look.MAX_EDGE_GAIN;
+        assertTrue("a dark backdrop's inside the straight part",
+            kDark < GlassRefraction.Look.HEADROOM_KNEE * GlassRefraction.headroomK(dark, 1f));
     }
 }

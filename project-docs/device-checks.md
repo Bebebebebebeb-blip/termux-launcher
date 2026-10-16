@@ -82,20 +82,35 @@ under twenty items; past that, the oldest are re-judged first.
   and `fancier_glass_edge_width` 18; one Depth step down writes 26/17 and the dock's bend ring
   narrows by a step, not to a third. Fails if the page says Custom with Depth 34: something wrote
   a preference before the first-run check, and the install was taken for an upgrade · emulator.
-- 2026-10-16 · commit "feat(glass): Adaptive glass, an edge of gathered light" (glass plan Round
-  1) · Adaptive glass off: Clear, Mist and Tint look exactly as on `pre` (crop a pane corner and
-  the dock's top edge on both builds). On: the edge is the wallpaper's colour brightened,
-  brightest top-left and faint all round; no white line and no second stroke; over a pale
-  wallpaper the glint shrinks; no bright line on a seam (keyboard over the under-pill strip, status
-  over the window bar); the dock shows one edge, not two; in a joined frame, no glow runs along the
-  screen's own edges. Look for a leftover white line on a Floating pane with the border on (its
-  border still comes from the gradient rim) and on a wall page's corner tab (still the hairline).
-  The row is hidden on Android 12 and greyed with the hint until a wallpaper is set from the
-  picker · emulator, `glass-city` and `glass-flowers` wallpapers, Docked and Floating, keyboard up
-  and down.
-- 2026-10-16 · commit "feat(glass): Adaptive glass, an edge of gathered light" ·
-  `GlassRefractionAgslInstrumentationTest` passes, its two gathered-edge cases included (a lit
-  top-left corner with `uGathered` 1; switched back off draws the hairline exactly) · emulator.
+- 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" (glass plan Round
+  1, always on) · Android 13+, wallpaper set from the picker, Clear, Mist and Tint: every glass
+  surface shows one edge, the wallpaper's colour brightened, brightest top-left and faint all
+  round, and no white line or gradient stroke beside it. Crop each: the dock (Docked and capsule,
+  where the capsule must still clip to its rounded outline), the under-pill strip, the keyboard,
+  the window bar capsule, a Floating pane with the border on (one edge, no rim), a split's focused
+  pane (its active colour still shows), a wall page's corner tab (now lit), the frame gutter in a
+  joined Docked frame (no glow along the screen's edges). No bright line on a seam (keyboard over
+  the strip, status over the window bar). Over a pale sky the edge stays blue, not white or cyan.
+  With no Look (Fancier Glass off, a wallpaper not set from the picker) the dock and the strip
+  still show the gathered edge and no rim under it, and the other surfaces keep their rims ·
+  emulator, `glass-city` and `glass-flowers` and a pale-sky wallpaper, Docked and Floating,
+  keyboard up and down.
+- 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · Android 12 (or a
+  forced plain draw) looks exactly as on `pre`: every rim, the dock's rim under its glass, the
+  panes' gradient rim · an API 31/32 emulator.
+- 2026-10-17 · commit "fix(glass): every edge follows the glass on screen, not the rule" · The
+  window bar capsule: one edge on a cold start (no rim beside the gathered light on the first
+  frame after the frost lands), and its stroke back the moment the frost goes (Fancier Glass off,
+  status blur radius 0, the bar moved onto the dock's plank and back). The dock: its rim under the
+  glass shows while a blur is in flight on a fresh wallpaper and goes once the glass is up. A
+  Floating pane: its rim shows while its slab is plain (a fresh blur in flight, a corner-masked
+  page) and goes when the slab refracts · emulator, logcat clean.
+- 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · Settings › Theme
+  & fonts has no Adaptive glass row and nothing else on the page moved (crop the page before and
+  after) · emulator.
+- 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" ·
+  `GlassRefractionAgslInstrumentationTest` passes, `aPaleSkysOutlineKeepsItsBlue` and the lit
+  top-left corner included (only a device proves the AGSL compiles) · emulator.
 - 2026-10-16 · commit "feat(keyboard): a touch engine that learns where your taps land" ·
   A swipe that starts in a moved border strip keeps its own key's swipe legend: with Adaptive
   touch accuracy past its warm-up and a border moved (the low strip of `b` typing a space), swipe
@@ -109,11 +124,36 @@ under twenty items; past that, the oldest are re-judged first.
   Paused), its summary wrapping rather than clipping, and dims with the switch off · emulator,
   `font_scale 1.3`, force-stop after the change.
 
-## Developer
+- 2026-10-17 · branch feat/glass-controls-unify, "feat(glass): one set of glass controls in Look › Custom" · Look ›
+  Custom from Clear, then Mist, then Tint: Tint 0→100 adds visible accent each time (Mist light
+  theme too); Hue Secondary/Tertiary changes the tint; Glass 0→100 goes clear→frosted with
+  no sandy grain; Shade 100 darkens dark glass and whitens light glass without milk; Vibrancy
+  0.7x/1.5x changes the glass colour but not the bare wallpaper beside it; Edge Off/Glint/
+  Prism at a corner (Android 13+); the global heading row shows "All surfaces" with Hue and Edge
+  beside it, whole at 360dp and at Large text; Contrast moves with wallpaper colours off; Glass
+  released at 5 reads 5 on reopening; Shade 100 on a dark terminal scheme under light chrome dims
+  the pane (no milk); Undo puts all of it back · emulator tl16, dark and light theme, screenshots
+  before/after per control.
+- 2026-10-17 · same branch · Migration: an install on Clear, Mist, Tint and Solid from the pre build
+  keeps its stop and its colour after the update (Clear and Tint change blur and grain by design);
+  a Custom with Tint 40 on Mist comes up at Tint 0 and the same colour; a saved Custom applies as it
+  looked · emulator, a pre-build store per Look.
+- 2026-10-17 · same branch · Edge outline: the gathered edge on Mist (60%), the dock, sheets and
+  Solid reads about as strong as on Clear, never white-clipped, on a pale and a dark wallpaper ·
+  emulator tl16 (Android 13+), screenshots of each surface.
 
-- 2026-10-16 · commit "feat(glass): Adaptive glass, an edge of gathered light" · With the switch
-  on, the edge reads as light, not an outline. Also record whether floating panels still stand
-  apart from a white wallpaper: that is Round 5's gate · pong, release build.
+## Developer
+- 2026-10-17 · branch feat/glass-controls-unify · Vibrancy release re-bakes the frames once (no
+  hitch while dragging, one short re-blur on release); Shade and Glass drags stay smooth on pong ·
+  pong.
+- 2026-10-17 · same branch · Light-theme Mist is still milky at 60% (unchanged, pass 2 tunes it
+  with Shade and Vibrancy); taste check of Prism's provisional 80 and the 2x edge gain cap · pong.
+
+- 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · The edge reads
+  as light, not an outline, on every surface; on Mist and Solid (and the sheet and chip, floored
+  near opaque) note how faint the outline gets under their tint, for phase B's opacity scaling.
+  Also record whether floating panels still stand apart from a white wallpaper: that is Round 5's
+  gate · pong, release build.
 - 2026-10-16 · commit "feat(keyboard): a touch engine that learns where your taps land" ·
   The touch engine's pass bar, under the round 2 take-back rule: take-backs into space drop by
   30% or more from the warm-up's rate to the corrected rate, no other key's rate rises, and aiming

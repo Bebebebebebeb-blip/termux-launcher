@@ -89,7 +89,7 @@ public abstract class AppearanceEditorPanelFitBase {
                 previous = slider;
                 overruns.append(legendOverrun(slider, control));
             }
-            for (AppearanceLooks.Door door : AppearanceLooks.doors(target)) {
+            for (AppearanceLooks.Door door : AppearanceLooks.doors(target, selection.glassEdge)) {
                 View button = doorView(door);
                 assertEquals(door.name(), View.VISIBLE, button.getVisibility());
                 assertTrue(door + " is a 48dp target: " + button.getHeight(),
@@ -108,6 +108,9 @@ public abstract class AppearanceEditorPanelFitBase {
                 assertEquals("the terminal's pills own the heading row: no name", View.GONE,
                     name.getVisibility());
                 assertPillsShareTheRow();
+            } else if (target == null) {
+                assertEquals(selection + " keeps its name", View.VISIBLE, name.getVisibility());
+                assertGlassPillsFollowTheName(AppearanceLooks.doors(null, selection.glassEdge));
             } else {
                 assertEquals(String.valueOf(target) + " keeps its name", View.VISIBLE,
                     name.getVisibility());
@@ -152,12 +155,40 @@ public abstract class AppearanceEditorPanelFitBase {
     }
 
     /**
+     * The global set's pills stand after its name, 8dp on, and share the rest of the row: the
+     * first 8dp after the name, a second 8dp after the first and ending at the row's end, or the
+     * one alone running to it; the name and their headings whole.
+     */
+    private void assertGlassPillsFollowTheName(List<AppearanceLooks.Door> doors) {
+        View root = mPanel.view();
+        View head = root.findViewById(R.id.appearance_editor_row2_head);
+        View name = root.findViewById(R.id.appearance_editor_row2_name);
+        View trail = root.findViewById(R.id.appearance_editor_trail);
+        View effect = root.findViewById(R.id.appearance_editor_effect);
+        int gap = Math.round(8 * root.getResources().getDisplayMetrics().density);
+        assertEquals(View.VISIBLE, name.getVisibility());
+        assertEquals("Hue follows the name", name.getRight() + gap, trail.getLeft(), 1);
+        View last = trail;
+        if (doors.contains(AppearanceLooks.Door.DISPERSION)) {
+            assertEquals("Edge follows Hue", trail.getRight() + gap, effect.getLeft(), 1);
+            assertEquals("equal widths", trail.getWidth(), effect.getWidth(), 1);
+            last = effect;
+        } else {
+            assertEquals(View.GONE, effect.getVisibility());
+        }
+        assertEquals("the row ends with the last pill", head.getWidth(), last.getRight(), 1);
+        for (AppearanceLooks.Door door : doors)
+            assertPillLinesFit(door);
+    }
+
+    /**
      * A pill's heading is whole (never ellipsized) and each of its two lines is one line,
      * inside the pill.
      */
     private void assertPillLinesFit(AppearanceLooks.Door door) {
         View root = mPanel.view();
-        boolean trail = door == AppearanceLooks.Door.TRAIL;
+        boolean trail = door == AppearanceLooks.Door.TRAIL
+            || door == AppearanceLooks.Door.TINT_HUE;
         View pill = doorView(door);
         TextView title = root.findViewById(trail ? R.id.appearance_editor_trail_title
             : R.id.appearance_editor_effect_title);
@@ -240,19 +271,25 @@ public abstract class AppearanceEditorPanelFitBase {
     public void theGlobalSetEndsInDepthOnlyWithTheGlassEdge() {
         showControls(null, false);
         layOut(mPanel.measureFor(EditorMode.LOOK, mWidthPx));
-        assertEquals(6, mPanel.shownControls().size());
+        assertEquals(5, mPanel.shownControls().size());
         assertTrue("no Depth without the glass edge",
             !mPanel.shownControls().contains(AppearanceLooks.Control.DEPTH));
-        assertTrue(mPanel.shownDoors().isEmpty());
+        assertEquals("Tint colour alone, no Edge colour",
+            java.util.Collections.singletonList(AppearanceLooks.Door.TINT_HUE),
+            mPanel.shownDoors());
         assertFits();
+        assertPillLinesFit(AppearanceLooks.Door.TINT_HUE);
+        assertGlassPillsFollowTheName(AppearanceLooks.doors(null, false));
         showControls(null, true);
         layOut(mPanel.measureFor(EditorMode.LOOK, mWidthPx));
         List<AppearanceLooks.Control> shown = mPanel.shownControls();
-        assertEquals(7, shown.size());
+        assertEquals(6, shown.size());
         assertEquals("Depth is the last column", AppearanceLooks.Control.DEPTH,
             shown.get(shown.size() - 1));
-        assertTrue(mPanel.shownDoors().isEmpty());
+        assertEquals(java.util.Arrays.asList(AppearanceLooks.Door.TINT_HUE,
+            AppearanceLooks.Door.DISPERSION), mPanel.shownDoors());
         assertFits();
+        assertGlassPillsFollowTheName(AppearanceLooks.doors(null, true));
         for (AppearanceLooks.Target target : AppearanceLooks.Target.values()) {
             showControls(target, true);
             assertTrue(target + " never shows Depth",
@@ -305,6 +342,8 @@ public abstract class AppearanceEditorPanelFitBase {
             assertNotNull(nameLayout);
             assertEquals("\"" + name.getText() + "\" is whole", 0,
                 nameLayout.getEllipsisCount(0));
+            for (AppearanceLooks.Door door : AppearanceLooks.doors(null, selection.glassEdge))
+                assertPillLinesFit(door);
         }
     }
 
@@ -313,15 +352,12 @@ public abstract class AppearanceEditorPanelFitBase {
     public void fewerColumnsShareTheWidthEqually() {
         showControls(AppearanceLooks.Target.STATUS);
         layOut(mPanel.measureFor(EditorMode.LOOK, mWidthPx));
-        LegendSlider a = mPanel.sliderFor(AppearanceLooks.Control.BLUR);
-        LegendSlider b = mPanel.sliderFor(AppearanceLooks.Control.GRAIN);
+        LegendSlider b = mPanel.sliderFor(AppearanceLooks.Control.GLASS);
         LegendSlider c = mPanel.sliderFor(AppearanceLooks.Control.OPACITY);
         LegendSlider d = mPanel.sliderFor(AppearanceLooks.Control.TINT);
-        assertNotNull(a);
         assertNotNull(b);
         assertNotNull(c);
         assertNotNull(d);
-        assertEquals(a.getWidth(), b.getWidth(), 1);
         assertEquals(b.getWidth(), c.getWidth(), 1);
         assertEquals(c.getWidth(), d.getWidth(), 1);
         View row = mPanel.view().findViewById(R.id.appearance_editor_sliders);
@@ -337,10 +373,10 @@ public abstract class AppearanceEditorPanelFitBase {
         showControls(null);
         int height = mPanel.measureFor(EditorMode.LOOK, mWidthPx);
         layOut(height);
-        LegendSlider blur = mPanel.sliderFor(AppearanceLooks.Control.BLUR);
+        LegendSlider blur = mPanel.sliderFor(AppearanceLooks.Control.GLASS);
         int left = blur.getLeft();
         int top = blur.getTop();
-        mPanel.setSliderValue(AppearanceLooks.Control.BLUR, 48);
+        mPanel.setSliderValue(AppearanceLooks.Control.GLASS, 48);
         layOut(height);
         assertEquals(left, blur.getLeft());
         assertEquals(top, blur.getTop());
@@ -609,12 +645,11 @@ public abstract class AppearanceEditorPanelFitBase {
     private String widest(AppearanceLooks.Control control) {
         android.content.Context context = mPanel.view().getContext();
         switch (control) {
-            case BLUR: return context.getString(R.string.appearance_editor_blur, 48);
-            case GRAIN: return context.getString(R.string.appearance_editor_grain, 100);
+            case GLASS: return context.getString(R.string.appearance_editor_glass, 100);
             case OPACITY: return context.getString(R.string.appearance_editor_opacity, 100);
             case TINT: return context.getString(R.string.appearance_editor_tint, 100);
-            case MARGIN: return context.getString(R.string.appearance_editor_margin, 48);
-            case CORNER_RADIUS: return context.getString(R.string.appearance_editor_corners, 40);
+            case SHADE: return context.getString(R.string.appearance_editor_shade, 100);
+            case VIBRANCY: return context.getString(R.string.appearance_editor_vibrancy, "1.50");
             case KEY_RADIUS: return context.getString(R.string.appearance_editor_key_corners, 24);
             case KEY_SPACING: return context.getString(R.string.appearance_editor_key_spacing, "8.0");
             case ICON_SIZE: return context.getString(R.string.appearance_editor_icon_size, 48);
@@ -643,8 +678,10 @@ public abstract class AppearanceEditorPanelFitBase {
                 control != AppearanceLooks.Control.CONTRAST, value -> legend));
         }
         mPanel.setSliders(states);
-        mPanel.setDoors(AppearanceLooks.doors(target));
+        mPanel.setDoors(AppearanceLooks.doors(target, glassEdge));
         mPanel.setTerminalLooks(true, "default", "none");
+        if (target == null)
+            mPanel.setGlassLooks("secondary", "prism");
     }
 
     private View doorView(AppearanceLooks.Door door) {
@@ -652,7 +689,8 @@ public abstract class AppearanceEditorPanelFitBase {
         switch (door) {
             case KEYBOARD_THEME: return root.findViewById(R.id.appearance_editor_door_keyboard_theme);
             case CLOCK: return root.findViewById(R.id.appearance_editor_door_clock);
-            case TRAIL: return root.findViewById(R.id.appearance_editor_trail);
+            case TRAIL:
+            case TINT_HUE: return root.findViewById(R.id.appearance_editor_trail);
             default: return root.findViewById(R.id.appearance_editor_effect);
         }
     }

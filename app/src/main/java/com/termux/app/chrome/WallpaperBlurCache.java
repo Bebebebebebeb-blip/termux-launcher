@@ -85,6 +85,14 @@ public final class WallpaperBlurCache {
 
         /** Called after the cache is emptied, for the state that shadows it outside the module. */
         void onCacheCleared();
+
+        /**
+         * The Vibrancy the frames are baked at, percent ({@link GlassVibrancy}); 100, the default,
+         * bakes nothing. A change re-bakes every frame on the next obtain.
+         */
+        default int glassVibrancyPercent() {
+            return 100;
+        }
     }
 
     /**
@@ -149,6 +157,8 @@ public final class WallpaperBlurCache {
     private int mSystemId = -1;
     private long mManagedLastModified = -1L;
     private long mManagedLength = -1L;
+    /** The Vibrancy the resident frames were baked at. */
+    private int mVibrancy = 100;
     /**
      * The orientation the cached frames were captured in. The frame rect alone was supposed to
      * carry this, but a rotation delivers {@code onConfigurationChanged} <em>before</em> the window
@@ -284,8 +294,10 @@ public final class WallpaperBlurCache {
         int systemWallpaperId = mSource.systemWallpaperId();
         long managedLastModified = managedSource ? mSource.managedWallpaperLastModified() : -1L;
         long managedLength = managedSource ? mSource.managedWallpaperLength() : -1L;
+        // A new Vibrancy makes every resident frame wrong, as a new wallpaper does.
+        final int vibrancy = GlassVibrancy.clampPercent(mSource.glassVibrancyPercent());
         boolean sourceValid = sourceStillMatches(frameRect, managedSource, systemWallpaperId,
-            managedLastModified, managedLength);
+            managedLastModified, managedLength) && vibrancy == mVibrancy;
         if (sourceValid) {
             Bitmap cached = mByRadius.get(blurRadiusDp);
             if (cached != null && !cached.isRecycled()) {
@@ -306,8 +318,9 @@ public final class WallpaperBlurCache {
         }
         final Rect frameRectCopy = new Rect(frameRect);
         final int orientation = mSource.orientation();
+        mVibrancy = vibrancy;
         if (mWorker == null || mMainThread == null) {
-            Bitmap blurred = captureAndBlur(capture, blurRadiusDp);
+            Bitmap blurred = captureAndBlur(capture, blurRadiusDp, vibrancy);
             if (blurred == null) return null;
             store(blurRadiusDp, blurred, frameRectCopy, orientation, managedSource,
                 systemWallpaperId, managedLastModified, managedLength);
@@ -322,7 +335,7 @@ public final class WallpaperBlurCache {
         final int generation = mGeneration;
         final MainThread mainThread = mMainThread;
         final Runnable job = () -> {
-            final Bitmap blurred = captureAndBlur(capture, blurRadiusDp);
+            final Bitmap blurred = captureAndBlur(capture, blurRadiusDp, vibrancy);
             mainThread.post(() -> {
                 mPending.remove(blurRadiusDp);
                 if (blurred == null) return;
@@ -355,9 +368,12 @@ public final class WallpaperBlurCache {
         return mPending.contains(blurRadiusDp);
     }
 
-    /** Decode (if still to do) and blur one frame. Runs on the worker when there is one. */
+    /**
+     * Decode (if still to do), blur and bake one frame at {@code vibrancy}. Runs on the worker
+     * when there is one.
+     */
     @Nullable
-    private Bitmap captureAndBlur(@NonNull FrameCapture capture, int blurRadiusDp) {
+    private Bitmap captureAndBlur(@NonNull FrameCapture capture, int blurRadiusDp, int vibrancy) {
         Trace.beginSection("Blur.miss");
         try {
             Bitmap wallpaperBitmap = capture.ready;
@@ -378,6 +394,9 @@ public final class WallpaperBlurCache {
             }
             if (blurredBitmap != wallpaperBitmap) {
                 wallpaperBitmap.recycle();
+                // Vibrancy is the glass's, baked here once; radius 0 is the wallpaper itself.
+                if (GlassVibrancy.bakes(blurRadiusDp, vibrancy))
+                    return GlassVibrancy.saturated(blurredBitmap, vibrancy);
             }
             return blurredBitmap;
         } finally {
