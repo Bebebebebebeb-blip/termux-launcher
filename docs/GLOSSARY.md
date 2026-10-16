@@ -165,6 +165,29 @@ sets how deep the bend is. Lazy mode, battery saver and reduced motion override 
 and `project-docs/active/fancier-glass/SPEC.md`.
 _Avoid_: glass mode, refraction mode
 
+**Glass** (the slider):
+Look › Custom's first slider, clear to frosted: it moves a surface's blur and grain together along
+one curve (`surfaces/GlassControls`). Clear sits at 20, Tint at 40, Mist at 75; Solid has no frost
+and sits off it. Storage keeps blur and grain; the slider reads them back.
+_Avoid_: frost (the blurred picture itself), material (the older family macro)
+
+**Shade**:
+Look › Custom's dimmer for the glass face: a flat layer under the tint, black on dark glass (up to
+40%) and white on light glass (up to 25%, so it never goes milky). 0 in every Look.
+_Avoid_: film (the per-pixel darkening planned in the glass plan's Round 2, which Shade replaces),
+dim (the wallpaper's own dim)
+
+**Tint amount**:
+What Look › Custom's Tint slider sets since phase B: how much accent colour is mixed into the
+Look's own colour, 0 to 100, from any Look. 100 is the Tint Look's Material blend. **Tint colour**
+picks which accent (primary, secondary, tertiary).
+_Avoid_: tint strength (the old meaning, a share of the Look's tint family)
+
+**Vibrancy**:
+Look › Custom's saturation of what the glass shows, 0.7x to 1.5x: baked once into the shared frame
+the glass samples, never into the bare wallpaper. 1.0x in every Look.
+_Avoid_: saturation of the wallpaper
+
 **Lazy mode**:
 The Battery setting that stops the launcher animating while nobody is watching: the clock swaps its
 digits instead of folding them, a working window's rim holds lit, and the status readings are sampled

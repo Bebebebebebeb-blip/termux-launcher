@@ -124,7 +124,28 @@ under twenty items; past that, the oldest are re-judged first.
   Paused), its summary wrapping rather than clipping, and dims with the switch off · emulator,
   `font_scale 1.3`, force-stop after the change.
 
+- 2026-10-17 · branch feat/glass-controls-unify, "feat(glass): one set of glass controls in Look › Custom" · Look ›
+  Custom from Clear, then Mist, then Tint: Tint 0→100 adds visible accent each time (Mist light
+  theme too); Tint colour Secondary/Tertiary changes the hue; Glass 0→100 goes clear→frosted with
+  no sandy grain; Shade 100 darkens dark glass and whitens light glass without milk; Vibrancy
+  0.7x/1.5x changes the glass colour but not the bare wallpaper beside it; Edge colour Off/Glint/
+  Prism at a corner (Android 13+); the global heading row's two pills are whole at 360dp and at
+  Large text; Undo puts all of it back · emulator tl16, dark and light theme, screenshots
+  before/after per control.
+- 2026-10-17 · same branch · Migration: an install on Clear, Mist, Tint and Solid from the pre build
+  keeps its stop and its colour after the update (Clear and Tint change blur and grain by design);
+  a Custom with Tint 40 on Mist comes up at Tint 0 and the same colour; a saved Custom applies as it
+  looked · emulator, a pre-build store per Look.
+- 2026-10-17 · same branch · Edge outline: the gathered edge on Mist (60%), the dock, sheets and
+  Solid reads about as strong as on Clear, never white-clipped, on a pale and a dark wallpaper ·
+  emulator tl16 (Android 13+), screenshots of each surface.
+
 ## Developer
+- 2026-10-17 · branch feat/glass-controls-unify · Vibrancy release re-bakes the frames once (no
+  hitch while dragging, one short re-blur on release); Shade and Glass drags stay smooth on pong ·
+  pong.
+- 2026-10-17 · same branch · Light-theme Mist is still milky at 60% (unchanged, pass 2 tunes it
+  with Shade and Vibrancy); taste check of Prism's provisional 80 and the 8x edge gain cap · pong.
 
 - 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · The edge reads
   as light, not an outline, on every surface; on Mist and Solid (and the sheet and chip, floored

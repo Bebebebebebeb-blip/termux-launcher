@@ -13,6 +13,10 @@ Latest stable: v1.0.6.
 ## New in this drop
 <!-- Only what this drop adds over the one before it; replace the whole list at every drop. -->
 
+- Look › Custom's Tint adds your accent colour from any Look, Clear and Mist included, and Tint colour picks primary, secondary or tertiary.
+- Look › Custom's Glass slider runs the glass from clear to frosted in one move, in place of Blur and Grain; new Shade and Vibrancy sliders dim the glass and make what shows through it more or less colourful, and Edge colour gives the glass edge no fringe, a glint or a prism. Margin and Corner radius are on the Layout page only.
+- Glass edges show the same outline on frosted and solid glass as on clear glass.
+- Clear, Mist and Tint sit on the Glass slider's curve now, so Clear is a touch blurrier with finer grain and Tint has much less grain; an install on a Look keeps that Look.
 - Glass edges bend the wallpaper in a narrow ring right at the edge, meet the wallpaper outside without a seam, and carry a faint line of light along the top instead of a milky band; the Looks were re-tuned to match.
 - Look › Custom's Depth slider is the last of the shared sliders, and each Look sits exactly on it; the rest of the edge comes with the Look.
 - Pressing a pinned app on a glass dock, or a glass card in a sheet, lights the glass under your finger for a moment.

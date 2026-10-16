@@ -32,6 +32,20 @@ for the developer, who decides, and for the agent who builds it.
   so opaque surfaces (Mist, Solid, the sheet and chip floors) show it only through their tint;
   phase B scales its strength by opacity.
 
+**Superseded by phase B** (the glass controls, 2026-10-17, branch `feat/glass-controls-unify`):
+
+- Round 2's K-2 film is superseded by **Shade**, a flat layer under the tint (black to 40% on dark
+  glass, white to 25% on light glass), a Look › Custom slider at 0 in every Look and measured by
+  `ChromeInk` like the tint. No `uFilm`, no per-pixel ink limit: if a per-pixel film is still
+  wanted after pong, it is a new decision.
+- Dispersion is now the user's: Look › Custom's Edge colour pill writes Off 0, Glint 40 or Prism
+  80 (provisional, under the 0.05 share cap). Round 4's `uForm` would scale it with the pull.
+- The gathered light is raised by the cover over it (`uEdgeGain`, `Look.withCover`): 1 up to
+  Clear's 10%, `0.9 / (1 - cover)` above, at most 8, still held under the headroom. That is the
+  "scales its strength by opacity" phase A left open.
+- Vibrancy (0.7x to 1.5x) is baked into the shared frame when it is blurred; the frost the program
+  samples is brighter or duller with it, and `heldK` still holds the light under its headroom.
+
 It covers the ten items the developer picked: C-01, K-2, C-02, E-1, C-03, C-05, C-07, C-09,
 C-10, C-11. The developer ruled these out: accessibility settings (C-06), the scroll-edge fade
 (C-08), removing the Docked grey frame (C-04), a tilt-driven light, merging droplets, and removing
