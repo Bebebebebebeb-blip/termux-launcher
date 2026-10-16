@@ -10,7 +10,9 @@ import java.util.List;
  * <p>The origin is the top-left corner of the first row; x and y are both
  * divided by the rendered key width so a value of 1 is one standard key. The
  * snapshot is rebuilt whenever the layout or the measured geometry changes and
- * carries a {@link #signature} that identifies that geometry.
+ * carries a {@link #signature} that identifies the layout's key structure
+ * (rows, relative widths and heights, roles) but not its pixel size, so a
+ * resize keeps the signature and an edit to the keys changes it.
  */
 public final class TapGeometry
 {
@@ -38,7 +40,7 @@ public final class TapGeometry
    * Esc and Tab. Enter, Backspace, arrows and modifiers never are.
    */
   public final boolean[] correctable;
-  /** Identifies the layout and rendered geometry this snapshot describes. */
+  /** Identifies the key structure this snapshot describes; never the pixel size. */
   public final String signature;
   /** Key objects by index, for the view to map an index back to a key. */
   final KeyboardData.Key[] keys;
@@ -142,13 +144,18 @@ public final class TapGeometry
     float rowHeight = rowHeightPx / keyWidthPx;
     float y = 0f;
     int i = 0;
-    int hash = 17;
+    // Hashes only the layout's own units, never the pixel metrics, so the
+    // signature survives a resize.
+    long hash = 17;
     List<KeyboardData.Row> rows = keyboard.rows;
     for (int ri = 0; ri < rows.size(); ri++)
     {
       KeyboardData.Row r = rows.get(ri);
       float rowTop = y + r.shift * rowHeight;
       float rowBottom = rowTop + r.height * rowHeight;
+      hash = hash * 31 + r.keys.size();
+      hash = hash * 31 + Float.floatToIntBits(r.shift);
+      hash = hash * 31 + Float.floatToIntBits(r.height);
       float x = 0f;
       for (KeyboardData.Key k : r.keys)
       {
@@ -158,17 +165,15 @@ public final class TapGeometry
         row[i] = ri;
         keys[i] = k;
         role[i] = roleOf(k.keys[0]);
-        hash = hash * 31 + Float.floatToIntBits(xLeft);
-        hash = hash * 31 + Float.floatToIntBits(xRight);
-        hash = hash * 31 + Float.floatToIntBits(rowTop);
+        hash = hash * 31 + Float.floatToIntBits(k.shift);
+        hash = hash * 31 + Float.floatToIntBits(k.width);
         hash = hash * 31 + role[i];
         x = xRight;
         i++;
       }
       y = rowBottom;
     }
-    String signature = n + ":" + Math.round(keyWidthPx) + ":" + Math.round(rowHeightPx)
-      + ":" + Integer.toHexString(hash);
+    String signature = n + ":" + rows.size() + ":" + Long.toHexString(hash);
     return new TapGeometry(n, left, top, right, bottom, row, role, signature, keys);
   }
 }

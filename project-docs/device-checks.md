@@ -123,9 +123,13 @@ under twenty items; past that, the oldest are re-judged first.
   like the layout's keys (rows top to bottom, keys left to right). For the space bar's index,
   the warm-up rate is `takebacks_warm` / `taps_warm` and the corrected rate is
   `takebacks_active` / `taps_active`; the first must drop by 30% or more in the second, and no
-  other key's rate may rise. Take-backs are counted by the key meant (here space), not by the key
-  missed, so the figure is every take-back into space, not only those from `b`, `v` or `n`.
-  The counts start again with each warm-up (`count_epoch` matches the engine's `epoch`).
+  other key's rate may rise. `takebacks_warm` and `takebacks_active` count take-backs by the key
+  meant (here space), so they hold every take-back into space; `takebacks_hit_warm` and
+  `takebacks_hit_active` count the same take-backs by the key that was hit, so the entries at
+  `b`, `v` and `n` say how many misses landed there. A take-back now also catches a miss noticed
+  a few keys later: Backspace up to 8 times, then the same keys retyped with one neighbouring
+  key changed. The counts start again with each warm-up (`count_epoch` matches the engine's
+  `epoch`).
 - 2026-10-15 · commit "feat(settings): make the Low-memory preset a switch" · Turning it on and off
   returns the look you had (material, opacity, effects, parallax), and Reduce idle activity follows
   the switch both ways without leaving the page · pong, Settings → App behavior.

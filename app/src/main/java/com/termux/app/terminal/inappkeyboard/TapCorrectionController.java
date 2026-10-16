@@ -104,7 +104,7 @@ public final class TapCorrectionController implements Keyboard2View.TapResolver 
             scheduleSave();
     }
 
-    /** Files the tap the engine holds for a take-back; returns whether that learned anything. */
+    /** Makes the taps the engine holds final; returns whether that learned anything. */
     private boolean settleHeldTap() {
         if (mLoading)
             return false;
@@ -159,7 +159,7 @@ public final class TapCorrectionController implements Keyboard2View.TapResolver 
     }
 
     /**
-     * Files the tap still held for a take-back and writes the store out now if anything
+     * Makes the taps still held final and writes the store out now if anything
      * changed. For the keyboard going away, not for the periodic save, which must not end a
      * take-back in progress.
      */

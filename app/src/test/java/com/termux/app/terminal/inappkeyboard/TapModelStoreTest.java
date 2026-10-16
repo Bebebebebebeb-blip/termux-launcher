@@ -153,6 +153,20 @@ public class TapModelStoreTest {
     }
 
     @Test
+    public void aVersionTwoFileIsDroppedWithItsWarmUp() throws Exception {
+        File file = new File(folder.getRoot(), "model.json");
+        Files.write(file.toPath(),
+            ("{\"v\":2,\"engine\":{\"on\":true,\"learned\":7900,\"epoch\":3,\"state\":1},"
+                + "\"entries\":{\"qwerty|60:106:150:ab\":{\"t\":1,\"n\":[30],\"x\":[6],"
+                + "\"y\":[0]}}}").getBytes(StandardCharsets.UTF_8));
+        TapModelStore store = TapModelStore.load(file);
+        assertEquals(0, store.entryCount());
+        assertEquals(0L, store.tapsLearned());
+        assertFalse(store.engine().switchedOn());
+        assertEquals(LearningGate.STATE_LEARNING, store.state());
+    }
+
+    @Test
     public void unknownVersionLoadsEmpty() throws Exception {
         File file = new File(folder.getRoot(), "model.json");
         Files.write(file.toPath(),

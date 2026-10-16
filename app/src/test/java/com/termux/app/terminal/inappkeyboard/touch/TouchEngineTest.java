@@ -117,10 +117,237 @@ public class TouchEngineTest {
         tap(B, 4.5f, 1.1f);
         now += 1_000L;
         engine.onRelease(grid, g, Tap.plain(BACKSPACE, 0.5f, 1.8f, now));
-        now += 1_100L;
+        now += TouchEngine.TAKE_BACK_WINDOW_MS + 100L;
         engine.onRelease(grid, g, Tap.plain(SPACE, 4.5f, 1.8f, now));
         assertEquals(0, engine.gate().warmUpTakeBacks());
         assertEquals(0f, grid.model().counts()[SPACE], 0f);
+        engine.interrupt();
+        // The erased miss is never filed; the space typed after the pause is.
+        assertEquals(0f, grid.model().counts()[B], 0f);
+        assertEquals(1f, grid.model().counts()[SPACE], 0f);
+    }
+
+    @Test
+    public void eachStepOfATakeBackMayTakeUpToTheWindow() {
+        tap(B, 4.5f, 1.1f);
+        now += 1_500L;
+        engine.onRelease(grid, g, Tap.plain(BACKSPACE, 0.5f, 1.8f, now));
+        now += 1_500L;
+        engine.onRelease(grid, g, Tap.plain(SPACE, 4.5f, 1.8f, now));
+        assertEquals(1, engine.gate().warmUpTakeBacks());
+    }
+
+    // Round 2: a miss noticed a few keys later.
+
+    private static final int L = 0;
+    private static final int S = 1;
+    private static final int T = 2;
+    private static final int A = 7;
+
+    /** A plain tap at the centre of {@code key}, a fifth of a second after the last keystroke. */
+    private void quick(int key) {
+        quickAt(key, g.centerX(key), g.centerY(key));
+    }
+
+    private void quickAt(int key, float x, float y) {
+        now += 200L;
+        engine.onRelease(grid, g, Tap.plain(key, x, y, now));
+    }
+
+    private void backspaces(int times) {
+        for (int i = 0; i < times; i++) {
+            now += 200L;
+            engine.onRelease(grid, g, Tap.plain(BACKSPACE, 0.5f, 1.8f, now));
+        }
+    }
+
+    /** {@code l s b s t a}, the {@code b} low on its key: a space aimed too high. */
+    private void typeMissThenThreeMore() {
+        quick(L);
+        quick(S);
+        quickAt(B, 4.5f, 1.1f);
+        quick(S);
+        quick(T);
+        quick(A);
+    }
+
+    @Test
+    public void aMissNoticedThreeKeysLaterIsATakeBackIntoSpace() {
+        typeMissThenThreeMore();
+        backspaces(4);
+        quick(SPACE);
+        quick(S);
+        quick(T);
+        quick(A);
+        assertEquals(1, engine.gate().warmUpTakeBacks());
+        assertEquals(1, grid.log().takeBackCount(SPACE));
+        engine.interrupt();
+        // b never learned from the miss; space learned it three times over, plus its own tap.
+        assertEquals(0f, grid.model().counts()[B], 0f);
+        assertEquals(TouchEngine.TAKE_BACK_WEIGHT + 1f, grid.model().counts()[SPACE], 0f);
+        assertTrue(grid.model().biasY(g, SPACE) < 0f);
+        // The erased s, t and a were dropped; the retyped ones and the surviving l and s landed.
+        assertEquals(1f, grid.model().counts()[L], 0f);
+        assertEquals(2f, grid.model().counts()[S], 0f);
+        assertEquals(1f, grid.model().counts()[T], 0f);
+        assertEquals(1f, grid.model().counts()[A], 0f);
+    }
+
+    @Test
+    public void twoDifferencesAreEditingAndTeachNothing() {
+        typeMissThenThreeMore();
+        backspaces(4);
+        quick(SPACE);
+        quick(S);
+        quick(V); // t's neighbour: a second difference
+        quick(A);
+        engine.interrupt();
+        assertEquals(0, engine.gate().warmUpTakeBacks());
+        assertEquals(0f, grid.model().counts()[B], 0f);
+        assertEquals(1f, grid.model().counts()[SPACE], 0f);
+    }
+
+    @Test
+    public void aDifferenceThatIsNotANeighbourTeachesNothing() {
+        quick(S);
+        quickAt(B, 4.5f, 1.1f);
+        quick(T);
+        backspaces(2);
+        quick(8); // four keys from b
+        quick(T);
+        engine.interrupt();
+        assertEquals(0, engine.gate().warmUpTakeBacks());
+        assertEquals(0f, grid.model().counts()[B], 0f);
+        // The retyped keys are new text and land.
+        assertEquals(1f, grid.model().counts()[8], 0f);
+    }
+
+    @Test
+    public void aShorterRetypeTeachesNothing() {
+        typeMissThenThreeMore();
+        backspaces(4);
+        quick(SPACE);
+        quick(S);
+        engine.interrupt();
+        assertEquals(0, engine.gate().warmUpTakeBacks());
+        assertEquals(0f, grid.model().counts()[B], 0f);
+    }
+
+    @Test
+    public void backspacingPastTheHoldTeachesNothingAndDoesNotCrash() {
+        // Ten taps: the first two drop out of the hold and land; the miss is still held.
+        quick(L);
+        quick(T);
+        typeMissThenThreeMore();
+        quick(L);
+        quick(T);
+        assertEquals(TouchEngine.HOLD, engine.heldCount());
+        assertEquals(1f, grid.model().counts()[L], 0f);
+        backspaces(TouchEngine.HOLD + 1);
+        assertEquals(0, engine.heldCount());
+        // Retype everything the nine Backspaces erased, the miss now a space.
+        quick(T);
+        quick(L);
+        quick(S);
+        quick(SPACE);
+        quick(S);
+        quick(T);
+        quick(A);
+        quick(L);
+        quick(T);
+        engine.interrupt();
+        assertEquals(0, engine.gate().warmUpTakeBacks());
+        assertEquals(0f, grid.model().counts()[B], 0f);
+    }
+
+    @Test
+    public void aLongPauseInsideTheRunTeachesNothing() {
+        typeMissThenThreeMore();
+        backspaces(4);
+        quick(SPACE);
+        quick(S);
+        now += TouchEngine.TAKE_BACK_WINDOW_MS + 100L;
+        engine.onRelease(grid, g, Tap.plain(T, g.centerX(T), g.centerY(T), now));
+        quick(A);
+        engine.interrupt();
+        assertEquals(0, engine.gate().warmUpTakeBacks());
+        assertEquals(0f, grid.model().counts()[B], 0f);
+    }
+
+    @Test
+    public void erasedTapsAreNeverFiledEvenWithNoRetype() {
+        quick(S);
+        quickAt(B, 4.5f, 1.1f);
+        quick(T);
+        backspaces(2);
+        engine.interrupt();
+        assertEquals(1f, grid.model().counts()[S], 0f);
+        assertEquals(0f, grid.model().counts()[B], 0f);
+        assertEquals(0f, grid.model().counts()[T], 0f);
+    }
+
+    @Test
+    public void aBackspaceThatIsNotAPlainTapDropsEverythingHeld() {
+        quick(S);
+        quick(T);
+        now += 200L;
+        // A held Backspace repeats: how much it erased is unknown.
+        engine.onRelease(grid, g, new Tap(BACKSPACE, BACKSPACE, 0.5f, 1.8f, false, false,
+            now, now + 900L, 0f));
+        engine.interrupt();
+        assertEquals(0f, grid.model().counts()[S], 0f);
+        assertEquals(0f, grid.model().counts()[T], 0f);
+    }
+
+    @Test
+    public void aTapThatDropsOutOfTheHoldLands() {
+        for (int i = 0; i < TouchEngine.HOLD; i++)
+            quick(L);
+        assertEquals(0f, grid.model().counts()[L], 0f);
+        quick(T);
+        assertEquals(1f, grid.model().counts()[L], 0f);
+        assertEquals(TouchEngine.HOLD, engine.heldCount());
+    }
+
+    @Test
+    public void enterFilesTheHeldTaps() {
+        TapGeometry withEnter = withEnter();
+        GridMemory enterGrid = new GridMemory(withEnter.keyCount);
+        int enter = withEnter.keyCount - 1;
+        for (int key : new int[]{L, S, T}) {
+            now += 200L;
+            engine.onRelease(enterGrid, withEnter,
+                Tap.plain(key, withEnter.centerX(key), withEnter.centerY(key), now));
+        }
+        assertEquals(3, engine.heldCount());
+        assertEquals(0f, enterGrid.model().counts()[L], 0f);
+        now += 200L;
+        engine.onRelease(enterGrid, withEnter, Tap.plain(enter, 9.5f, 1.8f, now));
+        assertEquals(0, engine.heldCount());
+        assertEquals(1f, enterGrid.model().counts()[L], 0f);
+        assertEquals(1f, enterGrid.model().counts()[S], 0f);
+        assertEquals(1f, enterGrid.model().counts()[T], 0f);
+        // Enter itself is never learned.
+        assertEquals(0f, enterGrid.model().counts()[enter], 0f);
+    }
+
+    /** {@link TapModelTest#spaceGrid()} with an Enter key at the end of the bottom row. */
+    private static TapGeometry withEnter() {
+        TapGeometry s = TapModelTest.spaceGrid();
+        int n = s.keyCount + 1;
+        float[] left = java.util.Arrays.copyOf(s.left, n);
+        float[] top = java.util.Arrays.copyOf(s.top, n);
+        float[] right = java.util.Arrays.copyOf(s.right, n);
+        float[] bottom = java.util.Arrays.copyOf(s.bottom, n);
+        int[] row = java.util.Arrays.copyOf(s.row, n);
+        int[] role = java.util.Arrays.copyOf(s.role, n);
+        left[n - 1] = 9f;
+        right[n - 1] = 10f;
+        top[n - 1] = 1.2f;
+        bottom[n - 1] = 2.4f;
+        row[n - 1] = 1;
+        role[n - 1] = TapGeometry.ROLE_OTHER;
+        return new TapGeometry(left, top, right, bottom, row, role, "space+enter");
     }
 
     @Test

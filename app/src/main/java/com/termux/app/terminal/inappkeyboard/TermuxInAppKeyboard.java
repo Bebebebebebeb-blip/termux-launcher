@@ -415,6 +415,17 @@ public final class TermuxInAppKeyboard {
         out.putString(STATE_SELECTED_LAYOUT, mSelectedLayoutId);
     }
 
+    /**
+     * What the touch engine files a layout's taps under. Grids are named by key structure, not
+     * pixel size, so portrait and landscape would share one; thumbs land differently in each.
+     */
+    private String tapLayoutKey(String layoutId) {
+        View container = mHost.getKeyboardContainer();
+        boolean landscape = container != null && container.getResources().getConfiguration()
+            .orientation == Configuration.ORIENTATION_LANDSCAPE;
+        return landscape ? layoutId + "|landscape" : layoutId;
+    }
+
     /** Rebuilds immutable density metrics while retaining the parsed layout. */
     public void onConfigurationChanged(Configuration configuration) {
         if (!mEnabled || mDestroyed)
@@ -1451,7 +1462,7 @@ public final class TermuxInAppKeyboard {
         mKeyboardView.setKeyMarginScale(mKeyMarginScale);
         mKeyboardView.setKeyCornerRadiusOverride(radiusDpToPx(mKeyCornerRadiusDp));
         mKeyboardView.setKeyOpacity(mKeyOpacity < 0 ? -1f : mKeyOpacity / 100f);
-        mTapCorrection.setLayoutId(mSelectedLayoutId);
+        mTapCorrection.setLayoutId(tapLayoutKey(mSelectedLayoutId));
         mKeyboardView.setTapResolver(mTapCorrection);
         mKeyboardView.setPasteShowsPicture(mPasteOffer.showsPicture());
         applyKeyboardToView(getSelectedLayoutData());
@@ -1735,7 +1746,7 @@ public final class TermuxInAppKeyboard {
         if (data == null)
             return;
         mSelectedLayoutId = normalizedId;
-        mTapCorrection.setLayoutId(normalizedId);
+        mTapCorrection.setLayoutId(tapLayoutKey(normalizedId));
         resetInputPipeline();
         applyKeyboardToView(data);
         requestIntrinsicSizeGeometrySync();

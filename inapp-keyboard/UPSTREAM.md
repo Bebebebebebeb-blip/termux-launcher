@@ -221,7 +221,12 @@ fails when the catalogue has gone stale.
   set when the long-press timer fires; `TouchFx` holds only the raw key plus
   its contact size. `TapGeometry` labels each key's role (character, space,
   Esc, Tab, Backspace, other) and which keys may be corrected: characters,
-  space, Esc and Tab. The colour-editor paint path (`paintKeyAt`) never
+  space, Esc and Tab. Its `signature` hashes only the layout's own units —
+  each row's key count, shift and height, each key's shift, width and role —
+  never the rendered key width or row height, so a resize or edge-gap change
+  keeps the host's learned grid and an edit to the keys starts a new one. The
+  coordinates themselves stay in rendered key widths on both axes; the host
+  turns vertical offsets into key heights. The colour-editor paint path (`paintKeyAt`) never
   consults the resolver. The engine itself lives in the launcher
   (`app/.../terminal/inappkeyboard/touch/`, adapted by `TapModelStore` and
   `TapCorrectionController`); the module holds no learning logic.

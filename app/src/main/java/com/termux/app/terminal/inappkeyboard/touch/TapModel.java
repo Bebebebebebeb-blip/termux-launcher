@@ -9,7 +9,8 @@ import java.util.Arrays;
  * commit. Pure arithmetic over {@link TapGeometry}; no Android types.
  *
  * <p>Per key it keeps a weighted tap count and the summed offset of each tap from the key's
- * centre, in key-width units. A key's estimate is shrunk towards its group's
+ * centre: horizontally in key widths, vertically in that key's heights, so a resize that changes
+ * the keys' aspect keeps what was learned. A key's estimate is shrunk towards its group's
  * ({@link KeyGroups}), so a key with few taps of its own borrows the offset its neighbours share.
  * Wide keys learn their vertical offset only.
  *
@@ -89,7 +90,8 @@ public final class TapModel {
      * {@code weight} times. Returns false, recording nothing, for a key that is not correctable.
      */
     public boolean observe(TapGeometry geometry, int index, float x, float y, float weight) {
-        if (!valid(geometry, index) || !geometry.correctable[index] || !(weight > 0f))
+        if (!valid(geometry, index) || !geometry.correctable[index] || !(weight > 0f)
+            || !(geometry.height(index) > 0f))
             return false;
         KeyGroups groups = groups(geometry);
         if (mCount[index] >= FORGET_AT) {
@@ -100,7 +102,7 @@ public final class TapModel {
         mCount[index] += weight;
         if (!groups.wide[index])
             mSumX[index] += weight * (x - geometry.centerX(index));
-        mSumY[index] += weight * (y - geometry.centerY(index));
+        mSumY[index] += weight * (y - geometry.centerY(index)) / geometry.height(index);
         mPriorsValid = false;
         return true;
     }
@@ -121,7 +123,9 @@ public final class TapModel {
                 continue;
             float bx = clamp((ownBiasX(rawIndex) + ownBiasX(n)) * 0.5f,
                 MAX_SHIFT_FRACTION * Math.min(geometry.width(rawIndex), geometry.width(n)));
-            float by = clamp((ownBiasY(rawIndex) + ownBiasY(n)) * 0.5f,
+            // Stored in each key's heights; the pair's border moves in the grid's units.
+            float by = clamp((ownBiasY(rawIndex) * geometry.height(rawIndex)
+                    + ownBiasY(n) * geometry.height(n)) * 0.5f,
                 MAX_SHIFT_FRACTION * Math.min(geometry.height(rawIndex), geometry.height(n)));
             if (bx == 0f && by == 0f)
                 continue;
@@ -148,12 +152,16 @@ public final class TapModel {
         return ownBiasX(i);
     }
 
-    /** Key {@code i}'s vertical estimate, in key widths, shrunk towards its group's. */
+    /**
+     * Key {@code i}'s vertical estimate on {@code geometry}, in key widths (the grid's units),
+     * shrunk towards its group's. It is learned in key heights, so the same model answers in
+     * proportion to the key on a taller or shorter grid.
+     */
     public float biasY(TapGeometry geometry, int i) {
         if (!valid(geometry, i))
             return 0f;
         ensurePriors(geometry);
-        return ownBiasY(i);
+        return ownBiasY(i) * geometry.height(i);
     }
 
     private float ownBiasX(int i) {
@@ -163,6 +171,7 @@ public final class TapModel {
         return (mSumX[i] + SHRINK_TAPS * mPriorX[g]) / (mCount[i] + SHRINK_TAPS);
     }
 
+    /** In key heights. */
     private float ownBiasY(int i) {
         int g = mGroups.group[i];
         if (g < 0)

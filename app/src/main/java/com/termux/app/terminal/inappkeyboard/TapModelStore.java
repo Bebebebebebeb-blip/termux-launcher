@@ -38,13 +38,16 @@ import java.util.Map;
  * first. Reading and serialising happen on the caller's thread; the caller decides where the
  * file write runs.
  *
- * <p>Version 2 changed which keys count, and with it every geometry signature, so a version 1
- * file is dropped on load and overwritten by the first save.
+ * <p>An older version's file is dropped on load and overwritten by the first save. Version 2
+ * changed which keys count, and with it every geometry signature. Version 3 changed what a
+ * take-back is (a late retype after up to 8 Backspaces), stores vertical offsets in key heights,
+ * names grids by key structure rather than pixel size and counts take-backs by the key hit, so
+ * the warm-up and its baseline start again under the new rule.
  */
 public final class TapModelStore {
 
     static final int MAX_ENTRIES = 8;
-    static final int VERSION = 2;
+    static final int VERSION = 3;
 
     private static final class Entry {
         final GridMemory grid;
@@ -209,7 +212,8 @@ public final class TapModelStore {
             new KeyLog(log.keyCount(), log.samples(), log.sampleFill(), log.takeBacks(),
                 log.takeBackFill()),
             new PassBarCounts(model.keyCount(), counts.epoch(), counts.warmTaps(),
-                counts.activeTaps(), counts.warmTakeBacks(), counts.activeTakeBacks()));
+                counts.activeTaps(), counts.warmTakeBacks(), counts.activeTakeBacks(),
+                counts.warmTakeBacksHit(), counts.activeTakeBacksHit()));
     }
 
     private static String serialise(TouchEngine engine, List<String> keys, List<Long> lastUsed,
@@ -238,6 +242,8 @@ public final class TapModelStore {
                 entry.put("taps_active", toArray(counts.activeTaps()));
                 entry.put("takebacks_warm", toArray(counts.warmTakeBacks()));
                 entry.put("takebacks_active", toArray(counts.activeTakeBacks()));
+                entry.put("takebacks_hit_warm", toArray(counts.warmTakeBacksHit()));
+                entry.put("takebacks_hit_active", toArray(counts.activeTakeBacksHit()));
                 entries.put(keys.get(i), entry);
             }
             root.put("entries", entries);
@@ -322,7 +328,9 @@ public final class TapModelStore {
                 toInts(entry.optJSONArray("taps_warm")),
                 toInts(entry.optJSONArray("taps_active")),
                 toInts(entry.optJSONArray("takebacks_warm")),
-                toInts(entry.optJSONArray("takebacks_active")));
+                toInts(entry.optJSONArray("takebacks_active")),
+                toInts(entry.optJSONArray("takebacks_hit_warm")),
+                toInts(entry.optJSONArray("takebacks_hit_active")));
             mEntries.put(key, new Entry(new GridMemory(new TapModel(n, x, y), log, counts),
                 entry.optLong("t", 0L)));
         }

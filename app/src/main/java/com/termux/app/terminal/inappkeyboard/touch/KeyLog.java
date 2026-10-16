@@ -7,8 +7,9 @@ package com.termux.app.terminal.inappkeyboard.touch;
  *
  * <p>Each key keeps its own bounded bucket, overwritten oldest first, and the buckets share no
  * clock and no sequence: what was typed, and in which order, cannot be rebuilt from them.
- * Values are stored as shorts — positions and sizes in thousandths of a key width, times in
- * milliseconds clamped to {@link Short#MAX_VALUE} — so the whole log for a 60-key grid holds
+ * Values are stored as shorts — horizontal offsets and sizes in thousandths of a key width,
+ * vertical offsets in thousandths of the key's height, times in milliseconds clamped to
+ * {@link Short#MAX_VALUE} — so the whole log for a 60-key grid holds
  * about 12.5 KB.
  */
 public final class KeyLog {
@@ -68,8 +69,8 @@ public final class KeyLog {
     }
 
     /**
-     * Records a tap on {@code key}: its offset from the key's centre and contact size in key
-     * widths, and its duration and the gap since the previous tap in milliseconds (a negative
+     * Records a tap on {@code key}: its offset from the key's centre ({@code dx} in key widths,
+     * {@code dy} in the key's heights), its contact size in key widths, and its duration and the gap since the previous tap in milliseconds (a negative
      * gap means there was none).
      */
     public void addSample(int key, float dx, float dy, long durationMs, float contactSize,
@@ -87,7 +88,10 @@ public final class KeyLog {
             mSampleFill[key]++;
     }
 
-    /** Records a take-back: a tap that hit {@code fromKey} at an offset from {@code toKey}. */
+    /**
+     * Records a take-back: a tap that hit {@code fromKey} at an offset from {@code toKey}'s
+     * centre, {@code dx} in key widths and {@code dy} in {@code toKey}'s heights.
+     */
     public void addTakeBack(int toKey, int fromKey, float dx, float dy) {
         if (toKey < 0 || toKey >= mKeyCount || fromKey < 0 || fromKey >= mKeyCount)
             return;

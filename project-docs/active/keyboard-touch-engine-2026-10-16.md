@@ -1,7 +1,7 @@
 # Keyboard touch engine (2026-10-16)
 
 Status: decisions 1–13 built (27a6ceebb on `pre`), on pong since 2026-10-16. Round 2 below is
-settled and not built.
+built too; it owes the pass bar on pong again.
 
 The in-app keyboard learns where this user's thumbs actually land and moves key borders to match.
 The first acceptance case is the developer's own: aiming at the space bar and landing on `b` or `v`

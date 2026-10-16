@@ -268,4 +268,42 @@ public class TapModelTest {
         assertEquals(model.biasY(g, 2), copy.biasY(g, 2), 0f);
         assertEquals(model.totalTaps(), copy.totalTaps(), 0f);
     }
+
+    /** {@link #spaceGrid()} with every row {@code factor} times as tall: the same key structure. */
+    static TapGeometry spaceGridRowsScaled(float factor) {
+        TapGeometry s = spaceGrid();
+        float[] top = s.top.clone();
+        float[] bottom = s.bottom.clone();
+        for (int i = 0; i < s.keyCount; i++) {
+            top[i] *= factor;
+            bottom[i] *= factor;
+        }
+        return new TapGeometry(s.left.clone(), top, s.right.clone(), bottom, s.row.clone(),
+            s.role.clone(), s.signature);
+    }
+
+    @Test
+    public void verticalOffsetsAreLearnedInKeyHeightsAndSurviveAResize() {
+        TapGeometry g = spaceGrid();
+        TapModel model = new TapModel(g.keyCount);
+        // Taps on space and on b both land a fifth of a key height high.
+        float spaceHigh = -0.2f * g.height(SPACE);
+        teach(model, g, SPACE, 0f, spaceHigh, 200);
+        teach(model, g, 4, 0f, -0.2f * g.height(4), 200);
+        assertEquals(spaceHigh, model.biasY(g, SPACE), 0.03f);
+
+        // The key width shrinks, so in key widths every row is a quarter taller.
+        TapGeometry taller = spaceGridRowsScaled(1.25f);
+        assertEquals(1.25f * model.biasY(g, SPACE), model.biasY(taller, SPACE), 1e-5f);
+        // The border between b and space sits at the same fraction of the keys on both grids.
+        for (float fraction : new float[]{0.05f, 0.15f, 0.3f, 0.5f}) {
+            float y = g.bottom[4] - fraction * g.height(4);
+            float yTaller = taller.bottom[4] - fraction * taller.height(4);
+            assertEquals(model.resolve(g, 4, 4.5f, y), model.resolve(taller, 4, 4.5f, yTaller));
+        }
+        assertEquals(SPACE, model.resolve(taller, 4, 4.5f, taller.bottom[4] - 0.05f));
+        assertEquals(SPACE,
+            model.resolve(taller, 4, 4.5f, taller.bottom[4] - 0.15f * taller.height(4)));
+        assertEquals(4, model.resolve(taller, 4, 4.5f, taller.bottom[4] - 0.3f * taller.height(4)));
+    }
 }

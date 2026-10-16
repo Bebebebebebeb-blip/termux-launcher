@@ -16,7 +16,7 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 
-/** The pass bar's per-key counts: taps by key sent, take-backs by key meant, per phase. */
+/** The pass bar's per-key counts: taps by key sent, take-backs by key meant and hit, per phase. */
 public class PassBarCountsTest {
 
     @Rule
@@ -51,7 +51,7 @@ public class PassBarCountsTest {
     }
 
     @Test
-    public void warmUpCountsTapsBySentKeyAndTakeBacksByMeantKey() {
+    public void warmUpCountsTapsBySentKeyAndTakeBacksByMeantAndHitKey() {
         for (int i = 0; i < 5; i++)
             tap(SPACE, 4.5f, 1.8f);
         spaceTakeBack();
@@ -60,7 +60,10 @@ public class PassBarCountsTest {
         assertEquals(1, counts.warmTaps()[B]);
         assertEquals(1, counts.warmTakeBacks()[SPACE]);
         assertEquals(0, counts.warmTakeBacks()[B]);
+        assertEquals(1, counts.warmTakeBacksHit()[B]);
+        assertEquals(0, counts.warmTakeBacksHit()[SPACE]);
         assertEquals(0, counts.activeTaps()[SPACE]);
+        assertEquals(0, counts.activeTakeBacksHit()[B]);
     }
 
     @Test
@@ -70,8 +73,10 @@ public class PassBarCountsTest {
         spaceTakeBack();
         PassBarCounts counts = grid.counts();
         assertEquals(1, counts.activeTakeBacks()[SPACE]);
+        assertEquals(1, counts.activeTakeBacksHit()[B]);
         assertEquals(1, counts.activeTaps()[SPACE]);
         assertEquals(0, counts.warmTakeBacks()[SPACE]);
+        assertEquals(0, counts.warmTakeBacksHit()[B]);
         assertEquals(LearningGate.WARM_UP_TAPS, counts.warmTaps()[0]);
     }
 
@@ -116,12 +121,21 @@ public class PassBarCountsTest {
             t += 3_000L;
             e.onRelease(live, g, Tap.plain(SPACE, 4.5f, 1.8f, t));
         }
+        // A miss into b, taken back as a space.
+        t += 3_000L;
+        e.onRelease(live, g, Tap.plain(B, 4.5f, 1.1f, t));
+        t += 300L;
+        e.onRelease(live, g, Tap.plain(BACKSPACE, 0.5f, 1.8f, t));
+        t += 300L;
+        e.onRelease(live, g, Tap.plain(SPACE, 4.5f, 1.8f, t));
         TapModelStore.write(file, store.toJson());
 
         TapModelStore loaded = TapModelStore.load(file);
         assertEquals(e.epoch(), loaded.engine().epoch());
         GridMemory back = loaded.gridFor("qwerty|space", g.keyCount, 3L);
-        assertEquals(4, back.counts().warmTaps()[SPACE]);
+        assertEquals(5, back.counts().warmTaps()[SPACE]);
+        assertEquals(1, back.counts().warmTakeBacks()[SPACE]);
+        assertEquals(1, back.counts().warmTakeBacksHit()[B]);
         GridMemory staleBack = loaded.gridFor("other|space", g.keyCount, 4L);
         assertEquals(0, staleBack.counts().warmTaps()[SPACE]);
     }
