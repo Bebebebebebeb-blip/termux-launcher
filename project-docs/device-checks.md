@@ -159,11 +159,16 @@ under twenty items; past that, the oldest are re-judged first.
 - 2026-10-17 · same branch, "feat(editor): a Hue picked at Tint 0" · From Clear, Custom: pick
   Secondary in the Hue pill and the Tint column jumps to 40 with the colour showing; at Tint 15 a
   Hue pick leaves 15; Undo returns to the open state · emulator tl16, editor screenshots.
-- 2026-10-17 · same branch, "fix(glass): keyboard-area labels" · Light theme, dark wallpaper,
-  Custom at Opacity 100: the A-Z letters, the extra keys (Ctrl, Alt) and the in-app keyboard's
-  legends are dark and legible on the white dock and keyboard; dragging Opacity to 10 turns them
-  pale within a moment of release; dark theme on a pale wallpaper the mirror; with the A-Z bar on
-  the plank and on its own capsule as well · emulator tl16, crops of each row before/after.
+- 2026-10-17 · same branch, "fix(glass): keyboard-area labels" and "fix(glass): keyboard legends
+  are chosen on every row's face" · **Failed on the emulator 2026-10-17 before the row fix:** light
+  theme, Celestial Field, Custom from Solid at Opacity 10 and 0: the keyboard's Ctrl, Alt, Fn, gear
+  and right-hand cluster stayed dark on their see-through chips over the near-black grass under the
+  bottom row (Mist light about 2.5:1); Opacity 100 light and Opacity 10 dark passed. Recheck that
+  route at Opacity 0, 10, Mist and 100: every keyboard legend legible on every row, a light veil on
+  the keyboard where no legend tone reads otherwise. The A-Z letters stay pale there: the row under
+  them averages 0.01-0.03 luminance on that screenshot, so pale is the measured answer; judge by
+  eye. Then the first round: dark wallpaper, Opacity 100 dark labels, 10 pale; dark theme on a pale
+  wallpaper the mirror; the A-Z bar on the plank and its own capsule · emulator tl16, row crops.
 
 ## Developer
 - 2026-10-17 · branch feat/glass-controls-unify · Vibrancy release re-bakes the frames once (no
