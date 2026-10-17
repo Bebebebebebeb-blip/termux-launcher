@@ -5,6 +5,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import android.app.Application;
 import android.content.ComponentName;
@@ -91,6 +92,27 @@ public class X11DisplayReceiverTest {
         Bundle kept = X11DisplayReceiver.takeAnnouncement();
         assertNotNull("left for the next controller", kept);
         assertSame(server, kept.getBinder(null));
+    }
+
+    @Test public void aRelaunchedActivitysControllerIsOnTheSameRunningServer() {
+        X11DisplayHostController first =
+            new X11DisplayHostController(context, new LorieHost.Callbacks() { });
+        new X11DisplayReceiver().onReceive(context, announcement(new Binder()));
+        assertTrue("the server is up and announced", first.isRunning());
+        java.util.List<Boolean> heard = new java.util.ArrayList<>();
+        first.setListener(heard::add);
+
+        // TermuxActivity.onDestroy on a configuration relaunch (new wallpaper colours): the
+        // listener goes first, so the dying activity never acts on a "stopped" display.
+        first.setListener(null);
+        first.destroy();
+        assertTrue("nothing told the old activity the display stopped", heard.isEmpty());
+
+        X11DisplayHostController second =
+            new X11DisplayHostController(context, new LorieHost.Callbacks() { });
+        assertTrue("the new activity's controller is on the server that kept running",
+            second.isRunning());
+        second.destroy();
     }
 
     @Test public void aDestroyedControllerNoLongerReceives() {

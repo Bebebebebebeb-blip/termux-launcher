@@ -265,6 +265,12 @@ under twenty items; past that, the oldest are re-judged first.
   Undo puts back the look at the first open; Back goes to the Overview. Repeat from a corner
   tab's Layout door (Back then closes) and once with dark mode toggled (`cmd uimode night yes`)
   · emulator tl16.
+- 2026-10-17 · same branch, "fix(x11): a relaunch's destroy never reads as the display stopping"
+  · Firefox in the Display place: `launcherctl wallpaper set` (and dark mode toggled) relaunches
+  the activity; the Display place comes back drawing Firefox and answering touch, the place bar's
+  display dot stays on, a new terminal session still has `DISPLAY` set. If the display still
+  stops, note whether `pgrep -f termux-x11` still lists the server and whether Firefox's process
+  is alive: the launcher side lets go of nothing but its own view · pong with the go-ahead.
 
 ## Developer
 - 2026-10-17 · same branch, "perf(glass): hold the blur radius through a drag" · Look › Custom on

@@ -9067,6 +9067,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // here hands the server's announcement on to the next activity's controller, and stops
         // this activity's view chain being pinned by the Binder for as long as the server runs.
         if (mX11Display != null) {
+            // Letting go of the server reads as "not running" to the listener, whose answer is
+            // for a display that stopped: DISPLAY cleared for new sessions, the window list
+            // emptied, the page shown empty, a pending stop's teardown run. None of that is true
+            // when only this activity is going (a configuration relaunch, or any destroy): the
+            // server and its clients keep running, and the next activity's controller takes the
+            // kept announcement and attaches its page to them.
+            mX11Display.setListener(null);
             mX11Display.destroy();
             mX11Display = null;
         }
