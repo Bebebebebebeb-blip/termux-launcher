@@ -164,6 +164,20 @@ public final class GlassRefraction {
         static final float BOLD_SPLIT_DP = 3.5f;
 
         /**
+         * The bold edge's own light, a share of the outline's strength that faces no way
+         * ({@code kBoldLight}): past Glint red's and blue's light part from at least this much of
+         * it, times {@link GlassRefraction#boldShare}, on every side. The gathered light is
+         * directional (a quarter of it on the sides away from the key light), so a split of that
+         * light alone left the right, the bottom and the band edges with a quarter of the top
+         * left's fringe; with this floor every side carries a coloured band, about four fifths of
+         * the top edge's (whose own 0.77 share is over it, as the top-left corner's 1 is, so the
+         * sides facing the light are unchanged). Red's part is held under red's own headroom, not
+         * the brightest channel's, so a bright green or sky backdrop still shows the band; no
+         * channel clips. Nothing up to Glint.
+         */
+        static final float BOLD_LIGHT = 0.6f;
+
+        /**
          * The clarity at which the sharp picture carries Glint's fringe by itself, so the gathered
          * light's split up to Glint's share ({@link #GLINT_SHARE}) is gone ({@code kSharpClarity}):
          * Clear's 76%. Below it that part grows in as the rim's picture frosts over, all of it at
@@ -521,6 +535,9 @@ public final class GlassRefraction {
         "const float kRimSplitDp = 2.0;\n" +
         "const float kSharpClarity = 0.76;\n" +
         "const float kBoldSplitDp = 3.5;\n" +
+        // The bold edge's own light, the share every side splits at 100 whichever way it faces.
+        // Look.BOLD_LIGHT in Java.
+        "const float kBoldLight = 0.6;\n" +
         "float sdRoundRect(float2 p, float2 b, float r) {\n" +
         "    float2 q = abs(p) - b + float2(r, r);\n" +
         "    return min(max(q.x, q.y), 0.0) + length(max(q, float2(0.0, 0.0))) - r;\n" +
@@ -639,8 +656,8 @@ public final class GlassRefraction {
         // at the corners, up to kBoldSplitDp at 100, at every clarity, since the sampled split is
         // too fine at the outline to show it. rimSplitPx and boldSplitPx in Java.
         "    float rimCw = uDisp > 0.0 ? cornerWeight(p, b) : 0.0;\n" +
-        "    float rimBold = uDisp > kGlintDisp\n" +
-        "        ? (uDisp - kGlintDisp) / (kMaxDisp - kGlintDisp) * kBoldSplitDp * uDensity : 0.0;\n" +
+        "    float boldS = uDisp > kGlintDisp ? (uDisp - kGlintDisp) / (kMaxDisp - kGlintDisp) : 0.0;\n" +
+        "    float rimBold = boldS * kBoldSplitDp * uDensity;\n" +
         "    float rimSplit = uDisp > 0.0 ? min(uDisp, kGlintDisp) / kMaxDisp * rimCw * kRimSplitDp * uDensity\n" +
         "        * (1.0 - clamp(uClarity / kSharpClarity, 0.0, 1.0)) + rimBold : 0.0;\n" +
         "    half4 col = half4(0.0);\n" +
@@ -681,11 +698,18 @@ public final class GlassRefraction {
         "        if (rimSplit > 0.0) {\n" +
         // Red's light as if its outline lay rimSplit further in, blue's as if it lay rimSplit
         // further out: each channel's glow moved along the same exponential, held as green's is.
+        // Past Glint the light they part is at least the bold edge's own (kBoldLight of the
+        // outline's strength, facing no way), so the sides away from the key light carry the
+        // band too, and red's is held under red's own headroom, so a bright backdrop still takes
+        // it. Up to Glint boldS is 0: kS is kRaw and kMaxR is kMax exactly.
         "            float kMax = max(float(col.a) - peak, 0.0) / (kGain * peak + kLift);\n" +
         "            float gs = kGlowDp * uDensity;\n" +
         "            float at = max(inside, 0.0);\n" +
-        "            float kr = heldK(kRaw * exp((at - max(inside - rimSplit, 0.0)) / gs), kMax);\n" +
-        "            float kb = heldK(kRaw * exp((at - max(inside + rimSplit, 0.0)) / gs), kMax);\n" +
+        "            float kS = max(kRaw, glow * kBoldLight * boldS * (1.0 - kPaleCut * pale) * uEdgeGain);\n" +
+        "            float kMaxR = boldS > 0.0\n" +
+        "                ? max(float(col.a) - float(col.r), 0.0) / (kGain * float(col.r) + kLift) : kMax;\n" +
+        "            float kr = heldK(kS * exp((at - max(inside - rimSplit, 0.0)) / gs), kMaxR);\n" +
+        "            float kb = heldK(kS * exp((at - max(inside + rimSplit, 0.0)) / gs), kMax);\n" +
         "            float3 kc = float3(kr, k, kb);\n" +
         "            col.rgb = min(half3(col.a), col.rgb * half3(1.0 + kGain * kc) + half3(kLift * kc));\n" +
         "        } else {\n" +
@@ -881,34 +905,61 @@ public final class GlassRefraction {
     static void gatheredLitSplit(float r, float g, float b, float a, float insidePx, float density,
                                  float nx, float ny, float edgeGain, float splitPx,
                                  @NonNull float[] out) {
+        gatheredLitSplit(r, g, b, a, insidePx, density, nx, ny, edgeGain, splitPx, out, 0f);
+    }
+
+    /**
+     * The program's split inside the light's own reach, for a bold edge of share {@code boldS}
+     * ({@link #boldShare}): red's and blue's light part from at least {@link Look#BOLD_LIGHT}
+     * times {@code boldS} of the outline's strength facing no way ({@code kS}), red's held under
+     * red's own headroom. At {@code boldS} 0 that is {@code kRaw} and the brightest channel's
+     * headroom exactly.
+     */
+    private static void gatheredLitSplit(float r, float g, float b, float a, float insidePx,
+                                         float density, float nx, float ny, float edgeGain,
+                                         float splitPx, @NonNull float[] out, float boldS) {
         gatheredLit(r, g, b, a, insidePx, density, nx, ny, edgeGain, out);
         if (splitPx <= 0f || insidePx >= Look.GLOW_REACH_DP * density) return;
         float luma = r * LUMA_R + g * LUMA_G + b * LUMA_B;
         float kRaw = gatherK(insidePx, density, gatherShare(nx, ny), luma) * edgeGain;
-        float shade = 1f - glow(insidePx, density) * Look.EDGE_SHADE;
+        float glow = glow(insidePx, density);
+        float shade = 1f - glow * Look.EDGE_SHADE;
         float sr = r * shade, sb = b * shade;
         float kMax = headroomK(Math.max(sr, Math.max(g * shade, sb)), a);
+        float kS = boldLightK(kRaw, glow, boldS, luma, edgeGain);
+        float kMaxR = boldS > 0f ? headroomK(sr, a) : kMax;
         float gs = Look.GLOW_DP * density;
         float at = Math.max(insidePx, 0f);
-        float kr = heldK(kRaw * (float) Math.exp((at - Math.max(insidePx - splitPx, 0f)) / gs), kMax);
-        float kb = heldK(kRaw * (float) Math.exp((at - Math.max(insidePx + splitPx, 0f)) / gs), kMax);
+        float kr = heldK(kS * (float) Math.exp((at - Math.max(insidePx - splitPx, 0f)) / gs), kMaxR);
+        float kb = heldK(kS * (float) Math.exp((at - Math.max(insidePx + splitPx, 0f)) / gs), kMax);
         out[0] = Math.min(a, sr * (1f + Look.GAIN * kr) + Look.LIFT * kr);
         out[2] = Math.min(a, sb * (1f + Look.GAIN * kb) + Look.LIFT * kb);
+    }
+
+    /**
+     * The program's {@code kS}: the light red's and blue's part, the gathered light {@code kRaw}
+     * or the bold edge's own, {@link Look#BOLD_LIGHT} times {@code boldS} of the outline's
+     * strength at {@code glow} facing no way, whichever is more. {@code kRaw} at {@code boldS} 0.
+     */
+    static float boldLightK(float kRaw, float glow, float boldS, float luma, float edgeGain) {
+        return Math.max(kRaw, glow * Look.BOLD_LIGHT * boldS * (1f - Look.PALE_CUT * luma) * edgeGain);
     }
 
     /**
      * {@link #gatheredLitSplit(float, float, float, float, float, float, float, float, float, float, float[])}
      * with the bold edge's split {@code boldPx} ({@link #boldSplitPx}, part of {@code splitPx}):
      * the program lights pixels that far past {@link Look#GLOW_REACH_DP} too, where red's light
-     * still reaches, so its tail has no step. Inside the light's own reach this is the call
-     * without it exactly; with no bold edge it is that call everywhere.
+     * still reaches, so its tail has no step, and red's and blue's light part from at least the
+     * bold edge's own ({@link #boldLightK}), red's under red's own headroom. With no bold edge it
+     * is the call without it exactly, everywhere.
      */
     static void gatheredLitSplit(float r, float g, float b, float a, float insidePx, float density,
                                  float nx, float ny, float edgeGain, float splitPx, float boldPx,
                                  @NonNull float[] out) {
         float reach = Look.GLOW_REACH_DP * density;
+        float boldS = boldPx > 0f ? boldPx / (Look.BOLD_SPLIT_DP * density) : 0f;
         if (insidePx < reach || boldPx <= 0f) {
-            gatheredLitSplit(r, g, b, a, insidePx, density, nx, ny, edgeGain, splitPx, out);
+            gatheredLitSplit(r, g, b, a, insidePx, density, nx, ny, edgeGain, splitPx, out, boldS);
             return;
         }
         if (insidePx >= reach + boldPx) {
@@ -926,8 +977,10 @@ public final class GlassRefraction {
         float sr = r * shade, sg = g * shade, sb = b * shade;
         float kMax = headroomK(Math.max(sr, Math.max(sg, sb)), a);
         float k = heldK(kRaw, kMax);
-        float kr = heldK(kRaw * (float) Math.exp((insidePx - Math.max(insidePx - splitPx, 0f)) / gs), kMax);
-        float kb = heldK(kRaw * (float) Math.exp((insidePx - (insidePx + splitPx)) / gs), kMax);
+        float kS = boldLightK(kRaw, glow, boldS, luma, edgeGain);
+        float kr = heldK(kS * (float) Math.exp((insidePx - Math.max(insidePx - splitPx, 0f)) / gs),
+            headroomK(sr, a));
+        float kb = heldK(kS * (float) Math.exp((insidePx - (insidePx + splitPx)) / gs), kMax);
         out[0] = Math.min(a, sr * (1f + Look.GAIN * kr) + Look.LIFT * kr);
         out[1] = Math.min(a, sg * (1f + Look.GAIN * k) + Look.LIFT * k);
         out[2] = Math.min(a, sb * (1f + Look.GAIN * kb) + Look.LIFT * kb);
