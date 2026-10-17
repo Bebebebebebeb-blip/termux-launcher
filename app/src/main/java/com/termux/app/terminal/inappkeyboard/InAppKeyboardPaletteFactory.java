@@ -298,27 +298,43 @@ public final class InAppKeyboardPaletteFactory {
         int[] under = measuredOrBase(faces, glassBase);
         int[] keyOn = chipsOn(key, under);
         int[] actionOn = chipsOn(action, under);
-        int[] functionOn = chipsOn(function, under);
         int[] activatedOn = chipsOn(activated, under);
         // The cap shading and the pressed blend follow the face the chips mostly stand on.
         int keyOnBase = ColorUtils.compositeColors(key, meanOf(under));
         int activatedOnBase = ColorUtils.compositeColors(activated, meanOf(under));
-
-        int label = ensureContrastOnAll(baseLabel, keyOn);
-        int subLabel = ensureContrastOnAll(baseSubLabel, keyOn);
-        int actionLabel = ensureContrastOnAll(base.actionLabelColor, actionOn);
-        int actionSubLabel = ensureContrastOnAll(base.actionSubLabelColor, actionOn);
-        int functionLabel = ensureContrastOnAll(baseFunctionLabel, functionOn);
-        int activatedLabel = ensureContrastOnAll(base.activatedLabelColor, activatedOn);
-        // Re-sunk against the composited chip; see the non-glass path for why RGB, not alpha.
-        int pressedLabel = ColorUtils.blendARGB(activatedOnBase, activatedLabel, 130f / 255f);
-        int lockedLabel = ensureContrastOnAll(base.lockedModifierColor, activatedOn);
 
         // Rim and cap shading follow the chip's effective brightness, not the phone's UI
         // mode, so a light theme under a dark phone still reads as light physical caps.
         boolean lightChips = ColorUtils.calculateLuminance(keyOnBase) > 0.5d;
         int gradientTop = ColorUtils.setAlphaComponent(Color.WHITE, lightChips ? 46 : 26);
         int gradientBottom = ColorUtils.setAlphaComponent(Color.BLACK, lightChips ? 26 : 56);
+
+        int label = ensureContrastOnAll(baseLabel, keyOn);
+        int subLabel = ensureContrastOnAll(baseSubLabel, keyOn);
+        int actionLabel = ensureContrastOnAll(base.actionLabelColor, actionOn);
+        int actionSubLabel = ensureContrastOnAll(base.actionSubLabelColor, actionOn);
+        // The function legends (Ctrl, Alt, Fn, the gear, Shift, Backspace, the right-hand
+        // cluster) are chosen on their chip as the keyboard really draws it over every row's
+        // face, and where no tone reads on that, the chip's fill is raised until one does.
+        int[] functionOn = drawnChipsOn(function, gradientTop, gradientBottom, under);
+        int functionLabel = ensureContrastOnAll(baseFunctionLabel, functionOn);
+        if (minContrast(functionLabel, functionOn) < MIN_TEXT_CONTRAST) {
+            for (int alpha = Color.alpha(function) + 1; alpha <= 255; alpha++) {
+                int raised = ColorUtils.setAlphaComponent(baseFunction, alpha);
+                int[] on = drawnChipsOn(raised, gradientTop, gradientBottom, under);
+                int ink = ensureContrastOnAll(baseFunctionLabel, on);
+                if (alpha == 255 || minContrast(ink, on) >= MIN_TEXT_CONTRAST) {
+                    function = raised;
+                    functionLabel = ink;
+                    break;
+                }
+            }
+        }
+        int activatedLabel = ensureContrastOnAll(base.activatedLabelColor, activatedOn);
+        // Re-sunk against the composited chip; see the non-glass path for why RGB, not alpha.
+        int pressedLabel = ColorUtils.blendARGB(activatedOnBase, activatedLabel, 130f / 255f);
+        int lockedLabel = ensureContrastOnAll(base.lockedModifierColor, activatedOn);
+
         int border = lightChips
             ? ColorUtils.setAlphaComponent(Color.BLACK, 48)
             : ColorUtils.setAlphaComponent(Color.WHITE, 64);
@@ -441,6 +457,61 @@ public final class InAppKeyboardPaletteFactory {
         int[] out = new int[faces.length];
         for (int i = 0; i < faces.length; i++)
             out[i] = opaque(ColorUtils.compositeColors(chip, faces[i]));
+        return out;
+    }
+
+    /**
+     * A key cap as the keyboard draws it ({@code juloo.keyboard2.Theme.Computed.Key}): the fill
+     * becomes a vertical gradient from {@code gradientTop} over it to {@code gradientBottom} over
+     * it, and that gradient is painted with the fill's own colour on the paint, whose alpha the
+     * canvas multiplies into the shader. So a glass chip reaches the screen at roughly its alpha
+     * squared: a light theme's function chip of 124/255 shows about 70/255 of its colour, which
+     * is why its legends, chosen on the fill alone, were drawn dark on a near-black chip over dark
+     * wallpaper. Returns the two ends of that gradient (the darkest and palest the cap gets), or
+     * the fill alone where the palette draws no gradient.
+     */
+    @NonNull
+    public static int[] drawnCapStops(@ColorInt int fill, @ColorInt int gradientTop,
+                                      @ColorInt int gradientBottom) {
+        if ((gradientTop == 0 && gradientBottom == 0) || Color.alpha(fill) == 0)
+            return new int[] {fill};
+        return new int[] {
+            drawnStop(compositeOver(gradientTop, fill), Color.alpha(fill)),
+            drawnStop(compositeOver(gradientBottom, fill), Color.alpha(fill))
+        };
+    }
+
+    /** One gradient stop with the paint's alpha multiplied into it. */
+    @ColorInt
+    private static int drawnStop(@ColorInt int stop, int paintAlpha) {
+        return ColorUtils.setAlphaComponent(stop,
+            Math.round(Color.alpha(stop) * paintAlpha / 255f));
+    }
+
+    /** {@code Theme.Computed.Key#compositeOver}: source-over keeping {@code base}'s translucency. */
+    @ColorInt
+    private static int compositeOver(@ColorInt int overlay, @ColorInt int base) {
+        if (overlay == 0) return base;
+        float oa = Color.alpha(overlay) / 255f;
+        float ba = Color.alpha(base) / 255f;
+        float outA = oa + ba * (1f - oa);
+        if (outA <= 0f) return Color.TRANSPARENT;
+        int r = Math.round((Color.red(overlay) * oa + Color.red(base) * ba * (1f - oa)) / outA);
+        int g = Math.round((Color.green(overlay) * oa + Color.green(base) * ba * (1f - oa)) / outA);
+        int b = Math.round((Color.blue(overlay) * oa + Color.blue(base) * ba * (1f - oa)) / outA);
+        return Color.argb(Math.round(outA * 255f), r, g, b);
+    }
+
+    /** Each end of the drawn cap ({@link #drawnCapStops}) composited over each of {@code faces}. */
+    @NonNull
+    private static int[] drawnChipsOn(@ColorInt int fill, @ColorInt int gradientTop,
+                                      @ColorInt int gradientBottom, @NonNull int[] faces) {
+        int[] stops = drawnCapStops(fill, gradientTop, gradientBottom);
+        int[] out = new int[stops.length * faces.length];
+        int at = 0;
+        for (int stop : stops)
+            for (int face : faces)
+                out[at++] = opaque(ColorUtils.compositeColors(stop, face));
         return out;
     }
 

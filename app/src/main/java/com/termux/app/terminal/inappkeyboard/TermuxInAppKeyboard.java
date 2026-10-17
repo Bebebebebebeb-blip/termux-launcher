@@ -1559,6 +1559,9 @@ public final class TermuxInAppKeyboard {
                             @NonNull juloo.keyboard2.Theme.Palette b) {
         return a.labelColor == b.labelColor && a.subLabelColor == b.subLabelColor
             && a.functionLabelColor == b.functionLabelColor
+            // A function chip whose fill was raised for its legend (see
+            // InAppKeyboardPaletteFactory#createGlass) is a move too.
+            && a.functionKeyBackground == b.functionKeyBackground
             && a.actionLabelColor == b.actionLabelColor
             && a.actionSubLabelColor == b.actionSubLabelColor
             && a.activatedLabelColor == b.activatedLabelColor

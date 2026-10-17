@@ -169,13 +169,25 @@ public class KeyboardAreaInkTest {
 
     private static void assertLegendsRead(@NonNull Theme.Palette palette, int face, String at) {
         int key = ColorUtils.compositeColors(palette.keyBackground, OnGlass.opaque(face));
-        int function = ColorUtils.compositeColors(palette.functionKeyBackground,
-            OnGlass.opaque(face));
         assertTrue("label " + at, ColorUtils.calculateContrast(palette.labelColor, key) >= 4.5d);
         assertTrue("sub-label " + at,
             ColorUtils.calculateContrast(palette.subLabelColor, key) >= 4.5d);
-        assertTrue("function label " + at,
-            ColorUtils.calculateContrast(palette.functionLabelColor, function) >= 4.5d);
+        assertTrue("function label " + at + " (" + functionRatio(palette, face) + ")",
+            functionRatio(palette, face) >= 4.5d);
+    }
+
+    /**
+     * The function chip as the keyboard draws it over {@code face}, at each end of its gradient:
+     * the fill under the gradient's overlays, with the paint's alpha multiplied in once more.
+     */
+    @NonNull
+    private static int[] drawnFunctionChips(@NonNull Theme.Palette palette, int face) {
+        int[] stops = InAppKeyboardPaletteFactory.drawnCapStops(palette.functionKeyBackground,
+            palette.keyGradientTopOverlay, palette.keyGradientBottomOverlay);
+        int[] chips = new int[stops.length];
+        for (int i = 0; i < stops.length; i++)
+            chips[i] = ColorUtils.compositeColors(stops[i], OnGlass.opaque(face));
+        return chips;
     }
 
     @Test
@@ -250,9 +262,12 @@ public class KeyboardAreaInkTest {
         }
     }
 
+    /** The function legend's contrast on its drawn chip over {@code face}, at its worst end. */
     private static double functionRatio(@NonNull Theme.Palette palette, int face) {
-        return ColorUtils.calculateContrast(palette.functionLabelColor,
-            ColorUtils.compositeColors(palette.functionKeyBackground, OnGlass.opaque(face)));
+        double worst = Double.MAX_VALUE;
+        for (int chip : drawnFunctionChips(palette, face))
+            worst = Math.min(worst, ColorUtils.calculateContrast(palette.functionLabelColor, chip));
+        return worst;
     }
 
     /** Light glass at Opacity 10 over bright grass: a pale face, so every legend is dark. */
@@ -331,9 +346,10 @@ public class KeyboardAreaInkTest {
         double worstWhite = Double.MAX_VALUE;
         double worstBlack = Double.MAX_VALUE;
         for (int face : faces) {
-            int chip = ColorUtils.compositeColors(onRows.functionKeyBackground, face);
-            worstWhite = Math.min(worstWhite, ColorUtils.calculateContrast(Color.WHITE, chip));
-            worstBlack = Math.min(worstBlack, ColorUtils.calculateContrast(Color.BLACK, chip));
+            for (int chip : drawnFunctionChips(onRows, face)) {
+                worstWhite = Math.min(worstWhite, ColorUtils.calculateContrast(Color.WHITE, chip));
+                worstBlack = Math.min(worstBlack, ColorUtils.calculateContrast(Color.BLACK, chip));
+            }
         }
         assertTrue("4.5 on every row, or the best any tone can do on the worst row",
             worst >= 4.5d || Math.abs(worst - Math.max(worstWhite, worstBlack)) < 1e-6);
@@ -410,5 +426,109 @@ public class KeyboardAreaInkTest {
         assertEquals(before.labelColor, unmeasured.labelColor);
         assertEquals(before.subLabelColor, unmeasured.subLabelColor);
         assertEquals(before.functionLabelColor, unmeasured.functionLabelColor);
+    }
+
+    // ------------------------------------- see-through light glass over dark grass (Opacity 0-9)
+
+    /** Dark green grass, blurred: luminance about 0.06 and 0.11. */
+    private static final int DARK_GRASS = 0xFF3C4A1E;
+    private static final int DUSK_GRASS = 0xFF506428;
+
+    /**
+     * The chip as drawn, pinned to the device (Android 16, light theme, Opacity 0 and 36 over the
+     * same grass): a letter cap of 180/255 reached the screen at about 0.48 of its colour and a
+     * function chip of 124/255 at about 0.20 to 0.24, not at their fills' 0.71 and 0.49.
+     */
+    @Test
+    public void aCapReachesTheScreenAtAboutItsAlphaSquared() {
+        int white46 = 0x2EFFFFFF;
+        int black26 = 0x1A000000;
+        int[] function = InAppKeyboardPaletteFactory.drawnCapStops(0x7CECE6F0, white46, black26);
+        int[] letter = InAppKeyboardPaletteFactory.drawnCapStops(0xB4FFFFFF, white46, black26);
+        assertEquals(2, function.length);
+        for (int stop : function) {
+            assertTrue("function chip drawn alpha " + Color.alpha(stop),
+                Color.alpha(stop) > 55 && Color.alpha(stop) < 80);
+        }
+        for (int stop : letter) {
+            assertTrue("letter cap drawn alpha " + Color.alpha(stop),
+                Color.alpha(stop) > 120 && Color.alpha(stop) < 145);
+        }
+        assertEquals("no gradient, no second alpha", 0x7CECE6F0,
+            InAppKeyboardPaletteFactory.drawnCapStops(0x7CECE6F0, 0, 0)[0]);
+    }
+
+    /**
+     * The device failure at Opacity 0 and 9: Ctrl, Alt, Fn, the gear, Shift, Backspace and the
+     * right-hand cluster were dark grey on their drawn chips over dark grass. Their legend is now
+     * chosen on the chip as drawn over every row's face, so it reads there (pale, or on a raised
+     * chip); the letter caps are left as they were.
+     */
+    @Test
+    public void darkGrassUnderSeeThroughLightGlassKeepsTheFunctionLegendsLegible() {
+        Context context = RuntimeEnvironment.getApplication();
+        Theme.Palette themeOnly = InAppKeyboardPaletteFactory.createGlass(context, "light");
+        for (int grass : new int[] {DARK_GRASS, DUSK_GRASS}) {
+            double luminance = ColorUtils.calculateLuminance(grass);
+            assertTrue("grass luminance " + luminance, luminance > 0.05d && luminance < 0.12d);
+            for (float opacity : new float[] {0f, 0.09f}) {
+                ink.backdrops().setSampler(rect -> grass);
+                ink.invalidate();
+                askKeyboardGlass(opacity);
+                int[] faces = ink.bandFaces(GlassBackdropCache.Band.KEYBOARD);
+                assertEquals(ChromeInk.FACE_ROWS, faces.length);
+                String at = String.format(java.util.Locale.ROOT, "grass %08X at opacity %.2f",
+                    grass, opacity);
+                for (String variant : new String[] {"system", "light"}) {
+                    Theme.Palette palette = InAppKeyboardPaletteFactory.createGlass(context,
+                        variant, GlassLook.SCHEME, faces);
+                    assertEveryLegendReadsOnEveryRow(palette, faces, variant + ", " + at);
+                }
+                Theme.Palette palette = InAppKeyboardPaletteFactory.createGlass(context, "light",
+                    GlassLook.SCHEME, faces);
+                assertEquals("letter caps keep their fill, " + at, themeOnly.keyBackground,
+                    palette.keyBackground);
+                if (grass == DARK_GRASS && opacity == 0f
+                        && Color.alpha(palette.functionKeyBackground)
+                        == Color.alpha(themeOnly.functionKeyBackground)) {
+                    // What the device drew: the theme's dark legend on the drawn chip.
+                    double themeLegend = Double.MAX_VALUE;
+                    for (int face : faces) {
+                        for (int chip : drawnFunctionChips(palette, face)) {
+                            themeLegend = Math.min(themeLegend,
+                                ColorUtils.calculateContrast(LIGHT_ON_SURFACE, chip));
+                        }
+                    }
+                    assertTrue("a dark legend does not read on the chip as drawn, " + at,
+                        themeLegend < 4.5d);
+                    assertTrue("so the legend is pale, " + at, pale(palette.functionLabelColor));
+                }
+            }
+        }
+    }
+
+    /**
+     * Bright grass under the top rows and black blades under the bottom row, light glass at
+     * Opacity 9: no one tone reads on the drawn function chip over both, so that chip's fill (and
+     * only that one) is raised until one does.
+     */
+    @Test
+    public void aFunctionChipNoToneCarriesIsRaisedForItsLegend() {
+        Context context = RuntimeEnvironment.getApplication();
+        splitWallpaper();
+        askKeyboardGlass(0.09f);
+        int[] faces = ink.bandFaces(GlassBackdropCache.Band.KEYBOARD);
+        Theme.Palette themeOnly = InAppKeyboardPaletteFactory.createGlass(context, "light");
+        Theme.Palette palette = InAppKeyboardPaletteFactory.createGlass(context, "light",
+            GlassLook.SCHEME, faces);
+        assertTrue("the function chip is filled more than the theme's",
+            Color.alpha(palette.functionKeyBackground)
+                > Color.alpha(themeOnly.functionKeyBackground));
+        assertEquals("its colour is the theme's", themeOnly.functionKeyBackground & 0xFFFFFF,
+            palette.functionKeyBackground & 0xFFFFFF);
+        assertEquals("letter caps untouched", themeOnly.keyBackground, palette.keyBackground);
+        for (int face : faces)
+            assertTrue("function legend " + functionRatio(palette, face),
+                functionRatio(palette, face) >= 4.5d);
     }
 }
