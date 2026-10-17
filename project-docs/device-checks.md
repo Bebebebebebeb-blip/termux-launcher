@@ -240,6 +240,13 @@ under twenty items; past that, the oldest are re-judged first.
   widget pane showing: no crash (`adb logcat -b crash` empty, no `Cannot create BitmapShader for
   recycled bitmap`), and the panes' glass shows the new picture after it lands · emulator tl16,
   release build, screenshots before/after each set.
+- 2026-10-17 · same branch, "fix(wallpaper): a new wallpaper re-styles in place, no recreate" ·
+  With wallpaper mode on and the Look editor open, `launcherctl wallpaper set <file>`: the editor
+  stays open on the same page with its state, its preview shows the new picture, and logcat has no
+  `Recreating activity`; turning wallpaper mode off and on (Settings) still restyles the theme ·
+  emulator tl16. Then on pong: Firefox running in an X11 display pane, set a wallpaper from the
+  in-app picker, then with `launcherctl wallpaper set`: the display keeps running, Firefox still
+  drawn and answering touch, no `Recreating activity` · pong with the go-ahead.
 
 ## Developer
 - 2026-10-17 · same branch, "perf(glass): hold the blur radius through a drag" · Look › Custom on

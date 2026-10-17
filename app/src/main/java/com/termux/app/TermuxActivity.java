@@ -14931,8 +14931,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         }
 
-        ChromePolicy.applyWallpaperModePreferences(preferences, enabled);
-        requestTermuxActivityStylingOnNextResume(context, true);
+        // Recreate only when the mode switched: the window theme changes with it. A wallpaper
+        // applied while the mode is already on (the picker's Apply, `launcherctl wallpaper set`)
+        // re-styles in place; a recreate there closed an open Look editor and dropped a running
+        // X11 display pane.
+        boolean modeSwitched = ChromePolicy.applyWallpaperModePreferences(preferences, enabled);
+        requestTermuxActivityStylingOnNextResume(context, modeSwitched);
     }
 
 
@@ -25323,9 +25327,19 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     public static void requestTermuxActivityStylingOnNextResume(Context context, boolean recreateActivity) {
+        // A recreate already owed stays owed: a later in-place request must not cancel it.
+        recreateActivity = pendingRecreateAfterRequest(sPendingStyleReloadOnNextResume,
+            sPendingStyleReloadRecreateActivity, recreateActivity);
         sPendingStyleReloadRecreateActivity = recreateActivity;
         sPendingStyleReloadOnNextResume = true;
         updateTermuxActivityStyling(context, recreateActivity);
+    }
+
+    /** Whether the owed next-resume reload recreates after one more request is added to it. */
+    @VisibleForTesting
+    public static boolean pendingRecreateAfterRequest(boolean reloadPending, boolean recreatePending,
+                                                      boolean recreateRequested) {
+        return recreateRequested || (reloadPending && recreatePending);
     }
 
     public static void requestAppDrawerReloadOnNextResume(Context context) {
