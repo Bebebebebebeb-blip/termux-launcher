@@ -1664,6 +1664,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             TermuxActivity.this.updateTerminalGlassFrost();
         }
 
+        @Override public void rejudgeBandInks(
+                @NonNull java.util.Set<com.termux.app.chrome.GlassBackdropCache.Band> bands) {
+            if (bands.contains(com.termux.app.chrome.GlassBackdropCache.Band.KEYBOARD))
+                rejudgeKeyboardGlassFaces();
+        }
+
         @Override public boolean isBlurHealthy(@NonNull ChromeSpec spec) {
             return isAccessoryBlurHealthy(spec);
         }
@@ -6633,6 +6639,20 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         keyboard.setGlassFaces(mKeyboardBandAskedThisPass
             ? mChrome.ink().bandFaces(com.termux.app.chrome.GlassBackdropCache.Band.KEYBOARD)
             : new int[0]);
+    }
+
+    /**
+     * The keyboard's own blurred frame has landed after its rows were read off a stand-in (a Glass
+     * edit, a held drag's release): the faces are measured again on it and the legends re-chosen,
+     * the keyboard repainting only if an ink moved ({@link TermuxInAppKeyboard#setGlassFaces}).
+     * Only where the last pass measured the keyboard's band; the editor's live preview is this
+     * same keyboard. The veil, if it moves with them, asks for its own apply.
+     */
+    private void rejudgeKeyboardGlassFaces() {
+        TermuxInAppKeyboard keyboard = mInAppKeyboard;
+        if (keyboard == null || mChrome == null || !mKeyboardBandAskedThisPass) return;
+        keyboard.setGlassFaces(
+            mChrome.ink().bandFaces(com.termux.app.chrome.GlassBackdropCache.Band.KEYBOARD));
     }
 
     private void applyInAppKeyboardHostMaterial(@NonNull ChromeSpec state) {

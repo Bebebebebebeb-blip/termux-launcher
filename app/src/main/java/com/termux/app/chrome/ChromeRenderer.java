@@ -215,6 +215,14 @@ public final class ChromeRenderer {
         /** The terminal pane's own glass frost, which rides the same triggers as the top pane's. */
         void updateTerminalGlassFrost();
 
+        /**
+         * {@code bands}' rows were read off a stand-in frame and their own has landed
+         * ({@link ChromeInk#onBlurFrameReady}): what was chosen from them (the keyboard's legends,
+         * from {@link ChromeInk#bandFaces}) is measured again and pushed, repainting only where an
+         * ink moved. Nothing by default.
+         */
+        default void rejudgeBandInks(@NonNull java.util.Set<GlassBackdropCache.Band> bands) {}
+
         /** Whether the blurred surfaces actually have a backdrop installed for this spec. */
         boolean isBlurHealthy(@NonNull ChromeSpec spec);
     }
@@ -406,6 +414,11 @@ public final class ChromeRenderer {
         mLedger.markAllBackdropsDirty();
         mLedger.markFrostDirty();
         mSurfaces.updateTerminalGlassFrost();
+        // A band whose rows were read off a stand-in for want of this frame (the keyboard after a
+        // Glass edit) is re-judged now, on the frame it really shows, rather than left to whatever
+        // the render pass below happens to re-ask.
+        java.util.Set<GlassBackdropCache.Band> stale = mInk.onBlurFrameReady();
+        if (!stale.isEmpty()) mSurfaces.rejudgeBandInks(stale);
         requestSync(SCOPE_BACKDROPS | SCOPE_KEYBOARD_BACKDROP | SCOPE_TOP_PANE_FROST
             | SCOPE_ACCESSORY_RENDER);
     }

@@ -1005,11 +1005,50 @@ public final class ChromeInk {
         int generation = -1;
         int blurRadiusDp = -1;
         boolean sampled;
+        /**
+         * The band noted a radius ({@link #noteBandBlur}) whose frame was not resident, so its
+         * rows were read off another frame (a stand-in): {@link #onBlurFrameReady} names the band
+         * once that frame lands.
+         */
+        boolean standIn;
+        /** {@link #onBlurFrameReady} has named the band for this stand-in reading already. */
+        boolean reported;
     }
 
     @NonNull private final Map<GlassBackdropCache.Band, RowSamples> mRows =
         new EnumMap<>(GlassBackdropCache.Band.class);
     @NonNull private final Rect mTmpRowRect = new Rect();
+
+    /**
+     * A pre-blurred frame has landed ({@link WallpaperBlurCache}'s frame-ready, or a held drag's
+     * release). The bands whose rows ({@link #bandFaces}, the fixed-ink veil) were read off a
+     * stand-in for want of the frame they noted, and whose frame is now readable: their rows are
+     * read again on the next ask, so the caller re-pushes what it chose from them (the keyboard's
+     * legends). A Glass edit is the case: the keyboard asks for a radius nothing has baked, its
+     * rows are read off the dock's frame meanwhile, and nothing else would re-judge its legends
+     * once its own frame is there.
+     *
+     * <p>Each stand-in reading is named once: a band named here is not named again until its rows
+     * have been read afresh and fallen back once more. One probe per such band; nothing per frame
+     * and nothing asked of the blur cache, so a re-dress this starts cannot bring itself back.</p>
+     *
+     * @return the bands to re-judge; empty for none
+     */
+    @NonNull
+    public java.util.Set<GlassBackdropCache.Band> onBlurFrameReady() {
+        java.util.Set<GlassBackdropCache.Band> due =
+            java.util.EnumSet.noneOf(GlassBackdropCache.Band.class);
+        for (Map.Entry<GlassBackdropCache.Band, RowSamples> entry : mRows.entrySet()) {
+            RowSamples rows = entry.getValue();
+            if (!rows.standIn || rows.reported || rows.blurRadiusDp < 0 || rows.rect.isEmpty())
+                continue;
+            if (glassFor(entry.getKey()).blurRadiusDp != rows.blurRadiusDp) continue;
+            if (Color.alpha(mCache.sampleUncached(rows.rect, rows.blurRadiusDp)) == 0) continue;
+            rows.reported = true;
+            due.add(entry.getKey());
+        }
+        return due;
+    }
 
     /**
      * The opaque face under each of {@link #FACE_ROWS} rows of {@code band}, top to bottom, at the
@@ -1068,6 +1107,7 @@ public final class ChromeInk {
             return rows.wallpaper;
         int whole = mCache.wallpaperUnder(band, rootRect);
         boolean all = mCache.hasSample(band);
+        boolean standIn = false;
         int height = rootRect.height();
         for (int i = 0; i < FACE_ROWS; i++) {
             mTmpRowRect.set(rootRect.left, rootRect.top + height * i / FACE_ROWS,
@@ -1076,6 +1116,7 @@ public final class ChromeInk {
                 : GlassBackdropCache.UNREADABLE;
             if (radius >= 0 && Color.alpha(read) == 0) {
                 all = false;
+                standIn = true;
                 read = mCache.sampleUncached(mTmpRowRect);
             } else if (radius < 0) {
                 read = mCache.sampleUncached(mTmpRowRect);
@@ -1091,6 +1132,8 @@ public final class ChromeInk {
         rows.generation = mCache.generation();
         rows.blurRadiusDp = radius;
         rows.sampled = all;
+        rows.standIn = standIn;
+        rows.reported = false;
         return rows.wallpaper;
     }
 
