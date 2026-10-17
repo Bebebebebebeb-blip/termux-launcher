@@ -249,6 +249,14 @@ under twenty items; past that, the oldest are re-judged first.
   emulator tl16. Then on pong: Firefox running in an X11 display pane, set a wallpaper from the
   in-app picker, then with `launcherctl wallpaper set`: the display keeps running, Firefox still
   drawn and answering touch, no `Recreating activity` · pong with the go-ahead.
+- 2026-10-17 · same branch, "fix(wallpaper): launcherctl wallpaper set runs the picker's in-place
+  apply" · **Failed before it on the emulator:** with the mode on and the Look editor open,
+  `launcherctl wallpaper set` left the pid but changed the window (4→5→6) and closed the editor.
+  Now: run `adb logcat -b events -c`, then the same set twice with two pictures of different
+  colours: the editor stays open, the window id holds, and `adb logcat -b events | grep -E
+  'am_relaunch|wm_relaunch|am_destroy'` shows nothing for TermuxActivity. If a relaunch still
+  shows there, repeat it with the in-app picker from the Overview: a relaunch on both is Android
+  restyling for the new wallpaper colours, not our code · emulator tl16.
 
 ## Developer
 - 2026-10-17 · same branch, "perf(glass): hold the blur radius through a drag" · Look › Custom on

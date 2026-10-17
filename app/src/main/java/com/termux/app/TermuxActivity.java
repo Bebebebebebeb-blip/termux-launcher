@@ -1723,6 +1723,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // Apply wallpaper or normal theme based on preference
         setActivityThemeAndWindow();
         super.onCreate(savedInstanceState);
+        sLiveActivity = new java.lang.ref.WeakReference<>(this);
         setContentView(R.layout.activity_termux);
         // The window's content root holds the shell and every overlay placed over it by absolute
         // geometry (the layout editor's frame, the hide zone, the dictation pill), so it stays left
@@ -9002,6 +9003,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     public void onDestroy() {
         super.onDestroy();
         Logger.logDebug(LOG_TAG, "onDestroy");
+        if (sLiveActivity != null && sLiveActivity.get() == this) sLiveActivity = null;
         // First: what follows (the keyboard's teardown among it) must not book passes or holds
         // on the main looper for a window that is going away.
         mGeometry.dispose();
@@ -18420,15 +18422,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 // The applier's changed listener has already told the live host; the glass
                 // still has to pick up the new still as its managed picture.
                 if (slot != com.termux.app.chrome.wallpaper.WallpaperSlots.Slot.HOME) return;
-                if (isFinishing() || isDestroyed()) return;
-                refreshWallpaperPicture();
-                setWallpaperModeEnabled(TermuxActivity.this, true);
-                updateWindowBackgroundForCurrentSession();
-                if (choice.photo) {
-                    View rootView = findViewById(R.id.activity_termux_root_view);
-                    if (rootView != null) rootView.post(TermuxActivity.this::applyWallpaperOffsetFixIfNeeded);
-                }
-                mChrome.requestSync(ChromeRenderer.SCOPE_BACKDROPS | ChromeRenderer.SCOPE_ACCESSORY_RENDER);
+                applyHomeWallpaperInPlace(choice.photo);
             }
 
             @Override public void onOpenLook() {
@@ -18443,6 +18437,54 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 mAppearance.open(com.termux.app.surfaces.AppearanceSurfaceController.PageId.ICONS);
             }
         };
+    }
+
+    /**
+     * A new Home wallpaper has landed: wallpaper mode on and the launcher re-dressed in place (a
+     * recreate only when the mode itself switched on), the glass moved to the new picture. The
+     * picker's Apply runs it directly; {@code launcherctl wallpaper set} reaches it through
+     * {@link #onHomeWallpaperApplied}. Main thread.
+     */
+    private void applyHomeWallpaperInPlace(boolean photo) {
+        if (isFinishing() || isDestroyed()) return;
+        refreshWallpaperPicture();
+        setWallpaperModeEnabled(TermuxActivity.this, true);
+        updateWindowBackgroundForCurrentSession();
+        if (photo) {
+            View rootView = findViewById(R.id.activity_termux_root_view);
+            if (rootView != null) rootView.post(TermuxActivity.this::applyWallpaperOffsetFixIfNeeded);
+        }
+        mChrome.requestSync(ChromeRenderer.SCOPE_BACKDROPS | ChromeRenderer.SCOPE_ACCESSORY_RENDER);
+    }
+
+    /** The created launcher activity, for a wallpaper applied from outside it; null when none. */
+    @Nullable private static volatile java.lang.ref.WeakReference<TermuxActivity> sLiveActivity;
+
+    /** What {@link #onHomeWallpaperApplied} runs on the launcher on screen: the picker's apply. */
+    @VisibleForTesting
+    public static java.util.function.BiConsumer<TermuxActivity, Boolean> sHomeWallpaperInPlace =
+        TermuxActivity::applyHomeWallpaperInPlace;
+
+    /**
+     * A Home wallpaper set from outside the activity ({@code POST /v1/wallpaper}). Any thread. On
+     * screen, the launcher runs exactly what the picker's Apply runs
+     * ({@link #applyHomeWallpaperInPlace}); off screen, only the mode and the owed restyle are
+     * recorded, and the arrival re-reads the picture on its own.
+     */
+    public static void onHomeWallpaperApplied(@NonNull Context context, boolean photo) {
+        java.lang.ref.WeakReference<TermuxActivity> ref = sLiveActivity;
+        TermuxActivity live = ref == null ? null : ref.get();
+        if (live == null) {
+            setWallpaperModeEnabled(context, true);
+            return;
+        }
+        Context app = context.getApplicationContext();
+        new Handler(Looper.getMainLooper()).post(() -> {
+            if (live.mIsVisible && !live.isFinishing() && !live.isDestroyed())
+                sHomeWallpaperInPlace.accept(live, photo);
+            else
+                setWallpaperModeEnabled(app, true);
+        });
     }
 
     /** Flips wallpaper passthrough mode and reports the value it moved to. */
