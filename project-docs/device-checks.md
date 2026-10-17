@@ -201,6 +201,13 @@ under twenty items; past that, the oldest are re-judged first.
   (Android 13+), screenshots per value.
 
 ## Developer
+- 2026-10-17 · same branch, "perf(glass): hold the blur radius through a drag" · Look › Custom on
+  the managed wallpaper (set from the picker) and on a system one: drag Glass 0→100, Tint and
+  Vibrancy end to end, keyboard up and down: the glass keeps its starting frost while the thumb
+  moves and settles to the new frost within a moment of the lift, never blank; the look after the
+  release matches `pre`. `adb shell dumpsys gfxinfo <pkg> reset`, one Glass drag, then
+  `dumpsys gfxinfo <pkg>`: janky frames and the 90th/99th percentiles against the same drag on
+  `pre` · pong.
 - 2026-10-17 · branch feat/glass-controls-unify · Vibrancy release re-bakes the frames once (no
   hitch while dragging, one short re-blur on release); Glass drags stay smooth on pong ·
   pong.
