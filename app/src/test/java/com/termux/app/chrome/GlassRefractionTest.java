@@ -861,23 +861,23 @@ public class GlassRefractionTest {
     @Test
     public void theBoldEdgeIsTheProgramsOwn() {
         assertConst("kBoldLobeDp", GlassRefraction.Look.BOLD_LOBE_DP);
+        assertConst("kBoldMinPx", GlassRefraction.Look.BOLD_MIN_LOBE_PX);
         assertConst("kBoldCentre", GlassRefraction.Look.BOLD_CENTRE);
         assertConst("kBoldReach", GlassRefraction.Look.BOLD_REACH);
-        assertConst("kBoldLift", GlassRefraction.Look.BOLD_LIFT);
-        assertConst("kBoldCut", GlassRefraction.Look.BOLD_CUT);
+        assertConst("kBoldMix", GlassRefraction.Look.BOLD_MIX);
+        assertConst("kBoldMixMax", GlassRefraction.Look.BOLD_MIX_MAX);
         String agsl = GlassRefraction.AGSL;
         assertTrue(agsl.contains("const float3 kBoldWarm = float3(" + f3(GlassRefraction.Look.BOLD_WARM) + ");"));
         assertTrue(agsl.contains("const float3 kBoldCool = float3(" + f3(GlassRefraction.Look.BOLD_COOL) + ");"));
         assertTrue(agsl.contains("    if (boldS > 0.0) {\n"
-            + "        float bw = max(kBoldLobeDp * uDensity, 1.0);\n"
+            + "        float bw = max(kBoldLobeDp * uDensity, kBoldMinPx);\n"
             + "        float bu = max(inside, 0.0) / bw - kBoldCentre;\n"
             + "        if (bu < kBoldReach) {\n"
-            + "            float bs = bu * exp(0.5 * (1.0 - bu * bu)) * boldS;\n"));
-        assertTrue(agsl.contains(
-            "float3 bc = float3(col.rgb) * float3(1.0 - kBoldCut * bCool, 1.0, 1.0 - kBoldCut * bWarm);"));
-        assertTrue(agsl.contains(
-            "float3 badd = (bWarm * kBoldWarm + bCool * kBoldCool) * (kBoldLift * uEdgeGain);"));
-        assertTrue(agsl.contains("col.rgb = half3(bc + float3(heldK(badd.r, max(ba - bc.r, 0.0)),"));
+            + "            float bs = bu * exp(0.5 * (1.0 - bu * bu));\n"
+            + "            float bm = min(abs(bs) * boldS * kBoldMix * uEdgeGain, kBoldMixMax);\n"
+            + "            float3 bt = (bs > 0.0 ? kBoldWarm : kBoldCool) * float(col.a);\n"
+            + "            col.rgb = half3(mix(float3(col.rgb), bt, bm));\n"));
+        assertFalse("no light added under the tint", agsl.contains("kBoldLift"));
         // After the gathered light, before the key's glow: one term, no new pass.
         assertTrue(agsl.indexOf("if (boldS > 0.0)") > agsl.indexOf("if (inside < kGlowReachDp * uDensity)"));
         assertTrue(agsl.indexOf("if (boldS > 0.0)") < agsl.indexOf("lensGlow * kKeyGlow"));
@@ -978,8 +978,8 @@ public class GlassRefractionTest {
      * Edge 100 is a real two-colour split (pong, 2026-10-17: it read as a red band on a dark
      * wallpaper): over a dark (0.05) and a bright (0.8) grey, on every side and at the top-left
      * corner, at the tuned and the capped gain, on Clear and on Mist, a warm fringe (red over
-     * blue) and a cool one (blue over red) each pass 25 levels of 255. The cool one lies at the
-     * outline and the warm one inside it, a few dp wide in all, and the two balance: the colour
+     * blue) and a cool one (blue over red) each pass 25 levels of 255. The cool one peaks within
+     * half a dp of the outline and the warm one within a dp, and the two balance: the colour
      * they add across the depth sums to under a fifth of its magnitude, so the edge keeps its hue.
      */
     @Test
@@ -999,7 +999,8 @@ public class GlassRefractionTest {
                         assertTrue(at + ": warm", f[0] >= visible);
                         assertTrue(at + ": cool", f[1] >= visible);
                         assertTrue(at + ": cool at the outline, warm inside it", f[5] < f[4]);
-                        assertTrue(at + ": thin", f[4] <= 3f * DENSITY);
+                        assertTrue(at + ": the cool one on the outline", f[5] <= 0.5f * DENSITY);
+                        assertTrue(at + ": the warm one against it", f[4] <= 1f * DENSITY);
                         assertTrue(at + ": balanced", Math.abs(f[2]) <= 0.2f * f[3]);
                     }
                 }
@@ -1010,7 +1011,8 @@ public class GlassRefractionTest {
     /** The profile itself: cool then warm, mirror lobes, nothing from its reach on. */
     @Test
     public void theBoldProfileIsBalanced() {
-        float w = GlassRefraction.Look.BOLD_LOBE_DP * DENSITY;
+        float w = Math.max(GlassRefraction.Look.BOLD_LOBE_DP * DENSITY,
+            GlassRefraction.Look.BOLD_MIN_LOBE_PX);
         float centre = GlassRefraction.Look.BOLD_CENTRE * w;
         assertEquals(-1f, GlassRefraction.boldProfile(centre - w, DENSITY), 1e-5f);
         assertEquals(1f, GlassRefraction.boldProfile(centre + w, DENSITY), 1e-5f);
@@ -1019,9 +1021,10 @@ public class GlassRefractionTest {
         assertEquals(0f, GlassRefraction.boldProfile(reach + 0.01f, DENSITY), 0f);
         assertTrue("inside the gathered light's reach",
             reach < GlassRefraction.Look.GLOW_REACH_DP * DENSITY);
-        assertTrue("under one 8-bit step where it stops", GlassRefraction.Look.BOLD_LIFT
-            * GlassRefraction.Look.MAX_EDGE_GAIN
-            * Math.abs(GlassRefraction.boldProfile(reach - 0.01f, DENSITY)) < 1f / 255f);
+        assertTrue("under one 8-bit step where it stops",
+            GlassRefraction.boldMix(reach - 0.01f, DENSITY, 1f, GlassRefraction.Look.MAX_EDGE_GAIN)
+                < 1f / 255f);
+        assertTrue("all of it inside 2 dp", reach <= 2f * DENSITY);
         float net = 0f, total = 0f;
         float step = 0.01f;
         for (float inside = 0f; inside < reach; inside += step) {
@@ -1029,13 +1032,151 @@ public class GlassRefractionTest {
             net += s * step;
             total += Math.abs(s) * step;
         }
-        assertTrue(net + " of " + total, Math.abs(net) < 0.06f * total);
-        // The two colours mirror each other and add to a grey.
+        // Nearly nine tenths of the cool lobe lies inside the glass.
+        assertTrue(net + " of " + total, Math.abs(net) < 0.1f * total);
+        // The mix reaches its most exactly at the capped gain and never passes it.
+        assertEquals(GlassRefraction.Look.BOLD_MIX_MAX,
+            GlassRefraction.boldMix(centre + w, DENSITY, 1f, GlassRefraction.Look.MAX_EDGE_GAIN), 1e-5f);
+        assertEquals(GlassRefraction.Look.BOLD_MIX_MAX,
+            GlassRefraction.boldMix(centre + w, DENSITY, 1f, 10f), 0f);
+        // The two colours mirror each other: red and blue swapped, the same green.
         float[] warm = GlassRefraction.Look.BOLD_WARM, cool = GlassRefraction.Look.BOLD_COOL;
-        assertEquals(warm[0] + cool[0], warm[1] + cool[1], 1e-6f);
-        assertEquals(warm[2] + cool[2], warm[1] + cool[1], 1e-6f);
+        assertEquals(warm[0], cool[2], 0f);
+        assertEquals(warm[2], cool[0], 0f);
+        assertEquals(warm[1], cool[1], 0f);
         assertTrue("warm is red over blue", warm[0] > warm[2]);
         assertTrue("cool is blue over red", cool[2] > cool[0]);
+    }
+
+    /** Backdrops the edge is checked over: greys, a warm brown (pong's cat), a yellow, a sky. */
+    private static final float[][] BACKDROPS = {{0.02f, 0.02f, 0.02f}, {0.05f, 0.05f, 0.05f},
+        {0.3f, 0.3f, 0.3f}, {0.8f, 0.8f, 0.8f}, {1f, 1f, 1f}, {0.45f, 0.35f, 0.25f},
+        {0.9f, 0.8f, 0.2f}, {0.3f, 0.6f, 0.95f}};
+
+    private static float luma(float[] c) {
+        return c[0] * GlassRefraction.LUMA_R + c[1] * GlassRefraction.LUMA_G
+            + c[2] * GlassRefraction.LUMA_B;
+    }
+
+    /**
+     * Edge 100 hugs the rim (pong, 2026-10-17: the first bold edge, met 1.5 dp in, read as a
+     * separate border just inside every surface): what the bold term changes peaks within a dp
+     * of the outline and is nothing from 2 dp in; past 1.5 dp it only fades, and the edge's
+     * brightness only falls or stays within a step of the edge without it, so no second ring.
+     */
+    @Test
+    public void edgeHundredHugsTheRim() {
+        float step = 0.025f * DENSITY;
+        float[] lit = new float[3];
+        float[] bare = new float[3];
+        for (GlassRefraction.Look hundred : new GlassRefraction.Look[] {clearAt(100), mistAt(100)}) {
+            for (float[] c : BACKDROPS) {
+                for (float gain : new float[] {1f, GlassRefraction.Look.MAX_EDGE_GAIN}) {
+                    for (float[] side : SIDES) {
+                        float cw = side[0] != 0f && side[1] != 0f ? 1f : 0f;
+                        float split = GlassRefraction.rimSplitPx(hundred.dispersion(),
+                            hundred.clarity(), cw, DENSITY);
+                        String at = hundred + " over " + java.util.Arrays.toString(c) + " gain "
+                            + gain + " side " + side[0] + "/" + side[1];
+                        float peak = 0f, peakAt = -1f, previousDelta = Float.MAX_VALUE;
+                        float previousLuma = Float.MAX_VALUE;
+                        for (int i = 0; i * step < 12f * DENSITY; i++) {
+                            float inside = i * step;
+                            GlassRefraction.edgeLit(c[0], c[1], c[2], 1f, inside, DENSITY,
+                                side[0], side[1], gain, split, hundred.boldShare(), lit);
+                            GlassRefraction.gatheredLitSplit(c[0], c[1], c[2], 1f, inside,
+                                DENSITY, side[0], side[1], gain, split, bare);
+                            float delta = Math.abs(lit[0] - bare[0]) + Math.abs(lit[1] - bare[1])
+                                + Math.abs(lit[2] - bare[2]);
+                            if (delta > peak) { peak = delta; peakAt = inside; }
+                            if (inside >= 2f * DENSITY)
+                                assertEquals(at + " at " + inside, 0f, delta, 0f);
+                            float l = luma(lit);
+                            if (inside >= 1.5f * DENSITY) {
+                                assertTrue(at + ": the fringe only fades at " + inside,
+                                    delta <= previousDelta + 1e-6f);
+                                assertTrue(at + ": no ring at " + inside + " (" + l + " after "
+                                        + previousLuma + ", bare " + luma(bare) + ")",
+                                    l <= previousLuma + 1e-6f || l <= luma(bare) + 1f / 255f);
+                            }
+                            previousDelta = delta;
+                            previousLuma = l;
+                        }
+                        assertTrue(at + ": it shows", peak > 0.1f);
+                        assertTrue(at + ": peak at " + peakAt, peakAt <= 1f * DENSITY);
+                    }
+                }
+            }
+        }
+    }
+
+    /** The hue of an opaque colour, in degrees, 0..360. */
+    private static float hue(float[] c) {
+        float max = Math.max(c[0], Math.max(c[1], c[2]));
+        float min = Math.min(c[0], Math.min(c[1], c[2]));
+        float d = max - min;
+        if (d <= 0f) return 0f;
+        float h;
+        if (max == c[0]) h = (c[1] - c[2]) / d;
+        else if (max == c[1]) h = 2f + (c[2] - c[0]) / d;
+        else h = 4f + (c[0] - c[1]) / d;
+        h *= 60f;
+        return h < 0f ? h + 360f : h;
+    }
+
+    private static float[] rgb(int color) {
+        return new float[] {((color >> 16) & 0xff) / 255f, ((color >> 8) & 0xff) / 255f,
+            (color & 0xff) / 255f};
+    }
+
+    /**
+     * The two fringes keep their own colours through the tint drawn over them (pong, 2026-10-17:
+     * under a gold Look the cool fringe read as a yellow-green line). Under 60% of a gold tint
+     * (#8a6a2a) and of its cool mirror (#2a6a8a), as the tint lays itself over the frost, over
+     * every backdrop, side, gain-raised as that cover raises it, on Clear and on Mist: where the
+     * cool fringe peaks the surface reads cyan to blue (180 to 240 degrees), where the warm one
+     * peaks it reads orange (15 to 45 degrees).
+     */
+    @Test
+    public void theFringesKeepTheirColoursThroughTheTint() {
+        float cover = 0.6f;
+        float step = 0.025f * DENSITY;
+        float[] lit = new float[3];
+        float[] bare = new float[3];
+        float[] seen = new float[3];
+        for (int tintColor : new int[] {0x8a6a2a, 0x2a6a8a}) {
+            float[] tint = rgb(tintColor);
+            for (GlassRefraction.Look look : new GlassRefraction.Look[] {clearAt(100), mistAt(100)}) {
+                GlassRefraction.Look covered = look.withCover(cover);
+                float gain = covered.edgeGain();
+                assertEquals(GlassRefraction.Look.MAX_EDGE_GAIN, gain, 1e-5f);
+                for (float[] c : BACKDROPS) {
+                    for (float[] side : SIDES) {
+                        float cw = side[0] != 0f && side[1] != 0f ? 1f : 0f;
+                        float split = GlassRefraction.rimSplitPx(covered.dispersion(),
+                            covered.clarity(), cw, DENSITY);
+                        float warm = 0f, cool = 0f, warmHue = -1f, coolHue = -1f;
+                        for (int i = 0; i * step < 3f * DENSITY; i++) {
+                            float inside = i * step;
+                            GlassRefraction.edgeLit(c[0], c[1], c[2], 1f, inside, DENSITY,
+                                side[0], side[1], gain, split, covered.boldShare(), lit);
+                            GlassRefraction.gatheredLitSplit(c[0], c[1], c[2], 1f, inside,
+                                DENSITY, side[0], side[1], gain, split, bare);
+                            float d = (lit[0] - lit[2]) - (bare[0] - bare[2]);
+                            for (int k = 0; k < 3; k++)
+                                seen[k] = (1f - cover) * lit[k] + cover * tint[k];
+                            if (d > warm) { warm = d; warmHue = hue(seen); }
+                            if (-d > cool) { cool = -d; coolHue = hue(seen); }
+                        }
+                        String at = Integer.toHexString(tintColor) + " " + look + " over "
+                            + java.util.Arrays.toString(c) + " side " + side[0] + "/" + side[1]
+                            + ": cool " + coolHue + ", warm " + warmHue;
+                        assertTrue(at, coolHue >= 180f && coolHue <= 240f);
+                        assertTrue(at, warmHue >= 15f && warmHue <= 45f);
+                    }
+                }
+            }
+        }
     }
 
     /** The bold edge never clips: every channel stays under the sample's alpha, pale or dark. */
