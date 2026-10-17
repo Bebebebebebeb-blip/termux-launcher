@@ -226,6 +226,11 @@ under twenty items; past that, the oldest are re-judged first.
   shows 40 with visible colour on Clear. Migration: a format-1 store on the Tint Look comes up on
   the Tint stop at 35, same colour; a Custom with Tint 100 comes up at 35 · emulator tl16
   (Android 13+), screenshots per value.
+- 2026-10-17 · same branch, "fix(editor): choosing a Look resets every surface to it" · Look ›
+  Custom, keyboard tapped: move Glass, Opacity, Tint and Keys well off; tap Clear: the keyboard's
+  glass and caps are Clear's at once (compare a fresh Clear crop); back at Custom the keyboard
+  card shows the moved values again (this visit's Custom comes back); Undo puts back the look the
+  editor opened on. Same with the dock's Glass · emulator tl16, keyboard crops before/after.
 
 ## Developer
 - 2026-10-17 · same branch, "perf(glass): hold the blur radius through a drag" · Look › Custom on

@@ -2279,7 +2279,8 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         if (look != null) {
             if (leavingCustom)
                 mSessionCustom.leave(into);
-            SurfacePresets.apply(into, look);
+            // Every surface back on the Look, its Keys and Glass positions included.
+            SurfacePresets.applyLook(into, look);
             forgetGlassEdgePositions();
             mStop = stop;
             return true;

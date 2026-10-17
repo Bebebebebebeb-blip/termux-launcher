@@ -528,9 +528,10 @@ public final class SurfacePresets {
     }
 
     /**
-     * The values only Custom saves and no Look names: the key caps (Key corners, and the opacity
-     * the old Keys slider moved with it), the wallpaper's dim and Soft wallpaper. Saved with
-     * Custom so its stop comes back whole; a Look leaves them where they are.
+     * The values only Custom saves and no Look names: the key caps (Key corners, and the cap
+     * opacity Keys moves), the wallpaper's dim and Soft wallpaper. Saved with Custom so its stop
+     * comes back whole. A Look leaves them where they are, except Keys, which choosing a Look on
+     * the editor's slider puts back to the theme's ({@link #applyLook}).
      */
     private static void putCustomOnly(@NonNull TermuxAppSharedPreferences prefs,
                                       @NonNull Map<String, Object> look) {
@@ -715,6 +716,44 @@ public final class SurfacePresets {
         Batch batch = new Batch(store);
         applyEach(writingInto(prefs, batch), preset);
         batch.applyToStore();
+    }
+
+    /**
+     * A Look chosen on the editor's slider: {@link #apply} and, in the same one editor, every
+     * per-surface glass value no Look names put back to what a Look stands for
+     * ({@link #resetSurfaceExtras}). Choosing a Look resets every surface to it, the keyboard's
+     * Keys and each surface's Glass position included (developer, 2026-10-17); the migrations keep
+     * calling {@link #apply}, which leaves them alone.
+     */
+    public static void applyLook(@NonNull TermuxAppSharedPreferences prefs,
+                                 @NonNull Preset preset) {
+        SharedPreferences store = prefs.getSharedPreferences();
+        if (store == null) {
+            applyEach(prefs, preset);
+            resetSurfaceExtras(prefs);
+            return;
+        }
+        Batch batch = new Batch(store);
+        TermuxAppSharedPreferences into = writingInto(prefs, batch);
+        applyEach(into, preset);
+        resetSurfaceExtras(into);
+        batch.applyToStore();
+    }
+
+    /**
+     * The per-surface glass values outside the preset format, as every Look has them: the
+     * keyboard's Keys back to the theme's (-1), every Glass slider position forgotten (Base's and
+     * each surface's, so each reads back from the glass it now draws), and, where the Look left the
+     * keyboard's blur on Base, its raw key back to "follow", as the shared Glass writes it
+     * ({@link GlobalGlass#write}).
+     */
+    static void resetSurfaceExtras(@NonNull TermuxAppSharedPreferences prefs) {
+        prefs.setInAppKeyboardKeyOpacity(TERMUX_APP.DEFAULT_IN_APP_KEYBOARD_KEY_OPACITY);
+        prefs.setSurfaceGlassPosition(null, -1);
+        for (SurfaceSlot slot : SurfaceSlot.values())
+            prefs.setSurfaceGlassPosition(slot, -1);
+        if (prefs.isSurfaceInheriting(SurfaceSlot.KEYBOARD, SurfaceProperty.BLUR))
+            prefs.setInAppKeyboardBlurRadiusRaw(TERMUX_APP.DEFAULT_IN_APP_KEYBOARD_BLUR_RADIUS);
     }
 
     /** {@code prefs}' setters and getters over {@code batch}: what they write, it holds. */
