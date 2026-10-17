@@ -97,7 +97,13 @@ ad -s emu runas com.termux 'launcherctl pane list'
 - The Appearance editor reopens on its last page; the Icon pack page's switch is `icon_pack_pinned_only` (about 935,2030).
 - The only AVD is tl16 (API 36); there is none for API 29/30.
 - Look editor sliders at 1080 px wide, column x: Glass 90, Opacity 260–282, Tint 432–453, Shade 603,
-  Vibrancy 774, Depth 946.
+  Vibrancy 774, Depth 946. Show them with `ad tap Custom` (the label text; a tap on the pill misses).
+  Opacity at x 262: `2290 → 2262` is about 9%, `→ 2180` about 36%, `→ 1850` 100%. The value is not in
+  the `ad ui` tree: read the "Opacity · N%" label off a screenshot.
+- `am start` of SettingsActivity brings the existing task forward, maybe on a sub-page: tap Navigate up
+  first. Set night mode before entering the editor.
+- Keyboard crop in the editor preview: `ad zoom 231,1000,849,1590`.
+- `ad logcat -d` follows and hangs; use `timeout 20 adb -s emulator-5554 logcat -d`.
 - A theme (`cmd uimode night yes`) or font-scale change recreates the activity and closes the
   Appearance editor: live edits stay applied, no Keep/Discard. Same on pre; reopen and check there.
 - Swipes near the dock toggle the Ctrl/Alt/Fn latches and the F-key layer; a force-stop clears them.
