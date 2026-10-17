@@ -31,6 +31,7 @@ import java.util.Map;
  *   <li>The saved Custom look is rewritten in the current format ({@link SurfacePresets#fromLegacy},
  *       {@link SurfacePresets#rescaleTintAmounts}).</li>
  *   <li>Format 2: every Tint amount moves onto the stretched scale ({@link #FORMAT}).</li>
+ *   <li>Format 3: the retired Shade's stored value is dropped.</li>
  * </ul>
  *
  * <p>A store that never wrote a tint key read the old default, the full strength; it is pinned
@@ -48,9 +49,11 @@ public final class GlassControlsMigration {
      * per-surface cell, is scaled to draw the colour it drew
      * ({@link com.termux.app.chrome.GlassLook#amountForLegacyPercent}: the Tint Look's 100 is 35).
      * A store at 0 takes both in the same edit; the saved Custom look is scaled on read
-     * ({@link SurfacePresets#rescaleTintAmounts}) and rewritten.
+     * ({@link SurfacePresets#rescaleTintAmounts}) and rewritten. 3 retired Shade: the stored
+     * value is removed (every earlier format takes that in the same edit) and the saved Custom
+     * look sheds it on the rewrite ({@link SurfacePresets#RETIRED_SHADE_KEY}).
      */
-    static final int FORMAT = 2;
+    static final int FORMAT = 3;
     /** The format that stretched the Tint scale. */
     private static final int FORMAT_TINT_SCALE = 2;
 
@@ -87,6 +90,8 @@ public final class GlassControlsMigration {
         } else if (from < FORMAT_TINT_SCALE) {
             rescaleTintAmounts(into, batch);
         }
+        // Format 3: Shade is retired; its stored value is dropped, and the look draws as Shade 0.
+        batch.edit().remove(SurfacePresets.RETIRED_SHADE_KEY).apply();
         String custom = into.getSurfaceCustomPreset();
         if (!custom.isEmpty()) {
             Map<String, Object> look = SurfacePresets.deserialize(custom);

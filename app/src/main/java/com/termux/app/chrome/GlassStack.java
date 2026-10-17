@@ -222,21 +222,17 @@ public final class GlassStack {
         if (backdrop != null) {
             // The content-aware light scatter every glass surface's frame wears.
             backdrop.setColorFilter(GlassFilters.frost(Math.round(spec.tintAlpha * 100f)));
-            // The gathered light is drawn under the tint and the Shade, so it is raised by what
-            // they cover and every surface shows a like outline.
+            // The gathered light is drawn under the tint, so it is raised by what the tint covers
+            // and every surface shows a like outline.
             backdrop.setRefraction(spec.look.withCover(spec.tintColor != null
-                    ? glass.cover(android.graphics.Color.alpha(spec.tintColor) / 255f, spec.tintColor)
-                    : glass.cover(spec.tintAlpha, glass.tintBase(spec.tintStrengthPercent))),
+                    ? android.graphics.Color.alpha(spec.tintColor) / 255f
+                    : spec.tintAlpha),
                 density, spec.cornerRadiusPx, spec.seams);
             programEdge = probe.drawsEdge(backdrop);
             layers.add(backdrop);
         }
         boolean rim = wearsRim(spec.rim, programEdge);
         if (spec.tintColor != null) {
-            // Shade under the scheme colour, as under the glass tint.
-            int shade = glass.shadeColorOver(spec.tintColor);
-            if (android.graphics.Color.alpha(shade) > 0)
-                layers.add(new android.graphics.drawable.ColorDrawable(shade));
             layers.add(new android.graphics.drawable.ColorDrawable(spec.tintColor));
             // A scheme colour stands in for the glass tint, and the band's veil still goes over
             // it, under the rim, exactly where the glass path puts it.

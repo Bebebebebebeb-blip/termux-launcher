@@ -3346,19 +3346,6 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
             TERMUX_APP.MIN_SURFACE_GLASS_POSITION, TERMUX_APP.MAX_SURFACE_GLASS_POSITION), false);
     }
 
-    /** See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_SURFACE_GLASS_SHADE}. Clamped. */
-    public int getSurfaceGlassShade() {
-        return DataUtils.clamp(SharedPreferenceUtils.getInt(mSharedPreferences,
-                TERMUX_APP.KEY_SURFACE_GLASS_SHADE, TERMUX_APP.DEFAULT_SURFACE_GLASS_SHADE),
-            TERMUX_APP.MIN_SURFACE_GLASS_SHADE, TERMUX_APP.MAX_SURFACE_GLASS_SHADE);
-    }
-
-    public void setSurfaceGlassShade(int value) {
-        SharedPreferenceUtils.setInt(mSharedPreferences, TERMUX_APP.KEY_SURFACE_GLASS_SHADE,
-            DataUtils.clamp(value, TERMUX_APP.MIN_SURFACE_GLASS_SHADE,
-                TERMUX_APP.MAX_SURFACE_GLASS_SHADE), false);
-    }
-
     /** See {@link TermuxPreferenceConstants.TERMUX_APP#KEY_SURFACE_GLASS_VIBRANCY}. Clamped. */
     public int getSurfaceGlassVibrancy() {
         return DataUtils.clamp(SharedPreferenceUtils.getInt(mSharedPreferences,

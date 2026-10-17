@@ -37,8 +37,8 @@ import java.util.Set;
  * win over the computed one.
  *
  * <p>Beyond the numbers a preset carries four enum-like strings: the glass's ink, the accent hue
- * its Tint amount mixes in, its rim and its motion profile; and two glass numbers no per-surface
- * row holds, Shade and Vibrancy. Every preset states them (the defaults unless it says otherwise),
+ * its Tint amount mixes in, its rim and its motion profile; and one glass number no per-surface
+ * row holds, Vibrancy. Every preset states them (the defaults unless it says otherwise),
  * so applying one always resets the others' choice.
  *
  * <p>Corners and margins are not a look's (developer, 2026-10-01): they are the global shape
@@ -62,9 +62,17 @@ public final class SurfacePresets {
      * than 5 is carried across on read ({@link #fromLegacy}), so it applies as it looked. 6
      * stretched the Tint amount: 100 now moves the ink all the way to the accent's container, and
      * the Material blend is 35 ({@code GlassLook.TINT_LOOK_PERCENT}); a look older than 6 has
-     * every Tint value scaled on read ({@link #rescaleTintAmounts}).
+     * every Tint value scaled on read ({@link #rescaleTintAmounts}). Shade, which 5 brought, was
+     * retired (2026-10-17): a look that still names it has the key dropped on read
+     * ({@link #RETIRED_SHADE_KEY}), so it applies, and draws, as Shade 0.
      */
     public static final int FORMAT_VERSION = 6;
+
+    /**
+     * The retired Shade's key, kept only so a stored look and the store itself shed it
+     * ({@link #deserialize}, {@link GlassControlsMigration}). Nothing reads its value.
+     */
+    static final String RETIRED_SHADE_KEY = "surface_glass_shade";
 
     /** The fifth card: whatever look the user last saved, rather than one this build ships. */
     public static final String CUSTOM_ID = "custom";
@@ -262,7 +270,6 @@ public final class SurfacePresets {
             if ("stock".equals(preset.id))
                 values.put(TERMUX_APP.KEY_SURFACE_GLASS_TINT, TERMUX_APP.GLASS_TINT_MATERIAL);
             values.remove(TERMUX_APP.KEY_SURFACE_GLASS_TINT_HUE);
-            values.remove(TERMUX_APP.KEY_SURFACE_GLASS_SHADE);
             values.remove(TERMUX_APP.KEY_SURFACE_GLASS_VIBRANCY);
             Preset before = new Preset(preset.id, preset.nameRes, values);
             if (matches(prefs, before))
@@ -324,10 +331,9 @@ public final class SurfacePresets {
         putGlassControlDefaults(look);
     }
 
-    /** The hue, Shade and Vibrancy every Look ships with (format 5): primary, off, as today. */
+    /** The hue and Vibrancy every Look ships with (format 5): primary, as today. */
     private static void putGlassControlDefaults(Map<String, Object> look) {
         look.put(TERMUX_APP.KEY_SURFACE_GLASS_TINT_HUE, TERMUX_APP.DEFAULT_SURFACE_GLASS_TINT_HUE);
-        look.put(TERMUX_APP.KEY_SURFACE_GLASS_SHADE, TERMUX_APP.DEFAULT_SURFACE_GLASS_SHADE);
         look.put(TERMUX_APP.KEY_SURFACE_GLASS_VIBRANCY,
             TERMUX_APP.DEFAULT_SURFACE_GLASS_VIBRANCY);
     }
@@ -503,7 +509,6 @@ public final class SurfacePresets {
         look.put(TERMUX_APP.KEY_SURFACE_GLASS_RIM, prefs.getSurfaceGlassRim());
         look.put(TERMUX_APP.KEY_SURFACE_GLASS_MOTION, prefs.getSurfaceGlassMotion());
         look.put(TERMUX_APP.KEY_SURFACE_GLASS_TINT_HUE, prefs.getSurfaceGlassTintHue());
-        look.put(TERMUX_APP.KEY_SURFACE_GLASS_SHADE, prefs.getSurfaceGlassShade());
         look.put(TERMUX_APP.KEY_SURFACE_GLASS_VIBRANCY, prefs.getSurfaceGlassVibrancy());
         look.put(TERMUX_APP.KEY_TERMINAL_BORDER_ENABLED, prefs.isTerminalBorderEnabled());
         look.put(TERMUX_APP.KEY_FANCIER_GLASS_BEND, prefs.getFancierGlassBendDp());
@@ -577,7 +582,9 @@ public final class SurfacePresets {
         }
         // A look saved before format 2 knows nothing of tint, rim or motion: it was the scheme
         // tint, the hairline and the classic motion, and applying it must put those back. One
-        // saved before 5 knows nothing of the hue, Shade or Vibrancy: primary, off and as today.
+        // saved before 5 knows nothing of the hue or Vibrancy: primary and as today. The retired
+        // Shade is dropped, so the look applies as Shade 0.
+        look.remove(RETIRED_SHADE_KEY);
         if (!look.isEmpty()) {
             for (Map.Entry<String, Object> glass : glassDefaults().entrySet())
                 if (!look.containsKey(glass.getKey())) look.put(glass.getKey(), glass.getValue());
@@ -775,9 +782,6 @@ public final class SurfacePresets {
             case TERMUX_APP.KEY_SURFACE_GLASS_TINT_HUE:
                 prefs.setSurfaceGlassTintHue(value instanceof String ? (String) value : null);
                 return;
-            case TERMUX_APP.KEY_SURFACE_GLASS_SHADE:
-                prefs.setSurfaceGlassShade(intOf(value));
-                return;
             case TERMUX_APP.KEY_SURFACE_GLASS_VIBRANCY:
                 prefs.setSurfaceGlassVibrancy(intOf(value));
                 return;
@@ -869,8 +873,6 @@ public final class SurfacePresets {
                 return prefs.getSurfaceGlassMotion();
             case TERMUX_APP.KEY_SURFACE_GLASS_TINT_HUE:
                 return prefs.getSurfaceGlassTintHue();
-            case TERMUX_APP.KEY_SURFACE_GLASS_SHADE:
-                return prefs.getSurfaceGlassShade();
             case TERMUX_APP.KEY_SURFACE_GLASS_VIBRANCY:
                 return prefs.getSurfaceGlassVibrancy();
             case TERMUX_APP.KEY_TERMINAL_BORDER_ENABLED:

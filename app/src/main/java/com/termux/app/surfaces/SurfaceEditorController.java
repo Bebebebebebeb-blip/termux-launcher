@@ -1866,8 +1866,6 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                         prefs.getSurfaceBaseValue(SurfaceProperty.GRAIN))
                     : GlassControls.readBack(prefs.getSurfaceGlassPosition(mTarget.slot),
                         blurOf(prefs, mTarget), grainOf(prefs, mTarget.slot));
-            case SHADE:
-                return Control.SHADE.clamp(prefs.getSurfaceGlassShade());
             case VIBRANCY:
                 return Control.VIBRANCY.clamp(mHeldVibrancy != NO_HELD_VIBRANCY
                     ? mHeldVibrancy : prefs.getSurfaceGlassVibrancy());
@@ -1912,7 +1910,6 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             case GLASS: return getString(R.string.appearance_editor_glass, value);
             case OPACITY: return getString(R.string.appearance_editor_opacity, value);
             case TINT: return getString(R.string.appearance_editor_tint, value);
-            case SHADE: return getString(R.string.appearance_editor_shade, value);
             case VIBRANCY:
                 return getString(R.string.appearance_editor_vibrancy,
                     String.format(Locale.getDefault(), "%.2f", value / 100f));
@@ -2087,16 +2084,13 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
 
     /**
      * One of the Custom row's sliders moved. Glass, Opacity and Tint are the shared glass with
-     * nothing tapped and the element's own values with one tapped; Shade, Vibrancy and Depth are
+     * nothing tapped and the element's own values with one tapped; Vibrancy and Depth are
      * global; the rest are the element's.
      */
     private void writeControl(@NonNull Control control, int value) {
         switch (control) {
             case GLASS:
                 writeGlass(value);
-                break;
-            case SHADE:
-                writeShade(value);
                 break;
             case VIBRANCY:
                 writeVibrancy(value);
@@ -2163,16 +2157,6 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             writeElement(mTarget, SurfaceProperty.BLUR, blur);
             writeElement(mTarget, SurfaceProperty.GRAIN, grain);
         }
-    }
-
-    /** Shade, global: the tint stacks rebuild with the layer under them, and the ink re-measures. */
-    private void writeShade(int value) {
-        TermuxAppSharedPreferences prefs = prefs();
-        if (prefs == null)
-            return;
-        prefs.setSurfaceGlassShade(Control.SHADE.clamp(value));
-        requestPreview(SurfaceEditorProperties.PREVIEW_SURFACES
-            | SurfaceEditorProperties.PREVIEW_KEYBOARD);
     }
 
     /** True while a slider drag holds the frame tint's re-bake for its release. */

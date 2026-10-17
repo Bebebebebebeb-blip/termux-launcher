@@ -83,7 +83,7 @@ public class AppearanceLooksTest {
     /** The Custom row's sets, legend order, per selection (appearance final pass, section 5). */
     @Test
     public void eachSelectionHasItsSliderSet() {
-        assertEquals(Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT, Control.SHADE,
+        assertEquals(Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT,
             Control.VIBRANCY), AppearanceLooks.controls(null));
         assertEquals(Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT,
             Control.KEY_RADIUS, Control.KEY_SPACING), AppearanceLooks.controls(Target.KEYBOARD));
@@ -108,9 +108,9 @@ public class AppearanceLooksTest {
      */
     @Test
     public void depthEndsTheGlobalSetOnlyWithTheGlassEdge() {
-        assertEquals(Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT, Control.SHADE,
+        assertEquals(Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT,
             Control.VIBRANCY, Control.DEPTH), AppearanceLooks.controls(null, true));
-        assertEquals(Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT, Control.SHADE,
+        assertEquals(Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT,
             Control.VIBRANCY), AppearanceLooks.controls(null, false));
         assertEquals(AppearanceLooks.controls(null, false), AppearanceLooks.controls(null));
     }
@@ -160,8 +160,6 @@ public class AppearanceLooksTest {
     public void controlRangesAreTheStoredRanges() {
         assertEquals(0, Control.GLASS.min);
         assertEquals(100, Control.GLASS.max);
-        assertEquals(0, Control.SHADE.min);
-        assertEquals(100, Control.SHADE.max);
         assertEquals("0.7x", 70, Control.VIBRANCY.min);
         assertEquals("1.5x", 150, Control.VIBRANCY.max);
         assertEquals(AppearanceLooks.KEY_CORNERS_MAX_DP, Control.KEY_RADIUS.max);

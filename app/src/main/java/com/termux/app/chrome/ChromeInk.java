@@ -181,7 +181,7 @@ public final class ChromeInk {
     /**
      * What a band's glass is, as far as measuring it goes: opacity, foot, the slice it draws, the
      * base colour its tint is really drawn in (the Look's ink with the Tint control's accent mixed
-     * in) and the Shade laid under it.
+     * in).
      */
     private static final class BandGlass {
         float opacity;
@@ -191,8 +191,6 @@ public final class ChromeInk {
         /** Whether {@link #baseColor} was told; until then the mode's untinted base stands in. */
         boolean tinted;
         @ColorInt int baseColor;
-        /** The Shade under the tint, alpha included; transparent for none. */
-        @ColorInt int shade = Color.TRANSPARENT;
     }
 
     /** The base colour {@code glass}'s tint is drawn in: the tinted one it told, or the mode's. */
@@ -593,14 +591,12 @@ public final class ChromeInk {
         int baseColor = baseOf(glass);
         // What the band's own glass is laid on, and nothing of the glass itself: the base layer is
         // part of the tint that gets composited over this, so counting it here too would apply it
-        // twice and pick the worst row off a band a shade lighter than the one being drawn. Shade
-        // is under the tint, so it is part of what the tint is laid on.
+        // twice and pick the worst row off a band a shade lighter than the one being drawn.
         int wallpaper = mCache.wallpaperUnder(band, screenRect);
-        int under = OnGlass.backdrop(wallpaper, mDimColor, glass.shade);
-        // The band's flat glass: wallpaper, the launcher's dim, the Shade, the base layer in its
-        // tinted colour. No light model, so the polarity vote is the same number whichever ink
-        // is asking. Shade counts: on light glass it whitens, and the ink is chosen for what is
-        // drawn.
+        int under = OnGlass.backdrop(wallpaper, mDimColor, Color.TRANSPARENT);
+        // The band's flat glass: wallpaper, the launcher's dim, the base layer in its tinted
+        // colour. No light model, so the polarity vote is the same number whichever ink is
+        // asking.
         int flat = OnGlass.composite(OnGlass.withAlpha(baseColor, baseAlpha), under);
         vote(band, flat);
         int ink = polarity() == Polarity.DARK_INK ? contract.darkInk : contract.paleInk;
@@ -646,7 +642,7 @@ public final class ChromeInk {
         int baseAlpha = ChromePolicy.dockGlassBaseAlpha(glass.opacity);
         int baseColor = baseOf(glass);
         int wallpaper = mCache.wallpaperUnder(band, contract.rect);
-        int under = OnGlass.backdrop(wallpaper, mDimColor, glass.shade);
+        int under = OnGlass.backdrop(wallpaper, mDimColor, Color.TRANSPARENT);
         vote(band, OnGlass.composite(OnGlass.withAlpha(baseColor, baseAlpha), under));
         int top = DockGlassRendering.topSheenAlpha(glass.opacity);
         int mid = DockGlassRendering.midSheenAlpha(glass.opacity);
@@ -705,7 +701,7 @@ public final class ChromeInk {
         int worst = 0;
         double worstRatio = Double.MAX_VALUE;
         for (int i = 0; i < rows.length; i++) {
-            int rowUnder = OnGlass.backdrop(rows[i], mDimColor, glass.shade);
+            int rowUnder = OnGlass.backdrop(rows[i], mDimColor, Color.TRANSPARENT);
             float stop = DockGlassRendering.worstLightModelStop(ink, rowUnder, baseColor,
                 baseAlpha, mAccentColor, top, mid, foot, rowPosition(glass, i),
                 rowPosition(glass, i + 1));
@@ -911,37 +907,33 @@ public final class ChromeInk {
         glass.sliceStart = sliceStart;
         glass.sliceEnd = sliceEnd;
         glass.tinted = false;
-        glass.shade = Color.TRANSPARENT;
     }
 
     /**
      * {@link #noteBandGlass(GlassBackdropCache.Band, float, boolean, float, float)} with the colour
      * the band's base layer is really drawn in ({@code baseColor}, the tinted one; its alpha is
-     * ignored, the opacity says it) and the Shade under it ({@code shade}, alpha included). Both
-     * are inputs of every answer's search, so the next ask measures what is now drawn.
+     * ignored, the opacity says it). It is an input of every answer's search, so the next ask
+     * measures what is now drawn.
      *
-     * @return whether the band's face moved: its opacity, tinted base or Shade differ from what
-     *     was told before
+     * @return whether the band's face moved: its opacity or tinted base differ from what was told
+     *     before
      */
     boolean noteBandGlass(@NonNull GlassBackdropCache.Band band, float opacity, boolean withFoot,
-                          float sliceStart, float sliceEnd, @ColorInt int baseColor,
-                          @ColorInt int shade) {
+                          float sliceStart, float sliceEnd, @ColorInt int baseColor) {
         BandGlass glass = glassFor(band);
         float opacityBefore = glass.opacity;
         boolean tintedBefore = glass.tinted;
         int baseBefore = glass.baseColor;
-        int shadeBefore = glass.shade;
         noteBandGlass(band, opacity, withFoot, sliceStart, sliceEnd);
         glass.tinted = true;
         glass.baseColor = baseColor;
-        glass.shade = shade;
         return !tintedBefore || Float.compare(opacityBefore, glass.opacity) != 0
-            || baseBefore != baseColor || shadeBefore != shade;
+            || baseBefore != baseColor;
     }
 
     /**
      * The opaque face {@code band}'s content stands on, under {@code screenRect}: the wallpaper,
-     * the launcher's dim, the Shade, and the band's base layer in its tinted colour at its opacity
+     * the launcher's dim, and the band's base layer in its tinted colour at its opacity
      * ({@link #noteBandGlass}). The same flat glass the band votes with; no light model, so it is
      * one colour whichever ink asks. For content whose ink is chosen on its own face rather than
      * through {@link #onGlass}: the extra keys. Asks nothing and votes nothing.
@@ -989,7 +981,7 @@ public final class ChromeInk {
     /**
      * The opaque face under each of {@link #FACE_ROWS} rows of {@code band}, top to bottom, at the
      * rect its content last asked about ({@link #onFixedInk}): the wallpaper under that row, the
-     * launcher's dim, the Shade, the base layer in its tinted colour at its opacity, the light
+     * launcher's dim, the base layer in its tinted colour at its opacity, the light
      * model at that row, and the veil the band is drawn with over all of it. The keyboard's legends
      * are chosen so they read on every one. Empty before the band has asked. Sampled once per rect
      * and wallpaper generation; the rest is arithmetic on a dress pass, never per frame.
@@ -1009,7 +1001,7 @@ public final class ChromeInk {
         int[] rows = rowWallpapers(band, contract.rect);
         int[] faces = new int[rows.length];
         for (int i = 0; i < rows.length; i++) {
-            int under = OnGlass.backdrop(rows[i], mDimColor, glass.shade);
+            int under = OnGlass.backdrop(rows[i], mDimColor, Color.TRANSPARENT);
             float centre = (rowPosition(glass, i) + rowPosition(glass, i + 1)) / 2f;
             int surface = DockGlassRendering.glassSurfaceAt(centre, under, baseColor, baseAlpha,
                 mAccentColor, top, mid, foot);
@@ -1061,40 +1053,9 @@ public final class ChromeInk {
     @ColorInt
     private int flatFace(@NonNull GlassBackdropCache.Band band, @NonNull Rect rootRect) {
         BandGlass glass = glassFor(band);
-        int under = OnGlass.backdrop(mCache.wallpaperUnder(band, rootRect), mDimColor, glass.shade);
+        int under = OnGlass.backdrop(mCache.wallpaperUnder(band, rootRect), mDimColor, Color.TRANSPARENT);
         return OnGlass.opaque(OnGlass.composite(OnGlass.withAlpha(baseOf(glass),
             ChromePolicy.dockGlassBaseAlpha(glass.opacity)), under));
-    }
-
-    /**
-     * {@code shade}, or as much of it as {@code band}'s content can still read through: where the
-     * band reaches its target without Shade and falls short with it (a dark ink the chrome chose
-     * over light glass that the Shade darkens, say), the Shade is stepped down a quarter at a time
-     * until it reads again, to none at worst. A band that falls short either way keeps the Shade:
-     * it is not what fails it, and the veil and the ink answer as they always did. Leaves the
-     * band's glass noted with the Shade it returns. Before the band's content has asked, nothing
-     * is known and the Shade stands.
-     */
-    @ColorInt
-    int heldShade(@NonNull GlassBackdropCache.Band band, @ColorInt int shade) {
-        int alpha = Color.alpha(shade);
-        if (alpha == 0) return shade;
-        readMode();
-        Contract contract = mContracts.get(band);
-        if (contract == null || !contract.seen) return shade;
-        BandGlass glass = glassFor(band);
-        glass.shade = Color.TRANSPARENT;
-        boolean shortBare = resolveAt(band, contract, 0).shortfall;
-        glass.shade = shade;
-        if (shortBare || !resolveAt(band, contract, 0).shortfall) return shade;
-        int step = Math.max(1, alpha / 4);
-        for (int held = alpha - step; held > 0; held -= step) {
-            int candidate = (held << 24) | (shade & 0x00FFFFFF);
-            glass.shade = candidate;
-            if (!resolveAt(band, contract, 0).shortfall) return candidate;
-        }
-        glass.shade = Color.TRANSPARENT;
-        return Color.TRANSPARENT;
     }
 
     /**

@@ -37,7 +37,7 @@
      name there: its two pills (Cursor trail, Terminal effect; a heading over the chosen option)
      share the whole row. The sliders are one fixed length, so the sheet is the same height for
      every selection; Row B is GONE at a Look stop. Sets, left to right:
-       nothing  Glass, Opacity, Tint, Shade, Vibrancy, and Depth while the glass edge is drawn
+       nothing  Glass, Opacity, Tint, Vibrancy, and Depth while the glass edge is drawn
                 (Android 13, a wallpaper set from the launcher, Lazy mode off)  (pills: Hue, Edge)
        keyboard Glass, Opacity, Tint, Key radius, Key spacing (button: Keyboard theme)
        dock     Glass, Opacity, Tint, Icon size, App icons

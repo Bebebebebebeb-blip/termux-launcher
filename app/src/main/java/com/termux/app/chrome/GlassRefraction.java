@@ -173,7 +173,7 @@ public final class GlassRefraction {
         static final float GAIN = 1.6f;
         /**
          * The cover the light's strength is tuned at: Clear's 10% tint. The light is drawn under a
-         * surface's tint and Shade, which let {@code 1 - cover} of it through, so a surface under
+         * surface's tint, which lets {@code 1 - cover} of it through, so a surface under
          * more cover has its light raised by {@code (1 - REFERENCE_COVER) / (1 - cover)}, never
          * lowered below the tuned strength and never above {@link #MAX_EDGE_GAIN}
          * ({@link #edgeGain}). {@code uEdgeGain}.
@@ -225,8 +225,8 @@ public final class GlassRefraction {
         /** How clear the wallpaper shows through the bent edge, a percentage; 0 keeps the frost. */
         public final int clarityPercent;
         /**
-         * How much the layers drawn over this frost cover it, a percentage: the surface's tint and
-         * Shade ({@link GlassShade#cover}). Not stored; each surface states its own. 0 (as read
+         * How much the layers drawn over this frost cover it, a percentage: the surface's tint. Not
+         * stored; each surface states its own. 0 (as read
          * from the preferences) leaves the light at its tuned strength.
          */
         public final int coverPercent;
@@ -258,8 +258,8 @@ public final class GlassRefraction {
         }
 
         /**
-         * This look on a surface whose tint and Shade cover the frost by {@code cover} (0..1): the
-         * gathered light is raised to read through them ({@link #edgeGain}). Rounded to a percent,
+         * This look on a surface whose tint covers the frost by {@code cover} (0..1): the
+         * gathered light is raised to read through it ({@link #edgeGain}). Rounded to a percent,
          * so a surface re-dressed at the same opacity compares equal and writes nothing.
          */
         @NonNull
@@ -445,7 +445,7 @@ public final class GlassRefraction {
         "uniform float uDisp;\n" +
         "uniform float uClarity;\n" +
         "uniform float uDensity;\n" +
-        // How much the gathered light is raised to read through the tint and Shade drawn over it;
+        // How much the gathered light is raised to read through the tint drawn over it;
         // 1 at Clear's cover. Look.edgeGain in Java.
         "uniform float uEdgeGain;\n" +
         // A finger on the glass: where it rests, how far its light reaches, and its 0..1 fade.

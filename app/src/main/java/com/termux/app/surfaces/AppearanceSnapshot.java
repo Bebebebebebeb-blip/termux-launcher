@@ -44,7 +44,6 @@ final class AppearanceSnapshot {
     private final String mRim;
     private final String mMotion;
     private final String mTintHue;
-    private final int mShade;
     private final int mVibrancy;
     /** Where Base's Glass slider and each surface's were left; -1 for none stored. */
     private final int[] mGlassPositions;
@@ -97,7 +96,6 @@ final class AppearanceSnapshot {
         mRim = prefs.getSurfaceGlassRim();
         mMotion = prefs.getSurfaceGlassMotion();
         mTintHue = prefs.getSurfaceGlassTintHue();
-        mShade = prefs.getSurfaceGlassShade();
         mVibrancy = prefs.getSurfaceGlassVibrancy();
         SurfaceSlot[] slots = SurfaceSlot.values();
         mGlassPositions = new int[slots.length + 1];
@@ -155,7 +153,6 @@ final class AppearanceSnapshot {
         prefs.setSurfaceGlassRim(mRim);
         prefs.setSurfaceGlassMotion(mMotion);
         prefs.setSurfaceGlassTintHue(mTintHue);
-        prefs.setSurfaceGlassShade(mShade);
         prefs.setSurfaceGlassVibrancy(mVibrancy);
         prefs.setSurfaceGlassPosition(null, mGlassPositions[0]);
         for (SurfaceSlot slot : SurfaceSlot.values())
@@ -193,7 +190,7 @@ final class AppearanceSnapshot {
             .append('|').append(mTerminalRadius).append('|').append(mPaneGap)
             .append('|').append(mWallpaperTerminalOpacity)
             .append('|').append(mTint).append('|').append(mRim).append('|').append(mMotion)
-            .append('|').append(mTintHue).append('|').append(mShade).append('|').append(mVibrancy)
+            .append('|').append(mTintHue).append('|').append(mVibrancy)
             .append('|').append(java.util.Arrays.toString(mGlassPositions))
             .append('|').append(mBend).append('|').append(mEdgeWidth).append('|').append(mEdgeLight)
             .append('|').append(mSpecular).append('|').append(mDispersion)

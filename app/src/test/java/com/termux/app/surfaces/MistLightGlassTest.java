@@ -84,7 +84,6 @@ public class MistLightGlassTest {
         assertEquals("Mist's Glass is 75 on either glass",
             GlassControls.blurForGlass(GlassControls.MIST),
             light.get(TERMUX_APP.KEY_SURFACE_BASE_BLUR));
-        assertEquals(0, light.get(TERMUX_APP.KEY_SURFACE_GLASS_SHADE));
         assertEquals(TERMUX_APP.GLASS_TINT_OBSIDIAN, light.get(TERMUX_APP.KEY_SURFACE_GLASS_TINT));
         List<SurfacePresets.Preset> darkLooks = SurfacePresets.presets(false);
         List<SurfacePresets.Preset> lightLooks = SurfacePresets.presets(true);

@@ -3625,16 +3625,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             @Override public int paneGlassTintColor() {
                 // Under both Styles the pane is the frame's glass until Darkness is raised: the
                 // Docked insert reads as a window by the hairline round its opening, not by tone.
-                // Shade lies under the pane's tint as under every glass tint, folded into the one
-                // paint the slab draws, black or white by the pane's own tint (a dark scheme under
-                // light chrome dims, never mists); a pane with no slab of its own takes none.
                 if (!shouldShowTerminalOverlaySurface()) return Color.TRANSPARENT;
-                int tint = mChrome.glass().look(mPreferences != null
+                return mChrome.glass().look(mPreferences != null
                         ? mPreferences.getTerminalTintStrength()
                         : TermuxPreferenceConstants.TERMUX_APP.DEFAULT_SURFACE_BASE_TINT)
                     .flatTint(resolveTerminalSurfaceColor());
-                return com.termux.app.chrome.GlassShade.under(tint,
-                    mChrome.glass().shadeColorOver(tint));
             }
 
             @Override public int paneGlassVeil(@NonNull Rect rootRect) {
@@ -4267,19 +4262,17 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private float mKeyLensHx, mKeyLensHy;            // half extents
     private float mKeyLensRadius;                    // corner radius
     /**
-     * What the dock's and the strip's tint and Shade cover of their backdrops, as their last
-     * dress passes worked it out ({@link #dockGlassCover}); -1 before the first. A change re-dresses
-     * the backdrop, so its edge follows an opacity or Shade change.
+     * What the dock's and the strip's tint cover of their backdrops, as their last dress passes
+     * worked it out ({@link #dockGlassCover}); -1 before the first. A change re-dresses the
+     * backdrop, so its edge follows an opacity change.
      */
     private float mDockGlassCover = -1f;
     private float mNavStripGlassCover = -1f;
 
-    /** What the dock material's tint and Shade cover of the frost under them, 0..1. */
+    /** What the dock material's tint covers of the frost under it, 0..1. */
     private float dockGlassCover() {
         if (mPreferences == null) return 0f;
-        com.termux.app.chrome.GlassSurfaceFactory glass = mChrome.glass();
-        return glass.cover(mPreferences.getAppBarOpacity() / 100f,
-            glass.tintBase(mPreferences.getDockTintStrength()));
+        return mPreferences.getAppBarOpacity() / 100f;
     }
 
     // Last dock-glass params, so the lens can rebuild the backdrop effect without recapturing.
@@ -4326,8 +4319,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             program.setAim(1f, 1f, 0f, 0f);
             program.setRect(capLeft, capTop, capRight, capBottom, radiusPx);
             // The user's knobs while Fancier Glass is on, the numbers this dock always ran with
-            // otherwise; either way its gathered edge is raised by what the dock's tint and Shade
-            // cover of it, the one rule every glass surface's edge follows. The cover is the one
+            // otherwise; either way its gathered edge is raised by what the dock's tint covers
+            // of it, the one rule every glass surface's edge follows. The cover is the one
             // the last dress pass worked out, so a key's lens rebuilding this per frame reads no
             // preference.
             program.setLook(com.termux.app.chrome.GlassStack.lookFor(mFancierGlassLook)
@@ -11267,7 +11260,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     /**
      * On the pass that re-glazes the dock: the A&ndash;Z strip and the extra keys are told the
-     * glass they stand on (the dock's material at {@code dockOpacity}, its Tint, hue and Shade), so
+     * glass they stand on (the dock's material at {@code dockOpacity}, its Tint and hue), so
      * their ink is chosen on that face rather than on the wallpaper or the theme. The letters are
      * re-synced only when their face moved; the extra keys re-chosen only when their ink changed.
      */

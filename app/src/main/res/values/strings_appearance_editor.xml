@@ -61,8 +61,6 @@
     <string name="appearance_editor_opacity">Opacity · %1$d%%</string>
     <string name="appearance_editor_tint">Tint · %1$d%%</string>
     <string name="appearance_editor_tint_name">Tint</string>
-    <!-- Dims the glass behind the content (on light glass, lifts it toward white). -->
-    <string name="appearance_editor_shade">Shade · %1$d%%</string>
     <!-- How colourful the wallpaper looks through the glass; 1.00× is as it is. -->
     <string name="appearance_editor_vibrancy">Vibrancy · %1$s×</string>
     <!-- The global set's last slider, while the glass edge is drawn: how thick it looks. -->

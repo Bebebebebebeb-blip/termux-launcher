@@ -58,7 +58,6 @@ public class GlassControlsMigrationTest {
         SurfacePresets.apply(preferences, preset(id));
         SharedPreferences.Editor editor = store.edit()
             .remove(TERMUX_APP.KEY_SURFACE_GLASS_TINT_HUE)
-            .remove(TERMUX_APP.KEY_SURFACE_GLASS_SHADE)
             .remove(TERMUX_APP.KEY_SURFACE_GLASS_VIBRANCY)
             .putInt(TERMUX_APP.KEY_SURFACE_BASE_TINT, 100);
         switch (id) {
@@ -220,7 +219,7 @@ public class GlassControlsMigrationTest {
         assertEquals(3, saved.getInt(TERMUX_APP.KEY_SURFACE_BASE_GRAIN));
         assertEquals(TERMUX_APP.DEFAULT_SURFACE_GLASS_TINT_HUE,
             saved.getString(TERMUX_APP.KEY_SURFACE_GLASS_TINT_HUE));
-        assertEquals(0, saved.getInt(TERMUX_APP.KEY_SURFACE_GLASS_SHADE));
+        assertFalse("the retired Shade is not written", saved.has(SurfacePresets.RETIRED_SHADE_KEY));
         assertEquals(100, saved.getInt(TERMUX_APP.KEY_SURFACE_GLASS_VIBRANCY));
     }
 
@@ -320,21 +319,15 @@ public class GlassControlsMigrationTest {
     /** The new knobs are clamped on the way in and out, and default to today's glass. */
     @Test
     public void theNewKnobsAreClampedAndDefaultToToday() {
-        assertEquals(0, preferences.getSurfaceGlassShade());
         assertEquals(100, preferences.getSurfaceGlassVibrancy());
         assertEquals(TERMUX_APP.GLASS_TINT_HUE_PRIMARY, preferences.getSurfaceGlassTintHue());
-        preferences.setSurfaceGlassShade(140);
-        assertEquals(100, preferences.getSurfaceGlassShade());
-        preferences.setSurfaceGlassShade(-5);
-        assertEquals(0, preferences.getSurfaceGlassShade());
         preferences.setSurfaceGlassVibrancy(400);
         assertEquals(150, preferences.getSurfaceGlassVibrancy());
         preferences.setSurfaceGlassVibrancy(10);
         assertEquals(70, preferences.getSurfaceGlassVibrancy());
         store.edit().putInt(TERMUX_APP.KEY_SURFACE_GLASS_VIBRANCY, 999)
-            .putInt(TERMUX_APP.KEY_SURFACE_GLASS_SHADE, -40).commit();
+            .commit();
         assertEquals("clamped on read", 150, preferences.getSurfaceGlassVibrancy());
-        assertEquals("clamped on read", 0, preferences.getSurfaceGlassShade());
         preferences.setSurfaceGlassTintHue("tertiary");
         assertEquals(TERMUX_APP.GLASS_TINT_HUE_TERTIARY, preferences.getSurfaceGlassTintHue());
         preferences.setSurfaceGlassTintHue("ultraviolet");
@@ -488,5 +481,53 @@ public class GlassControlsMigrationTest {
             store.getInt(TERMUX_APP.KEY_SURFACE_GLASS_CONTROLS_FORMAT, 0));
         assertEquals(SurfacePresets.LOOKS_GENERATION,
             store.getInt(SurfacePresets.KEY_LOOKS_GENERATION, 0));
+    }
+
+    // ------------------------------------------------------------- format 3: Shade is retired
+
+    /**
+     * A store at format 2 with a Shade set: the value is dropped, the marker moves to 3, and
+     * nothing else is touched (the Tint already on its scale stays as it is).
+     */
+    @Test
+    public void formatThreeDropsTheRetiredShadeAndNothingElse() {
+        store.edit().putInt(TERMUX_APP.KEY_SURFACE_GLASS_CONTROLS_FORMAT, 2)
+            .putInt(SurfacePresets.RETIRED_SHADE_KEY, 60).commit();
+        preferences.setSurfaceBaseValue(SurfaceProperty.TINT, 50);
+        preferences.setFancierGlassDispersionPercent(80);
+
+        GlassControlsMigration.run(preferences);
+
+        assertFalse("the Shade is gone from the store", store.contains(SurfacePresets.RETIRED_SHADE_KEY));
+        assertEquals(3, store.getInt(TERMUX_APP.KEY_SURFACE_GLASS_CONTROLS_FORMAT, 0));
+        assertEquals(50, preferences.getSurfaceBaseValue(SurfaceProperty.TINT));
+        assertEquals("Edge keeps its stored value", 80, preferences.getFancierGlassDispersionPercent());
+    }
+
+    /** A store from before the controls takes the drop in the same edit as the rest. */
+    @Test
+    public void anOlderStoreDropsTheShadeInTheSameEdit() {
+        storeOldLook("frost");
+        store.edit().putInt(SurfacePresets.RETIRED_SHADE_KEY, 100).commit();
+        GlassControlsMigration.run(preferences);
+        assertFalse(store.contains(SurfacePresets.RETIRED_SHADE_KEY));
+        assertTrue(SurfacePresets.matches(preferences, preset("frost")));
+    }
+
+    /** A saved look that names a Shade sheds it on read and on the rewrite, so it applies as Shade 0. */
+    @Test
+    public void aSavedLookWithShadeShedsIt() throws Exception {
+        java.util.Map<String, Object> look = SurfacePresets.deserialize("{\"format_version\":6,"
+            + "\"surface_glass_shade\":80,\"surface_base_opacity\":30}");
+        assertFalse(look.containsKey(SurfacePresets.RETIRED_SHADE_KEY));
+        assertEquals(30, look.get(TERMUX_APP.KEY_SURFACE_BASE_OPACITY));
+
+        store.edit().putInt(TERMUX_APP.KEY_SURFACE_GLASS_CONTROLS_FORMAT, 2).commit();
+        preferences.setSurfaceCustomPreset("{\"format_version\":6,\"surface_glass_shade\":80,"
+            + "\"surface_base_opacity\":30}");
+        GlassControlsMigration.run(preferences);
+        JSONObject saved = new JSONObject(preferences.getSurfaceCustomPreset());
+        assertFalse(saved.has(SurfacePresets.RETIRED_SHADE_KEY));
+        assertEquals(30, saved.getInt(TERMUX_APP.KEY_SURFACE_BASE_OPACITY));
     }
 }

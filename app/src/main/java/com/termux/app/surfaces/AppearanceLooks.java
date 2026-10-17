@@ -20,7 +20,7 @@ import java.util.List;
  * whose set follows the selection ({@link #controls}): the global set with nothing tapped, or the
  * tapped element's own, with the buttons above them ({@link #doors}). Glass (blur and grain as
  * one, {@link GlassControls}), Opacity and Tint are the shared glass on the global set and the
- * element's own values on an element. The global set adds Shade and Vibrancy, and ends in Depth,
+ * element's own values on an element. The global set adds Vibrancy, and ends in Depth,
  * the glass edge's one slider, where the edge is drawn at all; its pills are Tint colour and, with
  * the edge, Edge colour. Those are global and never an element's.</p>
  *
@@ -127,7 +127,7 @@ public final class AppearanceLooks {
      * the Style ({@link #iconSizeRangeDp}); the bounds here are only the ones no dock passes, the
      * icon's floor and the deepest row. Key spacing is the key margin scale in tenths; the others
      * are their own units (dp, percent, a count, a stop). Glass is 0 to 100 over blur and grain
-     * ({@link GlassControls}); Shade a percentage of its theme's cap; Vibrancy the frame's
+     * ({@link GlassControls}); Vibrancy the frame's
      * saturation in percent, 70 to 150. Depth is the glass edge's, 0 to 100 over the bend and the
      * edge width ({@link GlassEdgeControls}).
      */
@@ -135,7 +135,6 @@ public final class AppearanceLooks {
         GLASS(GlassControls.GLASS_MIN, GlassControls.GLASS_MAX, 1),
         OPACITY(0, OPACITY_MAX, 1),
         TINT(0, TINT_MAX, 1),
-        SHADE(TERMUX_APP.MIN_SURFACE_GLASS_SHADE, TERMUX_APP.MAX_SURFACE_GLASS_SHADE, 1),
         VIBRANCY(TERMUX_APP.MIN_SURFACE_GLASS_VIBRANCY, TERMUX_APP.MAX_SURFACE_GLASS_VIBRANCY, 1),
         KEY_RADIUS(0, KEY_CORNERS_MAX_DP, 1),
         KEY_SPACING(0, KEY_SPACING_MAX_TENTHS, 1),
@@ -193,17 +192,16 @@ public final class AppearanceLooks {
      * The sliders of the Custom row for a selection, in legend order (left to right): the global
      * set for nothing tapped (null), or the element's own. Glass, Opacity and Tint come first, so
      * the same three columns stay under the user's thumb as the selection changes. The global set
-     * adds Shade and Vibrancy, and ends in Depth while the glass edge is drawn
-     * ({@code glassEdge}): the edge is not drawn otherwise, so it is not offered. An element never
-     * has those.
+     * adds Vibrancy, and ends in Depth while the glass edge is drawn ({@code glassEdge}): the
+     * edge is not drawn otherwise, so it is not offered. An element never has those.
      */
     @NonNull
     public static List<Control> controls(@Nullable Target target, boolean glassEdge) {
         if (target == null)
             return glassEdge
-                ? Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT, Control.SHADE,
+                ? Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT,
                     Control.VIBRANCY, Control.DEPTH)
-                : Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT, Control.SHADE,
+                : Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT,
                     Control.VIBRANCY);
         switch (target) {
             case KEYBOARD:

@@ -1547,16 +1547,6 @@ public final class TermuxPreferenceConstants {
         public static final String DEFAULT_SURFACE_GLASS_TINT_HUE = GLASS_TINT_HUE_PRIMARY;
 
         /**
-         * Shade: a flat layer under the glass's tint, black where the glass is dark and white
-         * where it is light, as a percentage of that theme's cap (the app's {@code GlassShade}).
-         * 0, the default and every Look's value, draws nothing.
-         */
-        public static final String KEY_SURFACE_GLASS_SHADE = "surface_glass_shade";
-        public static final int DEFAULT_SURFACE_GLASS_SHADE = 0;
-        public static final int MIN_SURFACE_GLASS_SHADE = 0;
-        public static final int MAX_SURFACE_GLASS_SHADE = 100;
-
-        /**
          * Vibrancy: the saturation of the blurred frame the glass samples, percent of today's
          * (100). Baked once into each frame as it is blurred; the bare wallpaper never takes it.
          */

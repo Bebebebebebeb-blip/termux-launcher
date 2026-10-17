@@ -328,7 +328,7 @@ public final class WallpaperFrostPainter {
 
     /**
      * Fancier Glass on one frost, or the plain frost while the look is null. {@code cover} is how
-     * much the surface's tint and Shade cover the frost, which its gathered light is raised by.
+     * much the surface's tint covers the frost, which its gathered light is raised by.
      */
     private void refract(@NonNull SharedFrameDrawable frost, float cornerRadiusPx, int seams,
                          float cover) {
@@ -337,26 +337,18 @@ public final class WallpaperFrostPainter {
             mSurfaces.context().getResources().getDisplayMetrics().density, cornerRadiusPx, seams);
     }
 
-    /** What the status bar's tint and Shade cover of its frost. */
+    /** What the status bar's tint covers of its frost. */
     private float statusCover() {
         com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences preferences =
             mSurfaces.preferences();
-        return cover(preferences != null ? preferences.getStatusBarOpacity() / 100f : 0f);
+        return preferences != null ? preferences.getStatusBarOpacity() / 100f : 0f;
     }
 
     /** What the dock's material (the planes and sheets wear it) covers of its frost. */
     private float dockCover() {
         com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences preferences =
             mSurfaces.preferences();
-        return cover(preferences != null ? preferences.getAppBarOpacity() / 100f : 0f);
-    }
-
-    private float cover(float tintAlpha) {
-        com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences preferences =
-            mSurfaces.preferences();
-        int shade = preferences != null
-            ? GlassShade.color(mSurfaces.glassBaseColor(), preferences.getSurfaceGlassShade()) : 0;
-        return GlassShade.cover(tintAlpha, shade);
+        return preferences != null ? preferences.getAppBarOpacity() / 100f : 0f;
     }
 
     /**
