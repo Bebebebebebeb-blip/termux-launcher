@@ -45,9 +45,10 @@ import java.util.Arrays;
  * bent there, the way a prism fans out white light; the middle of a straight edge takes none.
  * Through a frosted rim that split is blurred away, so the corners' gathered light is split as
  * well, red's a little further in than blue's, giving way as the rim's picture clears. That is
- * the Edge slider up to Glint, its 40; past it the outline wears a two-colour split all the way
- * round, a cool fringe at the outline and a warm one just inside it, balanced so the edge keeps
- * its hue, on clear and frosted glass alike. A
+ * the Edge slider up to Glint, its 40; past it the outline's light splits all the way round, a
+ * cool fringe on the outline itself and a warm one right against it inside, balanced so the edge
+ * keeps its hue and strong enough to keep its own colours through the tint, on clear and frosted
+ * glass alike. A
  * pressed extra key adds a lens that magnifies toward the key's centre and eases to nothing at its
  * pill rim, and a finger resting on the glass ({@link Program#setTouch}) lights the rim nearest
  * it, scatters a faint glow under it and draws the picture very slightly toward it.</p>
@@ -156,49 +157,61 @@ public final class GlassRefraction {
         static final float RIM_SPLIT_DP = 2f;
 
         /**
-         * The bold edge past Glint, a chromatic split across the outline all the way round
-         * ({@code kBoldLobeDp}): two fringes this wide each, a cool one at the outline and a warm
-         * one just inside it, on the profile {@code u exp((1 - u²) / 2)} across the depth
-         * ({@link GlassRefraction#boldFringe}), whose two lobes have the same area, so the edge as
-         * a whole keeps its hue. 0.6 dp is about one and a half px on pong (420 dpi); never under
-         * a px.
+         * The bold edge past Glint, the outline's light split as a lens splits it
+         * ({@code kBoldLobeDp}): a cool fringe on the outline's own pixels and a warm one right
+         * against it on the inside, with no gap and no ring of its own, on the profile
+         * {@code u exp((1 - u²) / 2)} across the depth ({@link GlassRefraction#boldProfile}), u in
+         * this width from where the two meet. 0.3 dp is about four fifths of a px on pong
+         * (420 dpi), so there the cool fringe is the outline's px and the warm one the px after
+         * next, about 1.5 dp in all; never under {@link #BOLD_MIN_LOBE_PX}. The first bold edge's
+         * 0.6 dp fringes, met 1.5 dp in, read on pong as a second line just inside the rim.
          */
-        static final float BOLD_LOBE_DP = 0.6f;
+        static final float BOLD_LOBE_DP = 0.3f;
+        /** The narrowest a fringe gets on a low-density screen, in px ({@code kBoldMinPx}). */
+        static final float BOLD_MIN_LOBE_PX = 0.75f;
         /**
-         * Where the two fringes meet, in lobe widths in from the outline ({@code kBoldCentre}):
-         * the cool fringe peaks one lobe width outside it, the warm one a lobe width inside it.
-         * At 2.5 under a twentieth of the cool lobe falls past the outline, so the pair stays
-         * balanced.
+         * Where the two fringes meet, in fringe widths in from the outline ({@code kBoldCentre}):
+         * the cool fringe peaks one width outside that, 0.3 dp in, the warm one a width inside it,
+         * 0.9 dp in. At 2 nearly nine tenths of the cool lobe is inside the glass, so the pair
+         * stays near balanced.
          */
-        static final float BOLD_CENTRE = 2.5f;
+        static final float BOLD_CENTRE = 2f;
         /**
-         * How far past the meeting point the split reaches at all, in lobe widths
-         * ({@code kBoldReach}): the profile is under a thousandth there, well under one 8-bit
-         * step, so pixels further in skip the term. About 3.9 dp from the outline, inside the
-         * gathered light's own reach ({@link #GLOW_REACH_DP}).
+         * How far past the meeting point the split reaches at all, in fringe widths
+         * ({@code kBoldReach}): the profile is under a four-hundredth there, under one 8-bit step
+         * at the strongest mix, so pixels further in skip the term. 1.8 dp from the outline,
+         * inside the gathered light's own reach ({@link #GLOW_REACH_DP}).
          */
         static final float BOLD_REACH = 4f;
         /**
-         * The light each fringe adds at its peak at 100%, before {@code uEdgeGain}
-         * ({@code kBoldLift}), in its own colour ({@link #BOLD_WARM}, {@link #BOLD_COOL}), each
-         * channel held under its own headroom ({@link GlassRefraction#heldK}), so no channel
-         * clips. This is what shows the split over a dark wallpaper.
+         * How far each fringe's peak moves the picture toward its colour at 100%, before
+         * {@code uEdgeGain} ({@code kBoldMix}): the pixel becomes {@code mix(col, colour, m)}.
+         * The gain is {@code 0.9 / (1 - cover)} ({@link #edgeGainFor}), so the mix that survives
+         * the tint drawn over it is about the same 0.36 on every surface up to 60% cover: the
+         * fringe is divided by the tint's transmission in advance. It is a mix toward a full
+         * colour, not light added to the picture, because the tint over it is added in its own
+         * colour: a cyan lift under a gold tint read on pong as a yellow-green line. A pixel
+         * pushed toward full cyan-blue still reads cyan-blue through 60% of gold.
          */
-        static final float BOLD_LIFT = 0.16f;
+        static final float BOLD_MIX = 0.4f;
         /**
-         * How much of the opposite channel each fringe takes away at its peak at 100%
-         * ({@code kBoldCut}): blue under the warm fringe, red under the cool one. A pale
-         * wallpaper has little headroom left for the light, so this is what shows the split
-         * there; it never clips.
+         * The most a fringe's pixel moves toward its colour ({@code kBoldMixMax}), what
+         * {@link #BOLD_MIX} reaches at {@link #MAX_EDGE_GAIN}: the picture always shows through,
+         * and a channel never reaches 0 or the alpha unless the picture's own already sat there.
          */
-        static final float BOLD_CUT = 0.22f;
-        /** The warm fringe's colour, an orange red ({@code kBoldWarm}). */
-        static final float[] BOLD_WARM = {1f, 0.56f, 0.12f};
+        static final float BOLD_MIX_MAX = 0.9f;
         /**
-         * The cool fringe's colour, a cyan blue ({@code kBoldCool}): the warm one's mirror, so the
-         * two add to a grey and the pair keeps the edge's hue.
+         * The warm fringe's colour, an orange ({@code kBoldWarm}), hue 27 degrees: a little
+         * redder than mid orange, so through 60% of a cool tint it still reads orange (about 40
+         * degrees), not yellow.
          */
-        static final float[] BOLD_COOL = {0.12f, 0.56f, 1f};
+        static final float[] BOLD_WARM = {1f, 0.45f, 0f};
+        /**
+         * The cool fringe's colour, an azure ({@code kBoldCool}), hue 213 degrees: the warm one's
+         * mirror, so the two add to a near grey and the pair keeps the edge's hue. Through 60% of
+         * a gold tint it reads cyan-blue (about 190 to 200 degrees), not green.
+         */
+        static final float[] BOLD_COOL = {0f, 0.45f, 1f};
 
         /**
          * The clarity at which the sharp picture carries Glint's fringe by itself, so the gathered
@@ -554,18 +567,19 @@ public final class GlassRefraction {
         "const float kGlintDisp = " + Look.GLINT_SHARE + ";\n" +
         "const float kRimSplitDp = 2.0;\n" +
         "const float kSharpClarity = 0.76;\n" +
-        // The bold edge past Glint, a two-colour split across the outline: each fringe's width in
-        // dp, where they meet and how far past it the split reaches in fringe widths, the light
-        // each adds and the opposite channel each takes at its peak, and their two colours.
-        // Look.BOLD_LOBE_DP, BOLD_CENTRE, BOLD_REACH, BOLD_LIFT, BOLD_CUT, BOLD_WARM and
-        // BOLD_COOL in Java.
-        "const float kBoldLobeDp = 0.6;\n" +
-        "const float kBoldCentre = 2.5;\n" +
+        // The bold edge past Glint, the outline's light split in two: each fringe's width in dp
+        // and the least in px, where they meet and how far past it the split reaches in fringe
+        // widths, how far a fringe's peak mixes toward its colour per unit of uEdgeGain and at
+        // most, and the two colours. Look.BOLD_LOBE_DP, BOLD_MIN_LOBE_PX, BOLD_CENTRE, BOLD_REACH,
+        // BOLD_MIX, BOLD_MIX_MAX, BOLD_WARM and BOLD_COOL in Java.
+        "const float kBoldLobeDp = 0.3;\n" +
+        "const float kBoldMinPx = 0.75;\n" +
+        "const float kBoldCentre = 2.0;\n" +
         "const float kBoldReach = 4.0;\n" +
-        "const float kBoldLift = 0.16;\n" +
-        "const float kBoldCut = 0.22;\n" +
-        "const float3 kBoldWarm = float3(1.0, 0.56, 0.12);\n" +
-        "const float3 kBoldCool = float3(0.12, 0.56, 1.0);\n" +
+        "const float kBoldMix = 0.4;\n" +
+        "const float kBoldMixMax = 0.9;\n" +
+        "const float3 kBoldWarm = float3(1.0, 0.45, 0.0);\n" +
+        "const float3 kBoldCool = float3(0.0, 0.45, 1.0);\n" +
         "float sdRoundRect(float2 p, float2 b, float r) {\n" +
         "    float2 q = abs(p) - b + float2(r, r);\n" +
         "    return min(max(q.x, q.y), 0.0) + length(max(q, float2(0.0, 0.0))) - r;\n" +
@@ -735,26 +749,25 @@ public final class GlassRefraction {
         "            col.rgb = min(half3(col.a), col.rgb * half(1.0 + kGain * k) + half3(kLift * k));\n" +
         "        }\n" +
         "    }\n" +
-        // The bold edge past Glint: a two-colour split across the outline, on every side and at
-        // every clarity, as strong as boldS. Across the depth it follows u exp((1 - u^2) / 2), u
-        // in fringe widths from where the two meet: a cool fringe at the outline (u < 0) and a
-        // warm one just inside it (u > 0), mirror images of the same area, so the edge as a whole
-        // keeps its hue. Each adds light in its colour, each channel held under its own headroom
-        // (heldK), which shows over a dark wallpaper, and takes the opposite channel down, which
-        // shows over a pale one where the light has no room left. Nothing clips. Up to Glint
-        // boldS is 0 and nothing here runs. boldFringe in Java.
+        // The bold edge past Glint: the outline's light split as a lens splits it, on every side
+        // and at every clarity, as strong as boldS. Across the depth it follows
+        // u exp((1 - u^2) / 2), u in fringe widths from where the two meet: a cool fringe on the
+        // outline's own pixels (u < 0) and a warm one right against it inside (u > 0), mirror
+        // images, so the edge as a whole keeps its hue, and nothing past 1.8 dp, so no second
+        // ring. Each pixel is mixed toward its fringe's full colour, by a share divided by the
+        // tint's transmission in advance (uEdgeGain), so what shows through the tint is about the
+        // same on every surface and keeps its own hue over the tint's: a mix toward a full colour
+        // outweighs the tint laid over it, where added light was recoloured by it. A mix of two
+        // colours under the alpha never clips. Up to Glint boldS is 0 and nothing here runs.
+        // boldFringe in Java.
         "    if (boldS > 0.0) {\n" +
-        "        float bw = max(kBoldLobeDp * uDensity, 1.0);\n" +
+        "        float bw = max(kBoldLobeDp * uDensity, kBoldMinPx);\n" +
         "        float bu = max(inside, 0.0) / bw - kBoldCentre;\n" +
         "        if (bu < kBoldReach) {\n" +
-        "            float bs = bu * exp(0.5 * (1.0 - bu * bu)) * boldS;\n" +
-        "            float bWarm = max(bs, 0.0);\n" +
-        "            float bCool = max(-bs, 0.0);\n" +
-        "            float ba = float(col.a);\n" +
-        "            float3 bc = float3(col.rgb) * float3(1.0 - kBoldCut * bCool, 1.0, 1.0 - kBoldCut * bWarm);\n" +
-        "            float3 badd = (bWarm * kBoldWarm + bCool * kBoldCool) * (kBoldLift * uEdgeGain);\n" +
-        "            col.rgb = half3(bc + float3(heldK(badd.r, max(ba - bc.r, 0.0)),\n" +
-        "                heldK(badd.g, max(ba - bc.g, 0.0)), heldK(badd.b, max(ba - bc.b, 0.0))));\n" +
+        "            float bs = bu * exp(0.5 * (1.0 - bu * bu));\n" +
+        "            float bm = min(abs(bs) * boldS * kBoldMix * uEdgeGain, kBoldMixMax);\n" +
+        "            float3 bt = (bs > 0.0 ? kBoldWarm : kBoldCool) * float(col.a);\n" +
+        "            col.rgb = half3(mix(float3(col.rgb), bt, bm));\n" +
         "        }\n" +
         "    }\n" +
         // The pressed key's glow and the faint scatter under a finger stay small additive light.
@@ -954,39 +967,44 @@ public final class GlassRefraction {
 
     /**
      * The program's bold edge's profile across the depth, {@code u exp((1 - u²) / 2)} with
-     * {@code u} in fringe widths ({@link Look#BOLD_LOBE_DP}, never under a px) from where the two
-     * fringes meet ({@link Look#BOLD_CENTRE}): -1 at the cool fringe's peak, 1 at the warm one's,
-     * 0 from {@link Look#BOLD_REACH} past the meeting point, where the program skips the term.
+     * {@code u} in fringe widths ({@link Look#BOLD_LOBE_DP}, never under
+     * {@link Look#BOLD_MIN_LOBE_PX}) from where the two fringes meet ({@link Look#BOLD_CENTRE}):
+     * -1 at the cool fringe's peak, 1 at the warm one's, 0 from {@link Look#BOLD_REACH} past the
+     * meeting point, where the program skips the term.
      */
     static float boldProfile(float insidePx, float density) {
-        float w = Math.max(Look.BOLD_LOBE_DP * density, 1f);
+        float w = Math.max(Look.BOLD_LOBE_DP * density, Look.BOLD_MIN_LOBE_PX);
         float u = Math.max(insidePx, 0f) / w - Look.BOLD_CENTRE;
         if (u >= Look.BOLD_REACH) return 0f;
         return u * (float) Math.exp(0.5f * (1f - u * u));
     }
 
     /**
+     * The program's {@code bm}: how far the bold edge mixes a pixel {@code insidePx} in toward
+     * its fringe's colour, 0..{@link Look#BOLD_MIX_MAX}: the profile's size
+     * ({@link #boldProfile}) times {@code boldS} ({@link #boldShare}), {@link Look#BOLD_MIX} and
+     * {@code edgeGain}.
+     */
+    static float boldMix(float insidePx, float density, float boldS, float edgeGain) {
+        return Math.min(Math.abs(boldProfile(insidePx, density)) * boldS * Look.BOLD_MIX * edgeGain,
+            Look.BOLD_MIX_MAX);
+    }
+
+    /**
      * The program's bold edge, on a premultiplied colour {@code rgb} (already lit) at alpha
      * {@code a}, in place: at {@code boldS} ({@link #boldShare}) of its strength, a pixel
-     * {@code insidePx} in from the outline takes the cool fringe or the warm one
-     * ({@link #boldProfile}). Each adds {@link Look#BOLD_LIFT} times {@code edgeGain} of light in
-     * its colour ({@link Look#BOLD_WARM}, {@link Look#BOLD_COOL}) at its peak, each channel held
-     * under its own headroom ({@link #heldK}), and takes {@link Look#BOLD_CUT} of the opposite
-     * channel: blue under the warm fringe, red under the cool one. Nothing at {@code boldS} 0.
+     * {@code insidePx} in from the outline is mixed toward the cool fringe's colour or the warm
+     * one's ({@link Look#BOLD_COOL}, {@link Look#BOLD_WARM}, premultiplied by {@code a}) by
+     * {@link #boldMix}. A mix of two colours under the alpha stays under it. Nothing at
+     * {@code boldS} 0.
      */
     static void boldFringe(@NonNull float[] rgb, float a, float insidePx, float density,
                            float boldS, float edgeGain) {
         if (boldS <= 0f) return;
-        float s = boldProfile(insidePx, density) * boldS;
-        float warm = Math.max(s, 0f);
-        float cool = Math.max(-s, 0f);
-        float[] c = {rgb[0] * (1f - Look.BOLD_CUT * cool), rgb[1],
-            rgb[2] * (1f - Look.BOLD_CUT * warm)};
-        for (int i = 0; i < 3; i++) {
-            float add = (warm * Look.BOLD_WARM[i] + cool * Look.BOLD_COOL[i])
-                * (Look.BOLD_LIFT * edgeGain);
-            rgb[i] = c[i] + heldK(add, Math.max(a - c[i], 0f));
-        }
+        float s = boldProfile(insidePx, density);
+        float m = boldMix(insidePx, density, boldS, edgeGain);
+        float[] colour = s > 0f ? Look.BOLD_WARM : Look.BOLD_COOL;
+        for (int i = 0; i < 3; i++) rgb[i] = rgb[i] * (1f - m) + colour[i] * a * m;
     }
 
     /**

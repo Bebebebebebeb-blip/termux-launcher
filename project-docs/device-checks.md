@@ -152,12 +152,14 @@ under twenty items; past that, the oldest are re-judged first.
   and Tint at 0. Edge 0, 40, 70, 100 on Clear and on Mist, both themes: each step a plainly
   stronger split; seams (keyboard over strip, status over window bar) show no line · emulator
   tl16, top-edge and corner crops per value. On pong the first bold edge read as a red band on a
-  dark wallpaper; "fix(glass): Edge past 40 is a warm and a cool fringe" replaces it. Recheck
-  Clear and Mist at Edge 100 over Celestial Field (dark) and a pale wallpaper: every edge of the
-  dock, panes, status band and keyboard wears a thin cyan-blue line at the outline and an orange
-  line just inside it (about 4 dp in all), both visible on the dark and the pale wallpaper, the
-  edge as a whole not redder or bluer than at 40, nothing white-clipped; Edge 40 identical to
-  before (same crop boxes as `codex-emu4/sheets`).
+  dark wallpaper, and its successor as a separate yellow-green border just inside every
+  surface under a gold Look; "fix(glass): Edge past 40 splits the rim's light" replaces both.
+  Recheck Clear, Mist and a gold-tinted Look at Edge 100 over Celestial Field (dark) and a pale
+  wallpaper: every edge of the dock, panes, status band and keyboard wears a cyan-blue px on the
+  outline itself and an orange one right against it (about 1.5 dp in all), no gap and no line
+  further in, both visible on the dark and the pale wallpaper, the cool side cyan-blue (not
+  green) under the gold tint, the edge as a whole not redder or bluer than at 40, nothing
+  white-clipped; Edge 40 identical to before (same crop boxes as `codex-emu4/sheets`).
 - 2026-10-17 · same branch, "feat(glass): retire Shade" · An install whose store or saved Custom
   had Shade 60 comes up with the face as at Shade 0 and no Shade column; the chrome, terminal, A-Z
   and key legends readable on Clear and Mist over a pale and a dark wallpaper, both themes ·
@@ -268,12 +270,17 @@ under twenty items; past that, the oldest are re-judged first.
   pong.
 - 2026-10-17 · same branch, "feat(glass): Edge is a slider" (replaces the Prism rows: on pong
   Glint and Prism looked alike) · Taste at arm's length, dark and light, Celestial Field: Edge 100
-  on Clear and on Mist is a clearly visible two-colour split all round (cool at the outline, warm
-  just inside it), on a dark and a pale wallpaper, thin and not a rainbow cartoon, and the edge
-  does not read red overall; 40 is Clear's glint as before; the slider feels even from 40 to 100;
-  Edge drags stay smooth. Knobs: `Look.BOLD_LIFT` 0.16 (each fringe's light, what shows on a
-  dark wallpaper), `BOLD_CUT` 0.22 (what shows on a pale one), `BOLD_LOBE_DP` 0.6 (each
-  fringe's width), `BOLD_WARM`/`BOLD_COOL` (the two colours) · pong.
+  on Clear, on Mist and on a warm/gold Look reads as light splitting at the glass rim, a crisp
+  spectral edge on the outline itself (cyan-blue on the outer px, orange right inside), never a
+  separate coloured border, on a dark and a pale wallpaper, and the edge does not read red
+  overall; compare against the 10-17 shot of the old one, Edge 100 on a gold Look over the cat
+  wallpaper, where a yellow-green line ran inside every edge:
+  `/tmp/claude-1000/-home-amalvajdan-Projects-termux-launcher-app-termux-launcher/ff00a939-66f3-41a9-acb3-82df73313d71/scratchpad/pong-edge100.png`
+  (dock crop `pong-edge100-dock.png` beside it; /tmp, so copy it out before a reboot). 40 is
+  Clear's glint as before; the slider feels even from 40 to 100; Edge drags stay smooth. Knobs:
+  `Look.BOLD_MIX` 0.4 (how far a fringe's peak mixes toward its colour per unit of the cover
+  gain, the strength), `BOLD_LOBE_DP` 0.3 and `BOLD_CENTRE` 2 (width and where the two meet),
+  `BOLD_WARM`/`BOLD_COOL` (the two colours) · pong.
 
 - 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · The edge reads
   as light, not an outline, on every surface; on Mist and Solid (and the sheet and chip, floored
