@@ -180,6 +180,14 @@ under twenty items; past that, the oldest are re-judged first.
   Recheck that route at Glass 20 and 75, Keys 0, then Keys 50: every legend legible on every row
   (a light veil rising where needed, not milky past that); dark theme the same route; the theme's
   own key opacity over dark grass and a pale wallpaper unchanged in look.
+- 2026-10-17 · same branch, "fix(keyboard): legends re-judged when the keyboard's own frame
+  lands" · Light theme, keyboard card, Keys 0, Opacity 10, Tint 0 over the dark grass: tap and
+  drag Glass 20→0, release, capture at once and again 1 s later: the second capture shows every
+  legend (letters, Ctrl, Alt, Fn, 123+, Shift, arrows, Backspace, Enter, the number row) legible,
+  with no further edit. Unit model says they stay dark over a light veil (about 54%), not pale:
+  note which the device shows, and whether a fresh start on the same settings shows the same tone.
+  The same in the editor's live preview; no flicker or repeated repaint after the release
+  (gfxinfo flat once settled) · emulator tl16, two crops per step.
 - 2026-10-17 · same branch, "feat(looks): Mist is 35% on light glass" · Light theme: picking Mist
   shows Opacity 35 and the stop reads Mist; switching the theme dark→light→dark with Mist on moves
   it 60→35→60 and the stop stays Mist; a Custom at 50 keeps 50 across the switch · emulator tl16,
