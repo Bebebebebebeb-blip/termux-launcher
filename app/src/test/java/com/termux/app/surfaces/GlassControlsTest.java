@@ -96,7 +96,7 @@ public class GlassControlsTest {
     public void edgeColourHasThreeStepsAndReadsAStoredValueAsTheNearest() {
         assertEquals(0, GlassControls.Dispersion.OFF.percent);
         assertEquals("Clear's glint", 40, GlassControls.Dispersion.GLINT.percent);
-        assertEquals("twice Glint", 80, GlassControls.Dispersion.PRISM.percent);
+        assertEquals("Prism", 80, GlassControls.Dispersion.PRISM.percent);
         assertEquals(GlassControls.Dispersion.OFF, GlassControls.Dispersion.of(0));
         assertEquals(GlassControls.Dispersion.OFF, GlassControls.Dispersion.of(19));
         assertEquals("the lower on a tie", GlassControls.Dispersion.OFF,

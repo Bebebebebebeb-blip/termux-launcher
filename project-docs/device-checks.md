@@ -199,6 +199,11 @@ under twenty items; past that, the oldest are re-judged first.
   (`GlassFrameTint.MAX_STRENGTH` 0.42, `MAX_CHROMA` 0.6, fade-out at Opacity 45) are the knobs. A
   Tint or Opacity drag stays smooth, the glass behind catches up once after release (one re-blur) ·
   pong.
+- 2026-10-17 · same branch, "fix(glass): Prism is a plain step past Glint" · At arm's length on
+  Clear, Mist and Tint: Prism's corner fringe (red/blue split in the edge, and on Clear in the rim's
+  picture) is plainly stronger and wider than Glint's, Glint looks as before, no rainbow outline
+  along straight edges, nothing white-clipped. Knobs: `MAX_DISPERSION_SHARE` 0.08 (Prism 0.06),
+  `RIM_SPLIT_DP` 2.0 (Prism 1.5 dp) · pong.
 
 - 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · The edge reads
   as light, not an outline, on every surface; on Mist and Solid (and the sheet and chip, floored

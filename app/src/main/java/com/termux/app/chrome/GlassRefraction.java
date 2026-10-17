@@ -112,21 +112,34 @@ public final class GlassRefraction {
 
         /**
          * How far red and blue part from green at 100%, as a share of the local pull, at a corner;
-         * nothing at the middle of a straight edge ({@link GlassRefraction#cornerWeight}). Clear's
-         * 40% is Haze Clear's 0.02, a glint at the corners, not a rainbow.
+         * nothing at the middle of a straight edge ({@link GlassRefraction#cornerWeight}). Up to
+         * Glint's 40% the share grows along {@link #GLINT_SLOPE} (Clear's 40% is Haze
+         * Clear's 0.02, a glint at the corners, not a rainbow); past it three times as steeply,
+         * so Prism's 80% is 0.06, three times Glint's fringe: at 0.04 (twice) it could not be told
+         * from Glint on pong (2026-10-17). 100% is 0.08.
          */
-        static final float MAX_DISPERSION_SHARE = 0.05f;
+        static final float MAX_DISPERSION_SHARE = 0.08f;
+        /**
+         * The share up to Glint's 40%, per whole of the percentage: the old cap's 0.05, so every
+         * value up to Glint (0.02) draws exactly what it drew.
+         */
+        static final float GLINT_SLOPE = 0.05f;
+        /** The Edge colour pill's Glint, percent ({@code GlassControls.Dispersion}): where the slope steepens. */
+        static final int GLINT_PERCENT = 40;
 
         /** How much of the clearer picture the band shows at the rim at 100%: all of it. */
         static final float MAX_CLARITY = 1f;
 
         /**
-         * How far red's and blue's gathered light part at a corner at 100% dispersion, in dp
-         * ({@code kRimSplitDp}): Glint (40%) half a dp, Prism (80%) one. The light fades over
-         * {@link #GLOW_DP}, so half a dp moves one channel's light by about two fifths against
-         * green's at the corner: a glint, not a rainbow, and nothing along a straight edge.
+         * How far red's and blue's gathered light part at a corner at the full share
+         * ({@link #MAX_DISPERSION_SHARE}, {@code kRimSplitDp}), in proportion to the share below it:
+         * 25 dp per unit of share, so Glint (0.02) half a dp, as before, and Prism (0.06) one and
+         * a half. The light fades over {@link #GLOW_DP}, so Glint's half dp moves one channel's
+         * light by about two fifths against green's at the corner, a glint; Prism's moves it
+         * about threefold there, each channel still held under its headroom ({@link #heldK}), and
+         * nothing along a straight edge.
          */
-        static final float RIM_SPLIT_DP = 1.25f;
+        static final float RIM_SPLIT_DP = 2f;
 
         /**
          * The clarity at which the sharp picture carries the dispersion fringe by itself, so the
@@ -297,7 +310,12 @@ public final class GlassRefraction {
          * corner, 0..{@link #MAX_DISPERSION_SHARE}.
          */
         public float dispersion() {
-            return share(dispersionPercent) * MAX_DISPERSION_SHARE;
+            int percent = Math.max(0, Math.min(100, dispersionPercent));
+            if (percent <= GLINT_PERCENT)
+                return share(percent) * GLINT_SLOPE;
+            float glint = share(GLINT_PERCENT) * GLINT_SLOPE;
+            return glint + (percent - GLINT_PERCENT) / (float) (100 - GLINT_PERCENT)
+                * (MAX_DISPERSION_SHARE - glint);
         }
 
         /** {@code uClarity}: how much of the clearer picture the rim shows, 0..{@link #MAX_CLARITY}. */
@@ -461,8 +479,8 @@ public final class GlassRefraction {
         // Dispersion on the gathered light: uDisp's full share, how far red's and blue's light
         // part at a corner at 100% in dp, and the clarity at which the sharp picture carries the
         // fringe by itself. Look.MAX_DISPERSION_SHARE, RIM_SPLIT_DP and SHARP_CLARITY in Java.
-        "const float kMaxDisp = 0.05;\n" +
-        "const float kRimSplitDp = 1.25;\n" +
+        "const float kMaxDisp = 0.08;\n" +
+        "const float kRimSplitDp = 2.0;\n" +
         "const float kSharpClarity = 0.76;\n" +
         "float sdRoundRect(float2 p, float2 b, float r) {\n" +
         "    float2 q = abs(p) - b + float2(r, r);\n" +

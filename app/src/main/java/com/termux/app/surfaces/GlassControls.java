@@ -133,8 +133,9 @@ public final class GlassControls {
 
     /**
      * The edge's colour split at the corners, in three steps over the stored dispersion
-     * percentage: Off, Glint (Clear's 40, a fiftieth of the pull) and Prism (twice Glint, a
-     * provisional value for tuning). A stored value between steps reads as the nearest, the lower
+     * percentage: Off, Glint (Clear's 40, a fiftieth of the pull) and Prism (80, three times
+     * Glint's split: the share steepens past Glint, {@code GlassRefraction.Look#dispersion}). A
+     * stored value between steps reads as the nearest, the lower
      * on a tie.
      */
     public enum Dispersion {

@@ -72,9 +72,14 @@ public class GlassRefractionTest {
 
     @Test
     public void dispersionIsAShareOfThePullAndIsClamped() {
-        // 100% parts the colours by a twentieth of the pull; Clear's 40% is Haze Clear's 0.02.
-        assertEquals(0.05f, GlassRefraction.Look.MAX_DISPERSION_SHARE, 0f);
+        // 100% parts the colours by 0.08 of the pull; Clear's 40% is Haze Clear's 0.02, and up
+        // to it every value is what it was (0.05 per whole), Prism's 80 is 0.06.
+        assertEquals(0.08f, GlassRefraction.Look.MAX_DISPERSION_SHARE, 0f);
         assertEquals(0.02f, new GlassRefraction.Look(27, 18, 10, 0, 40).dispersion(), 1e-6f);
+        assertEquals("Glint exactly as it was", 0.4f * 0.05f,
+            new GlassRefraction.Look(27, 18, 10, 0, 40).dispersion(), 0f);
+        assertEquals(0.25f * 0.05f, new GlassRefraction.Look(27, 18, 10, 0, 25).dispersion(), 0f);
+        assertEquals(0.06f, new GlassRefraction.Look(27, 18, 10, 0, 80).dispersion(), 1e-6f);
         assertEquals(GlassRefraction.Look.MAX_DISPERSION_SHARE,
             new GlassRefraction.Look(0, 1, 0, 0, 100).dispersion(), 1e-4f);
         assertEquals(GlassRefraction.Look.MAX_DISPERSION_SHARE,
@@ -760,13 +765,68 @@ public class GlassRefractionTest {
         }
     }
 
-    /** The Edge colour pill's Prism is twice Glint and stays under the program's share cap. */
+    /**
+     * The Edge colour pill's Prism splits the picture three times as far as Glint at a corner
+     * (Clear's sharp rim shows that split itself) and stays under the program's share cap.
+     */
     @Test
-    public void prismSplitsTwiceGlintAndUnderTheCap() {
+    public void prismSplitsThreeTimesGlintAndUnderTheCap() {
         GlassRefraction.Look glint = new GlassRefraction.Look(27, 18, 10, 0, 40, 76);
         GlassRefraction.Look prism = new GlassRefraction.Look(27, 18, 10, 0, 80, 76);
-        assertEquals(2f * glint.dispersion(), prism.dispersion(), 1e-6f);
+        assertEquals(3f * glint.dispersion(), prism.dispersion(), 1e-6f);
         assertTrue(prism.dispersion() <= GlassRefraction.Look.MAX_DISPERSION_SHARE);
+        float bx = 300f, by = 200f;
+        float pull = glint.strengthPx(DENSITY);
+        float corner = GlassRefraction.cornerWeight(-bx, -by, bx, by);
+        assertTrue("the corner takes the split", corner > 0.5f);
+        assertTrue("Prism's sampled fringe at the corner at least 2.5x Glint's",
+            pull * prism.dispersion() * corner >= 2.5f * pull * glint.dispersion() * corner);
+    }
+
+    /**
+     * On a clarity-0 Look (Mist, Tint) the gathered light carries the fringe: at a corner, red's
+     * light over blue's summed across the depth it covers (the fringe's whole amount) is at least
+     * 2.5 times Glint's under Prism (calc 2.6 to 2.9; the peak alone is held by heldK to about
+     * twice), and no channel passes the sample's alpha, bright or dark.
+     */
+    @Test
+    public void prismsFringeOnTheLightIsPlainlyPastGlintsAndNeverClips() {
+        GlassRefraction.Look glint = new GlassRefraction.Look(24, 16, 10, 0, 40, 0);
+        GlassRefraction.Look prism = new GlassRefraction.Look(24, 16, 10, 0, 80, 0);
+        float glintSplit = GlassRefraction.rimSplitPx(glint.dispersion(), 0f, 1f, DENSITY);
+        float prismSplit = GlassRefraction.rimSplitPx(prism.dispersion(), 0f, 1f, DENSITY);
+        assertEquals("Glint half a dp, as before", 0.5f * DENSITY, glintSplit, 1e-4f);
+        assertEquals("Prism one and a half", 1.5f * DENSITY, prismSplit, 1e-4f);
+        float d = (float) Math.sqrt(0.5);
+        float[] out = new float[3];
+        for (float gain : new float[] {1f, GlassRefraction.Look.MAX_EDGE_GAIN}) {
+            for (float grey : new float[] {0.15f, 0.3f, 0.5f, 0.7f}) {
+                float glintFringe = 0f;
+                float prismFringe = 0f;
+                for (int i = 0; i < 400; i++) {
+                    float inside = i * 0.025f * DENSITY;
+                    GlassRefraction.gatheredLitSplit(grey, grey, grey, 1f, inside, DENSITY, -d, -d,
+                        gain, glintSplit, out);
+                    glintFringe += (out[0] - out[2]) * 0.025f;
+                    GlassRefraction.gatheredLitSplit(grey, grey, grey, 1f, inside, DENSITY, -d, -d,
+                        gain, prismSplit, out);
+                    prismFringe += (out[0] - out[2]) * 0.025f;
+                }
+                assertTrue(gain + "/" + grey + ": Prism " + prismFringe + " vs Glint " + glintFringe,
+                    prismFringe >= 2.5f * glintFringe && glintFringe > 0f);
+            }
+        }
+        for (float[] c : new float[][] {{1f, 1f, 1f}, {0.95f, 0.95f, 0.95f}, {0.9f, 0.6f, 0.3f},
+                {0.3f, 0.6f, 0.95f}}) {
+            for (int i = 0; i <= 12; i++) {
+                GlassRefraction.gatheredLitSplit(c[0], c[1], c[2], 1f, i * 0.25f * DENSITY, DENSITY,
+                    -d, -d, GlassRefraction.Look.MAX_EDGE_GAIN, prismSplit, out);
+                for (float channel : out) assertTrue("held under white: " + channel, channel <= 1f);
+            }
+            GlassRefraction.gatheredLitSplit(c[0] * 0.5f, c[1] * 0.5f, c[2] * 0.5f, 0.5f, 0f,
+                DENSITY, -d, -d, GlassRefraction.Look.MAX_EDGE_GAIN, prismSplit, out);
+            for (float channel : out) assertTrue("held under its alpha", channel <= 0.5f);
+        }
     }
 
     /**
@@ -803,7 +863,7 @@ public class GlassRefractionTest {
     public void dispersionSplitsTheLightAtClarityZero() {
         GlassRefraction.Look mistPrism = new GlassRefraction.Look(24, 16, 10, 0, 80, 0);
         float corner = GlassRefraction.rimSplitPx(mistPrism.dispersion(), mistPrism.clarity(), 1f, DENSITY);
-        assertEquals("Prism parts the light a dp at the corner", 1f * DENSITY, corner, 1e-4f);
+        assertEquals("Prism parts the light a dp and a half at the corner", 1.5f * DENSITY, corner, 1e-4f);
         assertEquals("nothing along a straight edge", 0f,
             GlassRefraction.rimSplitPx(mistPrism.dispersion(), 0f, 0f, DENSITY), 0f);
         GlassRefraction.Look mistOff = new GlassRefraction.Look(24, 16, 10, 0, 0, 0);
