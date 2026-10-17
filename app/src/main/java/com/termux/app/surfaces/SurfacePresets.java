@@ -104,7 +104,8 @@ public final class SurfacePresets {
         // sand; 7 is the same faint tooth. Obsidian's ink, untinted (Tint 0). The edge is a little
         // shallower than Clear's (bend 24 over an edge of
         // 16, Depth 80), bent through the frost itself (clarity 0, as Haze's Regular) and with no
-        // fringe; light 10 as Clear's.
+        // fringe; light 10 as Clear's. On light glass (the white Obsidian ink) its opacity is 35,
+        // not 60, which reads as milk there (MIST_LIGHT_OPACITY, presets(boolean)).
         preset("frost", R.string.termux_surface_preset_frost,
             TERMUX_APP.SURFACE_MATERIAL_FROST, 50, GlassControls.blurForGlass(GlassControls.MIST),
             60, GlassControls.grainForGlass(GlassControls.MIST), 0, 24, 16, 10, 0, 0, 0,
@@ -211,7 +212,7 @@ public final class SurfacePresets {
     /** The shipped Look the live look is at one of its earlier edges, or null. */
     @Nullable
     static Preset lookOnEarlierEdges(@NonNull TermuxAppSharedPreferences prefs) {
-        for (Preset preset : PRESETS) {
+        for (Preset preset : presets(prefs)) {
             int[][] earlier = EARLIER_EDGES.get(preset.id);
             if (earlier == null)
                 continue;
@@ -245,7 +246,7 @@ public final class SurfacePresets {
      */
     @Nullable
     static Preset lookAsShippedBeforeFormat5(@NonNull TermuxAppSharedPreferences prefs) {
-        for (Preset preset : PRESETS) {
+        for (Preset preset : presets(prefs)) {
             LinkedHashMap<String, Object> values = new LinkedHashMap<>(preset.values);
             int[] blurGrain = BLUR_GRAIN_BEFORE_FORMAT_5.get(preset.id);
             if (blurGrain != null) {
@@ -325,9 +326,101 @@ public final class SurfacePresets {
             TERMUX_APP.DEFAULT_SURFACE_GLASS_VIBRANCY);
     }
 
+    /** The Looks as they ship on dark glass; {@link #presets(boolean)} for the glass on screen. */
     @NonNull
     public static List<Preset> presets() {
         return PRESETS;
+    }
+
+    // --------------------------------------------------------------- Mist on light glass
+
+    /**
+     * Mist's Base opacity where its glass is light, the white Obsidian ink: sixty of white over the
+     * wallpaper reads as milk (pass 2, 2026-10-17). Every other value of Mist, and every other
+     * Look, is the same on either glass.
+     */
+    static final int MIST_LIGHT_OPACITY = 35;
+
+    /**
+     * Whether the glass the Looks were last written for is light; absent is dark, the one glass
+     * Mist had before {@link #MIST_LIGHT_OPACITY}. Moved by {@link #followGlassTheme} only.
+     */
+    static final String KEY_LOOKS_LIGHT_GLASS = "surface_looks_light_glass";
+
+    private static final List<Preset> LIGHT_PRESETS = Collections.unmodifiableList(lightPresets());
+
+    private static List<Preset> lightPresets() {
+        java.util.ArrayList<Preset> light = new java.util.ArrayList<>(PRESETS.size());
+        for (Preset preset : PRESETS) {
+            if (!"frost".equals(preset.id)) {
+                light.add(preset);
+                continue;
+            }
+            LinkedHashMap<String, Object> values = new LinkedHashMap<>(preset.values);
+            values.put(TERMUX_APP.KEY_SURFACE_BASE_OPACITY, MIST_LIGHT_OPACITY);
+            light.add(new Preset(preset.id, preset.nameRes, values));
+        }
+        return light;
+    }
+
+    /** The Looks as they ship on light glass ({@code lightGlass}) or on dark. */
+    @NonNull
+    public static List<Preset> presets(boolean lightGlass) {
+        return lightGlass ? LIGHT_PRESETS : PRESETS;
+    }
+
+    /**
+     * The Looks for the glass the store was last brought to ({@link #followGlassTheme}): what the
+     * editor applies a Look from and recognises one by, so Mist reads as Mist on either glass.
+     */
+    @NonNull
+    public static List<Preset> presets(@NonNull TermuxAppSharedPreferences prefs) {
+        return presets(isLightGlass(prefs));
+    }
+
+    /** Whether the store's Looks were last written for light glass. */
+    static boolean isLightGlass(@NonNull TermuxAppSharedPreferences prefs) {
+        SharedPreferences store = prefs.getSharedPreferences();
+        return store != null && store.getBoolean(KEY_LOOKS_LIGHT_GLASS, false);
+    }
+
+    /**
+     * The glass went light or dark (a theme, scheme or wallpaper-mode change; or the first pass
+     * after an update, for a store never told): a live look that is the shipped Mist as it stands
+     * on the glass it was written for takes Mist as it ships on this one, so its stop stays Mist.
+     * Any other look, Custom and the stored Custom copy included, is left as it is. Cheap when
+     * nothing moved, one stored boolean compared, so it runs on every chrome pass.
+     *
+     * @return true when the store was written
+     */
+    public static boolean followGlassTheme(@NonNull TermuxAppSharedPreferences prefs,
+                                           boolean lightGlass) {
+        SharedPreferences store = prefs.getSharedPreferences();
+        if (store == null)
+            return false;
+        boolean was = store.getBoolean(KEY_LOOKS_LIGHT_GLASS, false);
+        if (was == lightGlass)
+            return false;
+        Batch batch = new Batch(store);
+        TermuxAppSharedPreferences into = writingInto(prefs, batch);
+        Preset mistBefore = byId(presets(was), "frost");
+        if (mistBefore != null && matches(into, mistBefore)) {
+            Preset mistNow = byId(presets(lightGlass), "frost");
+            if (mistNow != null)
+                apply(into, mistNow);
+        }
+        batch.edit().putBoolean(KEY_LOOKS_LIGHT_GLASS, lightGlass).apply();
+        batch.applyToStore();
+        return true;
+    }
+
+    @Nullable
+    private static Preset byId(@NonNull List<Preset> presets, @NonNull String id) {
+        for (Preset preset : presets) {
+            if (preset.id.equals(id))
+                return preset;
+        }
+        return null;
     }
 
     // ------------------------------------------------------------------ Layout's global shape

@@ -208,6 +208,14 @@ public final class GlassLook {
         return (Math.round(outA * 255f) << 24) | rgb;
     }
 
+    /**
+     * Whether glass mixed from {@code schemeBase} is light: the scheme base is pale, so Obsidian
+     * glass wears its white ink. What a Look whose values differ by glass is chosen by.
+     */
+    public static boolean isLightGlass(@ColorInt int schemeBase) {
+        return !isDark(schemeBase);
+    }
+
     static boolean isDark(@ColorInt int color) {
         double brightness = 0.299 * ((color >> 16) & 0xFF) + 0.587 * ((color >> 8) & 0xFF)
             + 0.114 * (color & 0xFF);

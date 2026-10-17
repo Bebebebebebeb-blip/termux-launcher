@@ -1246,7 +1246,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         TermuxAppSharedPreferences prefs = prefs();
         if (prefs == null)
             return AppearanceLooks.CUSTOM_STOP;
-        for (SurfacePresets.Preset preset : SurfacePresets.presets()) {
+        for (SurfacePresets.Preset preset : SurfacePresets.presets(prefs)) {
             if (SurfacePresets.matches(prefs, preset))
                 return AppearanceLooks.stopForPresetId(preset.id);
         }
@@ -2239,7 +2239,8 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         if (stop == mStop)
             return false;
         boolean leavingCustom = AppearanceLooks.isCustomStop(mStop);
-        SurfacePresets.Preset look = AppearanceLooks.presetForStop(SurfacePresets.presets(), stop);
+        SurfacePresets.Preset look = AppearanceLooks.presetForStop(SurfacePresets.presets(into),
+            stop);
         mTarget = null;
         if (look != null) {
             if (leavingCustom)

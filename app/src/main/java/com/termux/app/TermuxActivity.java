@@ -2882,6 +2882,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private boolean mFirstLayoutRedressed;
 
+    /**
+     * Mist's opacity depends on whether its glass is light (SurfacePresets.followGlassTheme): on
+     * the pass a theme, scheme or wallpaper-mode change runs through, a store on the shipped Mist
+     * takes this glass's value. A write is re-dressed whole after this pass, as a Look is.
+     */
+    private void followLooksGlassTheme() {
+        if (mPreferences == null) return;
+        boolean light = com.termux.app.chrome.GlassLook.isLightGlass(resolveAccessoryGlassBaseColor());
+        if (com.termux.app.surfaces.SurfacePresets.followGlassTheme(mPreferences, light))
+            getWindow().getDecorView().post(this::redressChromeFromState);
+    }
+
     private void redressChromeFromState() {
         if (mPreferences == null || mChrome == null) return;
         mAppliedPaneStyleKey = null;
@@ -7813,6 +7825,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private void applyChromeSpec(@NonNull ChromeSpec state) {
         Trace.beginSection("Chrome.applyChromeSpec");
         try {
+            followLooksGlassTheme();
             syncFancierGlassLook();
             syncFrameStandDown();
             doApplyChromeSpec(state);
