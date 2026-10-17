@@ -675,6 +675,15 @@ public final class TerminalActionDispatcher {
                     }
                     AgentPaneRegistry.getInstance().register(opened.mHandle,
                         arguments.optString("tag", "").trim(), command);
+                    if (focus && arguments.optBoolean("float", false)) {
+                        TerminalPaneController floatController = host.paneController();
+                        if (floatController != null
+                            && floatController.toggleFloatActivePane()
+                                == TerminalPaneController.FLOAT_TOGGLE_DOCKED) {
+                            // The new pane was already a float, so the toggle docked it: undo.
+                            floatController.toggleFloatActivePane();
+                        }
+                    }
                     return ok().put("pane", paneRecord(host, opened));
                 }
                 case TOOL_WINDOW_OPEN: {
