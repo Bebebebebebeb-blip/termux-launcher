@@ -22,6 +22,7 @@ Latest stable: v1.0.6.
 - Changing the wallpaper keeps the Appearance editor open on the page you were on, and the X11 display keeps showing its apps; new terminals still find the display.
 - The herdr theme template goes see-through over the launcher glass, with its sidebar, text and accents in your wallpaper's colours.
 - Settings › Keyboard › Adaptive touch accuracy now learns the space bar too: aim for space and land at the bottom of the row above, and it types a space once it has learned your taps. Swipes and Ctrl or Alt shortcuts always keep the key under your finger, and Settings shows whether it is learning, active or paused.
+- The welcome message in a new terminal is a rounded card in your wallpaper's colours, with Apps, Packages and Setup sections that fit the pane's width and a tap-to-open link to the guide.
 
 ## Experimental
 <!-- What is on pre and not yet in a stable, one line each; name the pull request or branch it came from,
@@ -51,6 +52,7 @@ These may change or be dropped before they reach a stable release.
 - On-device models load with less free memory than before, and one that would fill the phone's memory is stopped instead of freezing it. <!-- stays: P1, P2 -->
 - Settings › Keyboard › Adaptive touch accuracy learns where your taps land, the space bar included, and pauses itself if typing gets less accurate. <!-- stays: P1, P2 (pass bar on pong, three emulator checks) -->
 - Look › Custom's glass controls work from any Look: Frost (clear to frosted), Tint with Hue, Vibrancy, Edge and the keyboard's Keys, with Custom remembering your setup; the wallpaper can change under the editor and the X11 display (#82). <!-- stays: P1, P2 -->
+- The welcome message in a new terminal is a rounded card in your wallpaper's colours, with Apps, Packages and Setup sections that fit the pane's width. <!-- stays: P1, P2 -->
 
 ## Editions
 <!-- Only what is exclusive to the Nix or VAJ build of this drop; say so when nothing is. -->

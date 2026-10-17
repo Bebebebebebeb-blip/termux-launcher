@@ -296,6 +296,9 @@ under twenty items; past that, the oldest are re-judged first.
   its empty state, nothing restarts · pong with the go-ahead, release build.
 
 ## Developer
+- 2026-10-17 · commit "feat(motd): a rounded welcome card in the wallpaper's colours" · On a fresh
+  session the card reads well over a light wallpaper as well as a dark one, and tapping "Tap to
+  read the docs" opens the guide · pong, release build.
 - 2026-10-17 · same branch · Taste: light-theme Mist at 35% no longer milky; the edge gain cap at
   2.25 (dark Mist now gets its full ratio) · pong.
 - 2026-10-17 · same branch, "feat(glass): Tint colours the glass across its range" · Taste on
