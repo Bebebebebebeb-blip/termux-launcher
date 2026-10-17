@@ -7389,15 +7389,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         final Rect frame = new Rect(frameRect);
         final float zoom = systemWallpaperRenderZoom();
         // Lent to the worker: a new file landing (or onDestroy) clears the source on this thread,
-        // and must not recycle the picture while the worker is still drawing from it.
+        // and must not recycle the picture while the worker is still drawing from it. The cache
+        // gives the loan back exactly once: after the draw, or when no job will ever draw it (the
+        // capture dropped first, its job rejected, or the worker shut down with it queued).
         mManagedWallpaperSource.lend(sourceBitmap);
-        return com.termux.app.chrome.WallpaperBlurCache.FrameCapture.deferred(() -> {
-            try {
-                return drawManagedWallpaperBackdrop(sourceBitmap, target, frame, zoom);
-            } finally {
-                runOnUiThread(() -> mManagedWallpaperSource.release(sourceBitmap));
-            }
-        });
+        return com.termux.app.chrome.WallpaperBlurCache.FrameCapture.deferred(
+            () -> drawManagedWallpaperBackdrop(sourceBitmap, target, frame, zoom),
+            () -> runOnUiThread(() -> mManagedWallpaperSource.release(sourceBitmap)));
     }
 
     /**

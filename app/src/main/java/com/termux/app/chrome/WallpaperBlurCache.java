@@ -81,9 +81,9 @@ public final class WallpaperBlurCache {
         @Nullable Bitmap preBlur(@NonNull Bitmap sourceBitmap, int blurRadiusDp);
 
         /**
-         * True while some view still draws this exact frame. Recycling a bitmap an ImageView holds
-         * crashes on its next draw, so such a frame is dropped from the cache without recycling
-         * and left to the collector.
+         * True while some view still draws this exact bitmap. Only a capture that was never handed
+         * out as a frame is ever recycled, and this is asked first all the same: recycling a
+         * bitmap a view holds crashes its next draw.
          */
         boolean isFrameInUse(@Nullable Bitmap frame);
 
@@ -121,18 +121,33 @@ public final class WallpaperBlurCache {
     public static final class FrameCapture {
         @Nullable final Bitmap ready;
         @Nullable final Callable<Bitmap> decode;
+        /**
+         * Run exactly once when the decode no longer needs what it reads: after it ran (on the
+         * thread that ran it), or, when it never will - the capture was dropped before any job
+         * read it, its job was rejected, or the worker was shut down with the job still queued -
+         * on the main thread. Null for nothing to give back.
+         */
+        @Nullable final Runnable release;
 
-        private FrameCapture(@Nullable Bitmap ready, @Nullable Callable<Bitmap> decode) {
+        private FrameCapture(@Nullable Bitmap ready, @Nullable Callable<Bitmap> decode,
+                             @Nullable Runnable release) {
             this.ready = ready;
             this.decode = decode;
+            this.release = release;
         }
 
         public static FrameCapture ready(@NonNull Bitmap bitmap) {
-            return new FrameCapture(bitmap, null);
+            return new FrameCapture(bitmap, null, null);
         }
 
         public static FrameCapture deferred(@NonNull Callable<Bitmap> decode) {
-            return new FrameCapture(null, decode);
+            return new FrameCapture(null, decode, null);
+        }
+
+        /** A deferred decode that borrows something; {@code release} gives it back (see {@link #release}). */
+        public static FrameCapture deferred(@NonNull Callable<Bitmap> decode,
+                                            @NonNull Runnable release) {
+            return new FrameCapture(null, decode, release);
         }
     }
 
@@ -241,8 +256,18 @@ public final class WallpaperBlurCache {
         final long managedLength;
         /** Jobs out that read it. Main thread. Never recycled while one is. */
         int users;
+        /**
+         * True once its pixels were filed as a resident frame (radius 0 is the capture itself).
+         * Main thread. A frame is handed to views - the wall behind the panes, an X11 pane's
+         * corner mask - that keep drawing it after the cache lets it go, so such a capture is
+         * never recycled; dropping the reference leaves it to the collector.
+         */
+        boolean handedOut;
         private volatile boolean mResolved;
         @Nullable private volatile Bitmap mBitmap;
+        /** 0 untouched, 1 a job began reading it, 2 abandoned before any did. */
+        @NonNull private final java.util.concurrent.atomic.AtomicInteger mReadState =
+            new java.util.concurrent.atomic.AtomicInteger();
 
         SharedCapture(@NonNull FrameCapture source, @NonNull Rect frameRect, int orientation,
                       boolean managedSource, int systemWallpaperId, long managedLastModified,
@@ -267,19 +292,42 @@ public final class WallpaperBlurCache {
 
         /** The pixels, decoded on the first call (off the main thread when there is a worker). */
         @Nullable
-        Bitmap resolve() {
+        synchronized Bitmap resolve() {
             if (mResolved) return mBitmap;
+            if (!mReadState.compareAndSet(0, 1)) {
+                // Abandoned: what the decode would read has already been given back.
+                mBitmap = null;
+                mResolved = true;
+                return null;
+            }
             Bitmap bitmap = mSource.ready;
-            if (bitmap == null && mSource.decode != null) {
-                try {
-                    bitmap = mSource.decode.call();
-                } catch (Exception e) {
-                    bitmap = null;
+            try {
+                if (bitmap == null && mSource.decode != null) {
+                    try {
+                        bitmap = mSource.decode.call();
+                    } catch (Exception e) {
+                        bitmap = null;
+                    }
                 }
+            } finally {
+                giveBackSource();
             }
             mBitmap = bitmap;
             mResolved = true;
             return bitmap;
+        }
+
+        /**
+         * No job will read it any more: gives back what its decode borrows, unless a job already
+         * began reading (that job gives it back itself). Any thread; never blocks on a decode.
+         */
+        void abandon() {
+            if (mReadState.compareAndSet(0, 2)) giveBackSource();
+        }
+
+        private void giveBackSource() {
+            Runnable release = mSource.release;
+            if (release != null) release.run();
         }
 
         /** The pixels if they are in hand; null while still to decode or after a failed one. */
@@ -445,7 +493,7 @@ public final class WallpaperBlurCache {
             Bitmap blurred = captureAndBlur(capture, blurRadiusDp, vibrancy, frameTint);
             capture.users--;
             if (blurred != null) {
-                store(blurRadiusDp, blurred, frameRectCopy, orientation, managedSource,
+                store(capture, blurRadiusDp, blurred, frameRectCopy, orientation, managedSource,
                     systemWallpaperId, managedLastModified, managedLength);
             }
             settleCapture(capture);
@@ -469,13 +517,14 @@ public final class WallpaperBlurCache {
                     return;
                 }
                 if (generation != mGeneration) {
-                    // The wallpaper, orientation or frame moved while this was in flight. Radius 0
-                    // is the capture itself, which the capture's own release recycles.
+                    // The wallpaper, orientation or frame moved while this was in flight. This
+                    // result was never handed out, so it may be recycled; radius 0 is the capture
+                    // itself, which the capture's own release decides about.
                     if (blurred != capture.bitmap()) blurred.recycle();
                     settleCapture(capture);
                     return;
                 }
-                store(blurRadiusDp, blurred, frameRectCopy, orientation, managedSource,
+                store(capture, blurRadiusDp, blurred, frameRectCopy, orientation, managedSource,
                     systemWallpaperId, managedLastModified, managedLength);
                 settleCapture(capture);
                 if (mOnFrameReady != null) mOnFrameReady.run();
@@ -629,8 +678,9 @@ public final class WallpaperBlurCache {
 
     /**
      * Main thread: releases {@code capture} if nothing needs it — no job reading it, and not the
-     * capture held for the next blur. Its pixels are recycled unless they are a resident frame
-     * (radius 0 is the capture itself) or a view still draws them.
+     * capture held for the next blur. What its decode borrowed is given back if no job ever read
+     * it. Its pixels are recycled only if they were never handed out as a frame (radius 0 is the
+     * capture itself): a view may still be drawing a frame long after the cache let it go.
      */
     private void settleCapture(@NonNull SharedCapture capture) {
         if (capture.users > 0) return;
@@ -639,12 +689,24 @@ public final class WallpaperBlurCache {
             mCapture = null;
         }
         if (!mLiveCaptures.remove(capture)) return;
-        recycleUnlessHeld(capture.bitmap());
+        capture.abandon();
+        if (!capture.handedOut) recycleUnlessHeld(capture.bitmap());
     }
 
     /**
-     * Recycles {@code bitmap} unless something still holds it: a resident frame, a live capture
-     * (a job may be reading it on the worker), or a view drawing it.
+     * The worker was shut down ({@code shutdownNow}): a job it never ran will never post back,
+     * so its capture is never settled. What each such capture's decode borrowed is given back
+     * now; a job already reading gives it back itself. Main thread.
+     */
+    public void abandonQueuedJobs() {
+        for (SharedCapture capture : new ArrayList<>(mLiveCaptures)) capture.abandon();
+        mPending.clear();
+    }
+
+    /**
+     * Recycles {@code bitmap}, a capture never handed out, unless something still holds it: a
+     * resident frame, a live capture (a job may be reading it on the worker), or a view drawing
+     * it. A frame that was handed out is never passed here.
      */
     private void recycleUnlessHeld(@Nullable Bitmap bitmap) {
         if (bitmap == null || bitmap.isRecycled()) return;
@@ -693,18 +755,24 @@ public final class WallpaperBlurCache {
         }
     }
 
-    /** Main thread: files a finished frame under its radius and records the source it came from. */
-    private void store(int blurRadiusDp, @NonNull Bitmap blurredBitmap, @NonNull Rect frameRect,
+    /**
+     * Main thread: files a finished frame under its radius and records the source it came from.
+     * From here on the frame is handed out: views keep it, and draw it, past its eviction or a
+     * clear, so the cache only ever drops a frame and never recycles one.
+     */
+    private void store(@NonNull SharedCapture capture, int blurRadiusDp,
+                       @NonNull Bitmap blurredBitmap, @NonNull Rect frameRect,
                        int orientation, boolean managedSource, int systemWallpaperId,
                        long managedLastModified, long managedLength) {
+        if (blurredBitmap == capture.bitmap()) capture.handedOut = true;
         mByRadius.put(blurRadiusDp, blurredBitmap);
         while (mByRadius.size() > MAX_CACHED_WALLPAPER_BLUR_RADII
             || (mByRadius.size() > 1 && residentBytes() > mMaxBytes)) {
             Iterator<Bitmap> eldest = mByRadius.values().iterator();
-            Bitmap evicted = eldest.next();
+            eldest.next();
+            // Dropped, never recycled: a surface may still be drawing it (an X11 pane's corner
+            // mask keeps the wall-behind frame across passes), and the collector reclaims it.
             eldest.remove();
-            // Radius 0 is the capture itself, which may still be held for the next blur.
-            recycleUnlessHeld(evicted);
         }
         recordSource(frameRect, orientation, managedSource, systemWallpaperId,
             managedLastModified, managedLength);
@@ -768,7 +836,7 @@ public final class WallpaperBlurCache {
     }
 
     /**
-     * Empties the cache, recycling every frame nothing is drawing. Traced as {@code Blur.clear} so
+     * Empties the cache, dropping every frame (surfaces may still draw them). Traced as {@code Blur.clear} so
      * a system trace shows which event emptied it before a run of {@code Blur.miss}. The swap that
      * follows lands outright — a rotation, a radius change, a zoom, a managed file landing, a trim —
      * none of those is a picture the viewer should watch fade in.
@@ -809,10 +877,10 @@ public final class WallpaperBlurCache {
         if (!crossfade) mPendingCrossfadeRadii.clear();
         mCrossfadedRadii.clear();
         if (crossfade) mPendingCrossfadeRadii.addAll(mByRadius.keySet());
-        List<Bitmap> frames = new ArrayList<>(mByRadius.values());
+        // Every resident frame was handed out, and the surfaces keep drawing it until the next
+        // pass hands them its replacement: dropped, never recycled (the collector reclaims them).
         mByRadius.clear();
         if (!keepCapture) dropCapture();
-        for (Bitmap cached : frames) recycleUnlessHeld(cached);
         mFrameRect.setEmpty();
         mOrientation = Configuration.ORIENTATION_UNDEFINED;
         mManagedSource = false;

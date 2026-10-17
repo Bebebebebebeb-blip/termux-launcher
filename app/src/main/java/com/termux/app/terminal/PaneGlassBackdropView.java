@@ -188,7 +188,11 @@ public final class PaneGlassBackdropView extends View implements PaneRim.SlabEdg
                             @Nullable Drawable grain, int grainStrength, float radiusPx,
                             @Nullable ColorFilter frostFilter, boolean crossfade) {
         Bitmap requested = frame != null && !frame.isRecycled() ? frame : null;
-        Bitmap live = requested != null ? requested : mFrame;
+        // The frame kept while a fresh one is in flight is only kept while it can still be drawn:
+        // a recycled one goes tint-only until the next pass hands a real frame, rather than being
+        // wrapped in a shader (which throws for a recycled bitmap).
+        Bitmap held = mFrame != null && !mFrame.isRecycled() ? mFrame : null;
+        Bitmap live = requested != null ? requested : held;
         if (mDressed && live == mFrame && mTintColor == tintColor && mRadiusPx == radiusPx
             && mGrainStrength == grainStrength && (mGrain == null) == (grain == null)
             && mFrostFilter == frostFilter && mFrameRect.equals(frameRect)) {

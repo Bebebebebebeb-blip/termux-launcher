@@ -109,6 +109,9 @@ public final class SharedFrameDrawable extends Drawable {
      * underneath and the new one fades in over {@link FrameCrossfade#DURATION_MS}.
      */
     public void setFrame(@NonNull Bitmap frame, @NonNull Rect frameRect, boolean crossfade) {
+        // A recycled bitmap cannot be wrapped in a shader (it throws): keep drawing what is held
+        // (draw() skips a frame that is itself recycled) until the next pass hands a live one.
+        if (frame.isRecycled()) return;
         if (frame == mFrame && mFrameRect.equals(frameRect)) return;
         if (crossfade && mFrame != null && mFrame != frame && !mFrame.isRecycled()
             && mFrameRect.equals(frameRect)) {
@@ -169,6 +172,8 @@ public final class SharedFrameDrawable extends Drawable {
      * counts as on screen ({@link #shows}) while it is set.
      */
     public void setClearFrame(@Nullable Bitmap clearFrame) {
+        // A recycled bitmap cannot be wrapped in a shader (it throws): keep the frost at the edge.
+        if (clearFrame != null && clearFrame.isRecycled()) clearFrame = null;
         if (clearFrame == mClearFrame) return;
         mClearFrame = clearFrame;
         mClearShader = clearFrame == null ? null

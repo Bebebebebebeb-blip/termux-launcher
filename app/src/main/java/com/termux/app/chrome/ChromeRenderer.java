@@ -808,7 +808,11 @@ public final class ChromeRenderer {
     public void onDestroy() {
         mDestroyed = true;
         releaseFirstFrameGate();
-        if (mBlurWorker instanceof ExecutorService) ((ExecutorService) mBlurWorker).shutdownNow();
+        if (mBlurWorker instanceof ExecutorService) {
+            ((ExecutorService) mBlurWorker).shutdownNow();
+            // A job it never ran never posts back: the loans its capture took are given back here.
+            mBlurCache.abandonQueuedJobs();
+        }
         unscheduleCommit();
         mHandler.removeCallbacks(mBlurHeartbeatRunnable);
         mHandler.removeCallbacks(mBlurRecoveryRunnable);

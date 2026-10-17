@@ -234,6 +234,12 @@ under twenty items; past that, the oldest are re-judged first.
   Custom: every card shows those values again and the keyboard and terminal look as they did
   (compare crops); tap Clear: all of Clear at once. Undo after a Custom edit puts back the look
   and the Custom the editor opened with · emulator tl16, crops before/after.
+- 2026-10-17 · same branch, "fix(glass): never recycle a wallpaper frame a surface was handed" ·
+  With an X11 pane showing on the wall, set a wallpaper from the in-app picker, then another with
+  `launcherctl wallpaper set <file>`; repeat both with the Look editor open, and once with a
+  widget pane showing: no crash (`adb logcat -b crash` empty, no `Cannot create BitmapShader for
+  recycled bitmap`), and the panes' glass shows the new picture after it lands · emulator tl16,
+  release build, screenshots before/after each set.
 
 ## Developer
 - 2026-10-17 · same branch, "perf(glass): hold the blur radius through a drag" · Look › Custom on
