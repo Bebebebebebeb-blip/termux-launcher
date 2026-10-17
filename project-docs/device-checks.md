@@ -184,8 +184,11 @@ under twenty items; past that, the oldest are re-judged first.
   lands" · Light theme, keyboard card, Keys 0, Opacity 10, Tint 0 over the dark grass: tap and
   drag Glass 20→0, release, capture at once and again 1 s later: the second capture shows every
   legend (letters, Ctrl, Alt, Fn, 123+, Shift, arrows, Backspace, Enter, the number row) legible,
-  with no further edit. Unit model says they stay dark over a light veil (about 54%), not pale:
-  note which the device shows, and whether a fresh start on the same settings shows the same tone.
+  with no further edit: pale legends with no milky veil ("fix(keyboard): legend tone chosen on the
+  bare face"), the same tone a fresh start on those settings shows; Ctrl, Alt and the arrows are
+  #BFBFBF at best and may read a little under 4.5:1 there (unit model 3.96). A pale wallpaper
+  takes dark legends, no veil; a mid grey takes the better tone with the least veil; a face near
+  the line does not flicker between tones while Glass or Opacity is dragged.
   The same in the editor's live preview; no flicker or repeated repaint after the release
   (gfxinfo flat once settled) · emulator tl16, two crops per step.
 - 2026-10-17 · same branch, "feat(looks): Mist is 35% on light glass" · Light theme: picking Mist
