@@ -398,6 +398,14 @@ public final class GlassSurfaceFactory {
     }
 
     /**
+     * Tells the ink the blur {@code band}'s glass is drawn at ({@link ChromeInk#noteBandBlur}), so
+     * its rows are measured on the frame it really shows. Nothing for no band or no ink.
+     */
+    void noteBandBlur(@Nullable GlassBackdropCache.Band band, int blurRadiusDp) {
+        if (band != null && mInk != null) mInk.noteBandBlur(band, blurRadiusDp);
+    }
+
+    /**
      * {@code band}'s veil alone, as a layer for a view that stands over glass another surface
      * draws: the docked keyboard over the unified dock glass is the case. The unified glass spans
      * the dock rows and the keyboard, so its own veil would darken rows no key label stands on;
@@ -415,6 +423,8 @@ public final class GlassSurfaceFactory {
         float clamped = barAlpha < 0f ? 0f : (barAlpha > 1f ? 1f : barAlpha);
         int base = tintBase(dockTintStrength());
         mInk.noteBandGlass(band, clamped, withFoot, sliceStart, sliceEnd, base);
+        // The glass under it is the dock's, blurred at the dock's radius.
+        mInk.noteBandBlur(band, mSurfaces.effectiveDockBlurRadiusDp());
         int veil = mInk.bandVeil(band);
         if (Color.alpha(veil) <= 0) return null;
         GradientDrawable layer = new GradientDrawable();

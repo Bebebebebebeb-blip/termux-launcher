@@ -19,6 +19,13 @@ public final class InAppKeyboardPaletteFactory {
 
     private static final double MIN_TEXT_CONTRAST = 4.5d;
 
+    /**
+     * The palette's {@code secondaryDimming}: the keyboard draws every key flagged secondary (Ctrl,
+     * Alt, Fn, Shift, the arrows, Esc, Tab, Backspace, Enter, 123+) in its legend colour moved this
+     * far toward mid grey ({@link #secondaryOf}), not in the colour itself.
+     */
+    private static final float SECONDARY_DIMMING = 0.25f;
+
     // How far each part of a keyboard on Obsidian glass sits from the capsule, toward its ink.
     private static final float KEY_LIFT = 0.16f;
     private static final float FUNCTION_LIFT = 0.08f;
@@ -337,22 +344,23 @@ public final class InAppKeyboardPaletteFactory {
                 gradientBottom, under);
             function = ColorUtils.setAlphaComponent(function, alpha);
         }
-        int label = ensureContrastOnAll(baseLabel, keyOn);
+        int label = legibleWithSecondary(baseLabel, keyOn);
         int subLabel = ensureContrastOnAll(baseSubLabel, keyOn);
-        int actionLabel = ensureContrastOnAll(base.actionLabelColor, actionOn);
+        int actionLabel = legibleWithSecondary(base.actionLabelColor, actionOn);
         int actionSubLabel = ensureContrastOnAll(base.actionSubLabelColor, actionOn);
         // The function legends (Ctrl, Alt, Fn, the gear, Shift, Backspace, the right-hand
         // cluster) are chosen on their chip as the keyboard really draws it over every row's
         // face, and where no tone reads on that, the chip's fill is raised until one does (not
         // at a user key opacity, which the view draws in place of any fill).
+        // Nearly every function legend is drawn secondary, so the tone is chosen for that too.
         int[] functionOn = drawnChipsOn(function, gradientTop, gradientBottom, under);
-        int functionLabel = ensureContrastOnAll(baseFunctionLabel, functionOn);
-        if (!userKeys && minContrast(functionLabel, functionOn) < MIN_TEXT_CONTRAST) {
+        int functionLabel = legibleWithSecondary(baseFunctionLabel, functionOn);
+        if (!userKeys && drawnContrast(functionLabel, functionOn) < MIN_TEXT_CONTRAST) {
             for (int alpha = Color.alpha(function) + 1; alpha <= 255; alpha++) {
                 int raised = ColorUtils.setAlphaComponent(baseFunction, alpha);
                 int[] on = drawnChipsOn(raised, gradientTop, gradientBottom, under);
-                int ink = ensureContrastOnAll(baseFunctionLabel, on);
-                if (alpha == 255 || minContrast(ink, on) >= MIN_TEXT_CONTRAST) {
+                int ink = legibleWithSecondary(baseFunctionLabel, on);
+                if (alpha == 255 || drawnContrast(ink, on) >= MIN_TEXT_CONTRAST) {
                     function = raised;
                     functionLabel = ink;
                     break;
@@ -555,6 +563,55 @@ public final class InAppKeyboardPaletteFactory {
         }
         int n = Math.max(1, colors.length);
         return Color.rgb((int) (red / n), (int) (green / n), (int) (blue / n));
+    }
+
+    /**
+     * {@code legend} as the keyboard draws it on a key flagged secondary
+     * ({@code juloo.keyboard2.Theme.adjustLight} at {@link #SECONDARY_DIMMING}): its value moved
+     * toward mid grey, {@code v' = d + (1 - 2d) v}, so black becomes a dark grey and white a light
+     * one. Never black or white, which is why a legend that only just reads leaves its Ctrl, Alt
+     * and arrows unreadable on a mid face.
+     */
+    @ColorInt
+    public static int secondaryOf(@ColorInt int legend) {
+        float[] hsv = new float[3];
+        Color.colorToHSV(legend, hsv);
+        hsv[2] = SECONDARY_DIMMING - (2f * SECONDARY_DIMMING - 1f) * hsv[2];
+        return Color.HSVToColor(0xFF, hsv);
+    }
+
+    /** The lower of a legend's own contrast and its secondary rendition's, on every background. */
+    private static double drawnContrast(@ColorInt int legend, @NonNull int[] backgrounds) {
+        return Math.min(minContrast(legend, backgrounds),
+            minContrast(secondaryOf(legend), backgrounds));
+    }
+
+    /**
+     * {@link #ensureContrastOnAll} for a legend the keyboard also draws secondary
+     * ({@link #secondaryOf}): that tone where its secondary rendition reads as well; else white or
+     * black, whichever leaves the secondary rendition reading best on the worst background,
+     * without the legend itself falling under what that tone gave it (or the floor). The veil
+     * ({@code ChromeInk#onFixedInk}) is asked for the secondary rendition, so where neither reads it
+     * rises.
+     */
+    @ColorInt
+    static int legibleWithSecondary(@ColorInt int foreground, @NonNull int[] backgrounds) {
+        int ink = ensureContrastOnAll(foreground, backgrounds);
+        if (backgrounds.length == 0
+                || minContrast(secondaryOf(ink), backgrounds) >= MIN_TEXT_CONTRAST)
+            return ink;
+        double floor = Math.min(MIN_TEXT_CONTRAST, minContrast(ink, backgrounds));
+        int best = ink;
+        double bestSecondary = minContrast(secondaryOf(ink), backgrounds);
+        for (int endpoint : new int[] {Color.WHITE, Color.BLACK}) {
+            if (minContrast(endpoint, backgrounds) < floor) continue;
+            double secondary = minContrast(secondaryOf(endpoint), backgrounds);
+            if (secondary > bestSecondary) {
+                best = endpoint;
+                bestSecondary = secondary;
+            }
+        }
+        return opaque(best);
     }
 
     /** The lowest contrast {@code foreground} has on any of {@code backgrounds}. */

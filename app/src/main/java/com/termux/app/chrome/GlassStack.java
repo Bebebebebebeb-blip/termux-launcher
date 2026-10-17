@@ -219,6 +219,9 @@ public final class GlassStack {
                           @Nullable SharedFrameDrawable backdrop, @NonNull EdgeProbe probe) {
         List<Drawable> layers = new ArrayList<>(3);
         boolean programEdge = false;
+        // The frame the band's face is: its own blur when it draws one, the sharp wallpaper when
+        // it has none, so its rows are measured where its content really stands.
+        glass.noteBandBlur(spec.band, backdrop != null ? spec.blurRadiusDp : 0);
         if (backdrop != null) {
             // The content-aware light scatter every glass surface's frame wears.
             backdrop.setColorFilter(GlassFilters.frost(Math.round(spec.tintAlpha * 100f)));

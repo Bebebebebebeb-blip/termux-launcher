@@ -191,6 +191,11 @@ public final class ChromeInk {
         /** Whether {@link #baseColor} was told; until then the mode's untinted base stands in. */
         boolean tinted;
         @ColorInt int baseColor;
+        /**
+         * The blur the band's glass is drawn at, dp ({@link #noteBandBlur}); -1 until told, when
+         * its rows are read off the frame the status bar or the dock is drawn at.
+         */
+        int blurRadiusDp = -1;
     }
 
     /** The base colour {@code glass}'s tint is drawn in: the tinted one it told, or the mode's. */
@@ -247,7 +252,15 @@ public final class ChromeInk {
         mSurfaces = surfaces;
         mBlurCache = blurCache;
         mOnVeilChanged = onVeilChanged;
-        mCache.setSampler(this::sampleWallpaper);
+        mCache.setSampler(new GlassBackdropCache.Sampler() {
+            @Override public int sampleWallpaper(@NonNull Rect screenRect) {
+                return ChromeInk.this.sampleWallpaper(screenRect, DEFAULT_FRAME);
+            }
+
+            @Override public int sampleWallpaper(@NonNull Rect screenRect, int blurRadiusDp) {
+                return ChromeInk.this.sampleWallpaper(screenRect, Math.max(0, blurRadiusDp));
+            }
+        });
     }
 
     // ------------------------------------------------------------------ the accessor
@@ -932,6 +945,25 @@ public final class ChromeInk {
     }
 
     /**
+     * The blur {@code band}'s glass is drawn at, in dp: its rows ({@link #bandFaces}, the fixed-ink
+     * veil) are then read off the wallpaper as blurred at that radius, the frame that band really
+     * shows, rather than the status bar's or the dock's. The keyboard is the case: Look › Custom
+     * gives it a Glass of its own, and at 20 (7 dp) its bottom row stood on near-black grass while
+     * the dock's 25 dp frame, which the rows were read off, had blurred the bright grass above
+     * into it, so its legends were chosen dark on a face the screen never showed. Arithmetic
+     * only; the frame is the one the band draws, already resident.
+     *
+     * @return whether the radius moved
+     */
+    public boolean noteBandBlur(@NonNull GlassBackdropCache.Band band, int blurRadiusDp) {
+        BandGlass glass = glassFor(band);
+        int radius = Math.max(-1, blurRadiusDp);
+        if (glass.blurRadiusDp == radius) return false;
+        glass.blurRadiusDp = radius;
+        return true;
+    }
+
+    /**
      * The opaque face {@code band}'s content stands on, under {@code screenRect}: the wallpaper,
      * the launcher's dim, and the band's base layer in its tinted colour at its opacity
      * ({@link #noteBandGlass}). The same flat glass the band votes with; no light model, so it is
@@ -966,11 +998,12 @@ public final class ChromeInk {
      */
     public static final int FACE_ROWS = 4;
 
-    /** One band's wallpaper per row, kept for its rect and the cache's generation. */
+    /** One band's wallpaper per row, kept for its rect, its blur and the cache's generation. */
     private static final class RowSamples {
         @NonNull final Rect rect = new Rect();
         @NonNull final int[] wallpaper = new int[FACE_ROWS];
         int generation = -1;
+        int blurRadiusDp = -1;
         boolean sampled;
     }
 
@@ -1027,7 +1060,11 @@ public final class ChromeInk {
             rows = new RowSamples();
             mRows.put(band, rows);
         }
-        if (rows.sampled && rows.generation == mCache.generation() && rows.rect.equals(rootRect))
+        // Read off the frame the band is drawn at (noteBandBlur) where it said; until that frame
+        // is resident, off the default one, and asked again next time.
+        int radius = glassFor(band).blurRadiusDp;
+        if (rows.sampled && rows.generation == mCache.generation() && rows.rect.equals(rootRect)
+                && rows.blurRadiusDp == radius)
             return rows.wallpaper;
         int whole = mCache.wallpaperUnder(band, rootRect);
         boolean all = mCache.hasSample(band);
@@ -1035,7 +1072,14 @@ public final class ChromeInk {
         for (int i = 0; i < FACE_ROWS; i++) {
             mTmpRowRect.set(rootRect.left, rootRect.top + height * i / FACE_ROWS,
                 rootRect.right, rootRect.top + height * (i + 1) / FACE_ROWS);
-            int read = mCache.sampleUncached(mTmpRowRect);
+            int read = radius >= 0 ? mCache.sampleUncached(mTmpRowRect, radius)
+                : GlassBackdropCache.UNREADABLE;
+            if (radius >= 0 && Color.alpha(read) == 0) {
+                all = false;
+                read = mCache.sampleUncached(mTmpRowRect);
+            } else if (radius < 0) {
+                read = mCache.sampleUncached(mTmpRowRect);
+            }
             if (Color.alpha(read) == 0) {
                 rows.wallpaper[i] = whole;
                 all = false;
@@ -1045,6 +1089,7 @@ public final class ChromeInk {
         }
         rows.rect.set(rootRect);
         rows.generation = mCache.generation();
+        rows.blurRadiusDp = radius;
         rows.sampled = all;
         return rows.wallpaper;
     }
@@ -1329,9 +1374,10 @@ public final class ChromeInk {
      * frame rect is captured in, so the crop below is the same with the root scaled or not.</p>
      */
     @ColorInt
-    private int sampleWallpaper(@NonNull Rect screenRect) {
+    private int sampleWallpaper(@NonNull Rect screenRect, int blurRadiusDp) {
         try {
-            Bitmap frame = residentFrame();
+            Bitmap frame = blurRadiusDp == DEFAULT_FRAME ? residentFrame()
+                : residentFrame(blurRadiusDp);
             if (frame == null || frame.isRecycled()) return GlassBackdropCache.UNREADABLE;
             Rect frameRect = mBlurCache.frameRectRef();
             if (frameRect.isEmpty()) return GlassBackdropCache.UNREADABLE;
@@ -1358,6 +1404,19 @@ public final class ChromeInk {
      * A pre-blurred frame already in the cache, or null. Never asks for one that is not resident:
      * a sample is worth no decode, and the band self-heals.
      */
+    /** {@link #sampleWallpaper(Rect, int)}'s radius for the default frame ({@link #residentFrame()}). */
+    private static final int DEFAULT_FRAME = -1;
+
+    /** The frame blurred at {@code blurRadiusDp} if it is resident, or null; never asks for one. */
+    @Nullable
+    private Bitmap residentFrame(int blurRadiusDp) {
+        if (blurRadiusDp < 0 || !mBlurCache.hasRadius(blurRadiusDp)) return null;
+        View wallpaperFrame = mSurfaces.findChromeView(R.id.activity_termux_root_view);
+        if (wallpaperFrame == null) return null;
+        return mBlurCache.obtain(blurRadiusDp, wallpaperFrame);
+    }
+
+    /** {@link #residentFrame(int)} at the status bar's radius, else the dock's, else the sharp frame. */
     @Nullable
     private Bitmap residentFrame() {
         View wallpaperFrame = mSurfaces.findChromeView(R.id.activity_termux_root_view);

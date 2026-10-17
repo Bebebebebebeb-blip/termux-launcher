@@ -918,8 +918,10 @@ public final class TermuxInAppKeyboard {
             Math.round(alpha * android.graphics.Color.alpha(palette.functionKeyBackground)
                 / (float) keyAlpha)));
         int functionCap = (functionAlpha << 24) | (palette.functionKeyBackground & 0x00FFFFFF);
+        // The function legends are drawn secondary (Ctrl, Alt, Fn, Shift, the arrows, 123+), the
+        // tone moved toward mid grey, so the veil is bought for that rendition.
         return new int[] {palette.labelColor | 0xFF000000, cap,
-            palette.functionLabelColor | 0xFF000000, functionCap};
+            InAppKeyboardPaletteFactory.secondaryOf(palette.functionLabelColor), functionCap};
     }
 
     private void applyKeyCornerRadiusDp(float radiusDp) {

@@ -163,4 +163,39 @@ public class KeyOpacityLegendTest {
         prefs.setInAppKeyboardKeyOpacity(keys.clamp(-30));
         assertEquals(0, prefs.getInAppKeyboardKeyOpacity());
     }
+
+    /**
+     * Ctrl, Alt, Fn, Shift, the arrows, Esc, Backspace, Enter and 123+ are flagged secondary, and
+     * the keyboard draws them in the legend's tone moved toward mid grey (the palette's 0.25):
+     * black as #404040, white as #BFBFBF. At Keys 0 they are chosen so that rendition reads on a
+     * dark and a bright face, and on a mid face, where neither does, in the tone that comes
+     * nearest (the one the light veil can carry the rest of the way), the letters still at body
+     * text.
+     */
+    @Test
+    public void theSecondaryLegendsAreChosenAsDrawn() {
+        assertEquals(0xFF404040, InAppKeyboardPaletteFactory.secondaryOf(0xFF000000));
+        assertEquals(0xFFBFBFBF, InAppKeyboardPaletteFactory.secondaryOf(0xFFFFFFFF));
+        for (int face : new int[] {DARK_FACE, BRIGHT_FACE}) {
+            Theme.Palette palette = InAppKeyboardPaletteFactory.createGlass(context(), "light",
+                GlassLook.SCHEME, new int[] {face}, 0);
+            String at = "on #" + Integer.toHexString(face);
+            assertReads(at + " Ctrl as drawn",
+                InAppKeyboardPaletteFactory.secondaryOf(palette.functionLabelColor),
+                new int[] {face});
+            assertReads(at + " Enter as drawn",
+                InAppKeyboardPaletteFactory.secondaryOf(palette.actionLabelColor),
+                new int[] {face});
+            assertReads(at + " letter", palette.labelColor, new int[] {face});
+        }
+        int mid = 0xFF8C8C8C;
+        Theme.Palette palette = InAppKeyboardPaletteFactory.createGlass(context(), "light",
+            GlassLook.SCHEME, new int[] {mid}, 0);
+        double white = ColorUtils.calculateContrast(0xFFBFBFBF, mid);
+        double black = ColorUtils.calculateContrast(0xFF404040, mid);
+        assertTrue("neither rendition reads on the mid face", Math.max(white, black) < 4.5d);
+        assertEquals("the nearer one is chosen", Math.max(white, black), ColorUtils.calculateContrast(
+            InAppKeyboardPaletteFactory.secondaryOf(palette.functionLabelColor), mid), 1e-9);
+        assertReads("letter on the mid face", palette.labelColor, new int[] {mid});
+    }
 }

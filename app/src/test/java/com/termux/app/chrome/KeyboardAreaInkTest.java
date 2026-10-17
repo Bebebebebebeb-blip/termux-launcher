@@ -531,4 +531,102 @@ public class KeyboardAreaInkTest {
             assertTrue("function legend " + functionRatio(palette, face),
                 functionRatio(palette, face) >= 4.5d);
     }
+
+    // ------------------------------------------- Keys 0 at the keyboard's own Glass (2026-10-17)
+
+    /** Grass lit from above under the keyboard's top row. */
+    private static final int LIT_GRASS = 0xFFA8C070;
+    /** What the rest of the keyboard stands on at a 25 dp blur, the lit grass mixed through. */
+    private static final int MIXED_GRASS = 0xFF8A9C60;
+
+    /**
+     * The emulator's wallpaper as each frame shows it: at the keyboard's Glass 20 (7 dp) the top
+     * row on lit grass and the rest on the dark grass under it; at 25 dp (Glass 75, and the dock's,
+     * whose frame the default sample reads) the lit grass mixed through every row.
+     */
+    private static final class GrassByBlur implements GlassBackdropCache.Sampler {
+        @Override public int sampleWallpaper(@NonNull Rect rect) {
+            return sampleWallpaper(rect, 25);
+        }
+
+        @Override public int sampleWallpaper(@NonNull Rect rect, int blurRadiusDp) {
+            boolean topRow = rect.centerY() < KEYBOARD_RECT.top + KEYBOARD_RECT.height() / 4;
+            if (topRow) return LIT_GRASS;
+            return blurRadiusDp <= 10 ? DARK_GRASS : MIXED_GRASS;
+        }
+    }
+
+    /**
+     * The launcher's round trip at Keys 0, light glass at Opacity 35 drawn at {@code blurDp}: the
+     * palette chosen on the faces, the band asked for its letter legend and its function legend as
+     * drawn (secondary), the glass told, the faces measured again; four passes, as the dress
+     * passes settle.
+     */
+    @NonNull
+    private int[] keysZeroFaces(@NonNull ChromeInk on, int blurDp) {
+        Context context = RuntimeEnvironment.getApplication();
+        int[] faces = new int[0];
+        for (int pass = 0; pass < 4; pass++) {
+            Theme.Palette palette = InAppKeyboardPaletteFactory.createGlass(context, "light",
+                GlassLook.SCHEME, faces, 0);
+            askAtKeysZero(on, palette);
+            on.noteBandGlass(GlassBackdropCache.Band.KEYBOARD, 0.35f, false, 0f, 1f, LIGHT_BASE);
+            on.noteBandBlur(GlassBackdropCache.Band.KEYBOARD, blurDp);
+            faces = on.bandFaces(GlassBackdropCache.Band.KEYBOARD);
+        }
+        return faces;
+    }
+
+    private static void askAtKeysZero(@NonNull ChromeInk on, @NonNull Theme.Palette palette) {
+        on.onFixedInk(GlassBackdropCache.Band.KEYBOARD, KEYBOARD_RECT,
+            palette.labelColor | 0xFF000000, palette.keyBackground & 0x00FFFFFF,
+            InAppKeyboardPaletteFactory.secondaryOf(palette.functionLabelColor),
+            palette.functionKeyBackground & 0x00FFFFFF, OnGlass.TARGET_BODY_TEXT);
+    }
+
+    /**
+     * The emulator failure (light theme, Look › Custom, keyboard at Glass 20, Opacity 35, Keys 0
+     * over dark grass): the legends went dark and Ctrl, Alt, 123+, the arrows and Enter all but
+     * vanished, while Glass 75 read. The rows were read off the dock's 25 dp frame, which had
+     * mixed the lit grass into the keyboard's bottom rows, and the function legends, drawn
+     * secondary (toward mid grey), were never judged as drawn. Now the rows are read off the
+     * keyboard's own frame, so the faces are the ones a frame of only that blur gives, and on
+     * every row the letter legend and the function legends as drawn read at body text (the veil
+     * rising where they would not), at Glass 20 and at Glass 75.
+     */
+    @Test
+    public void keysZeroLegendsReadOnTheKeyboardsOwnGlass() {
+        Context context = RuntimeEnvironment.getApplication();
+        double dark = ColorUtils.calculateLuminance(DARK_GRASS);
+        assertTrue("dark grass " + dark, dark > 0.05d && dark < 0.12d);
+        for (int blurDp : new int[] {7, 25}) {
+            ink.backdrops().setSampler(new GrassByBlur());
+            ink.invalidate();
+            int[] faces = keysZeroFaces(ink, blurDp);
+            assertEquals(ChromeInk.FACE_ROWS, faces.length);
+            Theme.Palette palette = InAppKeyboardPaletteFactory.createGlass(context, "light",
+                GlassLook.SCHEME, faces, 0);
+
+            // The same glass over a wallpaper that only ever shows this blur's picture.
+            ChromeInk truth = new ChromeInk(surfaces, new WallpaperBlurCache(surfaces), () -> { });
+            GrassByBlur grass = new GrassByBlur();
+            truth.backdrops().setSampler(rect -> grass.sampleWallpaper(rect, blurDp));
+            askAtKeysZero(truth, palette);
+            truth.noteBandGlass(GlassBackdropCache.Band.KEYBOARD, 0.35f, false, 0f, 1f,
+                LIGHT_BASE);
+            int[] drawn = truth.bandFaces(GlassBackdropCache.Band.KEYBOARD);
+            assertEquals("Glass at " + blurDp + " dp: the faces are the drawn ones",
+                java.util.Arrays.toString(drawn), java.util.Arrays.toString(faces));
+
+            int functionDrawn = InAppKeyboardPaletteFactory.secondaryOf(palette.functionLabelColor);
+            for (int i = 0; i < faces.length; i++) {
+                String at = blurDp + " dp, row " + i + " on #" + Integer.toHexString(faces[i]);
+                double letter = ColorUtils.calculateContrast(palette.labelColor | 0xFF000000,
+                    faces[i]);
+                double function = ColorUtils.calculateContrast(functionDrawn, faces[i]);
+                assertTrue(at + ": letters " + letter, letter >= 4.5d);
+                assertTrue(at + ": Ctrl, Alt, arrows " + function, function >= 4.5d);
+            }
+        }
+    }
 }
