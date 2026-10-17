@@ -139,6 +139,15 @@ public final class ChromeInk {
         int cap = Color.TRANSPARENT;
         /** What {@link #secondInk} stands on; {@link #cap} again when both share one cap. */
         int secondCap = Color.TRANSPARENT;
+        /**
+         * A fixed-ink band whose content can draw either tone ({@link #onFixedInkEitherTone}):
+         * {@link #darkInk} and {@link #secondInk} are the dark pair, {@link #paleInk} and
+         * {@link #secondPaleInk} the pale one, and the tone is chosen on the bare face.
+         */
+        boolean eitherTone;
+        int secondPaleInk;
+        /** The tone last chosen ({@link #TONE_DARK}, {@link #TONE_PALE}), or 0 before any. */
+        int tone;
         /** The last fixed-ink answer and every input it was searched from; null when stale. */
         @Nullable OnGlass.Resolution fixedAnswer;
         int fixedBackdrop;
@@ -355,6 +364,62 @@ public final class ChromeInk {
         contract.secondCap = secondCap;
         contract.target = target;
         contract.fixedInk = true;
+        contract.eitherTone = false;
+        contract.seen = true;
+        return resolveBand(band, contract);
+    }
+
+    /** {@link Contract#tone}: dark legends. */
+    public static final int TONE_DARK = 1;
+    /** {@link Contract#tone}: pale legends. */
+    public static final int TONE_PALE = 2;
+    /**
+     * How much better, as a ratio of margins, the other tone must read on the bare face before a
+     * band that has chosen one switches: a face near the line keeps its legends instead of
+     * flipping on every pass as the sample moves by a step.
+     */
+    static final double TONE_HYSTERESIS = 1.1d;
+
+    /**
+     * {@link #onFixedInk(GlassBackdropCache.Band, Rect, int, int, int, int, double)} for content
+     * that draws whichever tone reads: the keyboard's legends. The tone is chosen on the bare face
+     * (the glass as composed, no veil), for the letter and the second legend together: the one
+     * that clears {@code target} there, or the one that reads better when both or neither do. A
+     * veil is bought only when the chosen tone still misses, and only as much as it needs (none
+     * where a veil of the band's base would not help it). The answer depends on the face alone,
+     * never on which legends were drawn before, so a launch and a live edit land on the same
+     * one; a band that has chosen keeps its tone until the other reads clearly better
+     * ({@link #TONE_HYSTERESIS}). The content then picks its legends on the faces
+     * ({@link #bandFaces}), which carry the veil when there is one.
+     *
+     * <p>Asked with dark legends drawn, a fixed-ink band used to buy a light veil under which
+     * they read (about 54% over dark grass at Opacity 10) where pale legends read bare: a milky
+     * keyboard that then kept its dark legends because they read on it.</p>
+     *
+     * @param darkInk the letter legend's dark tone; {@code paleInk} its pale one
+     * @param secondDarkInk the second legend (as drawn) in the dark tone; {@code secondPaleInk}
+     *     in the pale one
+     */
+    @NonNull
+    public OnGlass.Resolution onFixedInkEitherTone(@NonNull GlassBackdropCache.Band band,
+                                                   @NonNull Rect rootRect,
+                                                   @ColorInt int darkInk, @ColorInt int paleInk,
+                                                   @ColorInt int cap,
+                                                   @ColorInt int secondDarkInk,
+                                                   @ColorInt int secondPaleInk,
+                                                   @ColorInt int secondCap, double target) {
+        readMode();
+        Contract contract = contractFor(band);
+        contract.rect.set(rootRect);
+        contract.darkInk = darkInk;
+        contract.paleInk = paleInk;
+        contract.secondInk = secondDarkInk;
+        contract.secondPaleInk = secondPaleInk;
+        contract.cap = cap;
+        contract.secondCap = secondCap;
+        contract.target = target;
+        contract.fixedInk = true;
+        contract.eitherTone = true;
         contract.seen = true;
         return resolveBand(band, contract);
     }
@@ -664,30 +729,45 @@ public final class ChromeInk {
         // wallpaper far darker (or paler) than the band's average, and a promise made on the mean
         // is broken there. The veil is bought on the row where the ink reads worst on its cap.
         int[] rows = rowWallpapers(band, contract.rect);
-        int backdrop = worstRowSurface(glass, rows, contract.darkInk, contract.cap, baseColor,
-            baseAlpha, top, mid, foot);
         boolean ownCaps = contract.secondCap != contract.cap;
-        int secondBackdrop = ownCaps ? worstRowSurface(glass, rows, contract.secondInk,
+        int ink = contract.darkInk;
+        int secondInk = contract.secondInk;
+        if (contract.eitherTone) {
+            // The tone is the bare face's choice, never the legends drawn last: the margin each
+            // pair reaches there, letter and second legend together, with no veil at all.
+            double dark = bareMargin(glass, rows, contract.darkInk, contract.secondInk, contract,
+                ownCaps, baseColor, baseAlpha, top, mid, foot, target);
+            double pale = bareMargin(glass, rows, contract.paleInk, contract.secondPaleInk,
+                contract, ownCaps, baseColor, baseAlpha, top, mid, foot, target);
+            contract.tone = chooseTone(contract.tone, dark, pale);
+            if (contract.tone == TONE_PALE) {
+                ink = contract.paleInk;
+                secondInk = contract.secondPaleInk;
+            }
+        }
+        int backdrop = worstRowSurface(glass, rows, ink, contract.cap, baseColor,
+            baseAlpha, top, mid, foot);
+        int secondBackdrop = ownCaps ? worstRowSurface(glass, rows, secondInk,
             contract.secondCap, baseColor, baseAlpha, top, mid, foot) : backdrop;
         OnGlass.Resolution known = contract.fixedAnswer;
         if (known != null && contract.fixedBackdrop == backdrop
                 && contract.fixedSecondBackdrop == secondBackdrop
                 && contract.fixedVeilColor == baseColor && contract.fixedCap == contract.cap
                 && contract.fixedSecondCap == contract.secondCap
-                && contract.fixedInkAsked == contract.darkInk
-                && contract.fixedSecondInkAsked == contract.secondInk
+                && contract.fixedInkAsked == ink
+                && contract.fixedSecondInkAsked == secondInk
                 && Double.compare(contract.fixedTarget, target) == 0) {
             return known;
         }
         OnGlass.Resolution resolved;
         if (!ownCaps) {
-            resolved = OnGlass.resolveFixedInk(backdrop, contract.cap, contract.darkInk,
-                contract.secondInk, baseColor, target);
+            resolved = OnGlass.resolveFixedInk(backdrop, contract.cap, ink,
+                secondInk, baseColor, target);
         } else {
             OnGlass.Resolution first = OnGlass.resolveFixedInk(backdrop, contract.cap,
-                contract.darkInk, contract.darkInk, baseColor, target);
+                ink, ink, baseColor, target);
             OnGlass.Resolution second = OnGlass.resolveFixedInk(secondBackdrop,
-                contract.secondCap, contract.secondInk, contract.secondInk, baseColor, target);
+                contract.secondCap, secondInk, secondInk, baseColor, target);
             // One veil for the band: the one the harder of the two legends needs.
             resolved = Color.alpha(second.veil) > Color.alpha(first.veil) ? second : first;
         }
@@ -697,10 +777,44 @@ public final class ChromeInk {
         contract.fixedVeilColor = baseColor;
         contract.fixedCap = contract.cap;
         contract.fixedSecondCap = contract.secondCap;
-        contract.fixedInkAsked = contract.darkInk;
-        contract.fixedSecondInkAsked = contract.secondInk;
+        contract.fixedInkAsked = ink;
+        contract.fixedSecondInkAsked = secondInk;
         contract.fixedTarget = target;
         return resolved;
+    }
+
+    /**
+     * The lower of the two legends' margins (contrast over {@code target}) on the bare face: each
+     * on its cap over the row where it reads worst, no veil. 1 or more clears both.
+     */
+    private double bareMargin(@NonNull BandGlass glass, @NonNull int[] rows, @ColorInt int ink,
+                              @ColorInt int secondInk, @NonNull Contract contract,
+                              boolean ownCaps, @ColorInt int baseColor, int baseAlpha, int top,
+                              int mid, int foot, double target) {
+        int backdrop = worstRowSurface(glass, rows, ink, contract.cap, baseColor, baseAlpha, top,
+            mid, foot);
+        int secondBackdrop = ownCaps ? worstRowSurface(glass, rows, secondInk, contract.secondCap,
+            baseColor, baseAlpha, top, mid, foot) : backdrop;
+        double first = OnGlass.ratio(ink, OnGlass.opaque(OnGlass.composite(contract.cap, backdrop)));
+        double second = OnGlass.ratio(secondInk,
+            OnGlass.opaque(OnGlass.composite(contract.secondCap, secondBackdrop)));
+        return Math.min(first, second) / target;
+    }
+
+    /**
+     * The tone for bare margins {@code dark} and {@code pale}: the one that clears the floor (1),
+     * else the one with the larger margin when both or neither do. A band that has chosen
+     * ({@code previous}) keeps its tone unless the other's margin is more than
+     * {@link #TONE_HYSTERESIS} times its own.
+     */
+    static int chooseTone(int previous, double dark, double pale) {
+        int fresh;
+        if ((dark >= 1d) != (pale >= 1d)) fresh = dark >= 1d ? TONE_DARK : TONE_PALE;
+        else fresh = pale > dark ? TONE_PALE : TONE_DARK;
+        if (previous == 0 || previous == fresh) return fresh;
+        double kept = previous == TONE_DARK ? dark : pale;
+        double other = previous == TONE_DARK ? pale : dark;
+        return other > kept * TONE_HYSTERESIS ? fresh : previous;
     }
 
     /**
@@ -1051,6 +1165,16 @@ public final class ChromeInk {
     }
 
     /**
+     * The legend tone {@code band} chose on its bare face ({@link #onFixedInkEitherTone}):
+     * {@link #TONE_DARK} or {@link #TONE_PALE}, or 0 before it has asked that way. Read after
+     * {@link #bandFaces}, which settles it for the faces it returns.
+     */
+    public int bandTone(@NonNull GlassBackdropCache.Band band) {
+        Contract contract = mContracts.get(band);
+        return contract == null || !contract.eitherTone ? 0 : contract.tone;
+    }
+
+    /**
      * The opaque face under each of {@link #FACE_ROWS} rows of {@code band}, top to bottom, at the
      * rect its content last asked about ({@link #onFixedInk}): the wallpaper under that row, the
      * launcher's dim, the base layer in its tinted colour at its opacity, the light
@@ -1299,6 +1423,7 @@ public final class ChromeInk {
      */
     public void resetForRedress() {
         invalidate();
+        for (Contract contract : mContracts.values()) contract.tone = 0;
         mPolarity = null;
         mInkAnswers.clear();
     }

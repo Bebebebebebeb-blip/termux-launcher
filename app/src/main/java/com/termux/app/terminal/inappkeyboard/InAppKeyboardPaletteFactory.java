@@ -289,6 +289,29 @@ public final class InAppKeyboardPaletteFactory {
     public static Theme.Palette createGlass(@NonNull Context context, String variant,
                                             @NonNull GlassLook look, @NonNull int[] faces,
                                             int keyOpacityPercent) {
+        return createGlass(context, variant, look, faces, keyOpacityPercent, TONE_ANY);
+    }
+
+    /** {@link #createGlass(Context, String, GlassLook, int[], int, int)}: the tone is the faces'. */
+    public static final int TONE_ANY = 0;
+    /** The launcher chose dark legends on the bare face ({@code ChromeInk#bandTone}). */
+    public static final int TONE_DARK = 1;
+    /** The launcher chose pale legends on the bare face ({@code ChromeInk#bandTone}). */
+    public static final int TONE_PALE = 2;
+
+    /**
+     * {@link #createGlass(Context, String, GlassLook, int[], int)} with the letters and the
+     * function legends held to {@code tone}, the side the launcher chose on the bare face
+     * ({@code ChromeInk#onFixedInkEitherTone}, which bought the veil, if any, for that side): each
+     * the theme's legend where it is on that side and reads, else moved toward that side's
+     * endpoint as far as it and its secondary rendition need, else the endpoint. So the legends
+     * follow the one decision, hysteresis and all, instead of flipping on the faces near the
+     * line. {@link #TONE_ANY} chooses on the faces, as before.
+     */
+    @NonNull
+    public static Theme.Palette createGlass(@NonNull Context context, String variant,
+                                            @NonNull GlassLook look, @NonNull int[] faces,
+                                            int keyOpacityPercent, int tone) {
         String normalizedVariant = variant == null || "dock".equals(variant)
             ? "system" : variant;
         Theme.Palette base = create(context, normalizedVariant);
@@ -344,8 +367,11 @@ public final class InAppKeyboardPaletteFactory {
                 gradientBottom, under);
             function = ColorUtils.setAlphaComponent(function, alpha);
         }
-        int label = legibleWithSecondary(baseLabel, keyOn);
+        int label = legibleOnTone(baseLabel, keyOn, tone);
         int subLabel = ensureContrastOnAll(baseSubLabel, keyOn);
+        // Enter stands on its own accent button, which the launcher's tone was not judged on:
+        // its legend is chosen on that button over the faces, which no longer carry a veil
+        // bought for the legends drawn before.
         int actionLabel = legibleWithSecondary(base.actionLabelColor, actionOn);
         int actionSubLabel = ensureContrastOnAll(base.actionSubLabelColor, actionOn);
         // The function legends (Ctrl, Alt, Fn, the gear, Shift, Backspace, the right-hand
@@ -354,12 +380,12 @@ public final class InAppKeyboardPaletteFactory {
         // at a user key opacity, which the view draws in place of any fill).
         // Nearly every function legend is drawn secondary, so the tone is chosen for that too.
         int[] functionOn = drawnChipsOn(function, gradientTop, gradientBottom, under);
-        int functionLabel = legibleWithSecondary(baseFunctionLabel, functionOn);
+        int functionLabel = legibleOnTone(baseFunctionLabel, functionOn, tone);
         if (!userKeys && drawnContrast(functionLabel, functionOn) < MIN_TEXT_CONTRAST) {
             for (int alpha = Color.alpha(function) + 1; alpha <= 255; alpha++) {
                 int raised = ColorUtils.setAlphaComponent(baseFunction, alpha);
                 int[] on = drawnChipsOn(raised, gradientTop, gradientBottom, under);
-                int ink = legibleWithSecondary(baseFunctionLabel, on);
+                int ink = legibleOnTone(baseFunctionLabel, on, tone);
                 if (alpha == 255 || drawnContrast(ink, on) >= MIN_TEXT_CONTRAST) {
                     function = raised;
                     functionLabel = ink;
@@ -609,6 +635,40 @@ public final class InAppKeyboardPaletteFactory {
             if (secondary > bestSecondary) {
                 best = endpoint;
                 bestSecondary = secondary;
+            }
+        }
+        return opaque(best);
+    }
+
+    /**
+     * {@link #legibleWithSecondary} held to {@code tone}'s side ({@link #TONE_ANY}: either). On
+     * the side: {@code foreground} where it is on that side and it and its secondary rendition
+     * read; else moved toward the side's endpoint only as far as both need; else the endpoint.
+     * Off the side, the endpoint.
+     */
+    @ColorInt
+    static int legibleOnTone(@ColorInt int foreground, @NonNull int[] backgrounds, int tone) {
+        if (tone != TONE_DARK && tone != TONE_PALE)
+            return legibleWithSecondary(foreground, backgrounds);
+        int endpoint = tone == TONE_PALE ? Color.WHITE : Color.BLACK;
+        foreground = opaque(foreground);
+        boolean onSide = (ColorUtils.calculateLuminance(foreground) > 0.5d) == (tone == TONE_PALE);
+        if (!onSide) return endpoint;
+        if (backgrounds.length == 0
+                || drawnContrast(foreground, backgrounds) >= MIN_TEXT_CONTRAST)
+            return foreground;
+        if (drawnContrast(endpoint, backgrounds) < MIN_TEXT_CONTRAST) return endpoint;
+        int best = endpoint;
+        float low = 0f;
+        float high = 1f;
+        for (int i = 0; i < 20; i++) {
+            float amount = (low + high) / 2f;
+            int candidate = ColorUtils.blendARGB(foreground, endpoint, amount);
+            if (drawnContrast(candidate, backgrounds) >= MIN_TEXT_CONTRAST) {
+                best = candidate;
+                high = amount;
+            } else {
+                low = amount;
             }
         }
         return opaque(best);

@@ -568,7 +568,7 @@ public class KeyboardAreaInkTest {
         int[] faces = new int[0];
         for (int pass = 0; pass < 4; pass++) {
             Theme.Palette palette = InAppKeyboardPaletteFactory.createGlass(context, "light",
-                GlassLook.SCHEME, faces, 0);
+                GlassLook.SCHEME, faces, 0, on.bandTone(GlassBackdropCache.Band.KEYBOARD));
             askAtKeysZero(on, palette);
             on.noteBandGlass(GlassBackdropCache.Band.KEYBOARD, 0.35f, false, 0f, 1f, LIGHT_BASE);
             on.noteBandBlur(GlassBackdropCache.Band.KEYBOARD, blurDp);
@@ -577,10 +577,16 @@ public class KeyboardAreaInkTest {
         return faces;
     }
 
+    /**
+     * The launcher's ask at Keys 0 (TermuxActivity#noteInAppKeyboardBand): either tone, each
+     * side's extreme, the function legend as drawn secondary, on the caps the palette draws. The
+     * legends drawn now are not part of the question.
+     */
     private static void askAtKeysZero(@NonNull ChromeInk on, @NonNull Theme.Palette palette) {
-        on.onFixedInk(GlassBackdropCache.Band.KEYBOARD, KEYBOARD_RECT,
-            palette.labelColor | 0xFF000000, palette.keyBackground & 0x00FFFFFF,
-            InAppKeyboardPaletteFactory.secondaryOf(palette.functionLabelColor),
+        on.onFixedInkEitherTone(GlassBackdropCache.Band.KEYBOARD, KEYBOARD_RECT,
+            Color.BLACK, Color.WHITE, palette.keyBackground & 0x00FFFFFF,
+            InAppKeyboardPaletteFactory.secondaryOf(Color.BLACK),
+            InAppKeyboardPaletteFactory.secondaryOf(Color.WHITE),
             palette.functionKeyBackground & 0x00FFFFFF, OnGlass.TARGET_BODY_TEXT);
     }
 
@@ -605,7 +611,7 @@ public class KeyboardAreaInkTest {
             int[] faces = keysZeroFaces(ink, blurDp);
             assertEquals(ChromeInk.FACE_ROWS, faces.length);
             Theme.Palette palette = InAppKeyboardPaletteFactory.createGlass(context, "light",
-                GlassLook.SCHEME, faces, 0);
+                GlassLook.SCHEME, faces, 0, ink.bandTone(GlassBackdropCache.Band.KEYBOARD));
 
             // The same glass over a wallpaper that only ever shows this blur's picture.
             ChromeInk truth = new ChromeInk(surfaces, new WallpaperBlurCache(surfaces), () -> { });
@@ -632,14 +638,19 @@ public class KeyboardAreaInkTest {
 
     // ------------------------------- the keyboard's own frame landing after a stand-in (2026-10-17)
 
+    /** A grey wallpaper, every row alike. */
+    private static int grey(int level) {
+        return Color.rgb(level, level, level);
+    }
+
     /**
-     * {@link GrassByBlur} with the frame at {@code radius} not resident until it lands: until then
-     * the band's rows at that radius are unreadable and are read off the default frame (the dock's
-     * 25 dp, the lit grass mixed through), the stand-in.
+     * The frame at {@code radius} not resident until it lands: until then the band's rows at that
+     * radius are unreadable and are read off the default frame, a bright stand-in.
      */
     private static final class LandingGrass implements GlassBackdropCache.Sampler {
-        private final GrassByBlur grass = new GrassByBlur();
         private final int radius;
+        int standIn = LIT_GRASS;
+        int real = DARK_GRASS;
         boolean landed;
 
         LandingGrass(int radius) {
@@ -647,38 +658,48 @@ public class KeyboardAreaInkTest {
         }
 
         @Override public int sampleWallpaper(@NonNull Rect rect) {
-            return LIT_GRASS;
+            return standIn;
         }
 
         @Override public int sampleWallpaper(@NonNull Rect rect, int blurRadiusDp) {
             if (blurRadiusDp == radius && !landed) return GlassBackdropCache.UNREADABLE;
-            return blurRadiusDp == radius ? DARK_GRASS : LIT_GRASS;
+            return blurRadiusDp == radius ? real : standIn;
         }
     }
 
     /**
      * The keyboard's side of a face push, as {@code TermuxInAppKeyboard#setGlassFaces} does it:
-     * equal faces cost one comparison, a new palette is only handed to the view (a repaint) when
-     * an ink it draws moved.
+     * equal faces and tone cost one comparison, a new palette is only handed to the view (a
+     * repaint) when an ink it draws moved.
      */
     private static final class FacedKeyboard {
         @NonNull int[] faces = new int[0];
+        int tone;
         Theme.Palette applied;
         int repaints;
 
-        void setGlassFaces(@NonNull int[] next) {
-            if (java.util.Arrays.equals(next, faces)) return;
+        FacedKeyboard(int tone) {
+            this.tone = tone;
+        }
+
+        void setGlassFaces(@NonNull int[] next, int nextTone) {
+            if (java.util.Arrays.equals(next, faces) && nextTone == tone) return;
             faces = next.clone();
-            Theme.Palette palette = InAppKeyboardPaletteFactory.createGlass(
-                RuntimeEnvironment.getApplication(), "light", GlassLook.SCHEME, faces, 0);
+            tone = nextTone;
+            Theme.Palette palette = paletteOn(faces, tone);
             if (applied != null && sameInks(applied, palette)) return;
             applied = palette;
             repaints++;
         }
 
         @NonNull Theme.Palette palette() {
-            return applied != null ? applied : InAppKeyboardPaletteFactory.createGlass(
-                RuntimeEnvironment.getApplication(), "light", GlassLook.SCHEME, faces, 0);
+            return applied != null ? applied : paletteOn(faces, tone);
+        }
+
+        @NonNull
+        private static Theme.Palette paletteOn(@NonNull int[] faces, int tone) {
+            return InAppKeyboardPaletteFactory.createGlass(RuntimeEnvironment.getApplication(),
+                "light", GlassLook.SCHEME, faces, 0, tone);
         }
 
         private static boolean sameInks(@NonNull Theme.Palette a, @NonNull Theme.Palette b) {
@@ -691,25 +712,51 @@ public class KeyboardAreaInkTest {
     }
 
     /** One launcher dress pass at Keys 0, Opacity 10, the keyboard drawn at {@code blurDp}. */
-    private void dressKeysZero(@NonNull FacedKeyboard keyboard, int blurDp) {
-        askAtKeysZero(ink, keyboard.palette());
-        ink.noteBandGlass(GlassBackdropCache.Band.KEYBOARD, 0.10f, false, 0f, 1f, LIGHT_BASE);
-        ink.noteBandBlur(GlassBackdropCache.Band.KEYBOARD, blurDp);
-        keyboard.setGlassFaces(ink.bandFaces(GlassBackdropCache.Band.KEYBOARD));
+    private static void dressKeysZero(@NonNull ChromeInk on, @NonNull FacedKeyboard keyboard,
+                                      int blurDp) {
+        on.noteBandGlass(GlassBackdropCache.Band.KEYBOARD, 0.10f, false, 0f, 1f, LIGHT_BASE);
+        on.noteBandBlur(GlassBackdropCache.Band.KEYBOARD, blurDp);
+        askAtKeysZero(on, keyboard.palette());
+        int[] faces = on.bandFaces(GlassBackdropCache.Band.KEYBOARD);
+        keyboard.setGlassFaces(faces, on.bandTone(GlassBackdropCache.Band.KEYBOARD));
+    }
+
+    private void assertLegendsRead(@NonNull String at, @NonNull FacedKeyboard keyboard) {
+        assertLegendsRead(at, keyboard, 4.5d);
+    }
+
+    /**
+     * The letters at 4.5:1 on every row's face, and Ctrl, Alt and the arrows as drawn (secondary)
+     * at {@code functionFloor}: pale secondary legends are #BFBFBF at best, which dark grass holds
+     * under 4.5:1 with no veil.
+     */
+    private void assertLegendsRead(@NonNull String at, @NonNull FacedKeyboard keyboard,
+                                   double functionFloor) {
+        Theme.Palette palette = keyboard.palette();
+        int functionDrawn = InAppKeyboardPaletteFactory.secondaryOf(palette.functionLabelColor);
+        for (int i = 0; i < keyboard.faces.length; i++) {
+            String row = at + ", row " + i + " on #" + Integer.toHexString(keyboard.faces[i]);
+            assertTrue(row + ": letters", ColorUtils.calculateContrast(
+                palette.labelColor | 0xFF000000, keyboard.faces[i]) >= 4.5d);
+            double function = ColorUtils.calculateContrast(functionDrawn, keyboard.faces[i]);
+            assertTrue(row + ": Ctrl, Alt, arrows " + function, function >= functionFloor);
+        }
+    }
+
+    @NonNull
+    private ChromeInk freshInk(@NonNull GlassBackdropCache.Sampler sampler) {
+        ChromeInk on = new ChromeInk(surfaces, new WallpaperBlurCache(surfaces), () -> { });
+        on.backdrops().setSampler(sampler);
+        return on;
     }
 
     /**
      * The emulator failure after d866306bc (light theme, keyboard Keys 0, Opacity 10, Tint 0,
      * Glass 20 to 0, 7 dp to 4 dp): the keyboard asked for a radius nothing had baked, its rows
-     * were read off a brighter frame meanwhile, and the legends were chosen dark there with no
-     * veil. When the keyboard's own frame (dark grass) lands, the ink names the band once, the
-     * faces are measured on it and pushed with exactly one repaint, every legend reading at
-     * 4.5:1 on the face as drawn; a second landing names nothing and repaints nothing.
-     *
-     * <p>The legends stay dark: asked for the dark legends it is drawing, the band buys a light
-     * veil (0x8A of the base) under which they read, the very answer a launch on this frame
-     * settles on. Pale legends with no veil are the other answer that holds here; which one a
-     * band lands on depends on the legends drawn when its frame is first read.</p>
+     * were read off a brighter frame meanwhile and the legends chosen dark there. When the
+     * keyboard's own frame (dark grass) lands, the ink names the band once, the faces are measured
+     * on it and pushed with exactly one repaint: pale legends, no veil, every legend at 4.5:1. A
+     * second landing names nothing and repaints nothing.
      */
     @Test
     public void theKeyboardsOwnFrameLandingReJudgesItsLegends() {
@@ -717,46 +764,169 @@ public class KeyboardAreaInkTest {
         LandingGrass grass = new LandingGrass(blurDp);
         ink.backdrops().setSampler(grass);
         ink.invalidate();
-        FacedKeyboard keyboard = new FacedKeyboard();
-        for (int pass = 0; pass < 4; pass++) dressKeysZero(keyboard, blurDp);
+        FacedKeyboard keyboard = new FacedKeyboard(0);
+        for (int pass = 0; pass < 4; pass++) dressKeysZero(ink, keyboard, blurDp);
         assertTrue("an unrelated frame landing names nothing while the band's is out",
             ink.onBlurFrameReady().isEmpty());
-        Theme.Palette standIn = keyboard.palette();
-        assertFalse("on the stand-in the legends were chosen dark", pale(standIn.labelColor));
+        assertFalse("on the stand-in the legends were chosen dark",
+            pale(keyboard.palette().labelColor));
         int before = keyboard.repaints;
 
         grass.landed = true;
-        java.util.Set<GlassBackdropCache.Band> due = ink.onBlurFrameReady();
-        assertEquals(java.util.EnumSet.of(GlassBackdropCache.Band.KEYBOARD), due);
-        keyboard.setGlassFaces(ink.bandFaces(GlassBackdropCache.Band.KEYBOARD));
+        assertEquals(java.util.EnumSet.of(GlassBackdropCache.Band.KEYBOARD),
+            ink.onBlurFrameReady());
+        keyboard.setGlassFaces(ink.bandFaces(GlassBackdropCache.Band.KEYBOARD),
+            ink.bandTone(GlassBackdropCache.Band.KEYBOARD));
         assertEquals("exactly one repaint", before + 1, keyboard.repaints);
-
-        Theme.Palette landed = keyboard.palette();
-        int[] faces = keyboard.faces;
-        int functionDrawn = InAppKeyboardPaletteFactory.secondaryOf(landed.functionLabelColor);
-        assertNotEquals("the veil was bought on the landed frame", Color.TRANSPARENT,
-            ink.bandVeil(GlassBackdropCache.Band.KEYBOARD));
-        // The answer a launch on the landed frame settles on: the same faces and legends.
-        ChromeInk live = ink;
-        ink = new ChromeInk(surfaces, new WallpaperBlurCache(surfaces), () -> { });
-        ink.backdrops().setSampler(grass);
-        FacedKeyboard launched = new FacedKeyboard();
-        for (int pass = 0; pass < 4; pass++) dressKeysZero(launched, blurDp);
-        assertEquals("the faces a launch on the landed frame measures",
-            java.util.Arrays.toString(launched.faces), java.util.Arrays.toString(faces));
-        assertEquals(launched.palette().labelColor, landed.labelColor);
-        assertEquals(launched.palette().functionLabelColor, landed.functionLabelColor);
-        ink = live;
-        for (int i = 0; i < faces.length; i++) {
-            String at = "row " + i + " on #" + Integer.toHexString(faces[i]);
-            assertTrue(at + ": letters", ColorUtils.calculateContrast(
-                landed.labelColor | 0xFF000000, faces[i]) >= 4.5d);
-            assertTrue(at + ": Ctrl, Alt, arrows",
-                ColorUtils.calculateContrast(functionDrawn, faces[i]) >= 4.5d);
-        }
+        assertTrue("letters pale", pale(keyboard.palette().labelColor));
+        assertTrue("Ctrl, Alt, arrows pale", pale(InAppKeyboardPaletteFactory.secondaryOf(
+            keyboard.palette().functionLabelColor)));
+        assertEquals("no veil", Color.TRANSPARENT, ink.bandVeil(GlassBackdropCache.Band.KEYBOARD));
+        assertLegendsRead("landed", keyboard, 3.9d);
 
         assertTrue("a second landing names nothing", ink.onBlurFrameReady().isEmpty());
-        keyboard.setGlassFaces(ink.bandFaces(GlassBackdropCache.Band.KEYBOARD));
+        keyboard.setGlassFaces(ink.bandFaces(GlassBackdropCache.Band.KEYBOARD),
+            ink.bandTone(GlassBackdropCache.Band.KEYBOARD));
         assertEquals("and repaints nothing", before + 1, keyboard.repaints);
+    }
+
+    /**
+     * Uniform dark grass, light base, Opacity 10, Keys 0: pale legends and no veil, whichever
+     * legends were drawn before (dark ones from a bright face, pale ones) and whether the band had
+     * chosen a tone already or this is a launch: the answer is the bare face's alone.
+     */
+    @Test
+    public void darkGrassTakesPaleLegendsAndNoVeilFromAnyStart() {
+        String launched = null;
+        for (int start : new int[] {0, ChromeInk.TONE_DARK, ChromeInk.TONE_PALE}) {
+            LandingGrass grass = new LandingGrass(-99);
+            ChromeInk on = freshInk(grass);
+            FacedKeyboard keyboard = new FacedKeyboard(start);
+            if (start != 0) {
+                // The tone chosen before: dark on a bright face, pale on dark grass.
+                grass.standIn = start == ChromeInk.TONE_DARK ? 0xFFE8EEDA : DARK_GRASS;
+                for (int pass = 0; pass < 3; pass++) dressKeysZero(on, keyboard, 0);
+                assertEquals(start, on.bandTone(GlassBackdropCache.Band.KEYBOARD));
+                assertEquals(start == ChromeInk.TONE_PALE, pale(keyboard.palette().labelColor));
+            }
+            grass.standIn = DARK_GRASS;
+            on.invalidate();
+            for (int pass = 0; pass < 3; pass++) dressKeysZero(on, keyboard, 0);
+            String at = "from " + start;
+            assertEquals(at, ChromeInk.TONE_PALE, on.bandTone(GlassBackdropCache.Band.KEYBOARD));
+            assertTrue(at + ": letters pale", pale(keyboard.palette().labelColor));
+            assertTrue(at + ": Ctrl pale", pale(InAppKeyboardPaletteFactory.secondaryOf(
+                keyboard.palette().functionLabelColor)));
+            assertEquals(at + ": no veil", Color.TRANSPARENT,
+                on.bandVeil(GlassBackdropCache.Band.KEYBOARD));
+            assertLegendsRead(at, keyboard, 3.9d);
+            String answer = java.util.Arrays.toString(keyboard.faces) + " "
+                + keyboard.palette().labelColor + " " + keyboard.palette().functionLabelColor;
+            if (launched == null) launched = answer;
+            assertEquals(at + ": the launch's answer", launched, answer);
+        }
+    }
+
+    /** A bright face: dark legends and no veil. */
+    @Test
+    public void aBrightFaceTakesDarkLegendsAndNoVeil() {
+        LandingGrass grass = new LandingGrass(-99);
+        grass.standIn = 0xFFE8EEDA;
+        ChromeInk on = freshInk(grass);
+        FacedKeyboard keyboard = new FacedKeyboard(ChromeInk.TONE_PALE);
+        for (int pass = 0; pass < 3; pass++) dressKeysZero(on, keyboard, 0);
+        assertEquals(ChromeInk.TONE_DARK, on.bandTone(GlassBackdropCache.Band.KEYBOARD));
+        assertFalse(pale(keyboard.palette().labelColor));
+        assertEquals("no veil", Color.TRANSPARENT, on.bandVeil(GlassBackdropCache.Band.KEYBOARD));
+        assertLegendsRead("bright", keyboard);
+    }
+
+    /**
+     * A mid face where neither tone reaches 4.5:1 bare (Ctrl, Alt and the arrows, drawn
+     * secondary, are the ones that miss): the tone that reads better there, and a veil of the
+     * base just big enough to carry it, not a step more.
+     */
+    @Test
+    public void aMidFaceTakesTheBetterToneAndTheLeastVeil() {
+        int wallpaper = grey(0x7A);
+        LandingGrass grass = new LandingGrass(-99);
+        grass.standIn = wallpaper;
+        ChromeInk on = freshInk(grass);
+        FacedKeyboard keyboard = new FacedKeyboard(0);
+        for (int pass = 0; pass < 3; pass++) dressKeysZero(on, keyboard, 0);
+
+        // The same glass bare: a band asked about an ink on an opaque cap buys no veil.
+        ChromeInk bare = freshInk(grass);
+        bare.onFixedInk(GlassBackdropCache.Band.KEYBOARD, KEYBOARD_RECT, Color.WHITE, Color.WHITE,
+            0xFF000000, OnGlass.TARGET_BODY_TEXT);
+        bare.noteBandGlass(GlassBackdropCache.Band.KEYBOARD, 0.10f, false, 0f, 1f, LIGHT_BASE);
+        bare.noteBandBlur(GlassBackdropCache.Band.KEYBOARD, 0);
+        int[] bareFaces = bare.bandFaces(GlassBackdropCache.Band.KEYBOARD);
+        int darkSecondary = InAppKeyboardPaletteFactory.secondaryOf(Color.BLACK);
+        int paleSecondary = InAppKeyboardPaletteFactory.secondaryOf(Color.WHITE);
+        double darkBare = Double.MAX_VALUE;
+        double paleBare = Double.MAX_VALUE;
+        for (int face : bareFaces) {
+            darkBare = Math.min(darkBare, ColorUtils.calculateContrast(darkSecondary, face));
+            paleBare = Math.min(paleBare, ColorUtils.calculateContrast(paleSecondary, face));
+        }
+        assertTrue("neither tone reads bare: " + darkBare + " " + paleBare,
+            darkBare < 4.5d && paleBare < 4.5d);
+
+        int veil = on.bandVeil(GlassBackdropCache.Band.KEYBOARD);
+        int tone = on.bandTone(GlassBackdropCache.Band.KEYBOARD);
+        assertEquals("the better tone", darkBare > paleBare ? ChromeInk.TONE_DARK
+            : ChromeInk.TONE_PALE, tone);
+        assertTrue("a veil carries it", Color.alpha(veil) > 0);
+        assertLegendsRead("mid", keyboard, 4.49d);
+        // One step less veil and the chosen tone's Ctrl misses on some row.
+        int less = OnGlass.withAlpha(veil, Color.alpha(veil) - 1);
+        double worstLess = Double.MAX_VALUE;
+        for (int face : bareFaces)
+            worstLess = Math.min(worstLess, ColorUtils.calculateContrast(
+                tone == ChromeInk.TONE_DARK ? darkSecondary : paleSecondary,
+                OnGlass.opaque(OnGlass.composite(less, face))));
+        assertTrue("the least veil: one step less gives " + worstLess, worstLess < 4.6d);
+    }
+
+    /**
+     * A face at the line between the tones does not flip on every pass: the wallpaper moving by
+     * one step either side of where a launch would choose differently keeps the band's tone.
+     */
+    @Test
+    public void aFaceAtTheLineKeepsItsTone() {
+        int line = -1;
+        int below = 0;
+        for (int level = 0x20; level < 0xE0; level++) {
+            LandingGrass grass = new LandingGrass(-99);
+            grass.standIn = grey(level);
+            ChromeInk on = freshInk(grass);
+            FacedKeyboard keyboard = new FacedKeyboard(0);
+            dressKeysZero(on, keyboard, 0);
+            int tone = on.bandTone(GlassBackdropCache.Band.KEYBOARD);
+            if (below != 0 && tone != below) {
+                line = level;
+                break;
+            }
+            below = tone;
+        }
+        assertTrue("a launch changes tone somewhere on the grey ramp", line > 0);
+
+        LandingGrass grass = new LandingGrass(-99);
+        grass.standIn = grey(line - 1);
+        ChromeInk on = freshInk(grass);
+        FacedKeyboard keyboard = new FacedKeyboard(0);
+        dressKeysZero(on, keyboard, 0);
+        int kept = on.bandTone(GlassBackdropCache.Band.KEYBOARD);
+        assertEquals(below, kept);
+        for (int pass = 0; pass < 6; pass++) {
+            grass.standIn = grey(pass % 2 == 0 ? line : line - 1);
+            on.invalidate();
+            dressKeysZero(on, keyboard, 0);
+            assertEquals("pass " + pass, kept, on.bandTone(GlassBackdropCache.Band.KEYBOARD));
+            assertEquals("pass " + pass + ": the legends keep their side",
+                kept == ChromeInk.TONE_PALE, pale(keyboard.palette().labelColor));
+        }
+        assertEquals(kept == ChromeInk.TONE_PALE, pale(keyboard.palette().labelColor));
     }
 }

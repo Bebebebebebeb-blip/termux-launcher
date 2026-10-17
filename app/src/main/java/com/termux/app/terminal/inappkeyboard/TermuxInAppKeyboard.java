@@ -1541,6 +1541,8 @@ public final class TermuxInAppKeyboard {
      * theme's base.
      */
     @NonNull private int[] mGlassFaces = new int[0];
+    /** The legend tone the launcher chose ({@link #setGlassFaces(int[], int)}); any until told. */
+    private int mGlassTone = InAppKeyboardPaletteFactory.TONE_ANY;
 
     /**
      * The faces under the keys moved (an opacity, Shade, Tint, hue or Glass change, a new
@@ -1550,9 +1552,18 @@ public final class TermuxInAppKeyboard {
      * comparison.
      */
     public void setGlassFaces(@NonNull int[] faces) {
-        if (java.util.Arrays.equals(faces, mGlassFaces))
+        setGlassFaces(faces, InAppKeyboardPaletteFactory.TONE_ANY);
+    }
+
+    /**
+     * {@link #setGlassFaces(int[])} with the legend tone the launcher chose on the bare face
+     * ({@code ChromeInk#bandTone}): the letters and function legends are held to it.
+     */
+    public void setGlassFaces(@NonNull int[] faces, int tone) {
+        if (java.util.Arrays.equals(faces, mGlassFaces) && tone == mGlassTone)
             return;
         mGlassFaces = faces.clone();
+        mGlassTone = tone;
         if (mDestroyed || mKeyboardView == null)
             return;
         juloo.keyboard2.Theme.Palette next = createPalette();
@@ -1597,7 +1608,8 @@ public final class TermuxInAppKeyboard {
         String theme = mPreferences.getInAppKeyboardTheme();
         juloo.keyboard2.Theme.Palette palette =
             InAppKeyboardPaletteFactory.createGlass(context, theme,
-                com.termux.app.chrome.GlassLook.of(mPreferences), mGlassFaces, mKeyOpacity);
+                com.termux.app.chrome.GlassLook.of(mPreferences), mGlassFaces, mKeyOpacity,
+                mGlassTone);
         InAppKeyboardColorScheme scheme = InAppKeyboardColorScheme.fromJson(context,
             mPreferences.getInAppKeyboardColorScheme());
         return scheme.shouldApplyImportedPalette(theme) ? scheme.applyToPalette(palette) : palette;

@@ -6636,9 +6636,19 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applyInAppKeyboardHostMaterial(state);
         TermuxInAppKeyboard keyboard = mInAppKeyboard;
         if (keyboard == null || mChrome == null) return;
-        keyboard.setGlassFaces(mKeyboardBandAskedThisPass
-            ? mChrome.ink().bandFaces(com.termux.app.chrome.GlassBackdropCache.Band.KEYBOARD)
-            : new int[0]);
+        if (!mKeyboardBandAskedThisPass) {
+            keyboard.setGlassFaces(new int[0]);
+            return;
+        }
+        pushKeyboardGlassFaces(keyboard);
+    }
+
+    /** The keyboard band's faces and the legend tone chosen on its bare face, to the keyboard. */
+    private void pushKeyboardGlassFaces(@NonNull TermuxInAppKeyboard keyboard) {
+        com.termux.app.chrome.ChromeInk ink = mChrome.ink();
+        int[] faces = ink.bandFaces(com.termux.app.chrome.GlassBackdropCache.Band.KEYBOARD);
+        keyboard.setGlassFaces(faces,
+            ink.bandTone(com.termux.app.chrome.GlassBackdropCache.Band.KEYBOARD));
     }
 
     /**
@@ -6651,8 +6661,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private void rejudgeKeyboardGlassFaces() {
         TermuxInAppKeyboard keyboard = mInAppKeyboard;
         if (keyboard == null || mChrome == null || !mKeyboardBandAskedThisPass) return;
-        keyboard.setGlassFaces(
-            mChrome.ink().bandFaces(com.termux.app.chrome.GlassBackdropCache.Band.KEYBOARD));
+        pushKeyboardGlassFaces(keyboard);
     }
 
     private void applyInAppKeyboardHostMaterial(@NonNull ChromeSpec state) {
@@ -6921,9 +6930,17 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         Rect host = new Rect(origin[0], origin[1],
             origin[0] + surfaceHost.getWidth(), origin[1] + surfaceHost.getHeight());
         // The letter legend on its cap and the function legend (Ctrl, Alt, Fn) on its thinner
-        // chip, each over the row of the host where it reads worst.
-        mChrome.ink().onFixedInk(com.termux.app.chrome.GlassBackdropCache.Band.KEYBOARD, host,
-            inks[0], inks[1], inks[2], inks[3], com.termux.app.chrome.OnGlass.TARGET_BODY_TEXT);
+        // chip, each over the row of the host where it reads worst. Asked as either tone (each
+        // side's extreme, the function legend as drawn secondary), never as the legends drawn
+        // now: the tone is chosen on the bare face and a veil bought only for that tone, so a
+        // dark legend left from a brighter face cannot buy a milky veil that keeps it dark.
+        int pale = android.graphics.Color.WHITE;
+        int dark = android.graphics.Color.BLACK;
+        mChrome.ink().onFixedInkEitherTone(com.termux.app.chrome.GlassBackdropCache.Band.KEYBOARD,
+            host, dark, pale, inks[1],
+            com.termux.app.terminal.inappkeyboard.InAppKeyboardPaletteFactory.secondaryOf(dark),
+            com.termux.app.terminal.inappkeyboard.InAppKeyboardPaletteFactory.secondaryOf(pale),
+            inks[3], com.termux.app.chrome.OnGlass.TARGET_BODY_TEXT);
         mKeyboardBandAskedThisPass = true;
         return com.termux.app.chrome.GlassBackdropCache.Band.KEYBOARD;
     }
