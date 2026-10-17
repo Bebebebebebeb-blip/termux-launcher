@@ -461,6 +461,21 @@ public final class GlassSurfaceFactory {
     }
 
     /**
+     * Tells the ink that {@code band}'s content stands on the dock's glass, drawn by another view
+     * at {@code barAlpha}: the A&ndash;Z letters on the dock, the plank or their own capsule, the
+     * extra keys on the dock. The base is the dock's tint at its Tint and hue, with the Shade the
+     * dock draws under it, so an answer for the band is an answer on that face. Draws nothing.
+     *
+     * @return whether that face moved since it was last told; false with no ink to tell
+     */
+    public boolean noteDockGlassUnder(@NonNull GlassBackdropCache.Band band, float barAlpha) {
+        if (mInk == null) return false;
+        float clamped = barAlpha < 0f ? 0f : (barAlpha > 1f ? 1f : barAlpha);
+        int base = tintBase(dockTintStrength());
+        return mInk.noteBandGlass(band, clamped, false, 0f, 1f, base, shadeColorOver(base));
+    }
+
+    /**
      * The one containing stroke every glass surface draws: barely there, or it reads as a drawn
      * border over the glass rather than the edge of the material. Also the dock capsule's
      * background, whose outline it supplies.

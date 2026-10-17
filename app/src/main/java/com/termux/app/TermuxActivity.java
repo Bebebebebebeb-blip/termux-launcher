@@ -6623,7 +6623,26 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * tint, built by {@link com.termux.app.chrome.GlassStack}) so the wrap-content keyboard
      * measurement is never affected by extra sibling views.
      */
+    /** Whether this surface pass asked the keyboard band about its glass. */
+    private boolean mKeyboardBandAskedThisPass;
+
+    /**
+     * The keyboard host's material for {@code state}, then the keys' legends re-chosen against the
+     * face that material draws (ChromeInk#bandFace): measured where the host wears the keyboard
+     * band's glass this pass, the theme's glass base where it does not (Solid, the joined frame,
+     * a floating card, the keyboard down).
+     */
     private void applyInAppKeyboardSurfaceState(@NonNull ChromeSpec state) {
+        mKeyboardBandAskedThisPass = false;
+        applyInAppKeyboardHostMaterial(state);
+        TermuxInAppKeyboard keyboard = mInAppKeyboard;
+        if (keyboard == null || mChrome == null) return;
+        keyboard.setGlassFace(mKeyboardBandAskedThisPass
+            ? mChrome.ink().bandFace(com.termux.app.chrome.GlassBackdropCache.Band.KEYBOARD)
+            : Color.TRANSPARENT);
+    }
+
+    private void applyInAppKeyboardHostMaterial(@NonNull ChromeSpec state) {
         View surfaceHost = findViewById(R.id.inapp_keyboard_view_host);
         if (surfaceHost == null) {
             return;
@@ -6890,6 +6909,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             origin[0] + surfaceHost.getWidth(), origin[1] + surfaceHost.getHeight());
         mChrome.ink().onFixedInk(com.termux.app.chrome.GlassBackdropCache.Band.KEYBOARD, host,
             inks[0], inks[0], inks[1], com.termux.app.chrome.OnGlass.TARGET_BODY_TEXT);
+        mKeyboardBandAskedThisPass = true;
         return com.termux.app.chrome.GlassBackdropCache.Band.KEYBOARD;
     }
 
@@ -7983,6 +8003,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         syncAzBarHosts();
         syncOffDockPlank(currentPlaceLayout());
         refreshOffDockGlass();
+        syncDockGlassInks(state.barAlpha);
 
         configureAccessoryTopEdgeFx(true, state.barAlpha);
         applyDecorNavBarSurfaceState(state);
@@ -11235,6 +11256,54 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         out.set(left, top, left + row.getWidth(), top + row.getHeight());
         return true;
+    }
+
+    /** The extra keys' label ink as last chosen on the dock's face; transparent before. */
+    @androidx.annotation.ColorInt private int mExtraKeysInk = Color.TRANSPARENT;
+    @NonNull private final Rect mExtraKeysInkRect = new Rect();
+    @NonNull private final int[] mExtraKeysInkLocation = new int[2];
+
+    /**
+     * On the pass that re-glazes the dock: the A&ndash;Z strip and the extra keys are told the
+     * glass they stand on (the dock's material at {@code dockOpacity}, its Tint, hue and Shade), so
+     * their ink is chosen on that face rather than on the wallpaper or the theme. The letters are
+     * re-synced only when their face moved; the extra keys re-chosen only when their ink changed.
+     */
+    private void syncDockGlassInks(float dockOpacity) {
+        if (mChrome == null) return;
+        // The pull tab keeps a floor under the dock's opacity (refreshAzTabGlass); every other
+        // home of the letters (the dock, the plank, their own capsule) wears the dock's own.
+        float azOpacity = mAzScrubRowView != null && mAzScrubRowView == mAzTabRowView
+            ? Math.max(dockOpacity, AzTabPolicy.MIN_GLASS_OPACITY) : dockOpacity;
+        if (mChrome.glass().noteDockGlassUnder(GlassBackdropCache.Band.AZ_STRIP, azOpacity))
+            syncAzScrubLettersAndTint();
+        syncExtraKeysInk(dockOpacity);
+    }
+
+    /**
+     * The extra keys' labels on the dock's face: the theme's on-surface colour where it reads
+     * there, else the nearest tone of it that does on the other side (GlassInk#faceInk). A key
+     * repaints only when its ink changed.
+     */
+    private void syncExtraKeysInk(float dockOpacity) {
+        ExtraKeysView keys = mExtraKeysView;
+        if (keys == null || keys.getWidth() <= 0 || keys.getHeight() <= 0) return;
+        mChrome.glass().noteDockGlassUnder(GlassBackdropCache.Band.DOCK, dockOpacity);
+        keys.getLocationOnScreen(mExtraKeysInkLocation);
+        mExtraKeysInkRect.set(mExtraKeysInkLocation[0], mExtraKeysInkLocation[1],
+            mExtraKeysInkLocation[0] + keys.getWidth(), mExtraKeysInkLocation[1] + keys.getHeight());
+        int face = mChrome.ink().faceUnder(GlassBackdropCache.Band.DOCK, mExtraKeysInkRect);
+        int theme = ThemeUtils.getSystemAttrColor(keys.getContext(),
+            ExtraKeysView.ATTR_BUTTON_TEXT_COLOR, ExtraKeysView.DEFAULT_BUTTON_TEXT_COLOR);
+        int ink = GlassInk.faceInk(face, theme,
+            mChrome.ink().target(OnGlass.TARGET_BODY_TEXT));
+        mExtraKeysInk = ink;
+        // Each page compared on its own: a page rebuilt since (its theme colour back) is caught.
+        for (ExtraKeysView view : mExtraKeysViews) {
+            if (view == null || view.getButtonTextColor() == ink) continue;
+            view.setButtonTextColor(ink);
+            view.refreshKeyStyles();
+        }
     }
 
     /**
@@ -17265,6 +17334,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         while (mExtraKeysViews.size() <= page) mExtraKeysViews.add(null);
         mExtraKeysViews.set(page, extraKeysView);
         if (page == 0) mExtraKeysView = extraKeysView;
+        if (extraKeysView != null && mExtraKeysInk != Color.TRANSPARENT
+                && extraKeysView.getButtonTextColor() != mExtraKeysInk) {
+            extraKeysView.setButtonTextColor(mExtraKeysInk);
+            extraKeysView.refreshKeyStyles();
+        }
         applyExtraKeysFeedbackAccent(extraKeysView);
         applyExtraKeysPlaceEligibility(extraKeysView);
     }

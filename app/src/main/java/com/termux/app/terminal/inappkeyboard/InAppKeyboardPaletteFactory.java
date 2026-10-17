@@ -234,6 +234,20 @@ public final class InAppKeyboardPaletteFactory {
     @NonNull
     public static Theme.Palette createGlass(@NonNull Context context, String variant,
                                             @NonNull GlassLook look) {
+        return createGlass(context, variant, look, Color.TRANSPARENT);
+    }
+
+    /**
+     * {@link #createGlass(Context, String, GlassLook)} with every legend checked against its chip
+     * over {@code face}, the glass the keys really stand on as measured (the wallpaper, the dim,
+     * the Shade and the tint at its opacity; {@code ChromeInk#bandFace}), rather than over the
+     * theme's glass base. A theme legend that already reads there is kept; one that does not moves
+     * toward whichever of white or black reads. {@link Color#TRANSPARENT} for not measured yet:
+     * the glass base stands in, as before.
+     */
+    @NonNull
+    public static Theme.Palette createGlass(@NonNull Context context, String variant,
+                                            @NonNull GlassLook look, @ColorInt int face) {
         String normalizedVariant = variant == null || "dock".equals(variant)
             ? "system" : variant;
         Theme.Palette base = create(context, normalizedVariant);
@@ -264,10 +278,12 @@ public final class InAppKeyboardPaletteFactory {
         int space = ColorUtils.setAlphaComponent(baseSpace, night ? 150 : 180);
         int activated = ColorUtils.setAlphaComponent(base.activatedKeyBackground, 216);
 
-        int keyOnBase = ColorUtils.compositeColors(key, glassBase);
-        int actionOnBase = ColorUtils.compositeColors(action, glassBase);
-        int functionOnBase = ColorUtils.compositeColors(function, glassBase);
-        int activatedOnBase = ColorUtils.compositeColors(activated, glassBase);
+        // What the chips are laid on: the measured face where there is one, else the base.
+        int under = Color.alpha(face) == 0 ? glassBase : opaque(face);
+        int keyOnBase = ColorUtils.compositeColors(key, under);
+        int actionOnBase = ColorUtils.compositeColors(action, under);
+        int functionOnBase = ColorUtils.compositeColors(function, under);
+        int activatedOnBase = ColorUtils.compositeColors(activated, under);
 
         int label = ensureContrast(baseLabel, keyOnBase);
         int subLabel = ensureContrast(baseSubLabel, keyOnBase);

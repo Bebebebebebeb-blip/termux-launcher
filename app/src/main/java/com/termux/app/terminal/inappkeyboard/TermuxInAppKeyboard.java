@@ -1454,7 +1454,7 @@ public final class TermuxInAppKeyboard {
         configBuilder.symbolFont = bundledSymbolsLabelFont();
         mAppliedConfigSignature = configPreferenceSignature();
         mKeyboardView = new Keyboard2View(requireContainer().getContext(),
-            configBuilder.build(), createPalette());
+            configBuilder.build(), recordedPalette());
         mAppliedPaletteInputs = paletteInputsSignature();
         mAppliedPaletteSignature = InAppKeyboardPaletteFactory.signature(
             requireContainer().getContext());
@@ -1512,12 +1512,64 @@ public final class TermuxInAppKeyboard {
         }
     }
 
+    /**
+     * The glass face the keys stand on, as the launcher measured it ({@link #setGlassFace});
+     * transparent until it has, and the palette checks its legends against the theme's base.
+     */
+    @androidx.annotation.ColorInt private int mGlassFace = android.graphics.Color.TRANSPARENT;
+
+    /**
+     * The face under the keys moved (an opacity, Shade, Tint, hue or Glass change, a new
+     * wallpaper): the legends are re-chosen against it, and the live keyboard is repainted only
+     * when that changed a colour it draws. Called from the launcher's dress pass, never per frame
+     * of drawing; a face that did not move costs one comparison.
+     */
+    public void setGlassFace(@androidx.annotation.ColorInt int face) {
+        if (face == mGlassFace)
+            return;
+        mGlassFace = face;
+        if (mDestroyed || mKeyboardView == null)
+            return;
+        juloo.keyboard2.Theme.Palette next = createPalette();
+        if (mAppliedPalette != null && sameInks(mAppliedPalette, next))
+            return;
+        mKeyboardView.setPalette(next);
+        mAppliedPalette = next;
+        applyCustomColorScheme();
+        if (mKeyPopup != null) mKeyPopup.refresh();
+    }
+
+    /** The last palette handed to the view, for {@link #setGlassFace} to compare against. */
+    @Nullable private juloo.keyboard2.Theme.Palette mAppliedPalette;
+
+    /** Whether two palettes draw the same legends and caps, all that a face can move. */
+    static boolean sameInks(@NonNull juloo.keyboard2.Theme.Palette a,
+                            @NonNull juloo.keyboard2.Theme.Palette b) {
+        return a.labelColor == b.labelColor && a.subLabelColor == b.subLabelColor
+            && a.functionLabelColor == b.functionLabelColor
+            && a.actionLabelColor == b.actionLabelColor
+            && a.actionSubLabelColor == b.actionSubLabelColor
+            && a.activatedLabelColor == b.activatedLabelColor
+            && a.pressedLabelColor == b.pressedLabelColor
+            && a.lockedModifierColor == b.lockedModifierColor
+            && a.borderColor == b.borderColor
+            && a.keyGradientTopOverlay == b.keyGradientTopOverlay
+            && a.keyGradientBottomOverlay == b.keyGradientBottomOverlay;
+    }
+
+    /** {@link #createPalette()} for the view, remembered as the one it draws. */
+    @NonNull
+    private juloo.keyboard2.Theme.Palette recordedPalette() {
+        mAppliedPalette = createPalette();
+        return mAppliedPalette;
+    }
+
     private juloo.keyboard2.Theme.Palette createPalette() {
         Context context = requireContainer().getContext();
         String theme = mPreferences.getInAppKeyboardTheme();
         juloo.keyboard2.Theme.Palette palette =
             InAppKeyboardPaletteFactory.createGlass(context, theme,
-                com.termux.app.chrome.GlassLook.of(mPreferences));
+                com.termux.app.chrome.GlassLook.of(mPreferences), mGlassFace);
         InAppKeyboardColorScheme scheme = InAppKeyboardColorScheme.fromJson(context,
             mPreferences.getInAppKeyboardColorScheme());
         return scheme.shouldApplyImportedPalette(theme) ? scheme.applyToPalette(palette) : palette;
@@ -1588,7 +1640,7 @@ public final class TermuxInAppKeyboard {
             return;
         }
         mAppliedPaletteInputs = paletteInputs;
-        mKeyboardView.setPalette(createPalette());
+        mKeyboardView.setPalette(recordedPalette());
         if (mKeyPopup != null) mKeyPopup.refresh();
         mAppliedPaletteSignature = InAppKeyboardPaletteFactory.signature(
             requireContainer().getContext());
@@ -1639,7 +1691,7 @@ public final class TermuxInAppKeyboard {
         mAppliedPaletteInputs = paletteInputsSignature();
         // Both of these reload the stored scheme, so dynamic slots re-resolve against the new
         // Material roles while pinned and imported swatches keep their persisted colors.
-        mKeyboardView.setPalette(createPalette());
+        mKeyboardView.setPalette(recordedPalette());
         applyCustomColorScheme();
         if (mKeyPopup != null) mKeyPopup.refresh();
         return true;

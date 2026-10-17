@@ -854,15 +854,60 @@ public final class ChromeInk {
      * the band's base layer is really drawn in ({@code baseColor}, the tinted one; its alpha is
      * ignored, the opacity says it) and the Shade under it ({@code shade}, alpha included). Both
      * are inputs of every answer's search, so the next ask measures what is now drawn.
+     *
+     * @return whether the band's face moved: its opacity, tinted base or Shade differ from what
+     *     was told before
      */
-    void noteBandGlass(@NonNull GlassBackdropCache.Band band, float opacity, boolean withFoot,
-                       float sliceStart, float sliceEnd, @ColorInt int baseColor,
-                       @ColorInt int shade) {
-        noteBandGlass(band, opacity, withFoot, sliceStart, sliceEnd);
+    boolean noteBandGlass(@NonNull GlassBackdropCache.Band band, float opacity, boolean withFoot,
+                          float sliceStart, float sliceEnd, @ColorInt int baseColor,
+                          @ColorInt int shade) {
         BandGlass glass = glassFor(band);
+        float opacityBefore = glass.opacity;
+        boolean tintedBefore = glass.tinted;
+        int baseBefore = glass.baseColor;
+        int shadeBefore = glass.shade;
+        noteBandGlass(band, opacity, withFoot, sliceStart, sliceEnd);
         glass.tinted = true;
         glass.baseColor = baseColor;
         glass.shade = shade;
+        return !tintedBefore || Float.compare(opacityBefore, glass.opacity) != 0
+            || baseBefore != baseColor || shadeBefore != shade;
+    }
+
+    /**
+     * The opaque face {@code band}'s content stands on, under {@code screenRect}: the wallpaper,
+     * the launcher's dim, the Shade, and the band's base layer in its tinted colour at its opacity
+     * ({@link #noteBandGlass}). The same flat glass the band votes with; no light model, so it is
+     * one colour whichever ink asks. For content whose ink is chosen on its own face rather than
+     * through {@link #onGlass}: the extra keys. Asks nothing and votes nothing.
+     */
+    @ColorInt
+    public int faceUnder(@NonNull GlassBackdropCache.Band band, @NonNull Rect screenRect) {
+        readMode();
+        toRootSpace(screenRect, mTmpRootRect);
+        return flatFace(band, mTmpRootRect);
+    }
+
+    /**
+     * {@link #faceUnder} at the rect the band's content last asked about ({@link #onGlass},
+     * {@link #onFixedInk}); {@link Color#TRANSPARENT} before it has asked. The keyboard's caps
+     * stand on this.
+     */
+    @ColorInt
+    public int bandFace(@NonNull GlassBackdropCache.Band band) {
+        readMode();
+        Contract contract = mContracts.get(band);
+        if (contract == null || !contract.seen) return Color.TRANSPARENT;
+        return flatFace(band, contract.rect);
+    }
+
+    /** {@link #faceUnder} for a rect already in root space. */
+    @ColorInt
+    private int flatFace(@NonNull GlassBackdropCache.Band band, @NonNull Rect rootRect) {
+        BandGlass glass = glassFor(band);
+        int under = OnGlass.backdrop(mCache.wallpaperUnder(band, rootRect), mDimColor, glass.shade);
+        return OnGlass.opaque(OnGlass.composite(OnGlass.withAlpha(baseOf(glass),
+            ChromePolicy.dockGlassBaseAlpha(glass.opacity)), under));
     }
 
     /**
