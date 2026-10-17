@@ -8710,6 +8710,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     @Override
+    protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
+        try {
+            super.onRestoreInstanceState(savedInstanceState);
+        } catch (IllegalArgumentException e) {
+            // Two views of different types shared an auto-generated id across the relaunch, so
+            // Android handed one view the other's saved state. Skip restoring view state
+            // rather than crash the launcher.
+            Logger.logWarn(LOG_TAG, "Skipped restoring view state: " + e.getMessage());
+        }
+    }
+
+    @Override
     public void onSaveInstanceState(@NonNull Bundle savedInstanceState) {
         Logger.logVerbose(LOG_TAG, "onSaveInstanceState");
         super.onSaveInstanceState(savedInstanceState);
