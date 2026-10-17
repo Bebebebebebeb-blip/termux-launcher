@@ -264,6 +264,24 @@ public final class InAppKeyboardPaletteFactory {
     @NonNull
     public static Theme.Palette createGlass(@NonNull Context context, String variant,
                                             @NonNull GlassLook look, @NonNull int[] faces) {
+        return createGlass(context, variant, look, faces,
+            com.termux.shared.termux.settings.preferences.TermuxPreferenceConstants.TERMUX_APP
+                .DEFAULT_IN_APP_KEYBOARD_KEY_OPACITY);
+    }
+
+    /**
+     * {@link #createGlass(Context, String, GlassLook, int[])} at the user's key opacity
+     * ({@code keyOpacityPercent}, 0 to 100; negative for the theme's own). The keyboard draws
+     * every cap but a pressed one at that alpha in place of the palette's
+     * ({@code juloo.keyboard2.Theme.Computed.Key}), so the legends are chosen on the caps as
+     * drawn at it: letters, the space bar, Enter and the function keys alike, each over every
+     * row's face. At 0 the caps are clear and the legends are chosen on the glass face itself.
+     * The function chip's raise does not apply there, since the view would draw over it.
+     */
+    @NonNull
+    public static Theme.Palette createGlass(@NonNull Context context, String variant,
+                                            @NonNull GlassLook look, @NonNull int[] faces,
+                                            int keyOpacityPercent) {
         String normalizedVariant = variant == null || "dock".equals(variant)
             ? "system" : variant;
         Theme.Palette base = create(context, normalizedVariant);
@@ -309,16 +327,27 @@ public final class InAppKeyboardPaletteFactory {
         int gradientTop = ColorUtils.setAlphaComponent(Color.WHITE, lightChips ? 46 : 26);
         int gradientBottom = ColorUtils.setAlphaComponent(Color.BLACK, lightChips ? 26 : 56);
 
+        boolean userKeys = keyOpacityPercent >= 0;
+        if (userKeys) {
+            // The caps as the view draws them at the user's opacity (activated ones keep theirs).
+            int alpha = Math.round(255f * Math.min(100, keyOpacityPercent) / 100f);
+            keyOn = drawnChipsOn(ColorUtils.setAlphaComponent(key, alpha), gradientTop,
+                gradientBottom, under);
+            actionOn = drawnChipsOn(ColorUtils.setAlphaComponent(action, alpha), gradientTop,
+                gradientBottom, under);
+            function = ColorUtils.setAlphaComponent(function, alpha);
+        }
         int label = ensureContrastOnAll(baseLabel, keyOn);
         int subLabel = ensureContrastOnAll(baseSubLabel, keyOn);
         int actionLabel = ensureContrastOnAll(base.actionLabelColor, actionOn);
         int actionSubLabel = ensureContrastOnAll(base.actionSubLabelColor, actionOn);
         // The function legends (Ctrl, Alt, Fn, the gear, Shift, Backspace, the right-hand
         // cluster) are chosen on their chip as the keyboard really draws it over every row's
-        // face, and where no tone reads on that, the chip's fill is raised until one does.
+        // face, and where no tone reads on that, the chip's fill is raised until one does (not
+        // at a user key opacity, which the view draws in place of any fill).
         int[] functionOn = drawnChipsOn(function, gradientTop, gradientBottom, under);
         int functionLabel = ensureContrastOnAll(baseFunctionLabel, functionOn);
-        if (minContrast(functionLabel, functionOn) < MIN_TEXT_CONTRAST) {
+        if (!userKeys && minContrast(functionLabel, functionOn) < MIN_TEXT_CONTRAST) {
             for (int alpha = Color.alpha(function) + 1; alpha <= 255; alpha++) {
                 int raised = ColorUtils.setAlphaComponent(baseFunction, alpha);
                 int[] on = drawnChipsOn(raised, gradientTop, gradientBottom, under);

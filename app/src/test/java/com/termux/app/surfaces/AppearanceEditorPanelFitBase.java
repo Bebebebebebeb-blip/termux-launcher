@@ -646,6 +646,7 @@ public abstract class AppearanceEditorPanelFitBase {
             case TINT: return context.getString(R.string.appearance_editor_tint, 100);
             case EDGE: return context.getString(R.string.appearance_editor_edge, 100);
             case VIBRANCY: return context.getString(R.string.appearance_editor_vibrancy, "1.50");
+            case KEY_OPACITY: return context.getString(R.string.appearance_editor_key_opacity, 100);
             case KEY_RADIUS: return context.getString(R.string.appearance_editor_key_corners, 24);
             case KEY_SPACING: return context.getString(R.string.appearance_editor_key_spacing, "8.0");
             case ICON_SIZE: return context.getString(R.string.appearance_editor_icon_size, 48);

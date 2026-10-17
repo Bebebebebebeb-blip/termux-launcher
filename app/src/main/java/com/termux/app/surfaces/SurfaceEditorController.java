@@ -1876,6 +1876,8 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                 return AppearanceLooks.tintPercent(mTarget == null
                     ? prefs.getSurfaceBaseValue(SurfaceProperty.TINT)
                     : tintOf(prefs, mTarget.slot));
+            case KEY_OPACITY:
+                return keyOpacityValue(prefs);
             case KEY_RADIUS:
                 return AppearanceLooks.keyCornersValueFor(
                     prefs.getInAppKeyboardKeyCornerRadiusDp());
@@ -1914,6 +1916,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             case VIBRANCY:
                 return getString(R.string.appearance_editor_vibrancy,
                     String.format(Locale.getDefault(), "%.2f", value / 100f));
+            case KEY_OPACITY: return getString(R.string.appearance_editor_key_opacity, value);
             case KEY_RADIUS: return getString(R.string.appearance_editor_key_corners, value);
             case KEY_SPACING:
                 return getString(R.string.appearance_editor_key_spacing,
@@ -2103,6 +2106,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                 if (mTarget == null) writeGlobal(SurfaceProperty.TINT, value);
                 else writeElement(mTarget, SurfaceProperty.TINT, value);
                 break;
+            case KEY_OPACITY: writeKeyOpacity(value); break;
             case KEY_RADIUS: writeKeyCorners(value); break;
             case KEY_SPACING: writeKeySpacing(value); break;
             case ICON_SIZE: writeIconSize(value); break;
@@ -2632,6 +2636,36 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     }
 
     /** Key radius: the key caps' radius, and nothing else; Layout mode's (DECISIONS item 6). */
+    /**
+     * Where Keys stands: the stored cap opacity, or, while the theme owns it (stored -1), the
+     * opacity the theme's caps are drawn at, so the first touch moves from what is on screen.
+     */
+    private int keyOpacityValue(@NonNull TermuxAppSharedPreferences prefs) {
+        int stored = prefs.getInAppKeyboardKeyOpacity();
+        if (stored >= 0)
+            return Control.KEY_OPACITY.clamp(stored);
+        TermuxInAppKeyboard keyboard = keyboard();
+        return Control.KEY_OPACITY.clamp(keyboard != null
+            ? keyboard.getEffectiveKeyOpacityPercent() : Control.KEY_OPACITY.max);
+    }
+
+    /**
+     * Keys: the in-app keyboard's cap opacity, stored as it is (0 to 100 percent). The keyboard
+     * repaints its caps at once and re-chooses the legends on them as drawn; the band's ink and
+     * veil follow on the keyboard pass.
+     */
+    private void writeKeyOpacity(int value) {
+        TermuxAppSharedPreferences prefs = prefs();
+        if (prefs == null)
+            return;
+        int opacity = Control.KEY_OPACITY.clamp(value);
+        prefs.setInAppKeyboardKeyOpacity(opacity);
+        TermuxInAppKeyboard keyboard = keyboard();
+        if (keyboard != null)
+            keyboard.previewSurfaceEditorKeyOpacity(opacity);
+        requestPreview(SurfaceEditorProperties.PREVIEW_KEYBOARD);
+    }
+
     private void writeKeyCorners(int value) {
         TermuxAppSharedPreferences prefs = prefs();
         if (prefs == null)

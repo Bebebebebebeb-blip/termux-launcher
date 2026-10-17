@@ -760,8 +760,9 @@ public final class TermuxInAppKeyboard {
     }
 
     /**
-     * Key-cap opacity preview. Deliberately the cheapest editor control: it repaints only the
-     * keyboard view itself — no geometry sync, no accessory glass re-render.
+     * Key-cap opacity preview (Look › Custom's Keys). Deliberately cheap: it repaints only the
+     * keyboard view itself — no geometry sync, no accessory glass re-render — and re-chooses
+     * the legends on the caps as drawn, handing the view a palette only when one moved.
      */
     public void previewSurfaceEditorKeyOpacity(int opacityPercent) {
         if (!mEnabled || mDestroyed)
@@ -872,8 +873,18 @@ public final class TermuxInAppKeyboard {
         if (mKeyOpacity == clamped)
             return;
         mKeyOpacity = clamped;
-        if (mKeyboardView != null)
-            mKeyboardView.setKeyOpacity(mKeyOpacity < 0 ? -1f : mKeyOpacity / 100f);
+        if (mKeyboardView == null || mDestroyed)
+            return;
+        mKeyboardView.setKeyOpacity(mKeyOpacity < 0 ? -1f : mKeyOpacity / 100f);
+        // The legends are chosen on the caps as drawn at this opacity: repaint them only when
+        // that moved a colour the keyboard draws.
+        juloo.keyboard2.Theme.Palette next = createPalette();
+        if (mAppliedPalette != null && sameInks(mAppliedPalette, next))
+            return;
+        mKeyboardView.setPalette(next);
+        mAppliedPalette = next;
+        applyCustomColorScheme();
+        if (mKeyPopup != null) mKeyPopup.refresh();
     }
 
     /** Configured absolute key opacity, or the theme's current effective one when unset. */
@@ -1584,7 +1595,7 @@ public final class TermuxInAppKeyboard {
         String theme = mPreferences.getInAppKeyboardTheme();
         juloo.keyboard2.Theme.Palette palette =
             InAppKeyboardPaletteFactory.createGlass(context, theme,
-                com.termux.app.chrome.GlassLook.of(mPreferences), mGlassFaces);
+                com.termux.app.chrome.GlassLook.of(mPreferences), mGlassFaces, mKeyOpacity);
         InAppKeyboardColorScheme scheme = InAppKeyboardColorScheme.fromJson(context,
             mPreferences.getInAppKeyboardColorScheme());
         return scheme.shouldApplyImportedPalette(theme) ? scheme.applyToPalette(palette) : palette;

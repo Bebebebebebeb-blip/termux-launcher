@@ -126,8 +126,8 @@ public final class AppearanceLooks {
      * A vertical slider of the Custom row, with the integer range its stored value maps onto.
      * Icon size is the pinned icon in dp, and its slider runs over the range the dock gives under
      * the Style ({@link #iconSizeRangeDp}); the bounds here are only the ones no dock passes, the
-     * icon's floor and the deepest row. Key spacing is the key margin scale in tenths; the others
-     * are their own units (dp, percent, a count, a stop). Glass is 0 to 100 over blur and grain
+     * icon's floor and the deepest row. Key spacing is the key margin scale in tenths; Keys the
+     * caps' opacity in percent (stored -1 leaves it to the theme); the others are their own units (dp, percent, a count, a stop). Glass is 0 to 100 over blur and grain
      * ({@link GlassControls}); Vibrancy the frame's saturation in percent, 70 to 150. Edge and
      * Depth are the glass edge's: Edge the stored dispersion itself, 0 (no fringe) to 100 (a bold
      * coloured edge), Glint at 40; Depth 0 to 100 over the bend and the edge width
@@ -139,6 +139,8 @@ public final class AppearanceLooks {
         TINT(0, TINT_MAX, 1),
         EDGE(TERMUX_APP.MIN_FANCIER_GLASS_DISPERSION, TERMUX_APP.MAX_FANCIER_GLASS_DISPERSION, 1),
         VIBRANCY(TERMUX_APP.MIN_SURFACE_GLASS_VIBRANCY, TERMUX_APP.MAX_SURFACE_GLASS_VIBRANCY, 1),
+        KEY_OPACITY(TERMUX_APP.MIN_IN_APP_KEYBOARD_KEY_OPACITY,
+            TERMUX_APP.MAX_IN_APP_KEYBOARD_KEY_OPACITY, 1),
         KEY_RADIUS(0, KEY_CORNERS_MAX_DP, 1),
         KEY_SPACING(0, KEY_SPACING_MAX_TENTHS, 1),
         ICON_SIZE(Math.round(DockLayoutPolicy.MIN_DOCK_ICON_DP),
@@ -208,7 +210,7 @@ public final class AppearanceLooks {
         switch (target) {
             case KEYBOARD:
                 return Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT,
-                    Control.KEY_RADIUS, Control.KEY_SPACING);
+                    Control.KEY_OPACITY, Control.KEY_RADIUS, Control.KEY_SPACING);
             case DOCK:
                 return Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT,
                     Control.ICON_SIZE, Control.APP_ICONS);
@@ -243,8 +245,9 @@ public final class AppearanceLooks {
     }
 
     /**
-     * The most sliders any selection has (the global set with Depth): the sheet's columns. Seven
-     * would still fit a 360 dp phone at the 36 dp floor; eight would not.
+     * The most sliders any selection has (the global set with the glass edge, and the
+     * keyboard's): the sheet's columns. Seven would still fit a 360 dp phone at the 36 dp floor;
+     * eight would not.
      */
     public static final int MAX_CONTROLS = 6;
 

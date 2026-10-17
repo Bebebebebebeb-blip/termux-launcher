@@ -39,7 +39,7 @@
      every selection; Row B is GONE at a Look stop. Sets, left to right:
        nothing  Glass, Opacity, Tint, Vibrancy; Edge after Tint and Depth last while the glass edge
                 is drawn (Android 13, a wallpaper set from the launcher, Lazy mode off)  (pill: Hue)
-       keyboard Glass, Opacity, Tint, Key radius, Key spacing (button: Keyboard theme)
+       keyboard Glass, Opacity, Tint, Keys, Key radius, Key spacing (button: Keyboard theme)
        dock     Glass, Opacity, Tint, Icon size, App icons
        terminal Glass, Opacity, Tint, Contrast            (pills: Cursor trail, Terminal effect)
        status   Glass, Opacity, Tint                      (button: Clock)

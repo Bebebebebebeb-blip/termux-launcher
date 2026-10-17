@@ -86,7 +86,8 @@ public class AppearanceLooksTest {
         assertEquals(Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT,
             Control.VIBRANCY), AppearanceLooks.controls(null));
         assertEquals(Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT,
-            Control.KEY_RADIUS, Control.KEY_SPACING), AppearanceLooks.controls(Target.KEYBOARD));
+            Control.KEY_OPACITY, Control.KEY_RADIUS, Control.KEY_SPACING),
+            AppearanceLooks.controls(Target.KEYBOARD));
         assertEquals(Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT,
             Control.ICON_SIZE, Control.APP_ICONS), AppearanceLooks.controls(Target.DOCK));
         assertEquals(Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT,
