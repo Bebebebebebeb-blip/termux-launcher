@@ -138,8 +138,9 @@ under twenty items; past that, the oldest are re-judged first.
   keeps its stop and its colour after the update (Clear and Tint change blur and grain by design);
   a Custom with Tint 40 on Mist comes up at Tint 0 and the same colour; a saved Custom applies as it
   looked · emulator, a pre-build store per Look.
-- 2026-10-17 · same branch · Edge outline: the gathered edge on Mist (60%), the dock, sheets and
-  Solid reads about as strong as on Clear, never white-clipped, on a pale and a dark wallpaper ·
+- 2026-10-17 · same branch · Edge outline: the gathered edge on dark Mist (60%, gain 2.25), light
+  Mist (35%), the dock, sheets and Solid reads about as strong as on Clear, never white-clipped,
+  on a pale and a dark wallpaper ·
   emulator tl16 (Android 13+), screenshots of each surface.
 - 2026-10-17 · same branch, "fix(glass): the terminal's ink follows the face its panes are drawn
   with" · Light theme, wallpaper on, Terminal colours dynamic: Solid shows dark terminal text on its
@@ -151,13 +152,25 @@ under twenty items; past that, the oldest are re-judged first.
   both themes: Edge Off vs Prism differ at a pane's and the dock's corners (a red/blue split in the
   edge light, strongest top-left), Glint fainter, no coloured line along straight edges; Clear at
   Glint looks as before on the panes · emulator tl16 (Android 13+), corner crops Off/Glint/Prism.
+- 2026-10-17 · same branch, "feat(looks): Mist is 35% on light glass" · Light theme: picking Mist
+  shows Opacity 35 and the stop reads Mist; switching the theme dark→light→dark with Mist on moves
+  it 60→35→60 and the stop stays Mist; a Custom at 50 keeps 50 across the switch · emulator tl16,
+  editor screenshots per theme.
+- 2026-10-17 · same branch, "feat(editor): a Hue picked at Tint 0" · From Clear, Custom: pick
+  Secondary in the Hue pill and the Tint column jumps to 40 with the colour showing; at Tint 15 a
+  Hue pick leaves 15; Undo returns to the open state · emulator tl16, editor screenshots.
+- 2026-10-17 · same branch, "fix(glass): keyboard-area labels" · Light theme, dark wallpaper,
+  Custom at Opacity 100: the A-Z letters, the extra keys (Ctrl, Alt) and the in-app keyboard's
+  legends are dark and legible on the white dock and keyboard; dragging Opacity to 10 turns them
+  pale within a moment of release; dark theme on a pale wallpaper the mirror; with the A-Z bar on
+  the plank and on its own capsule as well · emulator tl16, crops of each row before/after.
 
 ## Developer
 - 2026-10-17 · branch feat/glass-controls-unify · Vibrancy release re-bakes the frames once (no
   hitch while dragging, one short re-blur on release); Shade and Glass drags stay smooth on pong ·
   pong.
-- 2026-10-17 · same branch · Light-theme Mist is still milky at 60% (unchanged, pass 2 tunes it
-  with Shade and Vibrancy); taste check of Prism's provisional 80 and the 2x edge gain cap · pong.
+- 2026-10-17 · same branch · Taste: light-theme Mist at 35% no longer milky; Prism's provisional
+  80; the edge gain cap at 2.25 (dark Mist now gets its full ratio) · pong.
 
 - 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · The edge reads
   as light, not an outline, on every surface; on Mist and Solid (and the sheet and chip, floored

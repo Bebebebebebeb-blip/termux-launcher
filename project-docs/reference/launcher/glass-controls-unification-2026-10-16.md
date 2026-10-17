@@ -8,7 +8,10 @@ where the device and wallpaper can draw the edge, as Depth always did; Contrast 
 (`blur = R(4 + 32 t^1.5)`, `grain = R(2 + 6 t)`, not the material curves of rank 2); Shade is a
 flat theme-aware layer, not the K-2 film (rank 1); Vibrancy is baked into the shared frame
 (rank 3); Dispersion is Off, Glint 40, Prism 80 (rank 5); the gathered edge's gain follows the
-cover over it, capped at 2. Margin and Corner radius left the Look page's Custom row (approved;
+cover over it, capped at 2.25 (pass 2). Pass 2 (2026-10-17) also set light-glass Mist to Opacity 35
+(dark stays 60; the shipped Mist carries its opacity by glass and follows a theme change), made a
+Hue pick at Tint 0 raise the Tint to 40, and had the A-Z letters, the extra keys and the in-app
+keyboard's legends choose their ink on the measured glass face they stand on. Margin and Corner radius left the Look page's Custom row (approved;
 seven columns fit 360dp at the 36dp floor, eight do not). Shade is black or white by each surface's
 own tint, is counted in the ink vote, and is held back where it alone would break a band's target. 4.4 (clarity follows blur) is not built. The rest of this note is the research as
 written.
