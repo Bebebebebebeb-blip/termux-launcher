@@ -207,13 +207,15 @@ public class GlassFrameTintTest {
         cache.holdFrameBakes(true);
         source.frameTint = GlassFrameTint.of(60, CLEAR, DARK_CONTAINER, DARK_ACCENT);
         assertSame("held: the drag's ticks bake nothing", tinted, cache.obtain(12, wallpaperFrame));
-        cache.obtain(30, wallpaperFrame);
-        assertEquals("only the new radius", 3, source.captureCount);
+        // The radius is held too: a radius with no frame is stood in for by the nearest resident.
+        assertSame("held: a new radius bakes nothing either", tinted,
+            cache.obtain(30, wallpaperFrame));
+        assertEquals("held: nothing captured", 2, source.captureCount);
         assertSame(tinted, cache.obtain(12, wallpaperFrame));
 
         cache.holdFrameBakes(false);
         assertNotSame("the release bakes once", tinted, cache.obtain(12, wallpaperFrame));
-        assertEquals(4, source.captureCount);
+        assertEquals(3, source.captureCount);
 
         Bitmap wall = cache.obtain(0, wallpaperFrame);
         assertSame("radius 0 is the wallpaper itself",

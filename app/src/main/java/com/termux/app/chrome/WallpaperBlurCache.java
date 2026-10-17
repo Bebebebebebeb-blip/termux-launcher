@@ -10,9 +10,13 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
@@ -198,6 +202,98 @@ public final class WallpaperBlurCache {
     @NonNull private final Set<Integer> mPendingCrossfadeRadii = new HashSet<>();
     /** Radii whose resident frame arrived to replace one a wallpaper change displaced. */
     @NonNull private final Set<Integer> mCrossfadedRadii = new HashSet<>();
+    /**
+     * While the bakes are held, which resident radius stands in for each radius asked for that has
+     * no frame: a drag moves a surface's radius a dp at a time, and each step takes the stand-in of
+     * the step before it, so a surface keeps the frame it had when the drag began rather than
+     * hopping between whatever frames happen to be resident.
+     */
+    @NonNull private final Map<Integer, Integer> mHeldStandIns = new HashMap<>();
+    /** True once a stand-in was served under the current hold: its release asks for a re-render. */
+    private boolean mServedStandIn;
+
+    /**
+     * The unblurred capture every blur of the current source is cut from, or null. A capture
+     * in flight is shared by every radius asked for meanwhile; while {@link #retainCapture} holds,
+     * it also outlives them, so a re-bake (a Tint or Vibrancy release) blurs it again instead of
+     * reading the wallpaper again.
+     */
+    @Nullable private SharedCapture mCapture;
+    /** Every capture not yet released: {@link #mCapture} and any a worker job still reads. */
+    @NonNull private final List<SharedCapture> mLiveCaptures = new ArrayList<>();
+    private boolean mRetainCapture;
+    /** Debug counters, for tests and traces: captures begun and blur jobs run. */
+    private int mCapturesBegun;
+    @NonNull private final java.util.concurrent.atomic.AtomicInteger mBlursRun =
+        new java.util.concurrent.atomic.AtomicInteger();
+
+    /**
+     * One capture of the wallpaper for one source identity and frame rect. Main thread, except
+     * {@link #resolve}, which the job that first needs the pixels runs (the worker, or inline).
+     */
+    private static final class SharedCapture {
+        @NonNull private final FrameCapture mSource;
+        @NonNull final Rect frameRect;
+        final int orientation;
+        final boolean managedSource;
+        final int systemWallpaperId;
+        final long managedLastModified;
+        final long managedLength;
+        /** Jobs out that read it. Main thread. Never recycled while one is. */
+        int users;
+        private volatile boolean mResolved;
+        @Nullable private volatile Bitmap mBitmap;
+
+        SharedCapture(@NonNull FrameCapture source, @NonNull Rect frameRect, int orientation,
+                      boolean managedSource, int systemWallpaperId, long managedLastModified,
+                      long managedLength) {
+            mSource = source;
+            this.frameRect = new Rect(frameRect);
+            this.orientation = orientation;
+            this.managedSource = managedSource;
+            this.systemWallpaperId = systemWallpaperId;
+            this.managedLastModified = managedLastModified;
+            this.managedLength = managedLength;
+        }
+
+        boolean matches(@NonNull Rect frameRect, int orientation, boolean managedSource,
+                        int systemWallpaperId, long managedLastModified, long managedLength) {
+            return this.frameRect.equals(frameRect) && this.orientation == orientation
+                && this.managedSource == managedSource
+                && this.systemWallpaperId == systemWallpaperId
+                && this.managedLastModified == managedLastModified
+                && this.managedLength == managedLength;
+        }
+
+        /** The pixels, decoded on the first call (off the main thread when there is a worker). */
+        @Nullable
+        Bitmap resolve() {
+            if (mResolved) return mBitmap;
+            Bitmap bitmap = mSource.ready;
+            if (bitmap == null && mSource.decode != null) {
+                try {
+                    bitmap = mSource.decode.call();
+                } catch (Exception e) {
+                    bitmap = null;
+                }
+            }
+            mBitmap = bitmap;
+            mResolved = true;
+            return bitmap;
+        }
+
+        /** The pixels if they are in hand; null while still to decode or after a failed one. */
+        @Nullable
+        Bitmap bitmap() {
+            return mBitmap;
+        }
+
+        /** True when a decode ran and yielded nothing usable: the capture is worth nothing. */
+        boolean failed() {
+            Bitmap bitmap = mBitmap;
+            return mResolved && (bitmap == null || bitmap.isRecycled());
+        }
+    }
 
     public WallpaperBlurCache(@NonNull Source source) {
         this(source, null);
@@ -307,39 +403,52 @@ public final class WallpaperBlurCache {
         int systemWallpaperId = mSource.systemWallpaperId();
         long managedLastModified = managedSource ? mSource.managedWallpaperLastModified() : -1L;
         long managedLength = managedSource ? mSource.managedWallpaperLength() : -1L;
-        // A new Vibrancy or frame tint makes every resident frame wrong, as a new wallpaper does.
-        final int vibrancy = GlassVibrancy.clampPercent(mSource.glassVibrancyPercent());
+        // A new Vibrancy or frame tint makes every resident frame wrong, as a new wallpaper does;
+        // held, both wait for the release and the frames keep what they were baked at.
+        final int vibrancy = mFrameBakesHeld ? mVibrancy
+            : GlassVibrancy.clampPercent(mSource.glassVibrancyPercent());
         final int frameTint = mFrameBakesHeld ? mFrameTint : mSource.glassFrameTint();
-        boolean sourceValid = sourceStillMatches(frameRect, managedSource, systemWallpaperId,
-            managedLastModified, managedLength) && vibrancy == mVibrancy
-            && frameTint == mFrameTint;
+        boolean sameSource = sourceStillMatches(frameRect, managedSource, systemWallpaperId,
+            managedLastModified, managedLength);
+        boolean sourceValid = sameSource && vibrancy == mVibrancy && frameTint == mFrameTint;
         if (sourceValid) {
             Bitmap cached = mByRadius.get(blurRadiusDp);
             if (cached != null && !cached.isRecycled()) {
                 return cached;
             }
+            if (mFrameBakesHeld) {
+                // A held drag never captures or bakes: a radius with no frame is answered with the
+                // nearest one resident, and the release bakes the one radius it settled on.
+                return heldStandIn(blurRadiusDp);
+            }
         } else if (!mByRadius.isEmpty() || !mPending.isEmpty()) {
             // Only a cache holding frames of another source needs emptying. Right after a clear the
             // recorded source is blank and nothing is resident, and clearing again would throw
-            // away the crossfade marks the wallpaper-change clear has just set.
-            clear();
+            // away the crossfade marks the wallpaper-change clear has just set. A re-bake (same
+            // picture, a new Vibrancy or tint) keeps the capture to blur again.
+            doClear(false, sameSource);
         }
         if (mWorker != null && mMainThread != null && mPending.contains(blurRadiusDp)) {
             return null;
         }
-        FrameCapture capture = mSource.beginCapture(frameRect, wallpaperFrame);
+        final int orientation = mSource.orientation();
+        final SharedCapture capture = captureFor(frameRect, orientation, managedSource,
+            systemWallpaperId, managedLastModified, managedLength, wallpaperFrame);
         if (capture == null) {
             return null;
         }
         final Rect frameRectCopy = new Rect(frameRect);
-        final int orientation = mSource.orientation();
         mVibrancy = vibrancy;
         mFrameTint = frameTint;
+        capture.users++;
         if (mWorker == null || mMainThread == null) {
             Bitmap blurred = captureAndBlur(capture, blurRadiusDp, vibrancy, frameTint);
-            if (blurred == null) return null;
-            store(blurRadiusDp, blurred, frameRectCopy, orientation, managedSource,
-                systemWallpaperId, managedLastModified, managedLength);
+            capture.users--;
+            if (blurred != null) {
+                store(blurRadiusDp, blurred, frameRectCopy, orientation, managedSource,
+                    systemWallpaperId, managedLastModified, managedLength);
+            }
+            settleCapture(capture);
             return blurred;
         }
         mPending.add(blurRadiusDp);
@@ -353,21 +462,30 @@ public final class WallpaperBlurCache {
         final Runnable job = () -> {
             final Bitmap blurred = captureAndBlur(capture, blurRadiusDp, vibrancy, frameTint);
             mainThread.post(() -> {
+                capture.users--;
                 mPending.remove(blurRadiusDp);
-                if (blurred == null) return;
+                if (blurred == null) {
+                    settleCapture(capture);
+                    return;
+                }
                 if (generation != mGeneration) {
-                    // The wallpaper, orientation or frame moved while this was in flight.
-                    blurred.recycle();
+                    // The wallpaper, orientation or frame moved while this was in flight. Radius 0
+                    // is the capture itself, which the capture's own release recycles.
+                    if (blurred != capture.bitmap()) blurred.recycle();
+                    settleCapture(capture);
                     return;
                 }
                 store(blurRadiusDp, blurred, frameRectCopy, orientation, managedSource,
                     systemWallpaperId, managedLastModified, managedLength);
+                settleCapture(capture);
                 if (mOnFrameReady != null) mOnFrameReady.run();
             });
         };
         try {
             mWorker.execute(job);
         } catch (RejectedExecutionException rejected) {
+            capture.users--;
+            settleCapture(capture);
             // The worker was shut down under us: the renderer is being destroyed while a commit it
             // had already booked is still landing (a night-mode flip recreates the activity, and
             // the last commit of the old one ran after its onDestroy). There is no frame to fill
@@ -383,10 +501,158 @@ public final class WallpaperBlurCache {
      * Holds a new frame tint back while {@code held}: the resident frames stay, and a radius
      * filled meanwhile takes the tint they were baked with. A drag of Tint or Opacity moves the
      * frame tint on every tick, and each move would re-bake every frame; held, the release bakes
-     * once, on the next obtain. Vibrancy needs no hold: the editor writes it on release.
+     * once, on the next obtain. Vibrancy is held the same way.
+     *
+     * <p>The blur radius is held too. A Glass drag moves the radius a dp at a time, and each new
+     * radius was a capture and a blur — on the managed wallpaper a full-size bitmap drawn on the
+     * main thread — that also pushed other surfaces' radii out of the LRU. Held, a radius with no
+     * frame is answered with the nearest resident one ({@link #heldStandIn}) and nothing is
+     * captured, blurred or stored; the release asks every surface to render again, so each asks
+     * for its real radius and the one the drag settled on is baked once.</p>
      */
     public void holdFrameBakes(boolean held) {
+        if (mFrameBakesHeld == held) return;
         mFrameBakesHeld = held;
+        if (held) return;
+        mHeldStandIns.clear();
+        boolean served = mServedStandIn;
+        mServedStandIn = false;
+        // A surface drawing a stand-in recorded the radius it asked for, so nothing would ask
+        // again by itself; the same re-render a landed frame triggers sends every one back.
+        if (served && mOnFrameReady != null) {
+            if (mMainThread != null) mMainThread.post(mOnFrameReady);
+            else mOnFrameReady.run();
+        }
+    }
+
+    /** True while {@link #holdFrameBakes} holds. */
+    public boolean areFrameBakesHeld() {
+        return mFrameBakesHeld;
+    }
+
+    /**
+     * Held: the resident frame that stands in for {@code blurRadiusDp}, or null when nothing is
+     * resident. The nearest radius asked for earlier in the hold passes its stand-in on, so a
+     * surface dragged away from its radius keeps the frame it began with; a resident radius
+     * strictly nearer than any of those is taken instead, being that much closer to the look.
+     * Touches no capture and no blur.
+     */
+    @Nullable
+    private Bitmap heldStandIn(int blurRadiusDp) {
+        int bestRadius = 0;
+        int bestDistance = Integer.MAX_VALUE;
+        for (Map.Entry<Integer, Integer> entry : mHeldStandIns.entrySet()) {
+            Bitmap frame = mByRadius.get(entry.getValue());
+            if (frame == null || frame.isRecycled()) continue;
+            int distance = Math.abs(entry.getKey() - blurRadiusDp);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                bestRadius = entry.getValue();
+            }
+        }
+        for (Map.Entry<Integer, Bitmap> entry : mByRadius.entrySet()) {
+            Bitmap frame = entry.getValue();
+            if (frame == null || frame.isRecycled()) continue;
+            int distance = Math.abs(entry.getKey() - blurRadiusDp);
+            // Strictly nearer: a tie stays with the frame the drag began from.
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                bestRadius = entry.getKey();
+            }
+        }
+        if (bestDistance == Integer.MAX_VALUE) return null;
+        mHeldStandIns.put(blurRadiusDp, bestRadius);
+        mServedStandIn = true;
+        return mByRadius.get(bestRadius);
+    }
+
+    /**
+     * Keeps the unblurred capture between blurs while {@code retain}: every re-bake the Look
+     * editor causes (a Tint, Opacity or Vibrancy release, a Glass release) blurs the one capture
+     * again rather than reading the wallpaper again. Off, a capture lives only as long as the jobs
+     * that read it. The capture is the frame rect at full size — a 1.5×-wide frame on 1080x2412 is
+     * ~15.6 MB — and the radius-0 frame, when resident, is that same bitmap, so it then costs
+     * nothing more. Dropped on every {@link #clear}, a wallpaper change and a trim.
+     */
+    public void retainCapture(boolean retain) {
+        if (mRetainCapture == retain) return;
+        mRetainCapture = retain;
+        if (!retain && mCapture != null) settleCapture(mCapture);
+    }
+
+    /** Visible for tests: true while an unblurred capture is held for the next blur. */
+    public boolean holdsCapture() {
+        return mCapture != null;
+    }
+
+    /** Debug counter: how many wallpaper captures the cache has begun. */
+    public int capturesBegun() {
+        return mCapturesBegun;
+    }
+
+    /** Debug counter: how many blur-and-bake jobs have run (each one a {@code Blur.miss}). */
+    public int blursRun() {
+        return mBlursRun.get();
+    }
+
+    /**
+     * The capture for this source and frame rect: the one held or in flight when it still
+     * matches, else a new one begun. Null when nothing can be captured right now.
+     */
+    @Nullable
+    private SharedCapture captureFor(@NonNull Rect frameRect, int orientation,
+                                     boolean managedSource, int systemWallpaperId,
+                                     long managedLastModified, long managedLength,
+                                     @NonNull View wallpaperFrame) {
+        SharedCapture held = mCapture;
+        if (held != null && held.matches(frameRect, orientation, managedSource,
+                systemWallpaperId, managedLastModified, managedLength) && !held.failed()) {
+            return held;
+        }
+        dropCapture();
+        FrameCapture begun = mSource.beginCapture(frameRect, wallpaperFrame);
+        if (begun == null) return null;
+        mCapturesBegun++;
+        SharedCapture capture = new SharedCapture(begun, frameRect, orientation, managedSource,
+            systemWallpaperId, managedLastModified, managedLength);
+        mCapture = capture;
+        mLiveCaptures.add(capture);
+        return capture;
+    }
+
+    /** Lets the current capture go; recycled once no job reads it. */
+    private void dropCapture() {
+        SharedCapture capture = mCapture;
+        mCapture = null;
+        if (capture != null) settleCapture(capture);
+    }
+
+    /**
+     * Main thread: releases {@code capture} if nothing needs it — no job reading it, and not the
+     * capture held for the next blur. Its pixels are recycled unless they are a resident frame
+     * (radius 0 is the capture itself) or a view still draws them.
+     */
+    private void settleCapture(@NonNull SharedCapture capture) {
+        if (capture.users > 0) return;
+        if (capture == mCapture) {
+            if (mRetainCapture && !capture.failed()) return;
+            mCapture = null;
+        }
+        if (!mLiveCaptures.remove(capture)) return;
+        recycleUnlessHeld(capture.bitmap());
+    }
+
+    /**
+     * Recycles {@code bitmap} unless something still holds it: a resident frame, a live capture
+     * (a job may be reading it on the worker), or a view drawing it.
+     */
+    private void recycleUnlessHeld(@Nullable Bitmap bitmap) {
+        if (bitmap == null || bitmap.isRecycled()) return;
+        if (mByRadius.containsValue(bitmap)) return;
+        for (SharedCapture capture : mLiveCaptures)
+            if (capture.bitmap() == bitmap) return;
+        if (mSource.isFrameInUse(bitmap)) return;
+        bitmap.recycle();
     }
 
     /** True while a worker job is out for {@code blurRadiusDp}. */
@@ -399,28 +665,22 @@ public final class WallpaperBlurCache {
      * {@code frameTint}. Runs on the worker when there is one.
      */
     @Nullable
-    private Bitmap captureAndBlur(@NonNull FrameCapture capture, int blurRadiusDp, int vibrancy,
+    private Bitmap captureAndBlur(@NonNull SharedCapture capture, int blurRadiusDp, int vibrancy,
                                  int frameTint) {
         Trace.beginSection("Blur.miss");
         try {
-            Bitmap wallpaperBitmap = capture.ready;
-            if (wallpaperBitmap == null && capture.decode != null) {
-                try {
-                    wallpaperBitmap = capture.decode.call();
-                } catch (Exception e) {
-                    wallpaperBitmap = null;
-                }
-            }
-            if (wallpaperBitmap == null) {
+            mBlursRun.incrementAndGet();
+            // The capture is shared, and released on the main thread once no job reads it; it is
+            // only read here, never recycled.
+            Bitmap wallpaperBitmap = capture.resolve();
+            if (wallpaperBitmap == null || wallpaperBitmap.isRecycled()) {
                 return null;
             }
             Bitmap blurredBitmap = mSource.preBlur(wallpaperBitmap, blurRadiusDp);
             if (blurredBitmap == null) {
-                wallpaperBitmap.recycle();
                 return null;
             }
             if (blurredBitmap != wallpaperBitmap) {
-                wallpaperBitmap.recycle();
                 // Vibrancy and the frame tint are the glass's, baked here once, in one pass;
                 // radius 0 is the wallpaper itself.
                 if (GlassVibrancy.bakes(blurRadiusDp, vibrancy)
@@ -443,9 +703,8 @@ public final class WallpaperBlurCache {
             Iterator<Bitmap> eldest = mByRadius.values().iterator();
             Bitmap evicted = eldest.next();
             eldest.remove();
-            if (evicted != null && !evicted.isRecycled() && !mSource.isFrameInUse(evicted)) {
-                evicted.recycle();
-            }
+            // Radius 0 is the capture itself, which may still be held for the next blur.
+            recycleUnlessHeld(evicted);
         }
         recordSource(frameRect, orientation, managedSource, systemWallpaperId,
             managedLastModified, managedLength);
@@ -515,7 +774,7 @@ public final class WallpaperBlurCache {
      * none of those is a picture the viewer should watch fade in.
      */
     public void clear() {
-        doClear(false);
+        doClear(false, false);
     }
 
     /**
@@ -524,33 +783,36 @@ public final class WallpaperBlurCache {
      * of swapping outright — see {@link #isCrossfadedRadius}.
      */
     public void clearForWallpaperChange() {
-        doClear(true);
+        doClear(true, false);
     }
 
-    private void doClear(boolean crossfade) {
-        Trace.beginSection("Blur.clear");
+    /**
+     * @param keepCapture a re-bake: the same picture at a new Vibrancy or frame tint, so the
+     *                    unblurred capture still holds and is blurred again
+     */
+    private void doClear(boolean crossfade, boolean keepCapture) {
+        Trace.beginSection(keepCapture ? "Blur.rebake" : "Blur.clear");
         try {
-            doClearTraced(crossfade);
+            doClearTraced(crossfade, keepCapture);
         } finally {
             Trace.endSection();
         }
     }
 
-    private void doClearTraced(boolean crossfade) {
+    private void doClearTraced(boolean crossfade, boolean keepCapture) {
         mGeneration++;
         mPending.clear();
+        mHeldStandIns.clear();
         // A radius still waiting from an earlier wallpaper-change clear keeps its mark through a
         // second wallpaper change: the surface is still drawing its last good frame, and the frame
         // that finally lands should fade in over it just the same. A plain clear drops every mark.
         if (!crossfade) mPendingCrossfadeRadii.clear();
         mCrossfadedRadii.clear();
         if (crossfade) mPendingCrossfadeRadii.addAll(mByRadius.keySet());
-        for (Bitmap cached : mByRadius.values()) {
-            if (cached != null && !cached.isRecycled() && !mSource.isFrameInUse(cached)) {
-                cached.recycle();
-            }
-        }
+        List<Bitmap> frames = new ArrayList<>(mByRadius.values());
         mByRadius.clear();
+        if (!keepCapture) dropCapture();
+        for (Bitmap cached : frames) recycleUnlessHeld(cached);
         mFrameRect.setEmpty();
         mOrientation = Configuration.ORIENTATION_UNDEFINED;
         mManagedSource = false;

@@ -165,6 +165,11 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
          */
         default void holdGlassFrameBakes(boolean held) {}
         /**
+         * Keeps the unblurred wallpaper capture while the editor is open, so each re-bake a
+         * release causes blurs it again instead of reading the wallpaper again.
+         */
+        default void retainGlassCapture(boolean retain) {}
+        /**
          * Whether the glass edge is drawn now (Android 13, a wallpaper set from inside the
          * launcher, Lazy mode off): the global set offers Depth only while it is.
          */
@@ -565,6 +570,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         if (restore != null && layoutMode && place == null)
             place = placeNamed(restore.place);
         mOpen = true;
+        mHost.retainGlassCapture(true);
         // No Look drag is under way at an open: a preview left behind by one that never saw its
         // lift (a recreated activity) must not stand between the launcher and its stored look.
         if (mLookDrag == null)
@@ -2091,6 +2097,9 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     private void writeControl(@NonNull Control control, int value) {
         switch (control) {
             case GLASS:
+                // The radius moves a dp at a time: held, the frames stand in for it until the
+                // release bakes the one radius it settled on.
+                holdFrameBakesForDrag();
                 writeGlass(value);
                 break;
             case VIBRANCY:
@@ -2170,7 +2179,8 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     /**
      * Tint and Opacity move the frame tint behind clear glass ({@code GlassFrameTint}), and each
      * new value re-bakes every blurred frame: a drag holds that for its release, as Vibrancy's
-     * does, while the face follows every tick.
+     * does, while the face follows every tick. Glass moves the blur radius, and the hold covers
+     * that too: no capture or blur per tick, one on release.
      */
     private void holdFrameBakesForDrag() {
         if (!defersHeavyPasses() || mFrameBakesHeld)
@@ -3524,6 +3534,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         // The bar goes back to its stored shape as the editor leaves, from the same moment.
         mHost.setTopStatusBarExpandedForEditor(false, true);
         mOpen = false;
+        mHost.retainGlassCapture(false);
         mFramed = false;
         mPresentToken++;
         mSliderDragActive = false;

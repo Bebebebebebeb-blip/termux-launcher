@@ -7318,8 +7318,15 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     /** Set by the managed path when its read is in flight: draw nothing, a sync follows. */
     private boolean mManagedWallpaperPending;
 
+    /**
+     * The managed wallpaper's capture for {@code targetRect}: the geometry and the decoded file
+     * are read here, on the main thread, and the full-size draw is handed to the blur worker. It
+     * used to allocate and draw the full-size frame right here on every miss, a software draw of
+     * the whole frame per radius on the main thread.
+     */
     @Nullable
-    private Bitmap createManagedWallpaperBackdropBitmapForRect(@NonNull Rect targetRect, @NonNull View wallpaperFrame) {
+    private com.termux.app.chrome.WallpaperBlurCache.FrameCapture beginManagedWallpaperCapture(
+            @NonNull Rect targetRect) {
         File sourceFile = getManagedWallpaperExactFile();
         // The capture rect, not the decor's: with parallax the frame is as wide as the picture,
         // so the cover draw below is the whole picture at 1:1; without it, the picture's centre.
@@ -7341,42 +7348,62 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (sourceBitmap == null) {
             return null;
         }
-
-        {
-            int targetWidth = Math.max(1, targetRect.width());
-            int targetHeight = Math.max(1, targetRect.height());
-
-            Bitmap bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888);
-            Canvas canvas = new Canvas(bitmap);
-            int frameWidth = Math.max(1, frameRect.width());
-            int frameHeight = Math.max(1, frameRect.height());
-            int sourceWidth = Math.max(1, sourceBitmap.getWidth());
-            int sourceHeight = Math.max(1, sourceBitmap.getHeight());
-            float scale = Math.max((float) frameWidth / sourceWidth, (float) frameHeight / sourceHeight);
-            float drawWidth = sourceWidth * scale;
-            float drawHeight = sourceHeight * scale;
-            float translateX = frameRect.left + ((frameWidth - drawWidth) / 2f) - targetRect.left;
-            float translateY = frameRect.top + ((frameHeight - drawHeight) / 2f) - targetRect.top;
-
-            Matrix shaderMatrix = new Matrix();
-            shaderMatrix.setScale(scale, scale);
-            shaderMatrix.postTranslate(translateX, translateY);
-            float zoom = systemWallpaperRenderZoom();
-            if (zoom != 1f) {
-                // Same render-zoom compensation as the system-drawable path, in this bitmap's
-                // local coordinates (the target rect's origin is already subtracted above).
-                shaderMatrix.postScale(zoom, zoom,
-                    frameRect.exactCenterX() - targetRect.left,
-                    frameRect.exactCenterY() - targetRect.top);
+        final Rect target = new Rect(targetRect);
+        final Rect frame = new Rect(frameRect);
+        final float zoom = systemWallpaperRenderZoom();
+        // Lent to the worker: a new file landing (or onDestroy) clears the source on this thread,
+        // and must not recycle the picture while the worker is still drawing from it.
+        mManagedWallpaperSource.lend(sourceBitmap);
+        return com.termux.app.chrome.WallpaperBlurCache.FrameCapture.deferred(() -> {
+            try {
+                return drawManagedWallpaperBackdrop(sourceBitmap, target, frame, zoom);
+            } finally {
+                runOnUiThread(() -> mManagedWallpaperSource.release(sourceBitmap));
             }
+        });
+    }
 
-            BitmapShader shader = new BitmapShader(sourceBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
-            shader.setLocalMatrix(shaderMatrix);
-            Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
-            paint.setShader(shader);
-            canvas.drawRect(0f, 0f, targetWidth, targetHeight, paint);
-            return bitmap;
+    /**
+     * Any thread: the managed picture drawn into {@code targetRect} at full size, from geometry
+     * the caller read on the main thread. Null when the picture was recycled before the draw.
+     */
+    @Nullable
+    private static Bitmap drawManagedWallpaperBackdrop(@NonNull Bitmap sourceBitmap,
+                                                       @NonNull Rect targetRect,
+                                                       @NonNull Rect frameRect, float zoom) {
+        if (sourceBitmap.isRecycled()) return null;
+        int targetWidth = Math.max(1, targetRect.width());
+        int targetHeight = Math.max(1, targetRect.height());
+
+        Bitmap bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        int frameWidth = Math.max(1, frameRect.width());
+        int frameHeight = Math.max(1, frameRect.height());
+        int sourceWidth = Math.max(1, sourceBitmap.getWidth());
+        int sourceHeight = Math.max(1, sourceBitmap.getHeight());
+        float scale = Math.max((float) frameWidth / sourceWidth, (float) frameHeight / sourceHeight);
+        float drawWidth = sourceWidth * scale;
+        float drawHeight = sourceHeight * scale;
+        float translateX = frameRect.left + ((frameWidth - drawWidth) / 2f) - targetRect.left;
+        float translateY = frameRect.top + ((frameHeight - drawHeight) / 2f) - targetRect.top;
+
+        Matrix shaderMatrix = new Matrix();
+        shaderMatrix.setScale(scale, scale);
+        shaderMatrix.postTranslate(translateX, translateY);
+        if (zoom != 1f) {
+            // Same render-zoom compensation as the system-drawable path, in this bitmap's
+            // local coordinates (the target rect's origin is already subtracted above).
+            shaderMatrix.postScale(zoom, zoom,
+                frameRect.exactCenterX() - targetRect.left,
+                frameRect.exactCenterY() - targetRect.top);
         }
+
+        BitmapShader shader = new BitmapShader(sourceBitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
+        shader.setLocalMatrix(shaderMatrix);
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        paint.setShader(shader);
+        canvas.drawRect(0f, 0f, targetWidth, targetHeight, paint);
+        return bitmap;
     }
 
     /**
@@ -7508,18 +7535,20 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     /**
-     * The blur cache's capture, split across threads: the managed source answers from its own
-     * decode (or says it is reading), and for the system wallpaper only the geometry is read here,
-     * on the main thread — the decode itself is handed back as a job for the blur worker. Reading
-     * the system wallpaper was a ~46 ms decode per miss on the main thread (Pong, 2026-09-09).
+     * The blur cache's capture, split across threads: for both sources only the geometry is read
+     * here, on the main thread — the managed source answers from its own decode (or says it is
+     * reading), and the full-size draw from it, like the system wallpaper's decode, is handed back
+     * as a job for the blur worker. Reading the system wallpaper was a ~46 ms decode per miss on
+     * the main thread (Pong, 2026-09-09).
      */
     @Nullable
     private com.termux.app.chrome.WallpaperBlurCache.FrameCapture beginWallpaperFrameCapture(
             @NonNull Rect targetRect, @NonNull View wallpaperFrame) {
         if (shouldUseManagedWallpaperBlurSource()) {
-            Bitmap managedBackdrop = createManagedWallpaperBackdropBitmapForRect(targetRect, wallpaperFrame);
-            if (managedBackdrop != null) {
-                return com.termux.app.chrome.WallpaperBlurCache.FrameCapture.ready(managedBackdrop);
+            com.termux.app.chrome.WallpaperBlurCache.FrameCapture managed =
+                beginManagedWallpaperCapture(targetRect);
+            if (managed != null) {
+                return managed;
             }
             // While the file is being read there is nothing to draw yet; the system drawable
             // would be the same picture decoded again, on this thread, for a frame about to be
@@ -11946,6 +11975,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         @Override public void holdGlassFrameBakes(boolean held) {
             if (mChrome != null) mChrome.blurCache().holdFrameBakes(held);
+        }
+
+        @Override public void retainGlassCapture(boolean retain) {
+            if (mChrome != null) mChrome.blurCache().retainCapture(retain);
         }
 
         @Override public boolean isGlassRefractionActive() {

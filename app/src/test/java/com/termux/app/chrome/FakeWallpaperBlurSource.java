@@ -94,4 +94,12 @@ final class FakeWallpaperBlurSource implements WallpaperBlurCache.Source {
     public int glassFrameTint() {
         return frameTint;
     }
+
+    /** The Vibrancy the glass asks the frames for; 100, the default, bakes nothing. */
+    int vibrancyPercent = 100;
+
+    @Override
+    public int glassVibrancyPercent() {
+        return vibrancyPercent;
+    }
 }
