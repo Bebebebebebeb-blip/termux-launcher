@@ -141,6 +141,16 @@ under twenty items; past that, the oldest are re-judged first.
 - 2026-10-17 · same branch · Edge outline: the gathered edge on Mist (60%), the dock, sheets and
   Solid reads about as strong as on Clear, never white-clipped, on a pale and a dark wallpaper ·
   emulator tl16 (Android 13+), screenshots of each surface.
+- 2026-10-17 · same branch, "fix(glass): the terminal's ink follows the face its panes are drawn
+  with" · Light theme, wallpaper on, Terminal colours dynamic: Solid shows dark terminal text on its
+  near-white panes, after switching to it from Clear and after a fresh start; a Clear-derived Custom
+  dragged Opacity 0→100 in the editor flips the text to dark within a moment of release (and back to
+  pale at 0), with the keyboard shown and hidden first; dark theme unchanged · emulator tl16,
+  screenshots before/after.
+- 2026-10-17 · same branch, "fix(glass): Dispersion splits the gathered light" · Mist and Tint,
+  both themes: Edge Off vs Prism differ at a pane's and the dock's corners (a red/blue split in the
+  edge light, strongest top-left), Glint fainter, no coloured line along straight edges; Clear at
+  Glint looks as before on the panes · emulator tl16 (Android 13+), corner crops Off/Glint/Prism.
 
 ## Developer
 - 2026-10-17 · branch feat/glass-controls-unify · Vibrancy release re-bakes the frames once (no

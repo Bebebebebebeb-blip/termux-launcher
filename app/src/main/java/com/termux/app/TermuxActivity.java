@@ -3627,8 +3627,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
             @Override public int paneGlassVeil(@NonNull Rect rootRect) {
                 // The terminal pane band (appearance-layout-editor SPEC §2): the scheme's default
-                // foreground and its dim, veiled toward the terminal's own background.
-                if (mChrome == null) return Color.TRANSPARENT;
+                // foreground and its dim, veiled toward the terminal's own background. Off the
+                // wallpaper the text stands on the palette's own background (terminalTextGround)
+                // and nothing is measured; a pane with no slab is asked too (PaneGlass), so the
+                // ground follows its tint under every Look.
+                if (mChrome == null || !shouldUseWallpaperPassthroughMode()) return Color.TRANSPARENT;
                 int foreground = com.termux.terminal.TerminalColors.COLOR_SCHEME
                     .mDefaultColors[com.termux.terminal.TextStyle.COLOR_INDEX_FOREGROUND];
                 return mChrome.ink().terminalPane(rootRect, paneGlassTintColor(),

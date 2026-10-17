@@ -401,7 +401,7 @@ public final class ChromeInk {
         answer.dimInk = dimInk;
         answer.target = target;
         answer.flat = flat;
-        int ground = meanPaneVote();
+        int ground = meanPaneVote(tint);
         vote(GlassBackdropCache.Band.TERMINAL_PANE, ground);
         if (ground != mPaneGround) {
             mPaneGround = ground;
@@ -453,16 +453,26 @@ public final class ChromeInk {
         return mPanes.size();
     }
 
-    /** The pane band's one vote: the mean of its panes' flat glass. */
+    /**
+     * The pane band's one vote: the mean of its panes' flat glass, over the panes measured under
+     * {@code tint} and the dim as they are now. Every pane wears the one tint, and every dress
+     * pass re-asks each live pane, so an answer under another tint is a rect no pane is laid out
+     * at any more (the window before the keyboard rose, the editor opened, a split closed): kept
+     * for its sample, never counted. Counted, it held the ground on the glass as it was, and a
+     * terminal taken to a white opacity 100 kept the pale ink of the opacity 0 it came from.
+     */
     @ColorInt
-    private int meanPaneVote() {
+    private int meanPaneVote(@ColorInt int tint) {
         long red = 0, green = 0, blue = 0;
+        int count = 0;
         for (PaneAnswer pane : mPanes.values()) {
+            if (pane.tint != tint || pane.dim != mDimColor) continue;
             red += Color.red(pane.flat);
             green += Color.green(pane.flat);
             blue += Color.blue(pane.flat);
+            count++;
         }
-        int count = Math.max(1, mPanes.size());
+        count = Math.max(1, count);
         return Color.rgb((int) (red / count), (int) (green / count), (int) (blue / count));
     }
 
