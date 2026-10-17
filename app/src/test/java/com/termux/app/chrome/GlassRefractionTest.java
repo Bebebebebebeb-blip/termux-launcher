@@ -907,15 +907,99 @@ public class GlassRefractionTest {
         assertEquals(none / 2f, half, 1e-4f);
     }
 
+    /**
+     * Every share up to Glint's, at every clarity and corner weight, splits the light exactly as
+     * the old single fade did (its arithmetic written out here), to the bit.
+     */
+    @Test
+    public void glintAndBelowSplitTheLightExactlyAsBefore() {
+        assertEquals(GlassRefraction.Look.GLINT_SHARE,
+            new GlassRefraction.Look(27, 18, 10, 0, 40, 76).dispersion(), 0f);
+        for (int percent = 0; percent <= GlassRefraction.Look.GLINT_PERCENT; percent += 5) {
+            float disp = new GlassRefraction.Look(27, 18, 10, 0, percent, 0).dispersion();
+            for (float clarity : new float[] {0f, 0.2f, 0.38f, 0.6f, 0.76f, 1f}) {
+                for (float cw : new float[] {0f, 0.3f, 1f}) {
+                    float old = 0f;
+                    if (disp > 0f) {
+                        float sharp = Math.max(0f, Math.min(1f, clarity / 0.76f));
+                        old = disp / 0.08f * cw * 2f * DENSITY * (1f - sharp);
+                    }
+                    assertEquals(percent + "% at " + clarity, old,
+                        GlassRefraction.rimSplitPx(disp, clarity, cw, DENSITY), 0f);
+                }
+            }
+        }
+    }
+
+    /**
+     * Clear's Prism keeps a fringe on the light: what Prism adds past Glint is not faded by the
+     * clear rim, so at Clear's clarity (0.76) the corner's light parts by a dp, two thirds of
+     * Mist's dp and a half, where Glint's parts by nothing. Red's light over blue's, summed across
+     * the depth it covers, is at least 2.5 times Glint's on Clear (Glint's own is the sampled
+     * fringe alone) and at least 0.6 of Mist's Prism (calc 0.67 to 0.71); no channel clips.
+     */
+    @Test
+    public void prismKeepsItsFringeOnClear() {
+        GlassRefraction.Look glint = new GlassRefraction.Look(27, 18, 10, 0, 40, 76);
+        GlassRefraction.Look prism = new GlassRefraction.Look(27, 18, 10, 0, 80, 76);
+        GlassRefraction.Look mistPrism = new GlassRefraction.Look(24, 16, 10, 0, 80, 0);
+        assertEquals(0.76f, prism.clarity(), 1e-6f);
+        float glintSplit = GlassRefraction.rimSplitPx(glint.dispersion(), glint.clarity(), 1f, DENSITY);
+        float prismSplit = GlassRefraction.rimSplitPx(prism.dispersion(), prism.clarity(), 1f, DENSITY);
+        float mistSplit = GlassRefraction.rimSplitPx(mistPrism.dispersion(), 0f, 1f, DENSITY);
+        assertEquals("Glint parts nothing on Clear", 0f, glintSplit, 0f);
+        assertEquals("Prism a dp on Clear", 1f * DENSITY, prismSplit, 1e-4f);
+        assertEquals("nothing along a straight edge", 0f,
+            GlassRefraction.rimSplitPx(prism.dispersion(), prism.clarity(), 0f, DENSITY), 0f);
+        float d = (float) Math.sqrt(0.5);
+        float[] out = new float[3];
+        for (float gain : new float[] {1f, GlassRefraction.Look.MAX_EDGE_GAIN}) {
+            for (float grey : new float[] {0.15f, 0.3f, 0.5f, 0.7f}) {
+                float glintFringe = 0f, prismFringe = 0f, mistFringe = 0f;
+                for (int i = 0; i < 400; i++) {
+                    float inside = i * 0.025f * DENSITY;
+                    GlassRefraction.gatheredLitSplit(grey, grey, grey, 1f, inside, DENSITY, -d, -d,
+                        gain, glintSplit, out);
+                    glintFringe += (out[0] - out[2]) * 0.025f;
+                    GlassRefraction.gatheredLitSplit(grey, grey, grey, 1f, inside, DENSITY, -d, -d,
+                        gain, prismSplit, out);
+                    prismFringe += (out[0] - out[2]) * 0.025f;
+                    GlassRefraction.gatheredLitSplit(grey, grey, grey, 1f, inside, DENSITY, -d, -d,
+                        gain, mistSplit, out);
+                    mistFringe += (out[0] - out[2]) * 0.025f;
+                }
+                String at = gain + "/" + grey + ": Prism " + prismFringe + ", Glint " + glintFringe
+                    + ", Mist's Prism " + mistFringe;
+                assertTrue(at, prismFringe >= 2.5f * glintFringe && prismFringe > 0.3f);
+                assertTrue(at, prismFringe >= 0.6f * mistFringe);
+            }
+        }
+        for (float[] c : new float[][] {{1f, 1f, 1f}, {0.95f, 0.95f, 0.95f}, {0.9f, 0.6f, 0.3f},
+                {0.3f, 0.6f, 0.95f}}) {
+            for (int i = 0; i <= 12; i++) {
+                GlassRefraction.gatheredLitSplit(c[0], c[1], c[2], 1f, i * 0.25f * DENSITY, DENSITY,
+                    -d, -d, GlassRefraction.Look.MAX_EDGE_GAIN, prismSplit, out);
+                for (float channel : out) assertTrue("held under white: " + channel, channel <= 1f);
+            }
+            GlassRefraction.gatheredLitSplit(c[0] * 0.5f, c[1] * 0.5f, c[2] * 0.5f, 0.5f, 0f,
+                DENSITY, -d, -d, GlassRefraction.Look.MAX_EDGE_GAIN, prismSplit, out);
+            for (float channel : out) assertTrue("held under its alpha", channel <= 0.5f);
+        }
+    }
+
     @Test
     public void theLightsSplitIsTheProgramsOwn() {
         assertConst("kMaxDisp", GlassRefraction.Look.MAX_DISPERSION_SHARE);
         assertConst("kRimSplitDp", GlassRefraction.Look.RIM_SPLIT_DP);
         assertConst("kSharpClarity", GlassRefraction.Look.SHARP_CLARITY);
+        assertConst("kGlintDisp", GlassRefraction.Look.GLINT_SHARE);
         String agsl = GlassRefraction.AGSL;
+        assertTrue(agsl.contains("float rimCw = uDisp > 0.0 ? cornerWeight(p, b) : 0.0;"));
         assertTrue(agsl.contains(
-            "float rimSplit = uDisp > 0.0 ? uDisp / kMaxDisp * cornerWeight(p, b) * kRimSplitDp * uDensity"));
-        assertTrue(agsl.contains("* (1.0 - clamp(uClarity / kSharpClarity, 0.0, 1.0)) : 0.0;"));
+            "float rimSplit = uDisp > 0.0 ? min(uDisp, kGlintDisp) / kMaxDisp * rimCw * kRimSplitDp * uDensity"));
+        assertTrue(agsl.contains("* (1.0 - clamp(uClarity / kSharpClarity, 0.0, 1.0))\n"));
+        assertTrue(agsl.contains(
+            "+ max(uDisp - kGlintDisp, 0.0) / kMaxDisp * rimCw * kRimSplitDp * uDensity : 0.0;"));
         assertTrue(agsl.contains(
             "float kr = heldK(kRaw * exp((at - max(inside - rimSplit, 0.0)) / gs), kMax);"));
         assertTrue(agsl.contains(

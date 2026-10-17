@@ -126,6 +126,12 @@ public final class GlassRefraction {
         static final float GLINT_SLOPE = 0.05f;
         /** The Edge colour pill's Glint, percent ({@code GlassControls.Dispersion}): where the slope steepens. */
         static final int GLINT_PERCENT = 40;
+        /**
+         * Glint's share, exactly as {@link #dispersion} gives it at {@link #GLINT_PERCENT} (a hair
+         * over 0.02 in float), so the split on the gathered light can tell Glint's part from what
+         * Prism adds past it ({@code kGlintDisp}, written from this value).
+         */
+        static final float GLINT_SHARE = GLINT_PERCENT / 100f * GLINT_SLOPE;
 
         /** How much of the clearer picture the band shows at the rim at 100%: all of it. */
         static final float MAX_CLARITY = 1f;
@@ -142,9 +148,13 @@ public final class GlassRefraction {
         static final float RIM_SPLIT_DP = 2f;
 
         /**
-         * The clarity at which the sharp picture carries the dispersion fringe by itself, so the
-         * gathered light's split is gone ({@code kSharpClarity}): Clear's 76%. Below it the split
-         * on the light grows in as the rim's picture frosts over, all of it at clarity 0.
+         * The clarity at which the sharp picture carries Glint's fringe by itself, so the gathered
+         * light's split up to Glint's share ({@link #GLINT_SHARE}) is gone ({@code kSharpClarity}):
+         * Clear's 76%. Below it that part grows in as the rim's picture frosts over, all of it at
+         * clarity 0. What a share adds past Glint's is never faded: the sampled split is too fine
+         * at the outline to show (Prism's is about four px at the very corner, a fraction of a px a
+         * dp in), so on Clear Prism looked like Glint (pong, 2026-10-17). Clear's Prism parts the
+         * light one dp at a corner, Mist's one and a half.
          */
         static final float SHARP_CLARITY = 0.76f;
 
@@ -478,8 +488,11 @@ public final class GlassRefraction {
         "const float kEdgeShade = 0.05;\n" +
         // Dispersion on the gathered light: uDisp's full share, how far red's and blue's light
         // part at a corner at 100% in dp, and the clarity at which the sharp picture carries the
-        // fringe by itself. Look.MAX_DISPERSION_SHARE, RIM_SPLIT_DP and SHARP_CLARITY in Java.
+        // fringe by itself, and Glint's share, the part that clarity fades. Look.MAX_DISPERSION_SHARE,
+        // RIM_SPLIT_DP, SHARP_CLARITY and GLINT_SHARE in Java (written from it, so the two match
+        // to the bit and Glint has nothing past it).
         "const float kMaxDisp = 0.08;\n" +
+        "const float kGlintDisp = " + Look.GLINT_SHARE + ";\n" +
         "const float kRimSplitDp = 2.0;\n" +
         "const float kSharpClarity = 0.76;\n" +
         "float sdRoundRect(float2 p, float2 b, float r) {\n" +
@@ -594,11 +607,14 @@ public final class GlassRefraction {
         // The same split laid on the gathered light, which is sharp at the outline however frosted
         // the picture is: at the corners only, red's light as it stands a little further in and
         // blue's a little further out. A frosted rim (clarity 0, Mist and Tint) blurs the sampled
-        // split away, so there this one carries the fringe; it gives way as the clearer picture
-        // takes over and is gone at Clear's clarity, whose sampled fringe is the glint already.
-        // rimSplitPx in Java.
-        "    float rimSplit = uDisp > 0.0 ? uDisp / kMaxDisp * cornerWeight(p, b) * kRimSplitDp * uDensity\n" +
-        "        * (1.0 - clamp(uClarity / kSharpClarity, 0.0, 1.0)) : 0.0;\n" +
+        // split away, so there this one carries the fringe. Up to Glint's share it gives way as
+        // the clearer picture takes over and is gone at Clear's clarity, whose sampled fringe is
+        // the glint already; what a share adds past Glint's (Prism) stays at every clarity, since
+        // the sampled split is too fine at the outline to show it. rimSplitPx in Java.
+        "    float rimCw = uDisp > 0.0 ? cornerWeight(p, b) : 0.0;\n" +
+        "    float rimSplit = uDisp > 0.0 ? min(uDisp, kGlintDisp) / kMaxDisp * rimCw * kRimSplitDp * uDensity\n" +
+        "        * (1.0 - clamp(uClarity / kSharpClarity, 0.0, 1.0))\n" +
+        "        + max(uDisp - kGlintDisp, 0.0) / kMaxDisp * rimCw * kRimSplitDp * uDensity : 0.0;\n" +
         "    half4 col = half4(0.0);\n" +
         "    if (split > 0.0) {\n" +
         "        float2 fr = framePx(sampleCoord + n * split);\n" +
@@ -797,14 +813,18 @@ public final class GlassRefraction {
      * The program's {@code rimSplit}: how far red's and blue's gathered light part, in px, at a
      * pixel taking {@code cornerWeight} of the split ({@link #cornerWeight}), for the look's
      * {@code dispersion} ({@code uDisp}) and the {@code clarity} the program is given
-     * ({@code uClarity}). Nothing without dispersion, and nothing at or past
-     * {@link Look#SHARP_CLARITY}, where the sampled fringe is sharp enough to be seen.
+     * ({@code uClarity}). Nothing without dispersion. The part up to Glint's share
+     * ({@link Look#GLINT_SHARE}) fades to nothing at {@link Look#SHARP_CLARITY}, where the sampled
+     * fringe carries Glint by itself; the part past it is never faded, so Prism keeps a fringe on
+     * Clear too. At or under Glint the arithmetic is the old one term for term.
      */
     static float rimSplitPx(float dispersion, float clarity, float cornerWeight, float density) {
         if (dispersion <= 0f) return 0f;
         float sharp = Math.max(0f, Math.min(1f, clarity / Look.SHARP_CLARITY));
-        return dispersion / Look.MAX_DISPERSION_SHARE * cornerWeight * Look.RIM_SPLIT_DP * density
-            * (1f - sharp);
+        return Math.min(dispersion, Look.GLINT_SHARE) / Look.MAX_DISPERSION_SHARE * cornerWeight
+                * Look.RIM_SPLIT_DP * density * (1f - sharp)
+            + Math.max(dispersion - Look.GLINT_SHARE, 0f) / Look.MAX_DISPERSION_SHARE * cornerWeight
+                * Look.RIM_SPLIT_DP * density;
     }
 
     /**

@@ -204,6 +204,15 @@ under twenty items; past that, the oldest are re-judged first.
   picture) is plainly stronger and wider than Glint's, Glint looks as before, no rainbow outline
   along straight edges, nothing white-clipped. Knobs: `MAX_DISPERSION_SHARE` 0.08 (Prism 0.06),
   `RIM_SPLIT_DP` 2.0 (Prism 1.5 dp) · pong.
+  Pong result (dark, Celestial Field): Mist passes; on Clear Off/Glint/Prism looked alike at the
+  terminal's top-left corner and the keyboard's top edge, since Clear's clarity faded the light's
+  split away and the sampled split is too fine at the outline.
+- 2026-10-17 · same branch, "fix(glass): Prism keeps its edge fringe on Clear" · Recheck of the
+  Clear row above: dark Clear, Celestial Field, Off/Glint/Prism crops at the terminal's top-left
+  corner and the keyboard's top-left corner. Prism shows a red/blue corner fringe in the edge light close to
+  Mist's Prism (light split 1 dp at a corner on Clear, 1.5 on Mist); Glint on Clear looks exactly as
+  in edge-check4-clear (no light split); no coloured line along straight edges, nothing
+  white-clipped. Knobs: `Look.GLINT_SHARE` (the part clarity fades), `RIM_SPLIT_DP` · pong.
 
 - 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · The edge reads
   as light, not an outline, on every surface; on Mist and Solid (and the sheet and chip, floored
