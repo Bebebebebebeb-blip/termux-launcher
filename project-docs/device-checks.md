@@ -177,6 +177,16 @@ under twenty items; past that, the oldest are re-judged first.
   as drawn" chooses them on the drawn chip and raises the function fill where no tone reads.
   Recheck light theme over the dark grass at Opacity 0, 9, 16 and 36: function legends legible
   (pale at 0, or on a fuller chip), letter keys as before, no milky keyboard; dark theme at 0 and 9.
+- 2026-10-17 · same branch, "feat(glass): Tint colours the glass across its range, Clear
+  included" · Clear, Custom: Tint 0, 40, 100, dark and light theme, a grey-ish and a colourful
+  wallpaper: each step is plainly more accent-coloured behind every glass surface (dock, status,
+  keyboard, panes with blur), the bare wallpaper beside the panes unchanged, no white lift; Mist and
+  Solid at Tint 100 a strong accent face, readable text; the Tint Look stop renders as before
+  (compare against a `pre` screenshot) and still reads Tint; terminal, A–Z, extra keys and key
+  legends readable at Tint 100 on Clear, Mist, Tint and Solid, both themes; Hue pick at Tint 0
+  shows 40 with visible colour on Clear. Migration: a format-1 store on the Tint Look comes up on
+  the Tint stop at 35, same colour; a Custom with Tint 100 comes up at 35 · emulator tl16
+  (Android 13+), screenshots per value.
 
 ## Developer
 - 2026-10-17 · branch feat/glass-controls-unify · Vibrancy release re-bakes the frames once (no
@@ -184,6 +194,11 @@ under twenty items; past that, the oldest are re-judged first.
   pong.
 - 2026-10-17 · same branch · Taste: light-theme Mist at 35% no longer milky; Prism's provisional
   80; the edge gain cap at 2.25 (dark Mist now gets its full ratio) · pong.
+- 2026-10-17 · same branch, "feat(glass): Tint colours the glass across its range" · Taste on
+  pong: Clear at Tint 100 reads as tinted glass, not neon and not milky; the frame-tint caps
+  (`GlassFrameTint.MAX_STRENGTH` 0.42, `MAX_CHROMA` 0.6, fade-out at Opacity 45) are the knobs. A
+  Tint or Opacity drag stays smooth, the glass behind catches up once after release (one re-blur) ·
+  pong.
 
 - 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · The edge reads
   as light, not an outline, on every surface; on Mist and Solid (and the sheet and chip, floored

@@ -13,8 +13,27 @@ cover over it, capped at 2.25 (pass 2). Pass 2 (2026-10-17) also set light-glass
 Hue pick at Tint 0 raise the Tint to 40, and had the A-Z letters, the extra keys and the in-app
 keyboard's legends choose their ink on the measured glass face they stand on. Margin and Corner radius left the Look page's Custom row (approved;
 seven columns fit 360dp at the 36dp floor, eight do not). Shade is black or white by each surface's
-own tint, is counted in the ink vote, and is held back where it alone would break a band's target. 4.4 (clarity follows blur) is not built. The rest of this note is the research as
-written.
+own tint, is counted in the ink vote, and is held back where it alone would break a band's target. 4.4 (clarity follows blur) is not built.
+
+**Pass 3 (2026-10-17): Tint reaches the glass behind clear Looks.** On pong, Tint 0 against 100 on
+Clear was barely perceptible: the amount coloured only the face, which Clear shows at 10%. Two
+changes. (1) The scale was stretched: amount a blends the ink a × 1.0 toward the container, and the
+wash grows to the Tint Look's 0.14 at a = 0.35 and holds there (more wash pulls dark glass toward
+the pale primary, which is milk). The Tint Look ships at 35 and draws exactly the old blend; every
+stored amount (base, per-surface cells, saved Custom, older blobs) is scaled by 35/100 in glass
+controls format 2 / SurfacePresets format 6 (`GlassLook.amountForLegacyPercent`). The Hue pick's
+raise stays 40, now just past the Tint Look. (2) `GlassFrameTint` bakes the amount into the shared
+blurred frame next to Vibrancy, one `ColorMatrix` pass per change, never radius 0:
+`out = (1 - s) in + s Y(in) (1 + v)`, `v` the accent's deviation from its own luminance capped at
+0.6 (luminance-weighted, so it sums to zero: luminance holds before clipping), on the more
+colourful of the hue's container and role colour, and `s = 0.42 × amount × max(0, 1 - opacity/45)`,
+so nothing at opacity 45 and up (the Tint Look's 46 is unchanged). It follows Base's Tint, hue and
+Opacity, as Vibrancy does: a surface with its own Tint or Opacity keeps its own face but shares the
+frame. A Tint or Opacity drag holds the re-bake for its release. Calc (M3 baseline purple): on Clear
+at Tint 100 a mid-grey wallpaper's face moves about 20 CIE76 units dark, 17 light, luma within 7
+levels; at Tint 40 about 8. Not measured on a screen yet (`device-checks.md`).
+
+The rest of this note is the research as written.
 
 Read-only research for the developer's report: "in the Appearance editor, Clear or Mist, then Custom: the Tint
 slider does nothing; it only works after the Tint Look." No code changed, nothing built or run on a device.
