@@ -150,17 +150,14 @@ under twenty items; past that, the oldest are re-judged first.
   (Android 13+): the global set reads Glass, Opacity, Tint, Edge, Vibrancy, Depth, whole at 360dp
   and Large text; Clear opens at Edge 40 and looks exactly as before (compare a `pre` crop), Mist
   and Tint at 0. Edge 0, 40, 70, 100 on Clear and on Mist, both themes: each step a plainly
-  stronger coloured edge, at 100 a warm band of about 3.5 dp along every edge of the dock, panes,
-  status band and keyboard (not only the corners), nothing white-clipped, no step where it fades;
-  seams (keyboard over strip, status over window bar) show no line · emulator tl16, top-edge and
-  corner crops per value. **Failed on the emulator 2026-10-17:** Edge 100 was bold only at the
-  pane's top and upper left; the right and bottom edges and the dock/keyboard top over the green
-  grass stayed subtle (the split light is directional, and a bright backdrop left red no
-  headroom). "fix(glass): Edge past 40 is bold on every side" gives the bold edge a floor of light
-  facing no way (`Look.BOLD_LIGHT` 0.6) and red its own headroom. Recheck Clear and Mist at Edge
-  100, dark theme, Celestial Field: the right edge, the bottom edge and the dock/keyboard top
-  edge each wear a coloured band near the top edge's (same crop boxes as `codex-emu4/sheets`),
-  not a rainbow, nothing clipped; Edge 40 identical to before.
+  stronger split; seams (keyboard over strip, status over window bar) show no line · emulator
+  tl16, top-edge and corner crops per value. On pong the first bold edge read as a red band on a
+  dark wallpaper; "fix(glass): Edge past 40 is a warm and a cool fringe" replaces it. Recheck
+  Clear and Mist at Edge 100 over Celestial Field (dark) and a pale wallpaper: every edge of the
+  dock, panes, status band and keyboard wears a thin cyan-blue line at the outline and an orange
+  line just inside it (about 4 dp in all), both visible on the dark and the pale wallpaper, the
+  edge as a whole not redder or bluer than at 40, nothing white-clipped; Edge 40 identical to
+  before (same crop boxes as `codex-emu4/sheets`).
 - 2026-10-17 · same branch, "feat(glass): retire Shade" · An install whose store or saved Custom
   had Shade 60 comes up with the face as at Shade 0 and no Shade column; the chrome, terminal, A-Z
   and key legends readable on Clear and Mist over a pale and a dark wallpaper, both themes ·
@@ -252,10 +249,12 @@ under twenty items; past that, the oldest are re-judged first.
   pong.
 - 2026-10-17 · same branch, "feat(glass): Edge is a slider" (replaces the Prism rows: on pong
   Glint and Prism looked alike) · Taste at arm's length, dark and light, Celestial Field: Edge 100
-  on Clear and on Mist is a clearly visible coloured edge all round (a warm band, red reaching in,
-  blue dropping out at the outline), not a rainbow cartoon; 40 is Clear's glint as before; the
-  slider feels even from 40 to 100; Edge drags stay smooth. Knobs: `Look.BOLD_SPLIT_DP` 3.5 (the
-  width at 100), `MAX_DISPERSION_SHARE` 0.08 · pong.
+  on Clear and on Mist is a clearly visible two-colour split all round (cool at the outline, warm
+  just inside it), on a dark and a pale wallpaper, thin and not a rainbow cartoon, and the edge
+  does not read red overall; 40 is Clear's glint as before; the slider feels even from 40 to 100;
+  Edge drags stay smooth. Knobs: `Look.BOLD_LIFT` 0.16 (each fringe's light, what shows on a
+  dark wallpaper), `BOLD_CUT` 0.22 (what shows on a pale one), `BOLD_LOBE_DP` 0.6 (each
+  fringe's width), `BOLD_WARM`/`BOLD_COOL` (the two colours) · pong.
 
 - 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · The edge reads
   as light, not an outline, on every surface; on Mist and Solid (and the sheet and chip, floored
