@@ -153,7 +153,14 @@ under twenty items; past that, the oldest are re-judged first.
   stronger coloured edge, at 100 a warm band of about 3.5 dp along every edge of the dock, panes,
   status band and keyboard (not only the corners), nothing white-clipped, no step where it fades;
   seams (keyboard over strip, status over window bar) show no line · emulator tl16, top-edge and
-  corner crops per value.
+  corner crops per value. **Failed on the emulator 2026-10-17:** Edge 100 was bold only at the
+  pane's top and upper left; the right and bottom edges and the dock/keyboard top over the green
+  grass stayed subtle (the split light is directional, and a bright backdrop left red no
+  headroom). "fix(glass): Edge past 40 is bold on every side" gives the bold edge a floor of light
+  facing no way (`Look.BOLD_LIGHT` 0.6) and red its own headroom. Recheck Clear and Mist at Edge
+  100, dark theme, Celestial Field: the right edge, the bottom edge and the dock/keyboard top
+  edge each wear a coloured band near the top edge's (same crop boxes as `codex-emu4/sheets`),
+  not a rainbow, nothing clipped; Edge 40 identical to before.
 - 2026-10-17 · same branch, "feat(glass): retire Shade" · An install whose store or saved Custom
   had Shade 60 comes up with the face as at Shade 0 and no Shade column; the chrome, terminal, A-Z
   and key legends readable on Clear and Mist over a pale and a dark wallpaper, both themes ·
@@ -163,7 +170,16 @@ under twenty items; past that, the oldest are re-judged first.
   theme's cap opacity on a fresh store; Keys 0, 50, 100 over the dark grass and a pale wallpaper,
   both themes: every legend (letters, Ctrl, Alt, Fn, gear, Shift, Backspace, Enter, arrows)
   legible on its cap, at 0 on the glass itself; a Look stop and Undo put the theme's value back ·
-  emulator tl16, keyboard crops per value.
+  emulator tl16, keyboard crops per value. **Failed on the emulator 2026-10-17:** light theme,
+  keyboard Glass 20, Opacity 35, Keys 0 over the dark grass: dark legends, Ctrl, Alt, 123+, arrows
+  and Enter nearly invisible, the number row faint (Glass 75 read). Two causes: the keyboard's rows
+  were measured off the dock's frame (its 25 dp blur mixed the lit grass into the bottom rows),
+  and the function legends are drawn secondary (toward mid grey, black as #404040) but were judged
+  as the full tone. "fix(keyboard): legends at Keys 0 judged on the keyboard's own frame, as drawn"
+  reads the rows at the keyboard's radius and chooses (and veils for) the secondary rendition.
+  Recheck that route at Glass 20 and 75, Keys 0, then Keys 50: every legend legible on every row
+  (a light veil rising where needed, not milky past that); dark theme the same route; the theme's
+  own key opacity over dark grass and a pale wallpaper unchanged in look.
 - 2026-10-17 · same branch, "feat(looks): Mist is 35% on light glass" · Light theme: picking Mist
   shows Opacity 35 and the stop reads Mist; switching the theme dark→light→dark with Mist on moves
   it 60→35→60 and the stop stays Mist; a Custom at 50 keeps 50 across the switch · emulator tl16,
