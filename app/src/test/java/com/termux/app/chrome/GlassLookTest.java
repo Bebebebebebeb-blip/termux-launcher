@@ -10,7 +10,8 @@ import static org.junit.Assert.assertTrue;
 
 /**
  * The glass look: scheme + hairline is untouched, Obsidian recolours and washes, and the Tint
- * amount mixes the accent into either ink on one axis: 0 is the ink, 100 the Material blend.
+ * amount mixes the accent into either ink on one axis: 0 is the ink, 35 the Material blend, 100
+ * the accent's container.
  */
 public class GlassLookTest {
 
@@ -38,9 +39,10 @@ public class GlassLookTest {
     }
 
     @Test
-    public void theFullAmountIsTheMaterialBlendBetweenSurfaceAndContainerWithTheWash() {
+    public void theTintLooksAmountIsTheMaterialBlendBetweenSurfaceAndContainerWithTheWash() {
         int surface = 0x80202020;
-        GlassLook look = GlassLook.SCHEME.withAmountPercent(100).withAccentColors(CONTAINER, ACCENT);
+        GlassLook look = GlassLook.SCHEME.withAmountPercent(GlassLook.TINT_LOOK_PERCENT)
+            .withAccentColors(CONTAINER, ACCENT);
         int out = look.tintBase(surface);
         assertEquals("alpha is kept", 0x80, out >>> 24);
         // Blue: 0x20 -> 0x20 + 0.35 * (0xC0 - 0x20) = 88, then 14% toward 0xFF = 111.
@@ -49,10 +51,23 @@ public class GlassLookTest {
         assertEquals(0, look.flatTint(0x00123456) >>> 24);
     }
 
+    /** The full amount reaches the container, under the Tint Look's wash and no more of it. */
+    @Test
+    public void theFullAmountIsTheContainerUnderTheTintLooksWash() {
+        int surface = 0x80202020;
+        int out = GlassLook.SCHEME.withAmountPercent(100).withAccentColors(CONTAINER, ACCENT)
+            .tintBase(surface);
+        // Blue: all the way to 0xC0 = 192, then 14% toward 0xFF = 200.8.
+        assertEquals(201, out & 0xFF);
+        // Red: 0x40 = 64, then 14% toward 0x60 = 68.5.
+        assertEquals(68, (out >> 16) & 0xFF, 1);
+        assertEquals(0x80, out >>> 24);
+    }
+
     /**
      * Every shipped Look draws the colour it drew before the amount: Clear and Solid at 0 are the
-     * scheme ink, Mist at 0 the Obsidian ink with its wash, and Tint at 100 the Material blend,
-     * channel for channel the old formula's.
+     * scheme ink, Mist at 0 the Obsidian ink with its wash, and Tint at its amount (35 on the
+     * stretched scale, 100 before it) the Material blend, channel for channel the old formula's.
      */
     @Test
     public void everyShippedLookRendersAsBefore() {
@@ -67,7 +82,7 @@ public class GlassLookTest {
                 .withAccentColors(CONTAINER, ACCENT).tintBase(base));
             GlassLook mist = GlassLook.of("obsidian", "gradient").withAccentColors(CONTAINER, ACCENT);
             assertEquals("Mist", oldMist[i], mist.tintBase(base));
-            GlassLook tint = GlassLook.SCHEME.withAmountPercent(100)
+            GlassLook tint = GlassLook.SCHEME.withAmountPercent(GlassLook.TINT_LOOK_PERCENT)
                 .withAccentColors(CONTAINER, ACCENT);
             assertEquals("Tint", oldTint[i], tint.tintBase(base));
             assertEquals("Tint's flat tint", oldTint[i], tint.flatTint(base));
@@ -88,14 +103,30 @@ public class GlassLookTest {
         return (base & 0xFF000000) | rgb;
     }
 
-    /** A Material look at strength s is the scheme ink at amount s: the migration's identity. */
+    /**
+     * A Material look at strength s is the scheme ink at the stretched amount s x 35 / 100: the
+     * migrations' identity. Exact wherever s x 0.35 is a whole percent; within the rounding of
+     * one percent of the blend elsewhere.
+     */
     @Test
-    public void aMaterialStrengthIsTheSameAmountOnTheSchemeInk() {
+    public void aMaterialStrengthIsTheScaledAmountOnTheSchemeInk() {
         int base = 0xC0202A44;
-        for (int percent = 0; percent <= 100; percent += 5) {
+        for (int percent = 0; percent <= 100; percent += 20) {
             assertEquals(percent + "%", oldMaterial(base, percent / 100f), GlassLook.SCHEME
-                .withAmountPercent(percent).withAccentColors(CONTAINER, ACCENT).tintBase(base));
+                .withAmountPercent(GlassLook.amountForLegacyPercent(percent))
+                .withAccentColors(CONTAINER, ACCENT).tintBase(base));
         }
+        for (int percent = 0; percent <= 100; percent += 5) {
+            int old = oldMaterial(base, percent / 100f);
+            int now = GlassLook.SCHEME.withAmountPercent(GlassLook.amountForLegacyPercent(percent))
+                .withAccentColors(CONTAINER, ACCENT).tintBase(base);
+            for (int shift = 16; shift >= 0; shift -= 8)
+                assertEquals(percent + "% at " + shift, (old >> shift) & 0xFF, (now >> shift) & 0xFF, 2);
+        }
+        assertEquals(35, GlassLook.amountForLegacyPercent(100));
+        assertEquals(14, GlassLook.amountForLegacyPercent(40));
+        assertEquals(0, GlassLook.amountForLegacyPercent(0));
+        assertEquals(18, GlassLook.amountForLegacyPercent(50));
     }
 
     @Test

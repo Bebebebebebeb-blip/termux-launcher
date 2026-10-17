@@ -12,7 +12,8 @@ import androidx.annotation.Nullable;
 import com.termux.shared.termux.settings.preferences.TermuxPreferenceConstants.TERMUX_APP;
 
 /**
- * Vibrancy: the saturation of the blurred frame every glass surface samples, and nothing else.
+ * Vibrancy: the saturation of the blurred frame every glass surface samples. The Tint amount's
+ * frame tint ({@link GlassFrameTint}) is baked in the same pass, after it.
  * It is baked into each frame once, when {@link WallpaperBlurCache} blurs it, so it costs nothing
  * per frame; a change of it re-bakes the frames as a wallpaper change does. Radius 0, the
  * wallpaper as the wall shows it, never takes it: the bare wallpaper is the user's picture.
@@ -43,16 +44,19 @@ public final class GlassVibrancy {
     }
 
     /**
-     * {@code frame} at {@code percent}'s saturation, as a new bitmap; {@code frame} is recycled.
-     * Null when the copy cannot be made, which the cache treats as a frame that failed to blur.
+     * {@code frame} at {@code percent}'s saturation and then {@code frameTint}'s hue shift
+     * ({@link GlassFrameTint}), in one pass, as a new bitmap; {@code frame} is recycled. Null when
+     * the copy cannot be made, which the cache treats as a frame that failed to blur.
      */
     @Nullable
-    static Bitmap saturated(@NonNull Bitmap frame, int percent) {
+    static Bitmap baked(@NonNull Bitmap frame, int percent, int frameTint) {
         Bitmap out = null;
         try {
             out = Bitmap.createBitmap(frame.getWidth(), frame.getHeight(), Bitmap.Config.ARGB_8888);
             ColorMatrix matrix = new ColorMatrix();
             matrix.setSaturation(saturation(percent));
+            if (frameTint != GlassFrameTint.NONE)
+                matrix.postConcat(new ColorMatrix(GlassFrameTint.matrix(frameTint)));
             Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
             paint.setColorFilter(new ColorMatrixColorFilter(matrix));
             new Canvas(out).drawBitmap(frame, 0f, 0f, paint);

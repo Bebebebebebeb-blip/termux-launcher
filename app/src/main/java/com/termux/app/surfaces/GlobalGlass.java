@@ -61,7 +61,10 @@ final class GlobalGlass {
 
     /**
      * The Tint a Hue pick raises an untinted glass to: a hue chosen at Tint 0 would show nothing,
-     * so the pick also gives the glass enough accent to see it.
+     * so the pick also gives the glass enough accent to see it. On the stretched scale (glass
+     * controls format 2) 40 sits just past the Tint Look's 35: on Clear the frame tint and the
+     * face move a mid-grey wallpaper's face about 8 CIE76 units (calc, M3 baseline purple), and
+     * at the Tint Look's opacity the face alone about 13 on dark glass and 7 on light.
      */
     static final int TINT_ON_HUE_PICK = 40;
 

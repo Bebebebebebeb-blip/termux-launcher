@@ -159,6 +159,12 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         /** The coalesced glass re-render. */
         void applyGlassPreview();
         /**
+         * Holds the Tint amount's frame tint for a drag's release while {@code held}: the blurred
+         * frames keep the tint they were baked with, so a Tint or Opacity drag re-bakes them
+         * once, on release, not on every tick.
+         */
+        default void holdGlassFrameBakes(boolean held) {}
+        /**
          * Whether the glass edge is drawn now (Android 13, a wallpaper set from inside the
          * launcher, Lazy mode off): the global set offers Depth only while it is.
          */
@@ -2096,10 +2102,12 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                 writeVibrancy(value);
                 break;
             case OPACITY:
+                holdFrameBakesForDrag();
                 if (mTarget == null) writeGlobal(SurfaceProperty.OPACITY, value);
                 else writeElement(mTarget, SurfaceProperty.OPACITY, value);
                 break;
             case TINT:
+                holdFrameBakesForDrag();
                 if (mTarget == null) writeGlobal(SurfaceProperty.TINT, value);
                 else writeElement(mTarget, SurfaceProperty.TINT, value);
                 break;
@@ -2165,6 +2173,30 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         prefs.setSurfaceGlassShade(Control.SHADE.clamp(value));
         requestPreview(SurfaceEditorProperties.PREVIEW_SURFACES
             | SurfaceEditorProperties.PREVIEW_KEYBOARD);
+    }
+
+    /** True while a slider drag holds the frame tint's re-bake for its release. */
+    private boolean mFrameBakesHeld;
+
+    /**
+     * Tint and Opacity move the frame tint behind clear glass ({@code GlassFrameTint}), and each
+     * new value re-bakes every blurred frame: a drag holds that for its release, as Vibrancy's
+     * does, while the face follows every tick.
+     */
+    private void holdFrameBakesForDrag() {
+        if (!defersHeavyPasses() || mFrameBakesHeld)
+            return;
+        mFrameBakesHeld = true;
+        mHost.holdGlassFrameBakes(true);
+    }
+
+    /** Lets a held frame tint bake: once, on the glass pass this asks for. */
+    private void releaseFrameBakes() {
+        if (!mFrameBakesHeld)
+            return;
+        mFrameBakesHeld = false;
+        mHost.holdGlassFrameBakes(false);
+        requestPreview(SurfaceEditorProperties.PREVIEW_BLUR);
     }
 
     /** No Vibrancy held for a drag's release. */
@@ -3645,6 +3677,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         mSliderDragActive = false;
         if (mHeldVibrancy != NO_HELD_VIBRANCY)
             writeVibrancy(mHeldVibrancy);
+        releaseFrameBakes();
         settleLookDrag();
         if (mDockSizeHeld) {
             mDockSizeHeld = false;

@@ -1478,9 +1478,10 @@ public final class TermuxPreferenceConstants {
         public static final String KEY_SURFACE_BASE_GRAIN = "surface_base_grain";
         /**
          * How much accent colour is mixed into the glass, percent: 0 is the Look's own colour
-         * untouched, 100 the full Material blend (the Tint Look). Until the glass controls'
-         * format 1 it was how much of the Look's own tint family the glass wore, 100 the shipped
-         * tint; the app's {@code GlassControlsMigration} maps every stored value once.
+         * untouched, 35 the Material blend (the Tint Look), 100 the accent's container. Until the
+         * glass controls' format 1 it was how much of the Look's own tint family the glass wore,
+         * 100 the shipped tint; until format 2 100 was the Material blend. The app's
+         * {@code GlassControlsMigration} maps every stored value once per format.
          */
         public static final String KEY_SURFACE_BASE_TINT = "surface_base_tint";
         public static final String KEY_SURFACE_BASE_CORNER_RADIUS = "surface_base_corner_radius";

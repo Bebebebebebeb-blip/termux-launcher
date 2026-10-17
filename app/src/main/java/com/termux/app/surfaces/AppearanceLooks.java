@@ -382,8 +382,8 @@ public final class AppearanceLooks {
     }
 
     /**
-     * Tint is how much accent colour a surface mixes in, in percent: 0 the Look's own colour, 100
-     * the Material blend the Tint Look wears.
+     * Tint is how much accent colour a surface mixes in, in percent: 0 the Look's own colour, 35
+     * the Material blend the Tint Look wears, 100 the accent's container.
      */
     public static final int TINT_MAX = 100;
 

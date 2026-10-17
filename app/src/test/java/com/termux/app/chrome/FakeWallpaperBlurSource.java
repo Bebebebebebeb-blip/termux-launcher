@@ -86,4 +86,12 @@ final class FakeWallpaperBlurSource implements WallpaperBlurCache.Source {
     public void onCacheCleared() {
         clearedCount++;
     }
+
+    /** The frame tint the glass asks the frames for; none unless a test sets one. */
+    int frameTint = GlassFrameTint.NONE;
+
+    @Override
+    public int glassFrameTint() {
+        return frameTint;
+    }
 }

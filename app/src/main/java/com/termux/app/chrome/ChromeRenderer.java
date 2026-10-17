@@ -60,6 +60,23 @@ public final class ChromeRenderer {
         }
 
         /**
+         * The frames' tint: the shared glass's Tint amount, hue and Opacity
+         * ({@link GlassFrameTint}), none without preferences. The accent is resolved only when
+         * the amount and the opacity leave the frame something to carry.
+         */
+        @Override
+        default int glassFrameTint() {
+            TermuxAppSharedPreferences preferences = preferences();
+            if (preferences == null) return GlassFrameTint.NONE;
+            int amount = preferences.getSurfaceBaseValue(
+                TermuxAppSharedPreferences.SurfaceProperty.TINT);
+            int opacity = preferences.getSurfaceBaseValue(
+                TermuxAppSharedPreferences.SurfaceProperty.OPACITY);
+            if (GlassFrameTint.strength(amount, opacity) <= 0f) return GlassFrameTint.NONE;
+            return new GlassSurfaceFactory(this).look(amount).frameTint(opacity);
+        }
+
+        /**
          * The user's one legibility control, which multiplies every band's contrast target. Read
          * from the preferences' "Terminal contrast" choice; default while there are none.
          */

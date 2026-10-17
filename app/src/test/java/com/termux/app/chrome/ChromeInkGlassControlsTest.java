@@ -91,6 +91,56 @@ public class ChromeInkGlassControlsTest {
             shaded.ratio >= OnGlass.TARGET_BODY_TEXT && !shaded.shortfall);
     }
 
+    // ------------------------------------------------------------- Tint 100 on the tinted frame
+
+    /**
+     * Tint at its full amount on every Look's opacity, both themes, over light, mid, dark and
+     * coloured wallpapers, with the frame tinted as the glass bakes it: the chrome's label still
+     * reaches its target, and a fixed label that read at Tint 0 still reads.
+     */
+    @Test
+    public void theContrastFloorHoldsAtTintOneHundred() {
+        int[][] themes = {{NIGHT_BASE, 0xFF4F378B, 0xFFD0BCFF}, {DAY_BASE, 0xFFEADDFF, 0xFF6750A4}};
+        int[] walls = {LIGHT_WALLPAPER, 0xFF808080, DARK_WALLPAPER, 0xFF3050A0, 0xFFA05030};
+        int[] opacities = {10, 35, 46, 60, 92};
+        for (int[] theme : themes) {
+            surfaces.glassBase = theme[0];
+            GlassLook full = GlassLook.SCHEME.withAmountPercent(100)
+                .withAccentColors(theme[1], theme[2]);
+            int tinted = full.tintBase(theme[0]);
+            for (int opacity : opacities) {
+                int frameTint = full.frameTint(opacity);
+                for (int wall : walls) {
+                    String at = Integer.toHexString(theme[0]) + " at " + opacity + " over "
+                        + Integer.toHexString(wall);
+                    wallpaper = GlassFrameTint.apply(frameTint, wall);
+                    ChromeInk on = fresh();
+                    on.noteBandGlass(GlassBackdropCache.Band.DOCK, opacity / 100f, true, 0f, 1f,
+                        tinted, Color.TRANSPARENT);
+                    OnGlass.Resolution label = on.onGlass(GlassBackdropCache.Band.DOCK,
+                        STATUS_RECT, LIGHT_INK, NIGHT_INK, OnGlass.TARGET_BODY_TEXT);
+                    assertTrue(at + ": " + label.ratio,
+                        label.ratio >= OnGlass.TARGET_BODY_TEXT && !label.shortfall);
+
+                    wallpaper = wall;
+                    ChromeInk bare = fresh();
+                    bare.noteBandGlass(GlassBackdropCache.Band.KEYBOARD, opacity / 100f, false,
+                        0f, 0.8f, theme[0], Color.TRANSPARENT);
+                    boolean readBefore = !bare.onFixedInk(GlassBackdropCache.Band.KEYBOARD,
+                        KEYBOARD_RECT, LABEL, LABEL, CAP, OnGlass.TARGET_BODY_TEXT).shortfall;
+                    wallpaper = GlassFrameTint.apply(frameTint, wall);
+                    ChromeInk keys = fresh();
+                    keys.noteBandGlass(GlassBackdropCache.Band.KEYBOARD, opacity / 100f, false,
+                        0f, 0.8f, tinted, Color.TRANSPARENT);
+                    OnGlass.Resolution key = keys.onFixedInk(GlassBackdropCache.Band.KEYBOARD,
+                        KEYBOARD_RECT, LABEL, LABEL, CAP, OnGlass.TARGET_BODY_TEXT);
+                    if (readBefore)
+                        assertTrue(at + " key label: " + key.ratio, !key.shortfall);
+                }
+            }
+        }
+    }
+
     // --------------------------------------------------------------- Shade in the ink's choice
 
     /** The status band at Clear's 10% with {@code shade} under it, resolved for the chrome's inks. */

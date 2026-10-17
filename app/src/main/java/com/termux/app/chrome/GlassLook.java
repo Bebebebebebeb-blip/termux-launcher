@@ -12,7 +12,9 @@ import com.termux.shared.termux.settings.preferences.TermuxPreferenceConstants.T
  * mixed from (the scheme's own, or Obsidian's), how much accent colour is mixed into that ink (the
  * Tint control's amount, on one axis every Look shares) and how its rim is drawn. {@code scheme} +
  * {@code hairline} at amount 0 is the shipped look and is drawn by exactly the code that drew it
- * before this existed. Amount 100 on the scheme ink is the Material blend the Tint Look wears.
+ * before this existed. Amount 35 on the scheme ink is the Material blend the Tint Look wears;
+ * amount 100 moves the ink all the way to the accent's container. Behind see-through glass the
+ * amount also tints the shared frame ({@link #frameTint}).
  *
  * <p>The Obsidian values (Apache-2.0, Obsidian-Music 2.5.1; see
  * project-docs/reference/launcher/mist-preset-obsidian-values.md): dark
@@ -53,16 +55,39 @@ public final class GlassLook {
     @ColorInt private final int mContainer;
     @ColorInt private final int mAccent;
     /**
-     * How much accent the glass mixes in, 0..1: 0 is the ink untouched, 1 the full Material blend
-     * (0.35 toward the container, then a 0.14 wash toward the accent). Not the tint's opacity
-     * ({@code GlassStack.Spec#tintAlpha}).
+     * How much accent the glass mixes in, 0..1: 0 is the ink untouched, 1 the ink moved all the
+     * way to the accent's container ({@link #FULL_BLEND}) under the Tint Look's wash. Not the
+     * tint's opacity ({@code GlassStack.Spec#tintAlpha}).
      */
     private final float mAmount;
 
-    /** M3 tonal elevation level 5: the surface tint's share of the wash. */
+    /** M3 tonal elevation level 5: the surface tint's share of the wash, the Tint Look's. */
     public static final float MATERIAL_WASH = 0.14f;
-    /** How far the ink moves toward the accent's container at the full amount. */
+    /** How far the Tint Look moves the ink toward the accent's container. */
     public static final float MATERIAL_BLEND = 0.35f;
+    /**
+     * How far the full amount moves the ink toward the container: all the way, to the accent's
+     * own tonal surface, so Tint 100 is a strong accent wherever the face shows.
+     */
+    public static final float FULL_BLEND = 1f;
+    /**
+     * The amount, percent, that draws the Material blend the Tint Look wears (0.35 toward the
+     * container, a 0.14 wash): {@link #MATERIAL_BLEND} over {@link #FULL_BLEND}. Below it the
+     * blend and the wash grow together, as the old Material strength did, so an old amount s is
+     * this new one at s times 35 over 100 ({@link #amountForLegacyPercent}). Above it only the
+     * blend grows: the wash pulls toward the accent role, which on dark glass is pale, and more
+     * of it would lift the glass toward milk.
+     */
+    public static final int TINT_LOOK_PERCENT = 35;
+
+    /**
+     * The amount, percent, that draws what {@code legacyPercent} drew before the Tint scale
+     * reached the container (glass controls format 2): the same blend and the same wash.
+     */
+    public static int amountForLegacyPercent(int legacyPercent) {
+        int clamped = Math.max(0, Math.min(100, legacyPercent));
+        return Math.round(clamped * TINT_LOOK_PERCENT / 100f);
+    }
 
     public GlassLook(boolean obsidianTint, boolean gradientRim) {
         this(obsidianTint, gradientRim, Hue.PRIMARY, false, 0, 0, 0f);
@@ -163,20 +188,36 @@ public final class GlassLook {
         return accented(ink);
     }
 
-    /** {@code ink} with the accent mixed in by the amount; the ink itself at 0 or unresolved. */
+    /**
+     * {@code ink} with the accent mixed in by the amount; the ink itself at 0 or unresolved. The
+     * ink moves {@link #FULL_BLEND} times the amount toward the container, then takes the wash,
+     * which grows with the amount up to the Tint Look's and holds there.
+     */
     @ColorInt
     private int accented(@ColorInt int ink) {
         if (mAmount <= 0f || !accentResolved) return ink;
+        float blend = FULL_BLEND * mAmount;
+        float wash = MATERIAL_WASH * Math.min(1f, mAmount / (TINT_LOOK_PERCENT / 100f));
         int rgb = 0;
         for (int shift = 16; shift >= 0; shift -= 8) {
             float c = (ink >> shift) & 0xFF;
             float p = (mContainer >> shift) & 0xFF;
             float t = (mAccent >> shift) & 0xFF;
-            float blended = c + (p - c) * (MATERIAL_BLEND * mAmount);
-            float washed = blended + (t - blended) * (MATERIAL_WASH * mAmount);
+            float blended = c + (p - c) * blend;
+            float washed = blended + (t - blended) * wash;
             rgb |= Math.round(Math.max(0f, Math.min(255f, washed))) << shift;
         }
         return (ink & 0xFF000000) | rgb;
+    }
+
+    /**
+     * The tint this look's amount bakes into the shared frame behind glass at
+     * {@code opacityPercent} ({@link GlassFrameTint}): {@link GlassFrameTint#NONE} at amount 0,
+     * while the accent's colours are unresolved, and where the face carries the accent alone.
+     */
+    public int frameTint(int opacityPercent) {
+        if (mAmount <= 0f || !accentResolved) return GlassFrameTint.NONE;
+        return GlassFrameTint.of(Math.round(mAmount * 100f), opacityPercent, mContainer, mAccent);
     }
 
     /** White 0.05: the wash that replaces the light model's sheen in Obsidian glass. */

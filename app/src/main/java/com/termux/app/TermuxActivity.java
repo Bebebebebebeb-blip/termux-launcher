@@ -11951,6 +11951,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mChrome.requestSync(ChromeRenderer.SCOPE_APPLY_THIS_FRAME | ChromeRenderer.SCOPE_ACCESSORY_RENDER);
         }
 
+        @Override public void holdGlassFrameBakes(boolean held) {
+            if (mChrome != null) mChrome.blurCache().holdFrameBakes(held);
+        }
+
         @Override public boolean isGlassRefractionActive() {
             return currentFancierGlassLook() != null;
         }

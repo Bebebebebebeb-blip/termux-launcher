@@ -28,7 +28,9 @@ import java.util.Map;
  *   <li>The blur wallpaper mode remembers for its return moves onto the curve beside Base's grain
  *       ({@link GlassControls#blurWithGrain}),
  *       and the Glass slider's positions are written for Base and every detached surface.</li>
- *   <li>The saved Custom look is rewritten in format 5 ({@link SurfacePresets#fromLegacy}).</li>
+ *   <li>The saved Custom look is rewritten in the current format ({@link SurfacePresets#fromLegacy},
+ *       {@link SurfacePresets#rescaleTintAmounts}).</li>
+ *   <li>Format 2: every Tint amount moves onto the stretched scale ({@link #FORMAT}).</li>
  * </ul>
  *
  * <p>A store that never wrote a tint key read the old default, the full strength; it is pinned
@@ -40,8 +42,17 @@ public final class GlassControlsMigration {
 
     private GlassControlsMigration() {}
 
-    /** The format this build brings a store to. */
-    static final int FORMAT = 1;
+    /**
+     * The format this build brings a store to. 1 is the unification above; 2 stretched the Tint
+     * scale so 100 reaches the accent's container, and every stored amount, the base and each
+     * per-surface cell, is scaled to draw the colour it drew
+     * ({@link com.termux.app.chrome.GlassLook#amountForLegacyPercent}: the Tint Look's 100 is 35).
+     * A store at 0 takes both in the same edit; the saved Custom look is scaled on read
+     * ({@link SurfacePresets#rescaleTintAmounts}) and rewritten.
+     */
+    static final int FORMAT = 2;
+    /** The format that stretched the Tint scale. */
+    private static final int FORMAT_TINT_SCALE = 2;
 
     /**
      * The Looks' start-up work, in its order: this migration first, so a Look it recognises at its
@@ -55,18 +66,27 @@ public final class GlassControlsMigration {
 
     public static void run(@NonNull TermuxAppSharedPreferences prefs) {
         SharedPreferences store = prefs.getSharedPreferences();
-        if (store == null || store.getInt(TERMUX_APP.KEY_SURFACE_GLASS_CONTROLS_FORMAT, 0) >= FORMAT)
+        int from = store == null ? FORMAT
+            : store.getInt(TERMUX_APP.KEY_SURFACE_GLASS_CONTROLS_FORMAT, 0);
+        if (from >= FORMAT)
             return;
         SurfacePresets.Batch batch = new SurfacePresets.Batch(store);
         TermuxAppSharedPreferences into = SurfacePresets.writingInto(prefs, batch);
-        pinLegacyTintStrengths(into, batch);
-        SurfacePresets.Preset shipped = SurfacePresets.lookAsShippedBeforeFormat5(into);
-        if (shipped != null)
-            SurfacePresets.apply(into, shipped);
-        else
-            migrateLive(into);
-        snapRememberedBlur(into, batch);
-        writeGlassPositions(into);
+        if (from < 1) {
+            pinLegacyTintStrengths(into, batch);
+            SurfacePresets.Preset shipped = SurfacePresets.lookAsShippedBeforeFormat5(into);
+            if (shipped != null) {
+                // A shipped Look as it ships now: its Tint is already on the stretched scale.
+                SurfacePresets.apply(into, shipped);
+            } else {
+                migrateLive(into);
+                rescaleTintAmounts(into, batch);
+            }
+            snapRememberedBlur(into, batch);
+            writeGlassPositions(into);
+        } else if (from < FORMAT_TINT_SCALE) {
+            rescaleTintAmounts(into, batch);
+        }
         String custom = into.getSurfaceCustomPreset();
         if (!custom.isEmpty()) {
             Map<String, Object> look = SurfacePresets.deserialize(custom);
@@ -108,6 +128,28 @@ public final class GlassControlsMigration {
         }
     }
 
+    /**
+     * Every stored Tint amount, the base and each per-surface cell, from the scale before format
+     * 2 to its own, so each draws the colour it drew. A cell the store never set reads its
+     * default, 0, which stays 0.
+     */
+    private static void rescaleTintAmounts(@NonNull TermuxAppSharedPreferences prefs,
+                                           @NonNull SharedPreferences store) {
+        int base = prefs.getSurfaceBaseValue(SurfaceProperty.TINT);
+        int scaledBase = com.termux.app.chrome.GlassLook.amountForLegacyPercent(base);
+        if (scaledBase != base)
+            prefs.setSurfaceBaseValue(SurfaceProperty.TINT, scaledBase);
+        for (SurfaceSlot slot : SurfaceSlot.values()) {
+            String key = TermuxAppSharedPreferences.surfaceOverrideKey(slot, SurfaceProperty.TINT);
+            if (key == null || !store.contains(key))
+                continue;
+            int cell = prefs.getSurfaceOverrideValue(slot, SurfaceProperty.TINT);
+            int scaled = com.termux.app.chrome.GlassLook.amountForLegacyPercent(cell);
+            if (scaled != cell)
+                prefs.setSurfaceRawValue(slot, SurfaceProperty.TINT, scaled);
+        }
+    }
+
     /** Writes the old default strength into every tint key the store never set. */
     private static void pinLegacyTintStrengths(@NonNull TermuxAppSharedPreferences prefs,
                                                @NonNull SharedPreferences store) {
@@ -125,7 +167,8 @@ public final class GlassControlsMigration {
     static void migrateLive(@NonNull TermuxAppSharedPreferences prefs) {
         boolean material = TERMUX_APP.GLASS_TINT_MATERIAL.equals(prefs.getSurfaceGlassTint());
         if (material) {
-            // The Material blend at strength s is the scheme ink at amount s: the numbers stay.
+            // The Material blend at strength s is the scheme ink at format 1's amount s: the
+            // numbers stay here, and format 2's scaling follows.
             prefs.setSurfaceGlassTint(TERMUX_APP.GLASS_TINT_SCHEME);
         } else {
             prefs.setSurfaceBaseValue(SurfaceProperty.TINT, 0);

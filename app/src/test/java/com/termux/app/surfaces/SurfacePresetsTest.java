@@ -282,7 +282,7 @@ public class SurfacePresetsTest {
     @Test
     public void everyLookResetsTheTintToItsOwnAmount() {
         for (SurfacePresets.Preset preset : SurfacePresets.presets()) {
-            int amount = "stock".equals(preset.id) ? 100 : 0;
+            int amount = "stock".equals(preset.id) ? 35 : 0;
             assertEquals(preset.id, amount, preset.values.get(TERMUX_APP.KEY_SURFACE_BASE_TINT));
             preferences.setSurfaceBaseValue(SurfaceProperty.TINT, 20);
             preferences.detachSurfaceValue(SurfaceSlot.STATUS, SurfaceProperty.TINT, 10);

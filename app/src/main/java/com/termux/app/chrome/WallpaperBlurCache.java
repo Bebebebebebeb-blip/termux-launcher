@@ -93,6 +93,15 @@ public final class WallpaperBlurCache {
         default int glassVibrancyPercent() {
             return 100;
         }
+
+        /**
+         * The Tint amount's frame tint the frames are baked with ({@link GlassFrameTint});
+         * {@link GlassFrameTint#NONE}, the default, bakes nothing. A change re-bakes every frame
+         * on the next obtain, unless the bakes are held ({@link #holdFrameBakes}).
+         */
+        default int glassFrameTint() {
+            return GlassFrameTint.NONE;
+        }
     }
 
     /**
@@ -159,6 +168,10 @@ public final class WallpaperBlurCache {
     private long mManagedLength = -1L;
     /** The Vibrancy the resident frames were baked at. */
     private int mVibrancy = 100;
+    /** The frame tint the resident frames were baked with. */
+    private int mFrameTint = GlassFrameTint.NONE;
+    /** While true, a new frame tint waits: frames keep, and new radii take, {@link #mFrameTint}. */
+    private boolean mFrameBakesHeld;
     /**
      * The orientation the cached frames were captured in. The frame rect alone was supposed to
      * carry this, but a rotation delivers {@code onConfigurationChanged} <em>before</em> the window
@@ -294,10 +307,12 @@ public final class WallpaperBlurCache {
         int systemWallpaperId = mSource.systemWallpaperId();
         long managedLastModified = managedSource ? mSource.managedWallpaperLastModified() : -1L;
         long managedLength = managedSource ? mSource.managedWallpaperLength() : -1L;
-        // A new Vibrancy makes every resident frame wrong, as a new wallpaper does.
+        // A new Vibrancy or frame tint makes every resident frame wrong, as a new wallpaper does.
         final int vibrancy = GlassVibrancy.clampPercent(mSource.glassVibrancyPercent());
+        final int frameTint = mFrameBakesHeld ? mFrameTint : mSource.glassFrameTint();
         boolean sourceValid = sourceStillMatches(frameRect, managedSource, systemWallpaperId,
-            managedLastModified, managedLength) && vibrancy == mVibrancy;
+            managedLastModified, managedLength) && vibrancy == mVibrancy
+            && frameTint == mFrameTint;
         if (sourceValid) {
             Bitmap cached = mByRadius.get(blurRadiusDp);
             if (cached != null && !cached.isRecycled()) {
@@ -319,8 +334,9 @@ public final class WallpaperBlurCache {
         final Rect frameRectCopy = new Rect(frameRect);
         final int orientation = mSource.orientation();
         mVibrancy = vibrancy;
+        mFrameTint = frameTint;
         if (mWorker == null || mMainThread == null) {
-            Bitmap blurred = captureAndBlur(capture, blurRadiusDp, vibrancy);
+            Bitmap blurred = captureAndBlur(capture, blurRadiusDp, vibrancy, frameTint);
             if (blurred == null) return null;
             store(blurRadiusDp, blurred, frameRectCopy, orientation, managedSource,
                 systemWallpaperId, managedLastModified, managedLength);
@@ -335,7 +351,7 @@ public final class WallpaperBlurCache {
         final int generation = mGeneration;
         final MainThread mainThread = mMainThread;
         final Runnable job = () -> {
-            final Bitmap blurred = captureAndBlur(capture, blurRadiusDp, vibrancy);
+            final Bitmap blurred = captureAndBlur(capture, blurRadiusDp, vibrancy, frameTint);
             mainThread.post(() -> {
                 mPending.remove(blurRadiusDp);
                 if (blurred == null) return;
@@ -363,17 +379,28 @@ public final class WallpaperBlurCache {
         return null;
     }
 
+    /**
+     * Holds a new frame tint back while {@code held}: the resident frames stay, and a radius
+     * filled meanwhile takes the tint they were baked with. A drag of Tint or Opacity moves the
+     * frame tint on every tick, and each move would re-bake every frame; held, the release bakes
+     * once, on the next obtain. Vibrancy needs no hold: the editor writes it on release.
+     */
+    public void holdFrameBakes(boolean held) {
+        mFrameBakesHeld = held;
+    }
+
     /** True while a worker job is out for {@code blurRadiusDp}. */
     public boolean isPending(int blurRadiusDp) {
         return mPending.contains(blurRadiusDp);
     }
 
     /**
-     * Decode (if still to do), blur and bake one frame at {@code vibrancy}. Runs on the worker
-     * when there is one.
+     * Decode (if still to do), blur and bake one frame at {@code vibrancy} with
+     * {@code frameTint}. Runs on the worker when there is one.
      */
     @Nullable
-    private Bitmap captureAndBlur(@NonNull FrameCapture capture, int blurRadiusDp, int vibrancy) {
+    private Bitmap captureAndBlur(@NonNull FrameCapture capture, int blurRadiusDp, int vibrancy,
+                                 int frameTint) {
         Trace.beginSection("Blur.miss");
         try {
             Bitmap wallpaperBitmap = capture.ready;
@@ -394,9 +421,11 @@ public final class WallpaperBlurCache {
             }
             if (blurredBitmap != wallpaperBitmap) {
                 wallpaperBitmap.recycle();
-                // Vibrancy is the glass's, baked here once; radius 0 is the wallpaper itself.
-                if (GlassVibrancy.bakes(blurRadiusDp, vibrancy))
-                    return GlassVibrancy.saturated(blurredBitmap, vibrancy);
+                // Vibrancy and the frame tint are the glass's, baked here once, in one pass;
+                // radius 0 is the wallpaper itself.
+                if (GlassVibrancy.bakes(blurRadiusDp, vibrancy)
+                    || GlassFrameTint.bakes(blurRadiusDp, frameTint))
+                    return GlassVibrancy.baked(blurredBitmap, vibrancy, frameTint);
             }
             return blurredBitmap;
         } finally {

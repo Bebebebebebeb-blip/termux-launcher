@@ -59,9 +59,12 @@ public final class SurfacePresets {
      * 100 the Material blend) where they had been a strength of the Look's tint family, the
      * {@code material} family became {@code scheme} at its amount, blur and grain moved onto the
      * Glass slider's curve, and the hue, Shade and Vibrancy keys arrived. A stored look older
-     * than 5 is carried across on read ({@link #fromLegacy}), so it applies as it looked.
+     * than 5 is carried across on read ({@link #fromLegacy}), so it applies as it looked. 6
+     * stretched the Tint amount: 100 now moves the ink all the way to the accent's container, and
+     * the Material blend is 35 ({@code GlassLook.TINT_LOOK_PERCENT}); a look older than 6 has
+     * every Tint value scaled on read ({@link #rescaleTintAmounts}).
      */
-    public static final int FORMAT_VERSION = 5;
+    public static final int FORMAT_VERSION = 6;
 
     /** The fifth card: whatever look the user last saved, rather than one this build ships. */
     public static final String CUSTOM_ID = "custom";
@@ -114,13 +117,15 @@ public final class SurfacePresets {
                 look.put(TERMUX_APP.KEY_SURFACE_GLASS_RIM, TERMUX_APP.GLASS_RIM_GRADIENT);
                 look.put(TERMUX_APP.KEY_SURFACE_GLASS_MOTION, TERMUX_APP.GLASS_MOTION_MIST);
             }),
-        // Tint (id stock): glass in Material colours, the scheme's ink at the full accent amount
-        // (Tint 100: 0.35 toward the primary container, a 0.14 wash toward the primary), Glass 40
+        // Tint (id stock): glass in Material colours, the scheme's ink at the Material blend
+        // (Tint 35: 0.35 toward the primary container, a 0.14 wash toward the primary), Glass 40
         // (blur 12, grain 4), with the shallowest edge of the Looks (bend 21 over an edge of 14,
         // Depth 70), bent through the frost (clarity 0) and with no fringe; light 10 as Clear's.
+        // At opacity 46 the face carries the accent alone, so the frame takes no tint.
         preset("stock", R.string.termux_surface_preset_stock,
             TERMUX_APP.SURFACE_MATERIAL_GLASS, 50, GlassControls.blurForGlass(GlassControls.TINT),
-            46, GlassControls.grainForGlass(GlassControls.TINT), 100, 21, 14, 10, 0, 0, 0,
+            46, GlassControls.grainForGlass(GlassControls.TINT),
+            com.termux.app.chrome.GlassLook.TINT_LOOK_PERCENT, 21, 14, 10, 0, 0, 0,
             look -> { }),
         // Solid: opaque, no blur cost, and no edge to clear. Blur 0 and grain 0 sit off the Glass
         // curve: no frost at all.
@@ -298,7 +303,8 @@ public final class SurfacePresets {
         look.put(TERMUX_APP.KEY_SURFACE_BASE_BLUR, blur);
         look.put(TERMUX_APP.KEY_SURFACE_BASE_OPACITY, opacity);
         look.put(TERMUX_APP.KEY_SURFACE_BASE_GRAIN, grain);
-        // The accent amount: 0 is the Look's own colour, 100 the Material blend (Tint's).
+        // The accent amount: 0 is the Look's own colour, 35 the Material blend (Tint's), 100 the
+        // accent's container.
         look.put(TERMUX_APP.KEY_SURFACE_BASE_TINT, tint);
         look.put(TERMUX_APP.KEY_FANCIER_GLASS_BEND, bend);
         look.put(TERMUX_APP.KEY_FANCIER_GLASS_EDGE_WIDTH, edgeWidth);
@@ -589,10 +595,32 @@ public final class SurfacePresets {
                     look.put(TERMUX_APP.KEY_SURFACE_BASE_TINT, LEGACY_TINT_STRENGTH);
                 fromLegacy(look);
             }
+            // Format 6 stretched the Tint scale; a look older than it has its amounts scaled.
+            if (format < 6)
+                rescaleTintAmounts(look);
             if (!look.containsKey(TERMUX_APP.KEY_SURFACE_BASE_TINT))
                 look.put(TERMUX_APP.KEY_SURFACE_BASE_TINT, TERMUX_APP.DEFAULT_SURFACE_BASE_TINT);
         }
         return look;
+    }
+
+    /**
+     * A look's Tint amounts, the base and every per-surface cell it names, from format 5's scale
+     * to format 6's, in place: each amount draws the colour it drew
+     * ({@link com.termux.app.chrome.GlassLook#amountForLegacyPercent}), so 100, the Material blend
+     * then, is 35.
+     */
+    static void rescaleTintAmounts(@NonNull Map<String, Object> look) {
+        rescaleTintAmount(look, TERMUX_APP.KEY_SURFACE_BASE_TINT);
+        for (SurfaceSlot slot : SurfaceSlot.values())
+            rescaleTintAmount(look,
+                TermuxAppSharedPreferences.surfaceOverrideKey(slot, SurfaceProperty.TINT));
+    }
+
+    private static void rescaleTintAmount(@NonNull Map<String, Object> look, @Nullable String key) {
+        if (key == null || !(look.get(key) instanceof Number))
+            return;
+        look.put(key, com.termux.app.chrome.GlassLook.amountForLegacyPercent(intOf(look.get(key))));
     }
 
     /** The tint strength every look wore before format 5 when it named none: all of it. */

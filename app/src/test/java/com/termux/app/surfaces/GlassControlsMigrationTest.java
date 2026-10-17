@@ -131,7 +131,7 @@ public class GlassControlsMigrationTest {
     }
 
     @Test
-    public void aMaterialLookKeepsItsStrengthsAsAmountsOnTheSchemeInk() {
+    public void aMaterialLookKeepsItsColourAsScaledAmountsOnTheSchemeInk() {
         preferences.setSurfaceGlassTint(TERMUX_APP.GLASS_TINT_MATERIAL);
         preferences.setSurfaceBaseValue(SurfaceProperty.BLUR, 17);
         preferences.setSurfaceBaseValue(SurfaceProperty.TINT, 60);
@@ -142,8 +142,8 @@ public class GlassControlsMigrationTest {
         GlassControlsMigration.run(preferences);
 
         assertEquals(TERMUX_APP.GLASS_TINT_SCHEME, preferences.getSurfaceGlassTint());
-        assertEquals(60, preferences.getDockTintStrength());
-        assertEquals(30, preferences.getStatusBarTintStrength());
+        assertEquals("scaled onto the stretched Tint", 21, preferences.getDockTintStrength());
+        assertEquals(11, preferences.getStatusBarTintStrength());
         assertFalse(preferences.isSurfaceInheriting(SurfaceSlot.STATUS, SurfaceProperty.TINT));
         assertEquals("the same colour", before, dockColourNow());
     }
@@ -172,8 +172,8 @@ public class GlassControlsMigrationTest {
 
         GlassControlsMigration.run(preferences);
 
-        assertEquals(100, preferences.getDockTintStrength());
-        assertEquals(100, preferences.getTerminalTintStrength());
+        assertEquals(GlassLook.TINT_LOOK_PERCENT, preferences.getDockTintStrength());
+        assertEquals(GlassLook.TINT_LOOK_PERCENT, preferences.getTerminalTintStrength());
     }
 
     @Test
@@ -205,7 +205,7 @@ public class GlassControlsMigrationTest {
     }
 
     @Test
-    public void theSavedCustomIsRewrittenInFormatFive() throws Exception {
+    public void theSavedCustomIsRewrittenInTheCurrentFormat() throws Exception {
         preferences.setSurfaceCustomPreset("{\"format_version\":4,"
             + "\"surface_glass_tint\":\"material\",\"surface_base_tint\":80,"
             + "\"surface_base_blur\":4,\"surface_base_grain\":4,\"surface_base_opacity\":30}");
@@ -215,7 +215,7 @@ public class GlassControlsMigrationTest {
         JSONObject saved = new JSONObject(preferences.getSurfaceCustomPreset());
         assertEquals(SurfacePresets.FORMAT_VERSION, saved.getInt("format_version"));
         assertEquals(TERMUX_APP.GLASS_TINT_SCHEME, saved.getString(TERMUX_APP.KEY_SURFACE_GLASS_TINT));
-        assertEquals(80, saved.getInt(TERMUX_APP.KEY_SURFACE_BASE_TINT));
+        assertEquals(28, saved.getInt(TERMUX_APP.KEY_SURFACE_BASE_TINT));
         assertEquals(5, saved.getInt(TERMUX_APP.KEY_SURFACE_BASE_BLUR));
         assertEquals(3, saved.getInt(TERMUX_APP.KEY_SURFACE_BASE_GRAIN));
         assertEquals(TERMUX_APP.DEFAULT_SURFACE_GLASS_TINT_HUE,
@@ -234,12 +234,76 @@ public class GlassControlsMigrationTest {
         assertEquals(0, look.get(TERMUX_APP.KEY_STATUS_BAR_TINT_STRENGTH));
         assertEquals(25, look.get(TERMUX_APP.KEY_SURFACE_BASE_BLUR));
         assertEquals(7, look.get(TERMUX_APP.KEY_SURFACE_BASE_GRAIN));
-        java.util.Map<String, Object> current = SurfacePresets.deserialize(
+        java.util.Map<String, Object> five = SurfacePresets.deserialize(
             "{\"format_version\":5,\"surface_base_tint\":55,\"surface_base_grain\":8,"
+                + "\"surface_base_blur\":25,\"status_bar_tint_strength\":100}");
+        assertEquals("a format 5 look has its Tint scaled", 19,
+            five.get(TERMUX_APP.KEY_SURFACE_BASE_TINT));
+        assertEquals("cell by cell", GlassLook.TINT_LOOK_PERCENT,
+            five.get(TERMUX_APP.KEY_STATUS_BAR_TINT_STRENGTH));
+        assertEquals("and nothing else", 8, five.get(TERMUX_APP.KEY_SURFACE_BASE_GRAIN));
+        java.util.Map<String, Object> current = SurfacePresets.deserialize(
+            "{\"format_version\":6,\"surface_base_tint\":55,\"surface_base_grain\":8,"
                 + "\"surface_base_blur\":25}");
-        assertEquals("a format 5 look is read as it is", 55,
+        assertEquals("a format 6 look is read as it is", 55,
             current.get(TERMUX_APP.KEY_SURFACE_BASE_TINT));
         assertEquals(8, current.get(TERMUX_APP.KEY_SURFACE_BASE_GRAIN));
+    }
+
+    // ------------------------------------------------------------ format 2: the stretched Tint
+
+    /** A store the first glass controls migration left: its amounts on the old scale. */
+    private void storeFormatOne() {
+        store.edit().putInt(TERMUX_APP.KEY_SURFACE_GLASS_CONTROLS_FORMAT, 1).commit();
+    }
+
+    /**
+     * An install the unification already migrated, on the Tint Look at the amount 100 it shipped
+     * at: every stored amount is scaled, so the Tint Look is the Look as it ships now (35), its
+     * colour channel for channel the same, and the saved Custom is scaled too.
+     */
+    @Test
+    public void formatOneAmountsAreScaledEverywhereTheyAreStored() throws Exception {
+        java.util.LinkedHashMap<String, Object> oldTint = new java.util.LinkedHashMap<>(
+            preset("stock").values);
+        oldTint.put(TERMUX_APP.KEY_SURFACE_BASE_TINT, 100);
+        SurfacePresets.apply(preferences, new SurfacePresets.Preset("stock", 0, oldTint));
+        preferences.detachSurfaceValue(SurfaceSlot.KEYBOARD, SurfaceProperty.TINT, 40);
+        preferences.setSurfaceCustomPreset("{\"format_version\":5,\"surface_base_tint\":100,"
+            + "\"in_app_keyboard_tint_strength\":60}");
+        storeFormatOne();
+        // What format 1 drew at its amount 100: the old Material blend, read off the old formula.
+        int before = oldColour("stock");
+        assertFalse(SurfacePresets.matches(preferences, preset("stock")));
+
+        GlassControlsMigration.run(preferences);
+
+        assertEquals(GlassLook.TINT_LOOK_PERCENT, preferences.getSurfaceBaseValue(SurfaceProperty.TINT));
+        assertEquals("a detached cell", 14, preferences.getInAppKeyboardTintStrength());
+        assertFalse(preferences.isSurfaceInheriting(SurfaceSlot.KEYBOARD, SurfaceProperty.TINT));
+        assertEquals("the same colour", before, dockColourNow());
+        preferences.setSurfaceInheriting(SurfaceSlot.KEYBOARD, SurfaceProperty.TINT, true);
+        assertTrue("the Tint Look's stop", SurfacePresets.matches(preferences, preset("stock")));
+        JSONObject saved = new JSONObject(preferences.getSurfaceCustomPreset());
+        assertEquals(SurfacePresets.FORMAT_VERSION, saved.getInt("format_version"));
+        assertEquals(GlassLook.TINT_LOOK_PERCENT, saved.getInt(TERMUX_APP.KEY_SURFACE_BASE_TINT));
+        assertEquals(21, saved.getInt(TERMUX_APP.KEY_IN_APP_KEYBOARD_TINT_STRENGTH));
+        assertEquals(GlassControlsMigration.FORMAT,
+            store.getInt(TERMUX_APP.KEY_SURFACE_GLASS_CONTROLS_FORMAT, 0));
+    }
+
+    /** Clear, Mist and Solid at 0 stay at 0, untouched; the scale runs once. */
+    @Test
+    public void formatOneAtTintZeroStaysAndTheScaleRunsOnce() {
+        SurfacePresets.apply(preferences, preset("minimal"));
+        storeFormatOne();
+        GlassControlsMigration.run(preferences);
+        assertTrue(SurfacePresets.matches(preferences, preset("minimal")));
+        assertEquals(0, preferences.getSurfaceBaseValue(SurfaceProperty.TINT));
+        preferences.setSurfaceBaseValue(SurfaceProperty.TINT, 100);
+        GlassControlsMigration.run(preferences);
+        assertEquals("the user's 100 after the scale is left alone", 100,
+            preferences.getSurfaceBaseValue(SurfaceProperty.TINT));
     }
 
     @Test
@@ -369,7 +433,7 @@ public class GlassControlsMigrationTest {
 
         GlassControlsMigration.run(preferences);
         assertEquals(TERMUX_APP.GLASS_TINT_SCHEME, preferences.getSurfaceGlassTint());
-        assertEquals("the colour is kept", 70, preferences.getDockTintStrength());
+        assertEquals("the colour is kept", 25, preferences.getDockTintStrength());
     }
 
     /** The blur wallpaper mode puts back when it is turned on again lands on the curve too. */
