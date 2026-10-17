@@ -2,7 +2,9 @@
 
 Status: agreed with the developer on 2026-10-17 after a grilling session (two rounds: the wall,
 then Home floats and the Home keyboard); not started. Decision: ADR 0008. Words:
-`docs/GLOSSARY.md` › The wall and its chrome. Phase one only; §12 lists what waits.
+`docs/GLOSSARY.md` › The wall and its chrome. Phase one only; §12 lists what waits. Tracker: umbrella
+#76 with children #77 (wall), #78 (Home layout and keyboard), #79 (floats, palette, drawer), #80 (widget
+snapshot), #81 (migration and docs), all `ready-for-agent`.
 
 ## 1. Why
 
