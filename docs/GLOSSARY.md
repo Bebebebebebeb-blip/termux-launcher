@@ -35,7 +35,8 @@ _Avoid_: edge swipe, status bar swipe, page swipe
 **Chrome**:
 Everything the launcher draws around a page: the status bar, dock, keyboard, borders and corner
 tabs. The **Workspace** wears all of it; a **Home page** wears only the dock (without the extra
-keys) and the keyboard, under Android's own system bar.
+keys) and the keyboard, both as overlays that take no room from the grid, under Android's own
+system bar, and the status bar only while a **Home float** exists.
 _Avoid_: UI (too wide), decoration
 
 **Display**, **display window**:
@@ -62,23 +63,41 @@ _Avoid_: handle (the Layout editor's size control), pull tab
 **Home**:
 The launcher half of the wall: the **Home pages**, left of the **Workspace**. It is always there,
 and it is where the home press lands. Its chrome is the dock with the pinned-apps row and the A–Z
-index, and the keyboard; it has no borders and no launcher status bar.
+index, and the keyboard; it has no borders, and the launcher status bar only while a **Home
+float** exists.
 _Avoid_: home screen (as a name for the whole launcher), the widgets place, Widgets page
 
 **Home page**:
 One page of **Home**: a grid of widgets, paged by a plain swipe anywhere on it. Pages 2…n lie to the
 right of page 1, and the first window lies to the right of the last page. A long press on an empty
-cell offers Add widget, Wallpaper and Terminal.
+cell offers Add widget, Wallpaper and Terminal (a **Home float** here). A Home page's floats are
+pinned to it.
 _Avoid_: place, widgets page, desktop
 
+**Home float**:
+A **window** of the current session drawn floating over one Home page instead of in the Workspace's
+row: born full-size, moved by its **titlebar**, resized at its bottom-right corner, minimised into
+its chip in the status bar and docked into the row by the titlebar's Dock. It is what Terminal from
+Home opens. Chips, the drawer and the shortcuts see it like any window.
+_Avoid_: floating terminal (in prose), scratchpad (that is the toggled one), popup
+
 **Keyboard swipe**:
-The one way to the keyboard that every page and every mode shares: an up or down swipe that starts
-on the current page's bottom edge (a window's bottom border, or at its **grabber**, before the border
-drag's hold takes). Up opens the keyboard (turning a switched-off keyboard back on), down closes it.
-Home and the Workspace each remember whether their keyboard is up. On a Home page a bound key fires
-its binding and any other key opens the drawer's search with that key typed. The keyboard itself
-has no swipe of its own. Full behaviour in `project-docs/reference/launcher/gestures-and-style.md`.
+The one way to the keyboard in the **Workspace**: an up or down swipe that starts on the window's
+bottom border, or at its **grabber**, before the border drag's hold takes. Up opens the keyboard
+(turning a switched-off keyboard back on), down closes it, and the Workspace remembers which. On a
+**Home page** the same swipe is the palette gesture (configurable): it opens the command palette
+and the keyboard together, and both close on Esc, on a tap outside, or when the action is done.
+Home has no remembered keyboard state; the keyboard stays up on Home only when **always on**. The
+keyboard itself has no swipe of its own. Full behaviour in
+`project-docs/reference/launcher/gestures-and-style.md`.
 _Avoid_: pull-up, keyboard gesture, hide swipe (the retired swipe on the keyboard's top edge)
+
+**Always on** (the Home keyboard):
+The Home layout's keyboard element shown rather than put away: the keyboard stays up on every Home
+page and the widget grid gives it the rows, with the earlier arrangement kept so that turning it
+off puts things back if nothing was edited meanwhile. With it on, a typed key opens the command
+palette with that key, after the bound keys have had their turn.
+_Avoid_: persistent keyboard, keyboard lock
 
 **Linux app**:
 An app installed in the prefix or in a `proot-distro` container, read from its desktop file and
@@ -155,7 +174,9 @@ _Avoid_: default place, start page, usage mode
 
 **Status swipe**:
 The keyboard swipe's mirror on the top border: down unfolds the status bar, up folds it. It is there
-only while the status bar stands along the top and can unfold. A press in Android's own strip at
+only while the status bar stands along the top and can unfold. A third, smaller form, the
+**capsule** at the top centre, is agreed for later (`project-docs/active/wall-rework-2026-10-17.md`
+§12). A press in Android's own strip at
 the top of the screen is never taken, so the notification shade still pulls down. Full behaviour in
 `project-docs/reference/launcher/gestures-and-style.md`.
 _Avoid_: status bar swipe (the retired page swipe on the bar), pull-down
@@ -180,9 +201,15 @@ _Avoid_: panel, layer, widget
 
 **Terminal** (the entry):
 The launcher's own app entry, pinned to the dock at migration and listed in the drawer: a tap goes
-to the **Workspace** at the window you left, opening one if there is none; a long press offers New
-window. Home's long-press menu has the same Terminal item, which always opens a new window.
+to the **Workspace** at the window you left, opening one if there is none; a long press opens a new
+**Home float** on the page you are on, as Home's long-press Terminal item does.
 _Avoid_: terminal icon (in prose), Create Pane, Open Workspace
+
+**Titlebar**:
+The translucent glass strip along the top of every floating pane, Home float and the scratchpad:
+the drag handle and Minimise, Maximise, Close and Dock. It replaces the floating pane's move corner
+and pill; resizing stays at the bottom-right corner.
+_Avoid_: pill (the retired control; the dictation pill is another thing), header, handle bar
 
 **Wall**:
 The one horizontal row the launcher pages along: the **Home pages**, then the **Workspace**. Swiping
@@ -193,8 +220,9 @@ _Avoid_: pane wall (the retired name), pager, strip, carousel, home screen
 
 **Workspace**:
 The terminal half of the wall, right of Home: the current session's windows, then the display
-windows, under the full chrome. It exists while it has at least one window; closing the last one
-returns to Home. A home press on it goes to Home page 1; a home press from another app comes back
+windows, under the full chrome. It exists while its row has at least one window; closing the last
+one returns to Home. A **Home float** is a session window that is not in the row and does not keep
+the Workspace alive. A home press on it goes to Home page 1; a home press from another app comes back
 to the window that was left. The drawer, the corner tab and the border drag also lead back to Home.
 _Avoid_: usage mode, Terminal place, terminal environment, saved workspace (that is **Saved
 sessions**)

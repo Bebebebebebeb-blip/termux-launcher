@@ -41,3 +41,16 @@ display window, Workspace and wall take over, and the saved sets called workspac
 sessions so that the environment can own the word. `project-docs/active/display-fullscreen/PARKED.md`
 is answered by this decision: a full-screen display is a display window in minimal mode.
 The spec is `project-docs/active/wall-rework-2026-10-17.md`.
+
+## Amended 2026-10-17, same day: Home floats and the Home keyboard
+
+Terminal from Home does not slide Home away after all. It opens a **Home float**: a real window of
+the current session, drawn floating over the Home page it was opened on, born full-size, moved by
+a glass titlebar and resized at a corner, minimised into a chip, and docked into the Workspace's
+row by the titlebar's Dock. The alternative was to make it the scratchpad generalised, outside any
+session; it was rejected so that chips, the drawer, the shortcuts and Saved sessions see one kind
+of window. The launcher's status bar therefore does come to Home, but only while a float exists.
+The Home keyboard is transient by default: a gesture opens the command palette and the keyboard as
+one overlay, and the Home layout's keyboard element is the **always on** toggle, which shrinks the
+grid with today's reflow behind a snapshot. The capsule form of the status bar is agreed and
+deferred. The spec's §4, §5 and §12 carry the detail.
