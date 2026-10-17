@@ -32,13 +32,13 @@
      off them). Row B (the Custom stop only): a heading row, 48dp tall, then up to six vertical
      Material 3 sliders (LegendSlider, 28dp track, the legend beside it) in equal columns.
      The heading is the selection's name ("All surfaces" for nothing tapped) and leads the row;
-     the buttons the selection has follow it (Keyboard theme; Clock; the global set's Hue and
-     Edge pills, sharing what the name leaves), each 48dp tall and 8dp apart. The terminal has no
+     the buttons the selection has follow it (Keyboard theme; Clock; the global set's Hue pill,
+     taking what the name leaves), each 48dp tall and 8dp apart. The terminal has no
      name there: its two pills (Cursor trail, Terminal effect; a heading over the chosen option)
      share the whole row. The sliders are one fixed length, so the sheet is the same height for
      every selection; Row B is GONE at a Look stop. Sets, left to right:
-       nothing  Glass, Opacity, Tint, Vibrancy, and Depth while the glass edge is drawn
-                (Android 13, a wallpaper set from the launcher, Lazy mode off)  (pills: Hue, Edge)
+       nothing  Glass, Opacity, Tint, Vibrancy; Edge after Tint and Depth last while the glass edge
+                is drawn (Android 13, a wallpaper set from the launcher, Lazy mode off)  (pill: Hue)
        keyboard Glass, Opacity, Tint, Key radius, Key spacing (button: Keyboard theme)
        dock     Glass, Opacity, Tint, Icon size, App icons
        terminal Glass, Opacity, Tint, Contrast            (pills: Cursor trail, Terminal effect)

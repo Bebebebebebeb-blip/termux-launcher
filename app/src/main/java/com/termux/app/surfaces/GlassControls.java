@@ -3,7 +3,7 @@ package com.termux.app.surfaces;
 import androidx.annotation.NonNull;
 
 /**
- * The Custom row's Glass slider and the edge's Glint chip, as pure functions.
+ * The Custom row's Glass slider, as pure functions.
  *
  * <p>Glass runs 0 to 100, clear to frosted, and owns blur and grain together:
  * {@code blur = R(4 + 32 t^1.5)} dp and {@code grain = R(2 + 6 t)} percent, with
@@ -127,56 +127,5 @@ public final class GlassControls {
 
     private static int clampGlass(int glass) {
         return Math.max(GLASS_MIN, Math.min(GLASS_MAX, glass));
-    }
-
-    // ---------------------------------------------------------------------------- Dispersion
-
-    /**
-     * The edge's colour split at the corners, in three steps over the stored dispersion
-     * percentage: Off, Glint (Clear's 40, a fiftieth of the pull) and Prism (80, three times
-     * Glint's split: the share steepens past Glint, {@code GlassRefraction.Look#dispersion}). A
-     * stored value between steps reads as the nearest, the lower
-     * on a tie.
-     */
-    public enum Dispersion {
-        OFF(0), GLINT(40), PRISM(80);
-
-        /** What this step stores, a percentage. */
-        public final int percent;
-
-        Dispersion(int percent) {
-            this.percent = percent;
-        }
-
-        /** The Edge colour menu's id for this step: the values array's entry. */
-        @NonNull
-        public String id() {
-            return name().toLowerCase(java.util.Locale.ROOT);
-        }
-
-        /** The step a menu id names; Off for one this build does not know. */
-        @NonNull
-        public static Dispersion ofId(@androidx.annotation.Nullable String id) {
-            for (Dispersion step : values()) {
-                if (step.id().equals(id))
-                    return step;
-            }
-            return OFF;
-        }
-
-        /** The step a stored percentage reads as. */
-        @NonNull
-        public static Dispersion of(int stored) {
-            Dispersion best = OFF;
-            int bestError = Integer.MAX_VALUE;
-            for (Dispersion step : values()) {
-                int error = Math.abs(step.percent - stored);
-                if (error < bestError) {
-                    bestError = error;
-                    best = step;
-                }
-            }
-            return best;
-        }
     }
 }

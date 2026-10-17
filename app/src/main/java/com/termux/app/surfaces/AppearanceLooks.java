@@ -20,9 +20,10 @@ import java.util.List;
  * whose set follows the selection ({@link #controls}): the global set with nothing tapped, or the
  * tapped element's own, with the buttons above them ({@link #doors}). Glass (blur and grain as
  * one, {@link GlassControls}), Opacity and Tint are the shared glass on the global set and the
- * element's own values on an element. The global set adds Vibrancy, and ends in Depth,
- * the glass edge's one slider, where the edge is drawn at all; its pills are Tint colour and, with
- * the edge, Edge colour. Those are global and never an element's.</p>
+ * element's own values on an element. The global set adds Vibrancy, and, where the glass edge is
+ * drawn at all, the edge's two sliders: Edge (its colour split, no fringe to a bold coloured
+ * edge) after Tint and Depth at the end; its pill is Tint colour. Those are global and never an
+ * element's.</p>
  *
  * <p>Layout mode's Corners and Margin (SPEC §3.5) are here too: the global shape, which no Look
  * sets (2026-10-01). They are Layout's alone since the glass controls took the Custom row's
@@ -127,14 +128,16 @@ public final class AppearanceLooks {
      * the Style ({@link #iconSizeRangeDp}); the bounds here are only the ones no dock passes, the
      * icon's floor and the deepest row. Key spacing is the key margin scale in tenths; the others
      * are their own units (dp, percent, a count, a stop). Glass is 0 to 100 over blur and grain
-     * ({@link GlassControls}); Vibrancy the frame's
-     * saturation in percent, 70 to 150. Depth is the glass edge's, 0 to 100 over the bend and the
-     * edge width ({@link GlassEdgeControls}).
+     * ({@link GlassControls}); Vibrancy the frame's saturation in percent, 70 to 150. Edge and
+     * Depth are the glass edge's: Edge the stored dispersion itself, 0 (no fringe) to 100 (a bold
+     * coloured edge), Glint at 40; Depth 0 to 100 over the bend and the edge width
+     * ({@link GlassEdgeControls}).
      */
     public enum Control {
         GLASS(GlassControls.GLASS_MIN, GlassControls.GLASS_MAX, 1),
         OPACITY(0, OPACITY_MAX, 1),
         TINT(0, TINT_MAX, 1),
+        EDGE(TERMUX_APP.MIN_FANCIER_GLASS_DISPERSION, TERMUX_APP.MAX_FANCIER_GLASS_DISPERSION, 1),
         VIBRANCY(TERMUX_APP.MIN_SURFACE_GLASS_VIBRANCY, TERMUX_APP.MAX_SURFACE_GLASS_VIBRANCY, 1),
         KEY_RADIUS(0, KEY_CORNERS_MAX_DP, 1),
         KEY_SPACING(0, KEY_SPACING_MAX_TENTHS, 1),
@@ -169,10 +172,8 @@ public final class AppearanceLooks {
         CLOCK,
         TRAIL,
         EFFECT,
-        /** The global set's first pill: which accent Tint mixes in (primary, secondary, tertiary). */
-        TINT_HUE,
-        /** The global set's second pill, with the glass edge: the edge's Off, Glint or Prism. */
-        DISPERSION
+        /** The global set's pill: which accent Tint mixes in (primary, secondary, tertiary). */
+        TINT_HUE
     }
 
     /** Key spacing is the key margin scale, 0.0 to 8.0, in tenths. */
@@ -192,14 +193,15 @@ public final class AppearanceLooks {
      * The sliders of the Custom row for a selection, in legend order (left to right): the global
      * set for nothing tapped (null), or the element's own. Glass, Opacity and Tint come first, so
      * the same three columns stay under the user's thumb as the selection changes. The global set
-     * adds Vibrancy, and ends in Depth while the glass edge is drawn ({@code glassEdge}): the
-     * edge is not drawn otherwise, so it is not offered. An element never has those.
+     * adds Vibrancy and, while the glass edge is drawn ({@code glassEdge}), Edge after Tint and
+     * Depth at the end: the edge is not drawn otherwise, so neither is offered. An element never
+     * has those.
      */
     @NonNull
     public static List<Control> controls(@Nullable Target target, boolean glassEdge) {
         if (target == null)
             return glassEdge
-                ? Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT,
+                ? Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT, Control.EDGE,
                     Control.VIBRANCY, Control.DEPTH)
                 : Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT,
                     Control.VIBRANCY);
@@ -219,22 +221,14 @@ public final class AppearanceLooks {
         }
     }
 
-    /** The buttons above the sliders for a selection, in order; the global set without the edge. */
-    @NonNull
-    public static List<Door> doors(@Nullable Target target) {
-        return doors(target, false);
-    }
-
     /**
-     * The buttons above the sliders for a selection, in order. The global set's are two pills,
-     * Tint colour and, while the glass edge is drawn ({@code glassEdge}), Edge colour; they own its
-     * heading row as the terminal's do.
+     * The buttons above the sliders for a selection, in order. The global set's is one pill, Tint
+     * colour, after its name.
      */
     @NonNull
-    public static List<Door> doors(@Nullable Target target, boolean glassEdge) {
+    public static List<Door> doors(@Nullable Target target) {
         if (target == null)
-            return glassEdge ? Arrays.asList(Door.TINT_HUE, Door.DISPERSION)
-                : Collections.singletonList(Door.TINT_HUE);
+            return Collections.singletonList(Door.TINT_HUE);
         switch (target) {
             case KEYBOARD:
                 return Collections.singletonList(Door.KEYBOARD_THEME);

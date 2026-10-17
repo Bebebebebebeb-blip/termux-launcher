@@ -1814,7 +1814,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     /**
      * The Custom row: the heading, the buttons the selection has, and its vertical sliders at the
      * stored values. The set is {@link AppearanceLooks#controls}: the global one with nothing
-     * tapped, ending in Depth while the glass edge is drawn, or the element's own.
+     * tapped, with Edge and Depth while the glass edge is drawn, or the element's own.
      */
     private void showCustomRow() {
         AppearanceEditorPanel panel = mPanel;
@@ -1822,8 +1822,8 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         if (panel == null || prefs == null)
             return;
         panel.showRow2(mTarget == null ? R.string.appearance_editor_target_all : nameOf(mTarget));
-        // Depth draws nothing while the glass edge is off (below Android 13, no wallpaper set
-        // from the launcher, Lazy mode), so the global set only has it while the edge is drawn.
+        // Edge and Depth draw nothing while the glass edge is off (below Android 13, no wallpaper
+        // set from the launcher, Lazy mode), so the global set only has them while it is drawn.
         boolean glassEdge = mTarget == null && mHost.isGlassRefractionActive();
         List<AppearanceEditorPanel.SliderState> states = new ArrayList<>();
         for (Control control : AppearanceLooks.controls(mTarget, glassEdge)) {
@@ -1841,7 +1841,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                 enabled, legendFor(control, enabled)));
         }
         panel.setSliders(states);
-        List<Door> doors = new ArrayList<>(AppearanceLooks.doors(mTarget, glassEdge));
+        List<Door> doors = new ArrayList<>(AppearanceLooks.doors(mTarget));
         if (!PaneRetroEffect.available())
             doors.remove(Door.EFFECT);
         panel.setDoors(doors);
@@ -1850,8 +1850,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                 prefs.getTerminalCursorTrailStyle(),
                 prefs.getTerminalRetroEffect());
         if (mTarget == null)
-            panel.setGlassLooks(prefs.getSurfaceGlassTintHue(),
-                GlassControls.Dispersion.of(prefs.getFancierGlassDispersionPercent()).id());
+            panel.setGlassLooks(prefs.getSurfaceGlassTintHue());
     }
 
 
@@ -1887,6 +1886,8 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                     mHost.isAppsRowAlone(), dockHeightScale(prefs), density());
             case APP_ICONS:
                 return AppearanceLooks.appIconsValueFor(prefs.getAppLauncherButtonCount());
+            case EDGE:
+                return Control.EDGE.clamp(prefs.getFancierGlassDispersionPercent());
             case DEPTH:
                 return glassEdgeOf(prefs).depth(mDepthSet);
             case CONTRAST:
@@ -1919,6 +1920,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
                     String.format(Locale.getDefault(), "%.1f", value / 10f));
             case ICON_SIZE: return getString(R.string.appearance_editor_icon_size, value);
             case APP_ICONS: return getString(R.string.appearance_editor_app_icons, value);
+            case EDGE: return getString(R.string.appearance_editor_edge, value);
             case DEPTH: return getString(R.string.appearance_editor_depth, value);
             case CONTRAST:
             default:
@@ -2073,10 +2075,6 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             if (mTarget == null) writeTintHue(id);
         }
 
-        @Override public void onDispersion(@NonNull String id) {
-            if (mTarget == null) writeDispersion(GlassControls.Dispersion.ofId(id));
-        }
-
         @Override public void onSliderReleased() {
             endDrag();
         }
@@ -2084,7 +2082,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
 
     /**
      * One of the Custom row's sliders moved. Glass, Opacity and Tint are the shared glass with
-     * nothing tapped and the element's own values with one tapped; Vibrancy and Depth are
+     * nothing tapped and the element's own values with one tapped; Vibrancy, Edge and Depth are
      * global; the rest are the element's.
      */
     private void writeControl(@NonNull Control control, int value) {
@@ -2110,6 +2108,9 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             case ICON_SIZE: writeIconSize(value); break;
             case APP_ICONS: writeAppIcons(value); break;
             case CONTRAST: writeLegibility(value); break;
+            case EDGE:
+                writeGlassEdge(value);
+                break;
             case DEPTH:
                 writeGlassDepth(value);
                 break;
@@ -2223,12 +2224,15 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             | SurfaceEditorProperties.PREVIEW_KEYBOARD);
     }
 
-    /** The Edge colour pill: the stored dispersion at the step's value, global like Depth. */
-    private void writeDispersion(@NonNull GlassControls.Dispersion step) {
+    /**
+     * The Edge slider: the stored dispersion itself, global like Depth. The panes' pass re-reads
+     * the edge and re-dresses every glass surface with it, as Depth's does.
+     */
+    private void writeGlassEdge(int value) {
         TermuxAppSharedPreferences prefs = prefs();
         if (prefs == null)
             return;
-        prefs.setFancierGlassDispersionPercent(step.percent);
+        prefs.setFancierGlassDispersionPercent(Control.EDGE.clamp(value));
         requestPreview(SurfaceEditorProperties.PREVIEW_SURFACES);
     }
 

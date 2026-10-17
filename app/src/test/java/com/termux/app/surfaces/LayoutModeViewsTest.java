@@ -391,26 +391,22 @@ public class LayoutModeViewsTest {
         TextView trailValue = panel.view().findViewById(R.id.appearance_editor_trail_value);
         assertEquals("Cursor trail, " + trailValue.getText(), trail.getContentDescription().toString());
         assertTrue(effect.getContentDescription().toString().startsWith("Terminal effect, "));
-        // The global set's pills are the same cards, headed and described as its own.
-        panel.setDoors(AppearanceLooks.doors(null, true));
-        assertEquals(java.util.Arrays.asList(AppearanceLooks.Door.TINT_HUE,
-            AppearanceLooks.Door.DISPERSION), panel.shownDoors());
-        assertTrue("the global set's pills stand beside its name", panel.isRow2NameShown());
-        panel.setGlassLooks("tertiary", "glint");
-        TextView trailTitle = panel.view().findViewById(R.id.appearance_editor_trail_title);
-        TextView effectTitle = panel.view().findViewById(R.id.appearance_editor_effect_title);
-        TextView effectValue = panel.view().findViewById(R.id.appearance_editor_effect_value);
-        assertEquals("Hue", trailTitle.getText().toString());
-        assertEquals("Tertiary", trailValue.getText().toString());
-        assertEquals("Edge", effectTitle.getText().toString());
-        assertEquals("Glint", effectValue.getText().toString());
-        assertEquals("Tint colour, Tertiary", trail.getContentDescription().toString());
-        panel.setDoors(AppearanceLooks.doors(null, false));
+        // The global set's pill is the same first card, headed and described as its own; the
+        // Edge is a slider now, so the second card is not shown.
+        panel.setDoors(AppearanceLooks.doors(null));
         assertEquals(java.util.Collections.singletonList(AppearanceLooks.Door.TINT_HUE),
             panel.shownDoors());
+        assertTrue("the global set's pill stands beside its name", panel.isRow2NameShown());
+        panel.setGlassLooks("tertiary");
+        TextView trailTitle = panel.view().findViewById(R.id.appearance_editor_trail_title);
+        TextView effectTitle = panel.view().findViewById(R.id.appearance_editor_effect_title);
+        assertEquals("Hue", trailTitle.getText().toString());
+        assertEquals("Tertiary", trailValue.getText().toString());
+        assertEquals("Tint colour, Tertiary", trail.getContentDescription().toString());
         // Back on the terminal, the cards are its own again.
         panel.setDoors(AppearanceLooks.doors(AppearanceLooks.Target.TERMINAL));
         assertEquals("Cursor trail", trailTitle.getText().toString());
+        assertEquals("Terminal effect", effectTitle.getText().toString());
         panel.setDoors(AppearanceLooks.doors(AppearanceLooks.Target.DOCK));
         assertTrue(panel.shownDoors().isEmpty());
         assertTrue(panel.isRow2NameShown());

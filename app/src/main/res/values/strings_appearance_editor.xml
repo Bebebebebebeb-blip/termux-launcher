@@ -41,12 +41,10 @@
     <!-- The terminal's two menu pills: the heading over the chosen option. -->
     <string name="appearance_editor_trail_title">Cursor trail</string>
     <string name="appearance_editor_effect_title">Terminal effect</string>
-    <!-- The global set's two menu pills, beside its name: which accent Tint mixes in, and the
-         edge's colour split. Short, so both fit beside "All surfaces" on a 360dp phone. -->
+    <!-- The global set's menu pill, beside its name: which accent Tint mixes in. Short, so it
+         fits beside "All surfaces" on a 360dp phone. -->
     <string name="appearance_editor_tint_hue_title">Hue</string>
-    <string name="appearance_editor_dispersion_title">Edge</string>
     <string name="appearance_editor_tint_hue_description">Tint colour, %1$s</string>
-    <string name="appearance_editor_dispersion_description">Edge colour, %1$s</string>
     <!-- The status bar's button: opens the clock face and position popup. -->
     <string name="appearance_editor_clock">Clock</string>
     <!-- The Custom row's own legends; the number is the slider's read-out. -->
@@ -61,6 +59,8 @@
     <string name="appearance_editor_opacity">Opacity · %1$d%%</string>
     <string name="appearance_editor_tint">Tint · %1$d%%</string>
     <string name="appearance_editor_tint_name">Tint</string>
+    <!-- While the glass edge is drawn: the coloured light along the glass's edge, from none to bold. -->
+    <string name="appearance_editor_edge">Edge · %1$d%%</string>
     <!-- How colourful the wallpaper looks through the glass; 1.00× is as it is. -->
     <string name="appearance_editor_vibrancy">Vibrancy · %1$s×</string>
     <!-- The global set's last slider, while the glass edge is drawn: how thick it looks. -->

@@ -99,8 +99,6 @@ final class AppearanceEditorPanel {
         void onRetroEffect(@NonNull String id);
         /** The global set's Tint colour menu: the hue id the user chose. */
         default void onTintHue(@NonNull String id) {}
-        /** The global set's Edge colour menu: the step id the user chose (off, glint, prism). */
-        default void onDispersion(@NonNull String id) {}
     }
 
     /**
@@ -215,10 +213,9 @@ final class AppearanceEditorPanel {
     @NonNull private String mTrailId = "default";
     @NonNull private String mEffectId = "none";
     @NonNull private String mTintHueId = "primary";
-    @NonNull private String mDispersionId = "off";
     /**
-     * The two pills hold the terminal's Cursor trail and Terminal effect, or the global set's Tint
-     * colour and Edge colour: the same cards, headed and wired for whichever set is shown.
+     * The two pills hold the terminal's Cursor trail and Terminal effect, or the first holds the
+     * global set's Tint colour: the same card, headed and wired for whichever set is shown.
      */
     private boolean mGlassPills;
     private final TextView mTrailTitle;
@@ -787,15 +784,6 @@ final class AppearanceEditorPanel {
                 });
         });
         mEffect.setOnClickListener(view -> {
-            if (mGlassPills) {
-                showChoiceMenu(mEffect, R.array.appearance_editor_dispersion_entries,
-                    R.array.appearance_editor_dispersion_values, mDispersionId, id -> {
-                        mDispersionId = id;
-                        restateEffect();
-                        if (mListener != null) mListener.onDispersion(id);
-                    });
-                return;
-            }
             showChoiceMenu(mEffect,
                 R.array.settings_terminal_retro_effect_entries,
                 R.array.settings_terminal_retro_effect_values, mEffectId, id -> {
@@ -854,14 +842,12 @@ final class AppearanceEditorPanel {
     }
 
     /**
-     * The global set's Tint colour and Edge colour at the stored ids. An id this build does not
-     * know reads as the first option.
+     * The global set's Tint colour at the stored id. An id this build does not know reads as the
+     * first option.
      */
-    void setGlassLooks(@NonNull String tintHueId, @NonNull String dispersionId) {
+    void setGlassLooks(@NonNull String tintHueId) {
         mTintHueId = tintHueId;
-        mDispersionId = dispersionId;
         restateTrail();
-        restateEffect();
     }
 
     private void restateTrail() {
@@ -879,17 +865,12 @@ final class AppearanceEditorPanel {
     }
 
     private void restateEffect() {
-        String label = mGlassPills
-            ? optionLabel(R.array.appearance_editor_dispersion_entries,
-                R.array.appearance_editor_dispersion_values, mDispersionId)
-            : optionLabel(R.array.settings_terminal_retro_effect_entries,
-                R.array.settings_terminal_retro_effect_values, mEffectId);
-        setTextIfChanged(mEffectTitle, mContext.getString(mGlassPills
-            ? R.string.appearance_editor_dispersion_title : R.string.appearance_editor_effect_title));
+        String label = optionLabel(R.array.settings_terminal_retro_effect_entries,
+            R.array.settings_terminal_retro_effect_values, mEffectId);
+        setTextIfChanged(mEffectTitle, mContext.getString(R.string.appearance_editor_effect_title));
         mEffectValue.setText(label);
-        mEffect.setContentDescription(mContext.getString(mGlassPills
-            ? R.string.appearance_editor_dispersion_description
-            : R.string.appearance_editor_effect_description, label));
+        mEffect.setContentDescription(mContext.getString(
+            R.string.appearance_editor_effect_description, label));
     }
 
     private static void setTextIfChanged(@NonNull TextView view, @NonNull CharSequence text) {
@@ -1227,19 +1208,18 @@ final class AppearanceEditorPanel {
      * Shows exactly these buttons in the heading row, in the layout's order. The terminal's
      * pills (Cursor trail, Terminal effect) own the row: the name gives way and they share the
      * width equally, or Cursor trail takes all of it where Terminal effect is not offered. The
-     * global set's (Hue, Edge) are the same two cards, after its name, sharing what is left.
+     * global set's Hue is the first card, after its name, taking what is left.
      */
     void setDoors(@NonNull List<Door> doors) {
-        boolean glassPills = doors.contains(Door.TINT_HUE) || doors.contains(Door.DISPERSION);
+        boolean glassPills = doors.contains(Door.TINT_HUE);
         boolean left = doors.contains(Door.TRAIL) || doors.contains(Door.TINT_HUE);
-        boolean right = doors.contains(Door.EFFECT) || doors.contains(Door.DISPERSION);
+        boolean right = doors.contains(Door.EFFECT);
         boolean pills = left || right;
         // The terminal's pills own the row; the global set's stand beside its name.
         boolean nameShown = !doors.contains(Door.TRAIL) && !doors.contains(Door.EFFECT);
         if (glassPills != mGlassPills) {
             mGlassPills = glassPills;
             restateTrail();
-            restateEffect();
         }
         mRow2Name.setVisibility(nameShown ? View.VISIBLE : View.GONE);
         mKeyboardTheme.setVisibility(doors.contains(Door.KEYBOARD_THEME) ? View.VISIBLE : View.GONE);
@@ -1282,8 +1262,7 @@ final class AppearanceEditorPanel {
         if (mKeyboardTheme.getVisibility() == View.VISIBLE) out.add(Door.KEYBOARD_THEME);
         if (mClock.getVisibility() == View.VISIBLE) out.add(Door.CLOCK);
         if (mTrail.getVisibility() == View.VISIBLE) out.add(mGlassPills ? Door.TINT_HUE : Door.TRAIL);
-        if (mEffect.getVisibility() == View.VISIBLE)
-            out.add(mGlassPills ? Door.DISPERSION : Door.EFFECT);
+        if (mEffect.getVisibility() == View.VISIBLE) out.add(Door.EFFECT);
         return out;
     }
 

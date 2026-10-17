@@ -103,13 +103,15 @@ public class AppearanceLooksTest {
     }
 
     /**
-     * Depth is the global set's last slider while the glass edge is drawn, and absent otherwise;
-     * the one-argument form is the set without it.
+     * Edge (in the column Shade left, after Tint) and Depth (last) are the global set's while the
+     * glass edge is drawn, and absent otherwise; the one-argument form is the set without them.
+     * Six columns, the most any set has.
      */
     @Test
     public void depthEndsTheGlobalSetOnlyWithTheGlassEdge() {
-        assertEquals(Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT,
+        assertEquals(Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT, Control.EDGE,
             Control.VIBRANCY, Control.DEPTH), AppearanceLooks.controls(null, true));
+        assertEquals(AppearanceLooks.MAX_CONTROLS, AppearanceLooks.controls(null, true).size());
         assertEquals(Arrays.asList(Control.GLASS, Control.OPACITY, Control.TINT,
             Control.VIBRANCY), AppearanceLooks.controls(null, false));
         assertEquals(AppearanceLooks.controls(null, false), AppearanceLooks.controls(null));
@@ -137,16 +139,11 @@ public class AppearanceLooksTest {
 
     /**
      * The buttons above the sliders: Keyboard theme, Trail and Effect, Clock; the global set's
-     * Tint colour, and Edge colour with the glass edge; none on the dock.
+     * Tint colour; none on the dock.
      */
     @Test
     public void eachSelectionHasItsButtons() {
         assertEquals(Collections.singletonList(Door.TINT_HUE), AppearanceLooks.doors(null));
-        assertEquals(Arrays.asList(Door.TINT_HUE, Door.DISPERSION),
-            AppearanceLooks.doors(null, true));
-        for (Target target : Target.values())
-            assertEquals(target + " ignores the glass edge", AppearanceLooks.doors(target),
-                AppearanceLooks.doors(target, true));
         assertTrue(AppearanceLooks.doors(Target.DOCK).isEmpty());
         assertEquals(Collections.singletonList(Door.KEYBOARD_THEME),
             AppearanceLooks.doors(Target.KEYBOARD));
@@ -162,6 +159,8 @@ public class AppearanceLooksTest {
         assertEquals(100, Control.GLASS.max);
         assertEquals("0.7x", 70, Control.VIBRANCY.min);
         assertEquals("1.5x", 150, Control.VIBRANCY.max);
+        assertEquals("Edge: no fringe", 0, Control.EDGE.min);
+        assertEquals("Edge: the bold edge", 100, Control.EDGE.max);
         assertEquals(AppearanceLooks.KEY_CORNERS_MAX_DP, Control.KEY_RADIUS.max);
         assertEquals(3, Control.APP_ICONS.min);
         assertEquals(10, Control.APP_ICONS.max);

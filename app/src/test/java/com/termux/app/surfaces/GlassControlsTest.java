@@ -92,27 +92,6 @@ public class GlassControlsTest {
         return (long) v * v;
     }
 
-    @Test
-    public void edgeColourHasThreeStepsAndReadsAStoredValueAsTheNearest() {
-        assertEquals(0, GlassControls.Dispersion.OFF.percent);
-        assertEquals("Clear's glint", 40, GlassControls.Dispersion.GLINT.percent);
-        assertEquals("Prism", 80, GlassControls.Dispersion.PRISM.percent);
-        assertEquals(GlassControls.Dispersion.OFF, GlassControls.Dispersion.of(0));
-        assertEquals(GlassControls.Dispersion.OFF, GlassControls.Dispersion.of(19));
-        assertEquals("the lower on a tie", GlassControls.Dispersion.OFF,
-            GlassControls.Dispersion.of(20));
-        assertEquals(GlassControls.Dispersion.GLINT, GlassControls.Dispersion.of(40));
-        assertEquals(GlassControls.Dispersion.GLINT, GlassControls.Dispersion.of(60));
-        assertEquals(GlassControls.Dispersion.PRISM, GlassControls.Dispersion.of(61));
-        assertEquals(GlassControls.Dispersion.PRISM, GlassControls.Dispersion.of(100));
-        for (GlassControls.Dispersion step : GlassControls.Dispersion.values()) {
-            assertEquals(step, GlassControls.Dispersion.of(step.percent));
-            assertEquals(step, GlassControls.Dispersion.ofId(step.id()));
-        }
-        assertEquals("glint", GlassControls.Dispersion.GLINT.id());
-        assertEquals(GlassControls.Dispersion.OFF, GlassControls.Dispersion.ofId("rainbow"));
-    }
-
     /** The slider reads back where it was left while the pair is still that position's. */
     @Test
     public void aReleaseAtFiveStaysAtFive() {
