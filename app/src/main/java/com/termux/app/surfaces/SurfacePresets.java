@@ -465,16 +465,17 @@ public final class SurfacePresets {
     // ------------------------------------------------------------------------ the saved look
     //
     // The built-in presets are looks this build ships; Custom is the one the user tuned. It is
-    // written when the editor is left with Done at the Custom stop — not by Done at a Look, which
-    // would overwrite the user's own look with a shipped one — so the Custom stop always brings
-    // back the last look the user made for themselves.
+    // written when the editor's slider leaves a Custom the user touched, and by Done (or Save) at
+    // the Custom stop — never when a Look is applied, which would overwrite the user's own look
+    // with a shipped one — so the Custom stop always brings back the last look the user made for
+    // themselves, across editor visits and restarts.
 
     /**
      * The user's saved look as a preset, or null when they have not saved one.
      *
-     * <p>Stored rather than derived, so it survives every later edit. Written by Done at the Custom
-     * stop; the Look slider's move to Custom no longer applies it (Custom starts from the Look on
-     * screen), so today it is a record, kept for a later way back to it.
+     * <p>Stored rather than derived, so it survives every later edit and every Look chosen after
+     * it. The Look slider's move to Custom applies it whole ({@link #applyCustom}) when the visit
+     * has no Custom values of its own; with none saved, Custom starts from the Look on screen.
      */
     @Nullable
     public static Preset custom(@NonNull TermuxAppSharedPreferences prefs) {
@@ -528,18 +529,57 @@ public final class SurfacePresets {
     }
 
     /**
-     * The values only Custom saves and no Look names: the key caps (Key corners, and the cap
-     * opacity Keys moves), the wallpaper's dim and Soft wallpaper. Saved with Custom so its stop
-     * comes back whole. A Look leaves them where they are, except Keys, which choosing a Look on
-     * the editor's slider puts back to the theme's ({@link #applyLook}).
+     * The values only Custom saves and no Look names: the key caps (Key corners, once set, and
+     * the cap opacity Keys moves), the wallpaper's dim and Soft wallpaper, and where Base's and
+     * each surface's Glass slider stood (only those stored; an absent one is forgotten on apply,
+     * as a Look forgets it). Saved with Custom so its stop comes back whole. A Look leaves the
+     * caps' corners, dim and Soft wallpaper where they are; Keys and the Glass positions choosing
+     * a Look on the editor's slider puts back ({@link #applyLook}).
      */
     private static void putCustomOnly(@NonNull TermuxAppSharedPreferences prefs,
                                       @NonNull Map<String, Object> look) {
         look.put(TERMUX_APP.KEY_IN_APP_KEYBOARD_KEY_OPACITY, prefs.getInAppKeyboardKeyOpacity());
-        look.put(TERMUX_APP.KEY_IN_APP_KEYBOARD_KEY_CORNER_RADIUS_DP,
-            Math.round(prefs.getInAppKeyboardKeyCornerRadiusDp()));
+        // Only a radius the user set: one still the Style's default (the key absent) stays
+        // absent, so putting Custom back does not pin today's default.
+        SharedPreferences reads = com.termux.shared.settings.preferences.SharedPreferencesPreview
+            .readsFor(prefs.getSharedPreferences());
+        if (reads == null || reads.contains(TERMUX_APP.KEY_IN_APP_KEYBOARD_KEY_CORNER_RADIUS_DP))
+            look.put(TERMUX_APP.KEY_IN_APP_KEYBOARD_KEY_CORNER_RADIUS_DP,
+                Math.round(prefs.getInAppKeyboardKeyCornerRadiusDp()));
         look.put(TERMUX_APP.KEY_WALLPAPER_BACKDROP_DIM, prefs.getWallpaperBackdropDim());
         look.put(SoftWallpaper.KEY_WALLPAPER_SOFT, SoftWallpaper.isOn(prefs));
+        putGlassPosition(prefs, look, null);
+        for (SurfaceSlot slot : SurfaceSlot.values())
+            putGlassPosition(prefs, look, slot);
+    }
+
+    private static void putGlassPosition(@NonNull TermuxAppSharedPreferences prefs,
+                                         @NonNull Map<String, Object> look,
+                                         @Nullable SurfaceSlot slot) {
+        int position = prefs.getSurfaceGlassPosition(slot);
+        if (position >= 0)
+            look.put(TermuxAppSharedPreferences.surfaceGlassPositionKey(slot), position);
+    }
+
+    /** The surface (null for Base) whose Glass slider position a key stores, if it is one. */
+    @Nullable
+    private static GlassPositionKey glassPositionKey(@NonNull String key) {
+        if (key.equals(TermuxAppSharedPreferences.surfaceGlassPositionKey(null)))
+            return new GlassPositionKey(null);
+        for (SurfaceSlot slot : SurfaceSlot.values()) {
+            if (key.equals(TermuxAppSharedPreferences.surfaceGlassPositionKey(slot)))
+                return new GlassPositionKey(slot);
+        }
+        return null;
+    }
+
+    /** A Glass slider position key's surface; {@link #slot} null for Base. */
+    private static final class GlassPositionKey {
+        @Nullable final SurfaceSlot slot;
+
+        GlassPositionKey(@Nullable SurfaceSlot slot) {
+            this.slot = slot;
+        }
     }
 
     /** The stored form: the look as JSON, with the format version alongside it. */
@@ -741,6 +781,32 @@ public final class SurfacePresets {
     }
 
     /**
+     * The user's saved Custom ({@link #custom}) put back whole, as one editor: what a Look would
+     * leave behind is cleared first (Keys back to the theme's, every Glass position forgotten),
+     * then the saved look applies as {@link #apply} applies one — every surface back on Base, each
+     * cell it names detached again, its Keys and Glass positions where it saved them — and, where
+     * it leaves the keyboard's blur on Base, that raw key goes back to "follow". A blob saved
+     * before Keys or the Glass positions were part of it reads them as the theme's and forgotten.
+     * The caller owns offering the Undo.
+     */
+    public static void applyCustom(@NonNull TermuxAppSharedPreferences prefs,
+                                   @NonNull Preset custom) {
+        SharedPreferences store = prefs.getSharedPreferences();
+        if (store == null) {
+            forgetSurfaceExtras(prefs);
+            applyEach(prefs, custom);
+            keyboardBlurFollowsWhereLinked(prefs);
+            return;
+        }
+        Batch batch = new Batch(store);
+        TermuxAppSharedPreferences into = writingInto(prefs, batch);
+        forgetSurfaceExtras(into);
+        applyEach(into, custom);
+        keyboardBlurFollowsWhereLinked(into);
+        batch.applyToStore();
+    }
+
+    /**
      * The per-surface glass values outside the preset format, as every Look has them: the
      * keyboard's Keys back to the theme's (-1), every Glass slider position forgotten (Base's and
      * each surface's, so each reads back from the glass it now draws), and, where the Look left the
@@ -748,10 +814,20 @@ public final class SurfacePresets {
      * ({@link GlobalGlass#write}).
      */
     static void resetSurfaceExtras(@NonNull TermuxAppSharedPreferences prefs) {
+        forgetSurfaceExtras(prefs);
+        keyboardBlurFollowsWhereLinked(prefs);
+    }
+
+    /** Keys back to the theme's, and every Glass slider position forgotten. */
+    private static void forgetSurfaceExtras(@NonNull TermuxAppSharedPreferences prefs) {
         prefs.setInAppKeyboardKeyOpacity(TERMUX_APP.DEFAULT_IN_APP_KEYBOARD_KEY_OPACITY);
         prefs.setSurfaceGlassPosition(null, -1);
         for (SurfaceSlot slot : SurfaceSlot.values())
             prefs.setSurfaceGlassPosition(slot, -1);
+    }
+
+    /** The keyboard's raw blur key back to "follow" while its blur is on Base. */
+    private static void keyboardBlurFollowsWhereLinked(@NonNull TermuxAppSharedPreferences prefs) {
         if (prefs.isSurfaceInheriting(SurfaceSlot.KEYBOARD, SurfaceProperty.BLUR))
             prefs.setInAppKeyboardBlurRadiusRaw(TERMUX_APP.DEFAULT_IN_APP_KEYBOARD_BLUR_RADIUS);
     }
@@ -846,8 +922,14 @@ public final class SurfacePresets {
             return;
         }
         SurfaceEditorRows.Row cell = overrideCellForKey(key);
-        if (cell != null)
+        if (cell != null) {
             prefs.detachSurfaceValue(cell.slot, cell.property, intOf(value));
+            return;
+        }
+        // A saved Custom's Glass slider positions; never part of a match ({@link #currentOne}).
+        GlassPositionKey position = glassPositionKey(key);
+        if (position != null)
+            prefs.setSurfaceGlassPosition(position.slot, intOf(value));
         // Anything else is a key this build does not know; ignored by design.
     }
 

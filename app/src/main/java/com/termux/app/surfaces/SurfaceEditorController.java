@@ -284,6 +284,8 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     @Nullable private String mEntrySignature;
     /** The Custom values of this session, kept while a Look is showing. */
     @NonNull private final SessionCustom mSessionCustom = new SessionCustom();
+    /** The saved Custom blob at open, which Undo and Discard put back; null while closed. */
+    @Nullable private String mEntryCustom;
     /**
      * The last Depth position the user set this session, so a thumb left on a flat stretch of
      * the curve reads back where it was left ({@link GlassEdgeControls.Edge#depth(int)}). Not
@@ -577,13 +579,16 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             SharedPreferencesPreview.clear();
         mEntry = AppearanceSnapshot.capture(prefs);
         mEntrySignature = mEntry.signature();
+        mEntryCustom = prefs.getSurfaceCustomPreset();
         mSessionCustom.clear();
         forgetGlassEdgePositions();
         mStop = matchingStop();
         // At the Custom stop as it was left: the slider moves there without writing anything,
         // as a tap on an element at a Look stop does; Undo comes back to it.
-        if (restore != null && restore.custom)
+        if (restore != null && restore.custom && !AppearanceLooks.isCustomStop(mStop)) {
             mStop = AppearanceLooks.CUSTOM_STOP;
+            mSessionCustom.seed(prefs);
+        }
         mEntryStop = mStop;
         mTarget = null;
         mRestoreTarget = restore == null ? null : targetNamed(restore.target);
@@ -2263,11 +2268,12 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
 
     /**
      * The Look slider landed on a stop: its values written into {@code into}, which is the store
-     * itself, or a drag's batch over it. A Look applies at once; leaving Custom keeps the Custom
-     * values of this session, so returning to Custom brings them back even when Done has not
-     * saved them. With none kept, Custom writes nothing: the Look on screen is its seed. The
-     * caller restates the launcher; false when the slider was already there and nothing was
-     * written.
+     * itself, or a drag's batch over it. A Look applies at once and resets every surface to it;
+     * leaving a Custom the user touched keeps it for this visit and stores it as the saved Custom,
+     * so returning to Custom brings it back, in this visit and in every later one. With none kept
+     * this visit, Custom applies the saved Custom whole; with none saved either it writes
+     * nothing: the Look on screen is its seed. The caller restates the launcher; false when the
+     * slider was already there and nothing was written.
      */
     private boolean moveToStop(@NonNull TermuxAppSharedPreferences into, int stop) {
         if (stop == mStop)
@@ -2291,34 +2297,67 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     }
 
     /**
-     * The Custom values of one editor visit. Leaving Custom for a Look always keeps what is on
-     * screen, so comparing against a Look never loses work; returning to Custom puts it back.
-     * With nothing kept the move to Custom writes nothing: the Look on screen is Custom's seed.
-     * The saved Custom is never read here. Cleared at open and by Undo.
+     * The Custom values of one editor visit, and the saved Custom behind them. Leaving a touched
+     * Custom for a Look keeps what is on screen and stores it as the saved Custom
+     * ({@link SurfacePresets#saveCustom}), so comparing against a Look never loses work and the
+     * next visit finds it too; returning to Custom puts the kept values back. With nothing kept the
+     * move to Custom applies the saved Custom whole ({@link SurfacePresets#applyCustom}), and with
+     * none saved it writes nothing: the Look on screen is Custom's seed. Cleared at open and by
+     * Undo, which also puts the saved Custom back as it was at open.
      */
     static final class SessionCustom {
         @Nullable private AppearanceSnapshot mKept;
         /**
-         * What the last move to Custom seeded it with, while nothing was kept. Custom left exactly
-         * as seeded is not this visit's work, so the next move to Custom seeds from the Look on
-         * screen again (Clear → Custom → Mist → Custom reads as Mist, not Clear).
+         * What Custom stood at when the slider (or a tap at a Look) moved there, while nothing was
+         * kept: the Look on screen, or the saved Custom just applied. Custom left exactly as it was
+         * is not this visit's work, so it is neither kept nor saved, and the next move to Custom
+         * starts over (Clear → Custom → Mist → Custom reads as Mist, not Clear, when nothing is
+         * saved).
          */
         @Nullable private String mSeedSignature;
 
-        /** The slider leaves Custom: the values in {@code live} are this visit's Custom, unless untouched. */
+        /**
+         * The slider leaves Custom: the values in {@code live} are this visit's Custom, and the
+         * saved one, unless untouched.
+         */
         void leave(@NonNull TermuxAppSharedPreferences live) {
             AppearanceSnapshot now = AppearanceSnapshot.capture(live);
             mKept = now.signature().equals(mSeedSignature) ? null : now;
             mSeedSignature = null;
+            if (mKept != null)
+                SurfacePresets.saveCustom(live);
         }
 
-        /** The slider returns to Custom: the kept values come back, or nothing is written. */
+        /**
+         * The slider returns to Custom: the kept values come back, else the saved Custom, else
+         * nothing is written.
+         */
         void enter(@NonNull TermuxAppSharedPreferences into) {
             AppearanceSnapshot kept = mKept;
-            if (kept != null)
+            if (kept != null) {
                 kept.restore(into);
-            else
-                mSeedSignature = AppearanceSnapshot.signatureOf(into);
+                return;
+            }
+            SurfacePresets.Preset saved = SurfacePresets.custom(into);
+            if (saved != null)
+                SurfacePresets.applyCustom(into, saved);
+            mSeedSignature = AppearanceSnapshot.signatureOf(into);
+        }
+
+        /**
+         * The editor stands at Custom over a Look without writing (a tap at a Look stop, or an
+         * open at the Custom stop as it was left): what is on screen is the seed. Values kept
+         * earlier this visit are already the saved Custom, so a seed left untouched gives them
+         * back on the next move to Custom.
+         */
+        void seed(@NonNull TermuxAppSharedPreferences live) {
+            mSeedSignature = AppearanceSnapshot.signatureOf(live);
+        }
+
+        /** Whether {@code live} is Custom as the user changed it, not as it was seeded. */
+        boolean isTouched(@NonNull TermuxAppSharedPreferences live) {
+            return mSeedSignature == null
+                || !mSeedSignature.equals(AppearanceSnapshot.signatureOf(live));
         }
 
         void clear() {
@@ -2790,8 +2829,12 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             return;
         if (!scene().offersSurface(target.slot))
             return;
-        if (!AppearanceLooks.isCustomStop(mStop))
+        if (!AppearanceLooks.isCustomStop(mStop)) {
             mStop = AppearanceLooks.CUSTOM_STOP;
+            TermuxAppSharedPreferences prefs = prefs();
+            if (prefs != null)
+                mSessionCustom.seed(prefs);
+        }
         mTarget = target;
         afterSelection();
     }
@@ -3426,6 +3469,9 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         if (prefs == null || mEntry == null)
             return;
         mEntry.restore(prefs);
+        // The saved Custom as it was at open: a Custom left during the visit stored it.
+        if (mEntryCustom != null)
+            prefs.setSurfaceCustomPreset(mEntryCustom);
         mSessionCustom.clear();
         forgetGlassEdgePositions();
         mStop = mEntryStop;
@@ -3433,10 +3479,14 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         syncAfterBulkWrite();
     }
 
-    /** Saves the look: at the Custom stop it is also stored as the saved Custom. */
+    /**
+     * Saves the look: at a Custom the user changed it is also stored as the saved Custom. A Custom
+     * left as seeded (a tap at Clear, then Done) is a Look, and must not replace the saved one.
+     */
     private void commitLook() {
         TermuxAppSharedPreferences prefs = prefs();
-        if (prefs != null && AppearanceLooks.isCustomStop(mStop))
+        if (prefs != null && AppearanceLooks.isCustomStop(mStop)
+            && mSessionCustom.isTouched(prefs))
             SurfacePresets.saveCustom(prefs);
     }
 
@@ -3540,6 +3590,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         mPresentToken++;
         mSliderDragActive = false;
         mEntry = null;
+        mEntryCustom = null;
         mEntrySignature = null;
         mTarget = null;
         mRestoreTarget = null;

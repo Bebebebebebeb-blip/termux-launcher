@@ -228,6 +228,12 @@ under twenty items; past that, the oldest are re-judged first.
   glass and caps are Clear's at once (compare a fresh Clear crop); back at Custom the keyboard
   card shows the moved values again (this visit's Custom comes back); Undo puts back the look the
   editor opened on. Same with the dock's Glass · emulator tl16, keyboard crops before/after.
+- 2026-10-17 · same branch, "fix(editor): Custom comes back whole after a Look is saved" · Look ›
+  Custom: keyboard Glass 0, Opacity 90, Tint 100, Keys 0, terminal Glass 0, Opacity 90, Tint 100;
+  Done. Reopen, tap Clear, Done; force-stop the app, reopen the editor: it opens on Clear; tap
+  Custom: every card shows those values again and the keyboard and terminal look as they did
+  (compare crops); tap Clear: all of Clear at once. Undo after a Custom edit puts back the look
+  and the Custom the editor opened with · emulator tl16, crops before/after.
 
 ## Developer
 - 2026-10-17 · same branch, "perf(glass): hold the blur radius through a drag" · Look › Custom on
@@ -287,7 +293,8 @@ under twenty items; past that, the oldest are re-judged first.
 - 2026-09-27 · voice panel · Keyboard → Voice input → Mic sensitivity (Normal, High): soft speech at
   arm's length is picked up on both; High lets in more of a nearby voice or video, Normal fewer;
   keyboard clicks, a fan or air conditioning alone never open a phrase on either · pong, by hand.
-- 2026-10-12 · fix(appearance): Custom starts from the Look on screen · On pong, apply Clear,
+- 2026-10-12 · fix(appearance): Custom starts from the Look on screen (with no Custom saved;
+  a saved one now comes back instead) · On pong, apply Clear,
   Done, reopen the editor, tap Custom: the sliders show Clear's numbers and the look does not
   change. Tweak Blur, tap Mist, tap Custom: the tweak is back. Undo: Clear again · pong, by hand.
 - 2026-10-12 · PR #63 · The resting look at Clear and Mist on pong: the outer ~2 dp of every rim
