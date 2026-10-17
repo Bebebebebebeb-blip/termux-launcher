@@ -886,19 +886,29 @@ public final class TermuxInAppKeyboard {
     }
 
     /**
-     * What a letter key's label is drawn in and the cap it stands on, for the keyboard's legibility
-     * band: {@code {label, cap}}, the cap in its key colour at its live fill alpha (the user's key
-     * opacity, or the theme's own). Null while there is no keyboard view. The labels and caps are
-     * the theme's; the band measures them and veils the host, and never moves either.
+     * What a letter key's label is drawn in and the cap it stands on, then the same for a function
+     * key (Ctrl, Alt, Fn, the arrows), for the keyboard's legibility band:
+     * {@code {label, cap, functionLabel, functionCap}}, each cap in its key colour at its live
+     * fill alpha (the user's key opacity, or the theme's own; a function chip lets through as much
+     * more glass as the palette gives it). Null while there is no keyboard view. The band measures
+     * them and veils the host where no legend tone the palette can choose reads.
      */
     @Nullable
     public int[] letterKeyLegibilityInks() {
         if (mDestroyed || mKeyboardView == null)
             return null;
         juloo.keyboard2.Theme.Palette palette = createPalette();
-        int alpha = Math.round(255f * getEffectiveKeyOpacityPercent() / 100f);
-        int cap = (Math.max(0, Math.min(255, alpha)) << 24) | (palette.keyBackground & 0x00FFFFFF);
-        return new int[] {palette.labelColor | 0xFF000000, cap};
+        int alpha = Math.max(0, Math.min(255,
+            Math.round(255f * getEffectiveKeyOpacityPercent() / 100f)));
+        int cap = (alpha << 24) | (palette.keyBackground & 0x00FFFFFF);
+        // A host-set key opacity fills every cap alike; the theme's own scales each role's alpha.
+        int keyAlpha = android.graphics.Color.alpha(palette.keyBackground);
+        int functionAlpha = mKeyOpacity >= 0 || keyAlpha == 0 ? alpha : Math.max(0, Math.min(255,
+            Math.round(alpha * android.graphics.Color.alpha(palette.functionKeyBackground)
+                / (float) keyAlpha)));
+        int functionCap = (functionAlpha << 24) | (palette.functionKeyBackground & 0x00FFFFFF);
+        return new int[] {palette.labelColor | 0xFF000000, cap,
+            palette.functionLabelColor | 0xFF000000, functionCap};
     }
 
     private void applyKeyCornerRadiusDp(float radiusDp) {
@@ -1513,21 +1523,23 @@ public final class TermuxInAppKeyboard {
     }
 
     /**
-     * The glass face the keys stand on, as the launcher measured it ({@link #setGlassFace});
-     * transparent until it has, and the palette checks its legends against the theme's base.
+     * The glass faces the keys stand on, one per row top to bottom, as the launcher measured them
+     * ({@link #setGlassFaces}); empty until it has, and the palette checks its legends against the
+     * theme's base.
      */
-    @androidx.annotation.ColorInt private int mGlassFace = android.graphics.Color.TRANSPARENT;
+    @NonNull private int[] mGlassFaces = new int[0];
 
     /**
-     * The face under the keys moved (an opacity, Shade, Tint, hue or Glass change, a new
-     * wallpaper): the legends are re-chosen against it, and the live keyboard is repainted only
-     * when that changed a colour it draws. Called from the launcher's dress pass, never per frame
-     * of drawing; a face that did not move costs one comparison.
+     * The faces under the keys moved (an opacity, Shade, Tint, hue or Glass change, a new
+     * wallpaper, the veil): the legends are re-chosen so they read on every row's face, and the
+     * live keyboard is repainted only when that changed a colour it draws. Called from the
+     * launcher's dress pass, never per frame of drawing; faces that did not move cost one
+     * comparison.
      */
-    public void setGlassFace(@androidx.annotation.ColorInt int face) {
-        if (face == mGlassFace)
+    public void setGlassFaces(@NonNull int[] faces) {
+        if (java.util.Arrays.equals(faces, mGlassFaces))
             return;
-        mGlassFace = face;
+        mGlassFaces = faces.clone();
         if (mDestroyed || mKeyboardView == null)
             return;
         juloo.keyboard2.Theme.Palette next = createPalette();
@@ -1569,7 +1581,7 @@ public final class TermuxInAppKeyboard {
         String theme = mPreferences.getInAppKeyboardTheme();
         juloo.keyboard2.Theme.Palette palette =
             InAppKeyboardPaletteFactory.createGlass(context, theme,
-                com.termux.app.chrome.GlassLook.of(mPreferences), mGlassFace);
+                com.termux.app.chrome.GlassLook.of(mPreferences), mGlassFaces);
         InAppKeyboardColorScheme scheme = InAppKeyboardColorScheme.fromJson(context,
             mPreferences.getInAppKeyboardColorScheme());
         return scheme.shouldApplyImportedPalette(theme) ? scheme.applyToPalette(palette) : palette;

@@ -6628,18 +6628,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     /**
      * The keyboard host's material for {@code state}, then the keys' legends re-chosen against the
-     * face that material draws (ChromeInk#bandFace): measured where the host wears the keyboard
-     * band's glass this pass, the theme's glass base where it does not (Solid, the joined frame,
-     * a floating card, the keyboard down).
+     * faces that material draws, row by row (ChromeInk#bandFaces): measured where the host wears
+     * the keyboard band's glass this pass, the theme's glass base where it does not (Solid, the
+     * joined frame, a floating card, the keyboard down).
      */
     private void applyInAppKeyboardSurfaceState(@NonNull ChromeSpec state) {
         mKeyboardBandAskedThisPass = false;
         applyInAppKeyboardHostMaterial(state);
         TermuxInAppKeyboard keyboard = mInAppKeyboard;
         if (keyboard == null || mChrome == null) return;
-        keyboard.setGlassFace(mKeyboardBandAskedThisPass
-            ? mChrome.ink().bandFace(com.termux.app.chrome.GlassBackdropCache.Band.KEYBOARD)
-            : Color.TRANSPARENT);
+        keyboard.setGlassFaces(mKeyboardBandAskedThisPass
+            ? mChrome.ink().bandFaces(com.termux.app.chrome.GlassBackdropCache.Band.KEYBOARD)
+            : new int[0]);
     }
 
     private void applyInAppKeyboardHostMaterial(@NonNull ChromeSpec state) {
@@ -6892,10 +6892,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     /**
      * Asks the keyboard band (appearance-layout-editor SPEC §2) what the host's glass has to become
-     * for a letter key's label to read on its cap, and names the band for the surface to draw
-     * that veil. Measured at the host's laid-out rect, which ignores the stack's travel and the
-     * editor's scale alike; null, and no veil, before the host is laid out or the keyboard view
-     * exists. The veil lands on the next build when this one changes it.
+     * for a letter key's and a function key's label to read on their caps, and names the band for
+     * the surface to draw that veil. Measured at the host's laid-out rect, which ignores the
+     * stack's travel and the editor's scale alike; null, and no veil, before the host is laid out
+     * or the keyboard view exists. The veil lands on the next build when this one changes it.
      */
     @Nullable
     private com.termux.app.chrome.GlassBackdropCache.Band noteInAppKeyboardBand(
@@ -6907,8 +6907,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         com.termux.app.chrome.GlassAnchor.layoutOriginOnScreen(surfaceHost, origin, new int[2]);
         Rect host = new Rect(origin[0], origin[1],
             origin[0] + surfaceHost.getWidth(), origin[1] + surfaceHost.getHeight());
+        // The letter legend on its cap and the function legend (Ctrl, Alt, Fn) on its thinner
+        // chip, each over the row of the host where it reads worst.
         mChrome.ink().onFixedInk(com.termux.app.chrome.GlassBackdropCache.Band.KEYBOARD, host,
-            inks[0], inks[0], inks[1], com.termux.app.chrome.OnGlass.TARGET_BODY_TEXT);
+            inks[0], inks[1], inks[2], inks[3], com.termux.app.chrome.OnGlass.TARGET_BODY_TEXT);
         mKeyboardBandAskedThisPass = true;
         return com.termux.app.chrome.GlassBackdropCache.Band.KEYBOARD;
     }

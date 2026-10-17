@@ -248,6 +248,22 @@ public final class InAppKeyboardPaletteFactory {
     @NonNull
     public static Theme.Palette createGlass(@NonNull Context context, String variant,
                                             @NonNull GlassLook look, @ColorInt int face) {
+        return createGlass(context, variant, look,
+            Color.alpha(face) == 0 ? new int[0] : new int[] {face});
+    }
+
+    /**
+     * {@link #createGlass(Context, String, GlassLook, int)} on several faces at once: the glass
+     * under each row of the keyboard, top to bottom, as measured ({@code ChromeInk#bandFaces}).
+     * Every legend is checked on its chip over every one of them, so a label the top row's bright
+     * wallpaper passes is not drawn dark on the near-black wallpaper under the bottom row. Where no
+     * tone clears all of them, the side that reads best on the worst face wins and the band's veil
+     * (measured on the same rows) is what buys the rest. Empty for not measured yet: the glass
+     * base stands in, as before.
+     */
+    @NonNull
+    public static Theme.Palette createGlass(@NonNull Context context, String variant,
+                                            @NonNull GlassLook look, @NonNull int[] faces) {
         String normalizedVariant = variant == null || "dock".equals(variant)
             ? "system" : variant;
         Theme.Palette base = create(context, normalizedVariant);
@@ -278,22 +294,25 @@ public final class InAppKeyboardPaletteFactory {
         int space = ColorUtils.setAlphaComponent(baseSpace, night ? 150 : 180);
         int activated = ColorUtils.setAlphaComponent(base.activatedKeyBackground, 216);
 
-        // What the chips are laid on: the measured face where there is one, else the base.
-        int under = Color.alpha(face) == 0 ? glassBase : opaque(face);
-        int keyOnBase = ColorUtils.compositeColors(key, under);
-        int actionOnBase = ColorUtils.compositeColors(action, under);
-        int functionOnBase = ColorUtils.compositeColors(function, under);
-        int activatedOnBase = ColorUtils.compositeColors(activated, under);
+        // What the chips are laid on: the measured faces where there are some, else the base.
+        int[] under = measuredOrBase(faces, glassBase);
+        int[] keyOn = chipsOn(key, under);
+        int[] actionOn = chipsOn(action, under);
+        int[] functionOn = chipsOn(function, under);
+        int[] activatedOn = chipsOn(activated, under);
+        // The cap shading and the pressed blend follow the face the chips mostly stand on.
+        int keyOnBase = ColorUtils.compositeColors(key, meanOf(under));
+        int activatedOnBase = ColorUtils.compositeColors(activated, meanOf(under));
 
-        int label = ensureContrast(baseLabel, keyOnBase);
-        int subLabel = ensureContrast(baseSubLabel, keyOnBase);
-        int actionLabel = ensureContrast(base.actionLabelColor, actionOnBase);
-        int actionSubLabel = ensureContrast(base.actionSubLabelColor, actionOnBase);
-        int functionLabel = ensureContrast(baseFunctionLabel, functionOnBase);
-        int activatedLabel = ensureContrast(base.activatedLabelColor, activatedOnBase);
+        int label = ensureContrastOnAll(baseLabel, keyOn);
+        int subLabel = ensureContrastOnAll(baseSubLabel, keyOn);
+        int actionLabel = ensureContrastOnAll(base.actionLabelColor, actionOn);
+        int actionSubLabel = ensureContrastOnAll(base.actionSubLabelColor, actionOn);
+        int functionLabel = ensureContrastOnAll(baseFunctionLabel, functionOn);
+        int activatedLabel = ensureContrastOnAll(base.activatedLabelColor, activatedOn);
         // Re-sunk against the composited chip; see the non-glass path for why RGB, not alpha.
         int pressedLabel = ColorUtils.blendARGB(activatedOnBase, activatedLabel, 130f / 255f);
-        int lockedLabel = ensureContrast(base.lockedModifierColor, activatedOnBase);
+        int lockedLabel = ensureContrastOnAll(base.lockedModifierColor, activatedOn);
 
         // Rim and cap shading follow the chip's effective brightness, not the phone's UI
         // mode, so a light theme under a dark phone still reads as light physical caps.
@@ -399,6 +418,83 @@ public final class InAppKeyboardPaletteFactory {
                 low = amount;
             } else {
                 high = amount;
+            }
+        }
+        return opaque(best);
+    }
+
+    /** The opaque faces, or the glass base alone where none was measured. */
+    @NonNull
+    private static int[] measuredOrBase(@NonNull int[] faces, @ColorInt int glassBase) {
+        int count = 0;
+        for (int face : faces) if (Color.alpha(face) != 0) count++;
+        if (count == 0) return new int[] {opaque(glassBase)};
+        int[] out = new int[count];
+        int at = 0;
+        for (int face : faces) if (Color.alpha(face) != 0) out[at++] = opaque(face);
+        return out;
+    }
+
+    /** {@code chip} composited over each of {@code faces}, opaque. */
+    @NonNull
+    private static int[] chipsOn(@ColorInt int chip, @NonNull int[] faces) {
+        int[] out = new int[faces.length];
+        for (int i = 0; i < faces.length; i++)
+            out[i] = opaque(ColorUtils.compositeColors(chip, faces[i]));
+        return out;
+    }
+
+    /** The plain sRGB mean of {@code colors}, opaque. */
+    @ColorInt
+    private static int meanOf(@NonNull int[] colors) {
+        long red = 0, green = 0, blue = 0;
+        for (int color : colors) {
+            red += Color.red(color);
+            green += Color.green(color);
+            blue += Color.blue(color);
+        }
+        int n = Math.max(1, colors.length);
+        return Color.rgb((int) (red / n), (int) (green / n), (int) (blue / n));
+    }
+
+    /** The lowest contrast {@code foreground} has on any of {@code backgrounds}. */
+    private static double minContrast(@ColorInt int foreground, @NonNull int[] backgrounds) {
+        double worst = Double.MAX_VALUE;
+        for (int background : backgrounds)
+            worst = Math.min(worst, ColorUtils.calculateContrast(opaque(foreground), background));
+        return worst;
+    }
+
+    /**
+     * {@link #ensureContrast} held on every one of {@code backgrounds} at once (opaque): the
+     * label itself where it already reads on all of them; else moved toward white or black only
+     * as far as all of them need, on the side that reads best on the worst of them; and where
+     * neither endpoint clears them all, that endpoint itself, the most legible tone there is. One
+     * background is exactly {@link #ensureContrast}.
+     */
+    @ColorInt
+    public static int ensureContrastOnAll(@ColorInt int foreground, @NonNull int[] backgrounds) {
+        foreground = opaque(foreground);
+        if (backgrounds.length == 0) return foreground;
+        if (backgrounds.length == 1) return ensureContrast(foreground, backgrounds[0]);
+        if (minContrast(foreground, backgrounds) >= MIN_TEXT_CONTRAST) return foreground;
+        double white = minContrast(Color.WHITE, backgrounds);
+        double black = minContrast(Color.BLACK, backgrounds);
+        // The endpoint that reads best on the worst background: the only one that can clear all
+        // of them if either can, and the most legible tone where neither can.
+        int endpoint = white >= black ? Color.WHITE : Color.BLACK;
+        if (minContrast(endpoint, backgrounds) < MIN_TEXT_CONTRAST) return endpoint;
+        int best = endpoint;
+        float low = 0f;
+        float high = 1f;
+        for (int i = 0; i < 20; i++) {
+            float amount = (low + high) / 2f;
+            int candidate = ColorUtils.blendARGB(foreground, endpoint, amount);
+            if (minContrast(candidate, backgrounds) >= MIN_TEXT_CONTRAST) {
+                best = candidate;
+                high = amount;
+            } else {
+                low = amount;
             }
         }
         return opaque(best);

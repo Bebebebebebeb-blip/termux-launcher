@@ -212,6 +212,193 @@ public class KeyboardAreaInkTest {
             GlassLook.SCHEME, thin), thin, "after the opacity change");
     }
 
+    // ------------------------------------------------ see-through light glass, row by row
+
+    /** Bright grass, blurred: what shows through light glass at Opacity 10 near the dock. */
+    private static final int BRIGHT_GRASS = 0xFFC8E890;
+    /** The near-black blades under the keyboard's bottom row. */
+    private static final int DARK_BLADES = 0xFF0A0C06;
+    /** The plain sRGB mean of the two, which is what the whole host averages to. */
+    private static final int MEAN_GRASS = 0xFF697A4B;
+    /** A theme letter cap at its fill and a function chip that lets more glass through. */
+    private static final int LETTER_CAP = 0xF0FFFFFF;
+    private static final int FUNCTION_CAP = 0x7CE0E0E0;
+
+    /**
+     * Bright grass under the top half of the keyboard, black blades under the bottom half; a rect
+     * the size of the whole host reads their mean, as a blurred average does.
+     */
+    private void splitWallpaper() {
+        ink.backdrops().setSampler(rect -> rect.height() > KEYBOARD_RECT.height() / 2
+            ? MEAN_GRASS : (rect.centerY() < KEYBOARD_RECT.centerY() ? BRIGHT_GRASS : DARK_BLADES));
+    }
+
+    /**
+     * The keyboard band asked by a dark legend on an opaque cap, which can buy no veil, then its
+     * glass told at {@code opacity}: the faces are the glass alone.
+     */
+    private void askKeyboardGlass(float opacity) {
+        ink.onFixedInk(GlassBackdropCache.Band.KEYBOARD, KEYBOARD_RECT, LIGHT_ON_SURFACE,
+            LIGHT_ON_SURFACE, 0xFFFFFFFF, OnGlass.TARGET_BODY_TEXT);
+        glass.veilOnlyLayer(GlassBackdropCache.Band.KEYBOARD, opacity, 0f, 1f, false);
+    }
+
+    private static void assertEveryLegendReadsOnEveryRow(@NonNull Theme.Palette palette,
+                                                         @NonNull int[] faces, String at) {
+        for (int i = 0; i < faces.length; i++) {
+            assertLegendsRead(palette, faces[i], at + ", row " + i);
+        }
+    }
+
+    private static double functionRatio(@NonNull Theme.Palette palette, int face) {
+        return ColorUtils.calculateContrast(palette.functionLabelColor,
+            ColorUtils.compositeColors(palette.functionKeyBackground, OnGlass.opaque(face)));
+    }
+
+    /** Light glass at Opacity 10 over bright grass: a pale face, so every legend is dark. */
+    @Test
+    public void brightGrassUnderSeeThroughGlassTakesDarkLegends() {
+        Context context = RuntimeEnvironment.getApplication();
+        ink.backdrops().setSampler(rect -> BRIGHT_GRASS);
+        askKeyboardGlass(0.1f);
+        int[] faces = ink.bandFaces(GlassBackdropCache.Band.KEYBOARD);
+        assertEquals(ChromeInk.FACE_ROWS, faces.length);
+        Theme.Palette palette = InAppKeyboardPaletteFactory.createGlass(context, "light",
+            GlassLook.SCHEME, faces);
+        assertFalse("dark letters", pale(palette.labelColor));
+        assertFalse("dark Ctrl and Alt", pale(palette.functionLabelColor));
+        assertEveryLegendReadsOnEveryRow(palette, faces, "on bright grass");
+    }
+
+    /** The same glass over dark blades: every legend still reads on its chip on every row. */
+    @Test
+    public void darkBladesUnderSeeThroughGlassKeepEveryLegendLegible() {
+        Context context = RuntimeEnvironment.getApplication();
+        ink.backdrops().setSampler(rect -> DARK_BLADES);
+        askKeyboardGlass(0.1f);
+        int[] faces = ink.bandFaces(GlassBackdropCache.Band.KEYBOARD);
+        assertFalse(pale(faces[0]));
+        Theme.Palette palette = InAppKeyboardPaletteFactory.createGlass(context, "light",
+            GlassLook.SCHEME, faces);
+        assertEveryLegendReadsOnEveryRow(palette, faces, "on dark blades");
+    }
+
+    /**
+     * The dock's labels on see-through light glass: dark over bright grass, pale over the dark
+     * blades, whichever theme colour they started from.
+     */
+    @Test
+    public void seeThroughDockLabelsFollowTheWallpaperUnderThem() {
+        ink.backdrops().setSampler(rect -> BRIGHT_GRASS);
+        glass.noteDockGlassUnder(GlassBackdropCache.Band.DOCK, 0.1f);
+        int onBright = extraKeysInk(NIGHT_ON_SURFACE);
+        assertFalse("dark labels on bright grass", pale(onBright));
+        assertTrue(OnGlass.ratio(onBright,
+            ink.faceUnder(GlassBackdropCache.Band.DOCK, EXTRA_KEYS_RECT)) >= 4.5d);
+
+        ink.backdrops().setSampler(rect -> DARK_BLADES);
+        ink.invalidate();
+        glass.noteDockGlassUnder(GlassBackdropCache.Band.DOCK, 0.1f);
+        int onDark = extraKeysInk(LIGHT_ON_SURFACE);
+        int darkFace = ink.faceUnder(GlassBackdropCache.Band.DOCK, EXTRA_KEYS_RECT);
+        assertTrue("pale labels on the dark blades", GlassInk.isPaleSide(onDark, darkFace));
+        assertTrue(OnGlass.ratio(onDark, darkFace) >= 4.5d);
+    }
+
+    /**
+     * The device failure: bright grass under the top rows, black blades under Ctrl and Alt. The
+     * host's mean passed a dark function legend that the bottom row then could not show; the rows
+     * measured on their own put the legend on the side that reads where it is weakest.
+     */
+    @Test
+    public void eachRowIsMeasuredOnItsOwnWallpaper() {
+        Context context = RuntimeEnvironment.getApplication();
+        splitWallpaper();
+        askKeyboardGlass(0.1f);
+        int[] faces = ink.bandFaces(GlassBackdropCache.Band.KEYBOARD);
+        assertTrue("the top row stands on bright grass", pale(faces[0]));
+        assertFalse("the bottom row on the dark blades", pale(faces[faces.length - 1]));
+        int bottom = faces[faces.length - 1];
+
+        Theme.Palette onMean = InAppKeyboardPaletteFactory.createGlass(context, "light",
+            GlassLook.SCHEME, ink.bandFace(GlassBackdropCache.Band.KEYBOARD));
+        Theme.Palette onRows = InAppKeyboardPaletteFactory.createGlass(context, "light",
+            GlassLook.SCHEME, faces);
+        assertTrue("the function legend reads better on the bottom row than the mean's did",
+            functionRatio(onRows, bottom) > functionRatio(onMean, bottom));
+        double worst = Double.MAX_VALUE;
+        for (int face : faces) worst = Math.min(worst, functionRatio(onRows, face));
+        double worstWhite = Double.MAX_VALUE;
+        double worstBlack = Double.MAX_VALUE;
+        for (int face : faces) {
+            int chip = ColorUtils.compositeColors(onRows.functionKeyBackground, face);
+            worstWhite = Math.min(worstWhite, ColorUtils.calculateContrast(Color.WHITE, chip));
+            worstBlack = Math.min(worstBlack, ColorUtils.calculateContrast(Color.BLACK, chip));
+        }
+        assertTrue("4.5 on every row, or the best any tone can do on the worst row",
+            worst >= 4.5d || Math.abs(worst - Math.max(worstWhite, worstBlack)) < 1e-6);
+    }
+
+    /**
+     * A legend that no tone carries on every row: the band's veil is bought on the row where it
+     * reads worst, for the function legend on its own chip, so the veil rises.
+     */
+    @Test
+    public void theVeilRisesForTheFunctionLegendOnItsWorstRow() {
+        splitWallpaper();
+        glass.veilOnlyLayer(GlassBackdropCache.Band.KEYBOARD, 0.1f, 0f, 1f, false);
+        OnGlass.Resolution lettersOnly = ink.onFixedInk(GlassBackdropCache.Band.KEYBOARD,
+            KEYBOARD_RECT, LIGHT_ON_SURFACE, LIGHT_ON_SURFACE, LETTER_CAP,
+            OnGlass.TARGET_BODY_TEXT);
+        assertTrue("a near-opaque letter cap needs no veil", lettersOnly.isBare());
+
+        OnGlass.Resolution withFunctions = ink.onFixedInk(GlassBackdropCache.Band.KEYBOARD,
+            KEYBOARD_RECT, LIGHT_ON_SURFACE, LETTER_CAP, LIGHT_ON_SURFACE, FUNCTION_CAP,
+            OnGlass.TARGET_BODY_TEXT);
+        assertFalse("the dark function legend on its thin chip over the black row buys a veil",
+            withFunctions.isBare());
+        int[] faces = ink.bandFaces(GlassBackdropCache.Band.KEYBOARD);
+        int bottomChip = ColorUtils.compositeColors(FUNCTION_CAP, faces[faces.length - 1]);
+        assertTrue("the veil is in the face the palette is handed, and it carries the legend",
+            ColorUtils.calculateContrast(LIGHT_ON_SURFACE, bottomChip) >= 4.45d);
+    }
+
+    /**
+     * The editor's Done after a live Opacity drag: the faces handed over follow the glass told on
+     * that pass, never a face kept from the preview, and asking again costs no sample.
+     */
+    @Test
+    public void theFacesFollowTheCommittedGlassAndAreSampledOnce() {
+        int[] reads = {0};
+        ink.backdrops().setSampler(rect -> {
+            reads[0]++;
+            return BRIGHT_GRASS;
+        });
+        askKeyboardGlass(1f);
+        int[] opaque = ink.bandFaces(GlassBackdropCache.Band.KEYBOARD);
+        int afterFirst = reads[0];
+        assertTrue(afterFirst > 0);
+        assertTrue(java.util.Arrays.equals(opaque,
+            ink.bandFaces(GlassBackdropCache.Band.KEYBOARD)));
+        assertEquals("asked again on the same rect and wallpaper: no sample", afterFirst, reads[0]);
+
+        askKeyboardGlass(0.1f);
+        int[] thin = ink.bandFaces(GlassBackdropCache.Band.KEYBOARD);
+        assertFalse("the committed opacity moves every row's face",
+            java.util.Arrays.equals(opaque, thin));
+        assertEquals("an opacity change is arithmetic, not a sample", afterFirst, reads[0]);
+
+        ink.backdrops().setSampler(rect -> {
+            reads[0]++;
+            return DARK_BLADES;
+        });
+        ink.invalidate();
+        askKeyboardGlass(0.1f);
+        int[] newWallpaper = ink.bandFaces(GlassBackdropCache.Band.KEYBOARD);
+        assertTrue("a new wallpaper is sampled again", reads[0] > afterFirst);
+        assertFalse(pale(newWallpaper[0]));
+    }
+
     /** Not measured yet: the theme's glass base stands in, exactly as before. */
     @Test
     public void anUnmeasuredFaceIsTheThemesBase() {
