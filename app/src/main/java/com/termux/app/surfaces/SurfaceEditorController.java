@@ -563,8 +563,8 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         if (rootContainer == null || content == null)
             return;
         final int token = ++mPresentToken;
-        // Where the person left this page, when the surface remembers it: the Custom stop and
-        // the selection (Look), the place (Layout), the row's scroll (Icons).
+        // Where the person left this page, when the surface remembers it: the selection (Look,
+        // at the Custom stop only), the place (Layout), the row's scroll (Icons).
         AppearanceReturnState restore = mRestore;
         mRestore = null;
         if (restore != null && restore.editorMode() != mode)
@@ -582,13 +582,12 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         mEntryCustom = prefs.getSurfaceCustomPreset();
         mSessionCustom.clear();
         forgetGlassEdgePositions();
+        // The stop the live look stands on, whatever the last visit left the slider at. A Custom
+        // the user made is not a Look, so it opens at Custom by itself. A Custom left as a tap
+        // seeded it over a Look (a tap at Clear, then Done) is that Look: opening there at Custom
+        // would show the Look's values as Custom and leave the slider nowhere to move to, so the
+        // saved Custom could not come back. At the Look, a move to Custom applies it.
         mStop = matchingStop();
-        // At the Custom stop as it was left: the slider moves there without writing anything,
-        // as a tap on an element at a Look stop does; Undo comes back to it.
-        if (restore != null && restore.custom && !AppearanceLooks.isCustomStop(mStop)) {
-            mStop = AppearanceLooks.CUSTOM_STOP;
-            mSessionCustom.seed(prefs);
-        }
         mEntryStop = mStop;
         mTarget = null;
         mRestoreTarget = restore == null ? null : targetNamed(restore.target);
@@ -2345,8 +2344,8 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         }
 
         /**
-         * The editor stands at Custom over a Look without writing (a tap at a Look stop, or an
-         * open at the Custom stop as it was left): what is on screen is the seed. Values kept
+         * The editor stands at Custom over a Look without writing (a tap at a Look stop): what
+         * is on screen is the seed. Values kept
          * earlier this visit are already the saved Custom, so a seed left untouched gives them
          * back on the next move to Custom.
          */
