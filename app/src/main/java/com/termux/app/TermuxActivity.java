@@ -946,6 +946,22 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     @Nullable private com.termux.app.chrome.wallpaper.WallpaperPickerPage.ReturnState mOverviewRestore;
 
     /**
+     * The Appearance surface as it stood when an activity went down for a configuration relaunch
+     * (new wallpaper colours, the theme, the font scale), which Android does whether or not the
+     * surface is open. The process outlives the relaunch, so it is handed to the next activity in
+     * memory; the saved state names which handover is its own ({@link #ARG_APPEARANCE_RELAUNCH}).
+     * Small: a few snapshots of preference values.
+     */
+    @Nullable private static com.termux.app.surfaces.AppearanceSurfaceController.Relaunch sAppearanceRelaunch;
+    private static int sAppearanceRelaunchId;
+    private static int sAppearanceRelaunchSeq;
+    /** The handover this activity last made, so its own later save may withdraw only that one. */
+    private int mAppearanceRelaunchId;
+    /** A handover this activity took on creation, opened once it is resumed. */
+    @Nullable private com.termux.app.surfaces.AppearanceSurfaceController.Relaunch mPendingAppearanceRelaunch;
+    private boolean mPendingAppearanceFromSettings;
+
+    /**
      * Layout mode of the one editor: where a place's elements sit rather than how its surfaces
      * look. {@link #mSurfaceEditor} hosts it, lending it the frame's canvas and the bottom area's
      * tray; its session opens and closes with that editor.
@@ -1411,6 +1427,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private static final String ARG_ACTIVITY_RECREATED = "activity_recreated";
     private static final String ARG_PANE_LAYOUT = "pane_layout";
+    private static final String ARG_APPEARANCE_RELAUNCH = "appearance_relaunch";
+    private static final String ARG_APPEARANCE_FROM_SETTINGS = "appearance_from_settings";
     private static final String PANE_STATE_SESSIONS = "sessions";
     private static final String PANE_STATE_WINDOWS = "windows";
     private static final String PANE_STATE_CURRENT_WINDOW = "current_window";
@@ -1710,6 +1728,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mPendingPaneLayoutState = savedInstanceState.getBundle(ARG_PANE_LAYOUT);
             mPendingWallPage = savedInstanceState.getString(
                 com.termux.app.wall.PaneWallController.ARG_PAGE);
+            takeAppearanceRelaunch(savedInstanceState);
         }
         // Delete ReportInfo serialized object files from cache older than 14 days
         ReportActivity.deleteReportInfoFilesOlderThanXDays(this, 14, false);
@@ -2302,6 +2321,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         holdVoiceScreen();
         if (mIsInvalidState)
             return;
+        reopenAppearanceAfterRelaunch();
         // A return hold opened by the stop starts watching for the layout to settle; it is let
         // go once focus has come too (onWindowFocusChanged) and the size has stopped moving.
         if (mReturnHold.isActive()) {
@@ -9103,6 +9123,65 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         Bundle paneLayout = savePaneLayoutState();
         if (paneLayout != null) savedInstanceState.putBundle(ARG_PANE_LAYOUT, paneLayout);
         if (mPaneWallController != null) mPaneWallController.onSaveInstanceState(savedInstanceState);
+        saveAppearanceRelaunch(savedInstanceState);
+    }
+
+    /**
+     * Hands the Appearance surface over to the activity a configuration relaunch builds next, if
+     * it is open; else withdraws this activity's earlier handover. Every save does this, the one
+     * at a stop included: a relaunch of a stopped activity (new wallpaper colours applied at
+     * screen off) reuses the state saved at the stop.
+     */
+    private void saveAppearanceRelaunch(@NonNull Bundle out) {
+        com.termux.app.surfaces.AppearanceSurfaceController.Relaunch carried = mAppearance.carry();
+        if (carried == null) {
+            if (mAppearanceRelaunchId != 0 && mAppearanceRelaunchId == sAppearanceRelaunchId) {
+                sAppearanceRelaunch = null;
+                sAppearanceRelaunchId = 0;
+            }
+            mAppearanceRelaunchId = 0;
+            return;
+        }
+        int id = ++sAppearanceRelaunchSeq;
+        sAppearanceRelaunch = carried;
+        sAppearanceRelaunchId = id;
+        mAppearanceRelaunchId = id;
+        out.putInt(ARG_APPEARANCE_RELAUNCH, id);
+        out.putBoolean(ARG_APPEARANCE_FROM_SETTINGS, mAppearanceFromSettings);
+    }
+
+    /** Takes the handover the saved state names, when this process still holds it. */
+    private void takeAppearanceRelaunch(@NonNull Bundle saved) {
+        int id = saved.getInt(ARG_APPEARANCE_RELAUNCH, 0);
+        if (id == 0 || id != sAppearanceRelaunchId)
+            return;
+        mPendingAppearanceRelaunch = sAppearanceRelaunch;
+        mPendingAppearanceFromSettings = saved.getBoolean(ARG_APPEARANCE_FROM_SETTINGS, false);
+        sAppearanceRelaunch = null;
+        sAppearanceRelaunchId = 0;
+    }
+
+    /**
+     * The surface a relaunch interrupted opens again where it stood, its editor session
+     * continued, once the wall is built: on the first resume, since a stopped window is never
+     * laid out for the editor's frame.
+     */
+    private void reopenAppearanceAfterRelaunch() {
+        final com.termux.app.surfaces.AppearanceSurfaceController.Relaunch carried =
+            mPendingAppearanceRelaunch;
+        if (carried == null)
+            return;
+        mPendingAppearanceRelaunch = null;
+        final boolean fromSettings = mPendingAppearanceFromSettings;
+        View root = findViewById(R.id.activity_termux_root_view);
+        Runnable open = () -> {
+            if (isFinishing() || isDestroyed() || mAppearance.isOpen())
+                return;
+            if (mAppearance.reopen(carried))
+                mAppearanceFromSettings = fromSettings;
+        };
+        if (root != null) root.post(open);
+        else open.run();
     }
 
     @Override

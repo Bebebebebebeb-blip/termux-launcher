@@ -309,6 +309,11 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
      * frame has settled, so its selection is made then.
      */
     @Nullable private Target mRestoreTarget;
+    /**
+     * The session of the activity this one replaced in a configuration relaunch: the next
+     * presentation continues it (its Undo, its unsaved state) instead of opening a new one.
+     */
+    @Nullable private CarriedSession mCarriedNext;
 
     @Nullable private AppearanceEditorFrame mFrame;
     @Nullable private AppearanceEditorPanel mPanel;
@@ -589,6 +594,19 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         // saved Custom could not come back. At the Look, a move to Custom applies it.
         mStop = matchingStop();
         mEntryStop = mStop;
+        // A session the activity before this one had open, carried over a relaunch: the same
+        // state at open, the same Custom of this visit and the same stop, so Undo and the
+        // unsaved question are as they were before the system rebuilt the window.
+        CarriedSession carried = mCarriedNext;
+        mCarriedNext = null;
+        if (carried != null) {
+            mEntry = carried.entry;
+            mEntrySignature = carried.entrySignature;
+            mEntryCustom = carried.entryCustom;
+            mEntryStop = carried.entryStop;
+            mStop = carried.stop;
+            mSessionCustom.copyFrom(carried.custom);
+        }
         mTarget = null;
         mRestoreTarget = restore == null ? null : targetNamed(restore.target);
         // The in-app keyboard is one of the things the frame offers; it is raised after the frame
@@ -639,7 +657,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             // The canvas draws its first frame under the Style and the Corners and Margin the
             // user already has.
             pushLayoutShape(layout);
-            layout.begin(place);
+            layout.begin(place, carried == null ? null : carried.arrangement);
         }
 
         bindTargets();
@@ -1218,6 +1236,54 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     @Override
     public void restoreNext(@Nullable AppearanceReturnState state) {
         mRestore = state;
+    }
+
+    /**
+     * The presentation's session as it stands, for the next activity after a configuration
+     * relaunch: the state at open (what Undo and Discard return to), the saved Custom at open,
+     * this visit's Custom, the Look stop, and the arrangement at open. The live values themselves
+     * are in the preferences already. While nothing is presented, the session handed over and not
+     * yet presented, if any.
+     */
+    @Nullable
+    @Override
+    public AppearanceSurfaceController.EditorSession carrySession() {
+        AppearanceSnapshot entry = mEntry;
+        String signature = mEntrySignature;
+        if (!mOpen || entry == null || signature == null)
+            return mCarriedNext;
+        LayoutEditorController layout = mHost.layoutEditor();
+        return new CarriedSession(entry, signature, mEntryCustom, mEntryStop, mStop,
+            mSessionCustom.copy(), layout == null ? null : layout.entryArrangement());
+    }
+
+    @Override
+    public void adoptSessionNext(@Nullable AppearanceSurfaceController.EditorSession session) {
+        mCarriedNext = session instanceof CarriedSession ? (CarriedSession) session : null;
+    }
+
+    /** {@link #carrySession}'s content: immutable, and read only by {@link #present}. */
+    static final class CarriedSession implements AppearanceSurfaceController.EditorSession {
+        @NonNull final AppearanceSnapshot entry;
+        @NonNull final String entrySignature;
+        @Nullable final String entryCustom;
+        final int entryStop;
+        final int stop;
+        @NonNull final SessionCustom custom;
+        @Nullable final com.termux.app.place.PlaceArrangeSnapshot arrangement;
+
+        CarriedSession(@NonNull AppearanceSnapshot entry, @NonNull String entrySignature,
+                       @Nullable String entryCustom, int entryStop, int stop,
+                       @NonNull SessionCustom custom,
+                       @Nullable com.termux.app.place.PlaceArrangeSnapshot arrangement) {
+            this.entry = entry;
+            this.entrySignature = entrySignature;
+            this.entryCustom = entryCustom;
+            this.entryStop = entryStop;
+            this.stop = stop;
+            this.custom = custom;
+            this.arrangement = arrangement;
+        }
     }
 
     /** Where the editor stands on its page, for the surface to remember. */
@@ -2362,6 +2428,19 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         void clear() {
             mKept = null;
             mSeedSignature = null;
+        }
+
+        /** A copy, for a session carried over a relaunch (the kept snapshot is never written). */
+        @NonNull
+        SessionCustom copy() {
+            SessionCustom out = new SessionCustom();
+            out.copyFrom(this);
+            return out;
+        }
+
+        void copyFrom(@NonNull SessionCustom other) {
+            mKept = other.mKept;
+            mSeedSignature = other.mSeedSignature;
         }
     }
 
@@ -3686,6 +3765,7 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             return;
         mSession = false;
         mRestore = null;
+        mCarriedNext = null;
         mWallpaperToken++;
         mWallpaperSettled = false;
         mWallpaperWaiter = null;

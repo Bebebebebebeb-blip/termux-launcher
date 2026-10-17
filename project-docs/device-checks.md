@@ -257,6 +257,14 @@ under twenty items; past that, the oldest are re-judged first.
   'am_relaunch|wm_relaunch|am_destroy'` shows nothing for TermuxActivity. If a relaunch still
   shows there, repeat it with the in-app picker from the Overview: a relaunch on both is Android
   restyling for the new wallpaper colours, not our code · emulator tl16.
+- 2026-10-17 · same branch, "fix(appearance): the surface and its editor session survive a
+  configuration relaunch" · Open Look through the Overview, tap the keyboard in the frame, move a
+  slider (Undo shows), then `launcherctl wallpaper set` with a picture of different colours. When
+  `am_relaunch`/`wm_relaunch` shows for TermuxActivity, the editor comes back on Look under a
+  short colorSurface cover (no hop from the Overview), keyboard still selected, Undo still shown;
+  Undo puts back the look at the first open; Back goes to the Overview. Repeat from a corner
+  tab's Layout door (Back then closes) and once with dark mode toggled (`cmd uimode night yes`)
+  · emulator tl16.
 
 ## Developer
 - 2026-10-17 · same branch, "perf(glass): hold the blur radius through a drag" · Look › Custom on
