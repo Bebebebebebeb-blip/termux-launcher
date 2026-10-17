@@ -169,6 +169,14 @@ under twenty items; past that, the oldest are re-judged first.
   them averages 0.01-0.03 luminance on that screenshot, so pale is the measured answer; judge by
   eye. Then the first round: dark wallpaper, Opacity 100 dark labels, 10 pale; dark theme on a pale
   wallpaper the mirror; the A-Z bar on the plank and its own capsule · emulator tl16, row crops.
+  **After the row fix, 2026-10-17:** Opacity 36 and dark theme passed, no veil loop; Opacity 0 and
+  9 light still failed (Ctrl, Alt, Fn, gear, Shift, Backspace, right cluster dark grey on dark
+  grass; 16 readable). Cause: the keyboard draws a cap's gradient with the fill's alpha on the
+  paint too, so a 124/255 function chip shows about 0.23 of its colour (measured off those
+  screenshots), not the 0.49 the legend was chosen on. "fix(glass): function legends on the chip
+  as drawn" chooses them on the drawn chip and raises the function fill where no tone reads.
+  Recheck light theme over the dark grass at Opacity 0, 9, 16 and 36: function legends legible
+  (pale at 0, or on a fuller chip), letter keys as before, no milky keyboard; dark theme at 0 and 9.
 
 ## Developer
 - 2026-10-17 · branch feat/glass-controls-unify · Vibrancy release re-bakes the frames once (no
