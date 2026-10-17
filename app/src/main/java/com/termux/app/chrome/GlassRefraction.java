@@ -157,16 +157,16 @@ public final class GlassRefraction {
          */
         static final float REFERENCE_COVER = 0.10f;
         /**
-         * The most the light is raised; a pass-2 tuning knob. The headroom hold
+         * The most the light is raised; set to 2.25 in pass 2. The headroom hold
          * ({@link GlassRefraction#heldK}) keeps any gain from clipping, but past its knee (half the
-         * headroom) the light flattens toward a ceiling and the ring loses its falloff. At 2 the
-         * ambient sides of a mid-grey backdrop (0.5) peak at about the knee (0.31 against 0.29)
-         * and a dark one's (0.2) well inside it (0.43 against 1.03), so the ring keeps its shape
-         * on the backdrops glass mostly sits on; the key-light corner of a mid backdrop is past
-         * the knee at any gain, as it was before. Mist's 60% asks 2.25 and gets 2; Solid's 92%
-         * asks over eleven and gets 2 as well.
+         * headroom) the light flattens toward a ceiling and the ring loses its falloff. At 2.25 the
+         * ambient sides of a mid-grey backdrop (0.5) ask 0.35 against a knee of 0.29 and are held
+         * to 0.34, a few percent flat, and a dark one's (0.2) stay well inside it (0.48 against
+         * 1.03), so the ring keeps its shape on the backdrops glass mostly sits on; the key-light
+         * corner of a mid backdrop is past the knee at any gain, as it was before. Dark Mist's 60%
+         * asks exactly 2.25; Solid's 92% asks over eleven and gets 2.25.
          */
-        static final float MAX_EDGE_GAIN = 2f;
+        static final float MAX_EDGE_GAIN = 2.25f;
         /** A little grey light, so a black wallpaper still shows an edge. {@code kLift}. */
         static final float LIFT = 0.07f;
         /** The faint dark under the light. {@code kEdgeShade}. */
