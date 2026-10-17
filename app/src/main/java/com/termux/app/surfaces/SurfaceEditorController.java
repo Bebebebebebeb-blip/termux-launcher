@@ -2190,12 +2190,19 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
             | SurfaceEditorProperties.PREVIEW_SURFACES);
     }
 
-    /** The Tint colour pill: which accent the Tint amount mixes in, global. */
+    /**
+     * The Tint colour pill: which accent the Tint amount mixes in, global. A pick at Tint 0 also
+     * raises the shared Tint so the hue shows ({@link GlobalGlass#writeTintHue}), and the Tint
+     * column follows.
+     */
     private void writeTintHue(@NonNull String id) {
         TermuxAppSharedPreferences prefs = prefs();
         if (prefs == null)
             return;
-        prefs.setSurfaceGlassTintHue(id);
+        int tint = GlobalGlass.writeTintHue(prefs, id);
+        AppearanceEditorPanel panel = mPanel;
+        if (panel != null)
+            panel.setSliderValue(Control.TINT, AppearanceLooks.tintPercent(tint));
         requestPreview(SurfaceEditorProperties.PREVIEW_SURFACES
             | SurfaceEditorProperties.PREVIEW_KEYBOARD);
     }
