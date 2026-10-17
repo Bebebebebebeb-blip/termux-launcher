@@ -14,7 +14,8 @@ Latest stable: v1.0.6.
 <!-- Only what this drop adds over the one before it; replace the whole list at every drop. -->
 
 - Look › Custom's Tint adds your accent colour from any Look, Clear and Mist included, and Hue picks primary, secondary or tertiary.
-- Look › Custom's Glass slider runs the glass from clear to frosted in one move, in place of Blur and Grain; new Shade and Vibrancy sliders dim the glass and make what shows through it more or less colourful, and Edge gives the glass edge no fringe, a glint or a prism. Margin and Corner radius are on the Layout page only.
+- Look › Custom's Glass slider runs the glass from clear to frosted in one move, in place of Blur and Grain; a new Vibrancy slider makes what shows through the glass more or less colourful, and Edge runs the glass edge from no fringe to a bold coloured edge. Margin and Corner radius are on the Layout page only.
+- Look › Custom's keyboard card has a Keys slider for how solid the keys are, from clear to opaque; the key labels stay readable at every setting.
 - Glass edges show the same outline on frosted and solid glass as on clear glass.
 - Clear, Mist and Tint sit on the Glass slider's curve now, so Clear is a touch blurrier with finer grain and Tint has much less grain; an install on a Look keeps that Look.
 - Glass edges bend the wallpaper in a narrow ring right at the edge, meet the wallpaper outside without a seam, and carry a faint line of light along the top instead of a milky band; the Looks were re-tuned to match.

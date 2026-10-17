@@ -127,13 +127,11 @@ under twenty items; past that, the oldest are re-judged first.
 - 2026-10-17 · branch feat/glass-controls-unify, "feat(glass): one set of glass controls in Look › Custom" · Look ›
   Custom from Clear, then Mist, then Tint: Tint 0→100 adds visible accent each time (Mist light
   theme too); Hue Secondary/Tertiary changes the tint; Glass 0→100 goes clear→frosted with
-  no sandy grain; Shade 100 darkens dark glass and whitens light glass without milk; Vibrancy
-  0.7x/1.5x changes the glass colour but not the bare wallpaper beside it; Edge Off/Glint/
-  Prism at a corner (Android 13+); the global heading row shows "All surfaces" with Hue and Edge
-  beside it, whole at 360dp and at Large text; Contrast moves with wallpaper colours off; Glass
-  released at 5 reads 5 on reopening; Shade 100 on a dark terminal scheme under light chrome dims
-  the pane (no milk); Undo puts all of it back · emulator tl16, dark and light theme, screenshots
-  before/after per control.
+  no sandy grain; Vibrancy 0.7x/1.5x changes the glass colour but not the bare wallpaper beside
+  it; the global heading row shows "All surfaces" with Hue beside it, whole at 360dp and at Large
+  text; Contrast moves with wallpaper colours off; Glass released at 5 reads 5 on reopening; no
+  Shade column anywhere; Undo puts all of it back · emulator tl16, dark and light theme,
+  screenshots before/after per control.
 - 2026-10-17 · same branch · Migration: an install on Clear, Mist, Tint and Solid from the pre build
   keeps its stop and its colour after the update (Clear and Tint change blur and grain by design);
   a Custom with Tint 40 on Mist comes up at Tint 0 and the same colour; a saved Custom applies as it
@@ -148,10 +146,24 @@ under twenty items; past that, the oldest are re-judged first.
   dragged Opacity 0→100 in the editor flips the text to dark within a moment of release (and back to
   pale at 0), with the keyboard shown and hidden first; dark theme unchanged · emulator tl16,
   screenshots before/after.
-- 2026-10-17 · same branch, "fix(glass): Dispersion splits the gathered light" · Mist and Tint,
-  both themes: Edge Off vs Prism differ at a pane's and the dock's corners (a red/blue split in the
-  edge light, strongest top-left), Glint fainter, no coloured line along straight edges; Clear at
-  Glint looks as before on the panes · emulator tl16 (Android 13+), corner crops Off/Glint/Prism.
+- 2026-10-17 · same branch, "feat(glass): Edge is a slider" · Look › Custom, glass edge drawn
+  (Android 13+): the global set reads Glass, Opacity, Tint, Edge, Vibrancy, Depth, whole at 360dp
+  and Large text; Clear opens at Edge 40 and looks exactly as before (compare a `pre` crop), Mist
+  and Tint at 0. Edge 0, 40, 70, 100 on Clear and on Mist, both themes: each step a plainly
+  stronger coloured edge, at 100 a warm band of about 3.5 dp along every edge of the dock, panes,
+  status band and keyboard (not only the corners), nothing white-clipped, no step where it fades;
+  seams (keyboard over strip, status over window bar) show no line · emulator tl16, top-edge and
+  corner crops per value.
+- 2026-10-17 · same branch, "feat(glass): retire Shade" · An install whose store or saved Custom
+  had Shade 60 comes up with the face as at Shade 0 and no Shade column; the chrome, terminal, A-Z
+  and key legends readable on Clear and Mist over a pale and a dark wallpaper, both themes ·
+  emulator tl16, a store with `surface_glass_shade` set (`run-as`, before the force-stop).
+- 2026-10-17 · same branch, "feat(keyboard): a Keys slider" · Keyboard selected in Look › Custom:
+  Glass, Opacity, Tint, Keys, Radius, Spacing whole at 360dp and Large text; Keys stands at the
+  theme's cap opacity on a fresh store; Keys 0, 50, 100 over the dark grass and a pale wallpaper,
+  both themes: every legend (letters, Ctrl, Alt, Fn, gear, Shift, Backspace, Enter, arrows)
+  legible on its cap, at 0 on the glass itself; a Look stop and Undo put the theme's value back ·
+  emulator tl16, keyboard crops per value.
 - 2026-10-17 · same branch, "feat(looks): Mist is 35% on light glass" · Light theme: picking Mist
   shows Opacity 35 and the stop reads Mist; switching the theme dark→light→dark with Mist on moves
   it 60→35→60 and the stop stays Mist; a Custom at 50 keeps 50 across the switch · emulator tl16,
@@ -190,29 +202,21 @@ under twenty items; past that, the oldest are re-judged first.
 
 ## Developer
 - 2026-10-17 · branch feat/glass-controls-unify · Vibrancy release re-bakes the frames once (no
-  hitch while dragging, one short re-blur on release); Shade and Glass drags stay smooth on pong ·
+  hitch while dragging, one short re-blur on release); Glass drags stay smooth on pong ·
   pong.
-- 2026-10-17 · same branch · Taste: light-theme Mist at 35% no longer milky; Prism's provisional
-  80; the edge gain cap at 2.25 (dark Mist now gets its full ratio) · pong.
+- 2026-10-17 · same branch · Taste: light-theme Mist at 35% no longer milky; the edge gain cap at
+  2.25 (dark Mist now gets its full ratio) · pong.
 - 2026-10-17 · same branch, "feat(glass): Tint colours the glass across its range" · Taste on
   pong: Clear at Tint 100 reads as tinted glass, not neon and not milky; the frame-tint caps
   (`GlassFrameTint.MAX_STRENGTH` 0.42, `MAX_CHROMA` 0.6, fade-out at Opacity 45) are the knobs. A
   Tint or Opacity drag stays smooth, the glass behind catches up once after release (one re-blur) ·
   pong.
-- 2026-10-17 · same branch, "fix(glass): Prism is a plain step past Glint" · At arm's length on
-  Clear, Mist and Tint: Prism's corner fringe (red/blue split in the edge, and on Clear in the rim's
-  picture) is plainly stronger and wider than Glint's, Glint looks as before, no rainbow outline
-  along straight edges, nothing white-clipped. Knobs: `MAX_DISPERSION_SHARE` 0.08 (Prism 0.06),
-  `RIM_SPLIT_DP` 2.0 (Prism 1.5 dp) · pong.
-  Pong result (dark, Celestial Field): Mist passes; on Clear Off/Glint/Prism looked alike at the
-  terminal's top-left corner and the keyboard's top edge, since Clear's clarity faded the light's
-  split away and the sampled split is too fine at the outline.
-- 2026-10-17 · same branch, "fix(glass): Prism keeps its edge fringe on Clear" · Recheck of the
-  Clear row above: dark Clear, Celestial Field, Off/Glint/Prism crops at the terminal's top-left
-  corner and the keyboard's top-left corner. Prism shows a red/blue corner fringe in the edge light close to
-  Mist's Prism (light split 1 dp at a corner on Clear, 1.5 on Mist); Glint on Clear looks exactly as
-  in edge-check4-clear (no light split); no coloured line along straight edges, nothing
-  white-clipped. Knobs: `Look.GLINT_SHARE` (the part clarity fades), `RIM_SPLIT_DP` · pong.
+- 2026-10-17 · same branch, "feat(glass): Edge is a slider" (replaces the Prism rows: on pong
+  Glint and Prism looked alike) · Taste at arm's length, dark and light, Celestial Field: Edge 100
+  on Clear and on Mist is a clearly visible coloured edge all round (a warm band, red reaching in,
+  blue dropping out at the outline), not a rainbow cartoon; 40 is Clear's glint as before; the
+  slider feels even from 40 to 100; Edge drags stay smooth. Knobs: `Look.BOLD_SPLIT_DP` 3.5 (the
+  width at 100), `MAX_DISPERSION_SHARE` 0.08 · pong.
 
 - 2026-10-16 · commit "feat(glass): the gathered light is the only glass edge" · The edge reads
   as light, not an outline, on every surface; on Mist and Solid (and the sheet and chip, floored

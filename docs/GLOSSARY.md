@@ -251,11 +251,14 @@ one curve (`surfaces/GlassControls`). Clear sits at 20, Tint at 40, Mist at 75; 
 and sits off it. Storage keeps blur and grain; the slider reads them back.
 _Avoid_: frost (the blurred picture itself), material (the older family macro)
 
-**Shade**:
-Look › Custom's dimmer for the glass face: a flat layer under the tint, black on dark glass (up to
-40%) and white on light glass (up to 25%, so it never goes milky). 0 in every Look.
-_Avoid_: film (the per-pixel darkening planned in the glass plan's Round 2, which Shade replaces),
-dim (the wallpaper's own dim)
+**Edge** (the slider):
+Look › Custom's colour split along the glass edge, shown with Depth where the edge is drawn
+(Android 13+): 0 no fringe, 40 Glint (Clear's corner glint), 100 a bold coloured edge about
+3.5 dp wide all round. It is the stored dispersion (`fancier_glass_dispersion`). Clear ships 40,
+the other Looks 0. It replaced the Off/Glint/Prism pill (2026-10-17).
+_Avoid_: Prism (the retired third step), edge light (the gathered light itself, which is fixed)
+
+Shade, a dimmer layer under the tint, was retired on 2026-10-17; a stored value is dropped.
 
 **Tint amount**:
 What Look › Custom's Tint slider sets since phase B: how much accent colour is mixed into the

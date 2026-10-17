@@ -33,6 +33,31 @@ frame. A Tint or Opacity drag holds the re-bake for its release. Calc (M3 baseli
 at Tint 100 a mid-grey wallpaper's face moves about 20 CIE76 units dark, 17 light, luma within 7
 levels; at Tint 40 about 8. Not measured on a screen yet (`device-checks.md`).
 
+**Pass 4 (2026-10-17): Edge is a slider, Shade is gone, the keyboard gets Keys.** The developer's
+verdict on pong: Glint and Prism could not be told apart, and Shade "does not affect the terminal,
+and it's complicating to the end user". (1) The Edge pill (Off/Glint/Prism) became an **Edge
+slider**, 0 to 100, in the global set's fourth column (Shade's), shown with Depth only where the
+edge is drawn. It writes `fancier_glass_dispersion` itself, so stored 0/40/80 are slider
+positions; Clear ships 40, the rest 0. `uDisp` is unchanged (40 is Glint's 0.02, 100 is 0.08).
+Up to 40 the program draws exactly what it drew (the corner split on the gathered light, faded by
+clarity, and the sampled corner split; the bit-exact tests stand). Past 40 a **bold edge** is added
+to the light's split all the way round, not only at the corners: `rimBold = (uDisp - Glint) /
+(0.08 - Glint) × 3.5 dp` (`Look.BOLD_SPLIT_DP`), never faded by clarity, so Clear and the frosted
+Looks wear it alike; 3.5 dp at 100 is about nine px on pong. Red's light stands that much further
+in at its outline strength and blue's drops out at the outline, so the edge reads as a warm band;
+every channel stays under its headroom (`heldK`). The light's reach and the seam reach grow by
+`rimBold`, so the tail has no step and seams show no line. No new pass, no new sample (calc: at the
+top edge's middle and a quarter along, Edge 100's split is over four times Edge 40's on Clear and
+Mist; unit tests, not a screen). (2) **Shade** is removed: the slider, `GlassShade`, the layer
+under every tint, the ink's Shade vote and `heldShade`, the prefs key and accessors, the snapshot
+field. Glass controls format 3 drops `surface_glass_shade` in the migration's one edit, and a saved
+look sheds it on read, so anything that had Shade draws as Shade 0. The ink check measures the
+tinted base alone again; the gathered light's cover is the tint alone. (3) The keyboard's card
+gains **Keys** (the cap opacity, `in_app_keyboard_key_opacity`, -1 for the theme's), and the
+legends are chosen on the caps as the view draws them at that opacity (`createGlass(…, keyOpacity)`;
+at 0 on the glass face itself), since the view replaces every unpressed cap's alpha. The Hue pill
+stays. Device checks owed in `device-checks.md`.
+
 The rest of this note is the research as written.
 
 Read-only research for the developer's report: "in the Appearance editor, Clear or Mist, then Custom: the Tint
