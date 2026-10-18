@@ -19,7 +19,8 @@ Latest stable: v1.0.6.
 - Glass edges show the same outline on frosted and solid glass as on clear glass.
 - Clear, Mist and Tint sit on the Frost slider's curve now, so Clear is a touch blurrier with finer grain and Tint has much less grain; an install on a Look keeps that Look.
 - Glass edges catch the wallpaper's own light instead of a white line, brightest at the top left, and keep the wallpaper's colour over a pale sky; each surface wears one edge, not a line on top of it.
-- Changing the wallpaper keeps the Appearance editor open on the page you were on, and the X11 display keeps showing its apps; new terminals still find the display.
+- Changing the wallpaper keeps the Appearance editor open on the page you were on, and the X11 display keeps showing its apps; new terminals still find the display (#83).
+- Changing the wallpaper or switching dark mode no longer crashes the launcher when app widgets are on Home (#83).
 - The herdr theme template goes see-through over the launcher glass, with its sidebar, text and accents in your wallpaper's colours.
 - Settings › Keyboard › Adaptive touch accuracy now learns the space bar too: aim for space and land at the bottom of the row above, and it types a space once it has learned your taps. Swipes and Ctrl or Alt shortcuts always keep the key under your finger, and Settings shows whether it is learning, active or paused.
 - The welcome message in a new terminal is a rounded card in your wallpaper's colours, with Apps, Packages and Setup sections that fit the pane's width and a tap-to-open link to the guide.
