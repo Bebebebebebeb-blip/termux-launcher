@@ -56,8 +56,8 @@
     <string name="appearance_editor_trail_description">Cursor trail, %1$s</string>
     <string name="appearance_editor_effect_description">Terminal effect, %1$s</string>
     <!-- The global row (layout editor v2): the base values every surface follows. -->
-    <!-- Clear to frosted: how much the glass blurs what is behind it, and its grain with it. -->
-    <string name="appearance_editor_glass">Glass · %1$d%%</string>
+    <!-- Frost: clear to frosted, how much the glass blurs what is behind it, and its grain with it. -->
+    <string name="appearance_editor_glass">Frost · %1$d%%</string>
     <string name="appearance_editor_opacity">Opacity · %1$d%%</string>
     <string name="appearance_editor_tint">Tint · %1$d%%</string>
     <string name="appearance_editor_tint_name">Tint</string>

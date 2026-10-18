@@ -245,11 +245,13 @@ sets how deep the bend is. Lazy mode, battery saver and reduced motion override 
 and `project-docs/active/fancier-glass/SPEC.md`.
 _Avoid_: glass mode, refraction mode
 
-**Glass** (the slider):
+**Frost** (the slider):
 Look › Custom's first slider, clear to frosted: it moves a surface's blur and grain together along
-one curve (`surfaces/GlassControls`). Clear sits at 20, Tint at 40, Mist at 75; Solid has no frost
-and sits off it. Storage keeps blur and grain; the slider reads them back.
-_Avoid_: frost (the blurred picture itself), material (the older family macro)
+one curve (`surfaces/GlassControls`; the code still calls it Glass, `GLASS`, `surface_glass_position`).
+Clear sits at 20, Tint at 40, Mist at 75; Solid has no frost and sits off it. Storage keeps blur and
+grain; the slider reads them back. Not the frost layer itself (the blurred picture a surface draws).
+_Avoid_: Glass (the old label; every control on that page is about the glass), material (the older
+family macro)
 
 **Edge** (the slider):
 Look › Custom's colour split along the glass edge, shown with Depth where the edge is drawn
