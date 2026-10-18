@@ -303,6 +303,15 @@ under twenty items; past that, the oldest are re-judged first.
   release matches `pre`. `adb shell dumpsys gfxinfo <pkg> reset`, one Glass drag, then
   `dumpsys gfxinfo <pkg>`: janky frames and the 90th/99th percentiles against the same drag on
   `pre` · pong.
+- 2026-10-18 · "perf(editor): Frost, Opacity and Tint drags take a light glass pass per tick" ·
+  Jank: Look › Custom, keyboard up under the preview, `dumpsys gfxinfo <pkg> reset`, one 2 s
+  drag (`input swipe 111 2300 111 1998 2000`), dump; two runs each of Frost and Tint. Before
+  (release 308067c4d): idle 7% janky, p90 16 ms; Frost 28–38% janky, p50 19, p90 30–32; Tint
+  33–46%, p90 19–20; Vibrancy 3–16%. After: owed (target under ~10% janky, p90 ≤ ~16 ms). Also
+  watch mid-drag: the dock, keyboard, strip and window bar follow Tint and Opacity live, Frost's
+  grain follows live while the blur keeps its starting radius, the keyboard's legends keep their
+  ink until the lift; after the lift the look and the legends match a tap at the same value ·
+  pong.
 - 2026-10-17 · branch feat/glass-controls-unify · Vibrancy release re-bakes the frames once (no
   hitch while dragging, one short re-blur on release); Glass drags stay smooth on pong ·
   pong.
