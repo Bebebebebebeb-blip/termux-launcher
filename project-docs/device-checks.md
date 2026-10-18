@@ -271,6 +271,15 @@ under twenty items; past that, the oldest are re-judged first.
   display dot stays on, a new terminal session still has `DISPLAY` set. If the display still
   stops, note whether `pgrep -f termux-x11` still lists the server and whether Firefox's process
   is alive: the launcher side lets go of nothing but its own view · pong with the go-ahead.
+- 2026-10-18 · same branch, "fix(x11): the Linux app runner outlives a configuration relaunch"
+  · Firefox on the X11 display (from the drawer), then set a wallpaper of different colours from
+  the in-app picker, again with `launcherctl wallpaper set <file>`, and once with a theme switch
+  (dark mode toggled): after each, Firefox's pid is the same (`pgrep -f firefox` before/after),
+  its window is drawn and answers touch on the Display place, and logcat has no
+  `X11LinuxAppRunner: firefox exited with`. If it still dies, that line's code is the lead: 143
+  or 137 is a signal (look for a sender), 0 is Firefox closing itself (look for a close or quit
+  reaching it). Also: an Xfce desktop running, relaunch, tap Xfce again (only shows it), tap
+  another desktop (asks first) · pong with the go-ahead, release build.
 
 ## Developer
 - 2026-10-17 · same branch, "perf(glass): hold the blur radius through a drag" · Look › Custom on

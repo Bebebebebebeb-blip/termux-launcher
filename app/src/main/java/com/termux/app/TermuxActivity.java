@@ -619,8 +619,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     @Nullable private String mPendingWallPage;
     @Nullable private com.termux.app.x11.X11DisplayHostController mX11Display;
     @Nullable private com.termux.app.x11.X11KeyboardBridge mX11KeyboardBridge;
-    /** Runs a Linux app from the drawer on the display, starting the display when needed. */
+    /**
+     * Runs a Linux app from the drawer on the display, starting the display when needed. The
+     * process's one runner, lent {@link #mLinuxAppsHost} while this instance lives: what it runs
+     * belongs to TermuxService and outlives this activity, a configuration relaunch included.
+     */
     @Nullable private com.termux.app.x11.X11LinuxAppRunner mLinuxApps;
+    /** What this instance lent {@link #mLinuxApps}; handed back on destroy. */
+    @Nullable private com.termux.app.x11.X11LinuxAppRunner.Host mLinuxAppsHost;
     /** What this instance installed in {@code LauncherAppLauncher}; taken out again on destroy. */
     @Nullable private com.termux.app.launcher.LauncherAppLauncher.LinuxAppRunner mLinuxAppRunnerHook;
     /** Same, for {@code Terminal=true} Linux apps (D5) — taken out again on destroy. */
@@ -9090,8 +9096,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mDisplayStop = null;
         }
         if (mLinuxApps != null) {
-            mLinuxApps.destroy();
+            // Only this activity's loan ends. The runner keeps the desktop on the display, the
+            // launches still settling and the window manager it owes, for the next activity: a
+            // relaunch (new wallpaper colours) must not stop, restart or forget any of them.
+            if (mLinuxAppsHost != null) mLinuxApps.detach(mLinuxAppsHost);
             mLinuxApps = null;
+            mLinuxAppsHost = null;
         }
         // Only this instance's hook: a second instance may already have installed its own.
         if (mLinuxAppRunnerHook != null) {
@@ -9295,6 +9305,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     public void onServiceConnected(ComponentName componentName, IBinder service) {
         Logger.logDebug(LOG_TAG, "onServiceConnected");
         mTermuxService = ((TermuxService.LocalBinder) service).service;
+        // Anything the Linux app runner owed while no activity could run scripts (a desktop that
+        // ended mid-relaunch wants its window manager back) runs now that this one can.
+        if (mLinuxApps != null) mLinuxApps.onHostReady();
         restorePaneLayoutState();
         ensureWindowsForServiceSessions();
         rebuildDrawerSessions();
@@ -20830,8 +20843,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     /** Linux apps tapped in the drawer run on the display; this is what runs them. */
     private void installLinuxAppRunner() {
         if (!com.termux.BuildConfig.X11_SERVER) return;
-        mLinuxApps = new com.termux.app.x11.X11LinuxAppRunner(this,
-            new com.termux.app.x11.X11LinuxAppRunner.Host() {
+        mLinuxAppsHost = new com.termux.app.x11.X11LinuxAppRunner.Host() {
                 @Override public boolean isDisplayEnabled() { return isX11DisplayEnabled(); }
                 @Override public void turnOnDisplay() { turnOnEmbeddedDisplay(); }
                 @Override public boolean isDisplayRunning() { return isEmbeddedDisplayRunning(); }
@@ -20876,7 +20888,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                             (dialog, which) -> onYes.run())
                         .show();
                 }
-            });
+            };
+        // The process's runner, not a new one: one this activity's predecessor started things
+        // with keeps them, and this activity only takes over lending it a shell and a screen.
+        mLinuxApps = com.termux.app.x11.X11LinuxAppRunner.shared(this);
+        mLinuxApps.attach(mLinuxAppsHost);
         mLinuxAppRunnerHook = entry -> {
             if (mLinuxApps == null) return false;
             com.termux.app.x11.LinuxAppCatalog.LinuxApp app = resolveLinuxAppForLaunch(entry);
