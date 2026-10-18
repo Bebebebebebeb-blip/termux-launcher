@@ -20777,16 +20777,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     /**
-     * {@code DISPLAY} for shells started from now on: set while a display runs and the user asked
-     * for it, cleared otherwise. Nothing already running is touched, and nothing is written to
-     * disk — Termux:X11 never set it, so it stays an opt-in.
+     * {@code DISPLAY} for shells started from now on: set while a display server runs and the
+     * user asked for it, cleared otherwise. Nothing already running is touched, and nothing is
+     * written to disk — Termux:X11 never set it, so it stays an opt-in. Whether a server runs is
+     * the process's ({@link com.termux.app.x11.X11DisplayServerState}), not this activity's
+     * controller's: a relaunched activity, before or without its controller on the server, must
+     * not read as the display having stopped. Only the opt-in is this activity's to say.
      */
     private void syncDisplayEnvironment() {
-        boolean wanted = mPreferences != null && mPreferences.isX11SetDisplayEnvEnabled()
-            && isEmbeddedDisplayRunning();
-        com.termux.shared.termux.shell.command.environment.TermuxShellEnvironment
-            .setDisplayForNewSessions(wanted
-                ? com.termux.app.x11.X11DisplayHostController.displayName() : null);
+        com.termux.app.x11.X11DisplayServerState.setDisplayEnvWanted(
+            mPreferences != null && mPreferences.isX11SetDisplayEnvEnabled());
     }
 
     /**

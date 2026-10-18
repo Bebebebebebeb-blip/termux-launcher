@@ -271,6 +271,12 @@ under twenty items; past that, the oldest are re-judged first.
   display dot stays on, a new terminal session still has `DISPLAY` set. If the display still
   stops, note whether `pgrep -f termux-x11` still lists the server and whether Firefox's process
   is alive: the launcher side lets go of nothing but its own view · pong with the go-ahead.
+  Seen on pong (release 2f5596e2b): Firefox survived, but `printenv DISPLAY` in a pane opened with
+  `launcherctl pane open` after the relaunch was empty. Re-check on the build with "fix(x11): new
+  sessions' DISPLAY follows the server, not the activity": after the wallpaper change and after the
+  dark-mode toggle, a new pane prints `:0` (the opt-in on); then Stop the display and a new pane
+  prints nothing; and with the display stopped first, a relaunch neither starts it nor gives a new
+  pane `DISPLAY` · pong with the go-ahead, emulator first.
 - 2026-10-18 · same branch, "fix(x11): the Linux app runner outlives a configuration relaunch"
   · Firefox on the X11 display (from the drawer), then set a wallpaper of different colours from
   the in-app picker, again with `launcherctl wallpaper set <file>`, and once with a theme switch

@@ -43,6 +43,7 @@ public class X11DisplayReceiverTest {
 
     @After public void clearProcessState() {
         X11DisplayReceiver.takeAnnouncement();
+        X11DisplayServerState.resetForTest();
     }
 
     private static Intent announcement(@androidx.annotation.Nullable Binder binder) {

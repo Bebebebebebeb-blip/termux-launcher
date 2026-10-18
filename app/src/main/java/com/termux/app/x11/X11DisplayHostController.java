@@ -246,6 +246,7 @@ public final class X11DisplayHostController {
         clipboardSync.deactivate();
         LorieView live = view;
         if (live != null) live.connect(-1);
+        X11DisplayServerState.onServerDied();
         setRunning(false);
     }
 
