@@ -6653,6 +6653,15 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private boolean mKeyboardBandAskedThisPass;
 
     /**
+     * True while the Look editor's Frost, Opacity or Tint thumb is down and its ticks are in
+     * flight ({@code SurfaceEditorController.Host#setGlassDragPreview}). Each tick then dresses
+     * the layers already up (their tint, opacity and grain) and nothing a tick cannot afford: no
+     * backdrop re-cut or refraction rebuild, no keyboard face sampling or palette, no full window
+     * bar refresh. The release clears it and asks for the full pass, which settles all of that once.
+     */
+    private boolean mGlassDragPreview;
+
+    /**
      * The keyboard host's material for {@code state}, then the keys' legends re-chosen against the
      * faces that material draws, row by row (ChromeInk#bandFaces): measured where the host wears
      * the keyboard band's glass this pass, the theme's glass base where it does not (Solid, the
@@ -6663,6 +6672,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applyInAppKeyboardHostMaterial(state);
         TermuxInAppKeyboard keyboard = mInAppKeyboard;
         if (keyboard == null || mChrome == null) return;
+        // Mid-drag the legends keep the inks they have: re-chosen per tick, every one re-sampled
+        // the band's rows and rebuilt the palette. The release's full pass chooses them once.
+        if (mGlassDragPreview) return;
         if (!mKeyboardBandAskedThisPass) {
             keyboard.setGlassFaces(new int[0]);
             return;
@@ -6688,6 +6700,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private void rejudgeKeyboardGlassFaces() {
         TermuxInAppKeyboard keyboard = mInAppKeyboard;
         if (keyboard == null || mChrome == null || !mKeyboardBandAskedThisPass) return;
+        if (mGlassDragPreview) return;
         pushKeyboardGlassFaces(keyboard);
     }
 
@@ -7173,12 +7186,17 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         boolean usingManagedWallpaperSource = shouldUseManagedWallpaperBlurSource();
         float stripCover = dockGlassCover();
+        // Mid-drag the strip keeps the frame it shows at a moved radius, as the dock does.
         if (!mChrome.ledger().isDirty(SurfaceDirtyLedger.Backdrop.DECOR_NAV_BAR) &&
             stripCover == mNavStripGlassCover &&
-            mChrome.ledger().lastRadiusDp(SurfaceDirtyLedger.Backdrop.DECOR_NAV_BAR) == stripRadiusDp &&
+            (mGlassDragPreview
+                || mChrome.ledger().lastRadiusDp(SurfaceDirtyLedger.Backdrop.DECOR_NAV_BAR) == stripRadiusDp) &&
             mChrome.ledger().lastManagedSource(SurfaceDirtyLedger.Backdrop.DECOR_NAV_BAR) == usingManagedWallpaperSource &&
             mChrome.ledger().matchesLastRect(SurfaceDirtyLedger.Backdrop.DECOR_NAV_BAR, targetRect) &&
             backdrop.getDrawable() != null) {
+            if (mGlassDragPreview)
+                backdrop.setColorFilter(com.termux.app.chrome.GlassFilters.frost(
+                    mPreferences != null ? mPreferences.getAppBarOpacity() : 100));
             backdrop.setVisibility(View.VISIBLE);
             return;
         }
@@ -7794,12 +7812,20 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         com.termux.app.chrome.SharedFrameDrawable installed =
             com.termux.app.chrome.SharedFrameDrawable.of(backdrop.getDrawable());
         float dockCover = dockGlassCover();
+        // A Frost drag moves the radius every tick; the bakes are held, so a re-install would put
+        // up a stand-in and rebuild the refraction effect for nothing the eye gains. The frame
+        // up stays until the release's pass, which re-cuts at the radius the drag settled on.
         if (!mChrome.ledger().isDirty(SurfaceDirtyLedger.Backdrop.ACCESSORY) &&
             dockCover == mDockGlassCover &&
-            mChrome.ledger().lastRadiusDp(SurfaceDirtyLedger.Backdrop.ACCESSORY) == state.blurRadiusDp &&
+            (mGlassDragPreview
+                || mChrome.ledger().lastRadiusDp(SurfaceDirtyLedger.Backdrop.ACCESSORY) == state.blurRadiusDp) &&
             mChrome.ledger().lastManagedSource(SurfaceDirtyLedger.Backdrop.ACCESSORY) == usingManagedWallpaperSource &&
             mChrome.ledger().matchesLastRect(SurfaceDirtyLedger.Backdrop.ACCESSORY, backdropTargetRect) &&
             installed != null) {
+            // The frost filter follows Opacity live; outside a drag it is what the install set.
+            if (mGlassDragPreview)
+                backdrop.setColorFilter(com.termux.app.chrome.GlassFilters.frost(
+                    mPreferences != null ? mPreferences.getAppBarOpacity() : 100));
             backdrop.setVisibility(View.VISIBLE);
             return;
         }
@@ -10469,6 +10495,26 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * paying that once per frame was most of the editor's drag jank. The apps-per-page slider is
      * the one control whose preview really needs the row rebuilt, so a changed count still does.
      */
+    /**
+     * The Look editor's glass pass for one tick of a Frost, Opacity or Tint drag
+     * ({@link #mGlassDragPreview}): the dock's styling and one chrome apply, run now, in the
+     * frame's animation phase the editor's pass runs in, so the frame's own layout takes it.
+     * Left to the full pass the release asks for: marking the backdrops for a re-cut (the bakes
+     * are held, so a re-cut is a stand-in and a new refraction effect per tick) and the
+     * post-layout accessory render, a second whole apply for crops no tick moves.
+     */
+    private void applyGlassDragPreview() {
+        if (mChrome == null) return;
+        Trace.beginSection("Editor.glassDragTick");
+        try {
+            applySuggestionBarSurfaceStyling();
+            mChrome.requestSync(ChromeRenderer.SCOPE_APPLY_THIS_FRAME);
+            mChrome.commitNow();
+        } finally {
+            Trace.endSection();
+        }
+    }
+
     private void applySuggestionBarSurfaceStyling() {
         if (mSuggestionBarView == null || mPreferences == null) {
             return;
@@ -12077,7 +12123,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
 
         @Override public void refreshTerminalWindowBar() {
-            TermuxActivity.this.refreshTerminalWindowBar();
+            if (mGlassDragPreview) refreshTerminalWindowBarGlass();
+            else TermuxActivity.this.refreshTerminalWindowBar();
         }
 
         @Override public void applyTerminalMotionLook() {
@@ -12099,6 +12146,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
 
         @Override public void applyGlassPreview() {
+            if (mGlassDragPreview) {
+                applyGlassDragPreview();
+                return;
+            }
             // A radius the editor settled on is simply a new key in the blur cache: obtain() fills
             // it in the background without touching the radii already resident, so releasing a
             // blur slider re-blurs only the one radius that moved rather than every surface's.
@@ -12107,6 +12158,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             // rebuilds the dock's whole app row.
             applySuggestionBarSurfaceStyling();
             mChrome.requestSync(ChromeRenderer.SCOPE_APPLY_THIS_FRAME | ChromeRenderer.SCOPE_ACCESSORY_RENDER);
+        }
+
+        @Override public void setGlassDragPreview(boolean light) {
+            mGlassDragPreview = light;
         }
 
         @Override public void holdGlassFrameBakes(boolean held) {
@@ -22507,6 +22562,25 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         refreshPlaceBar();
 
+        applyTerminalWindowBarGlass(host);
+
+        bindPlaceBadge(findViewById(R.id.terminal_sessions_indicator));
+
+        java.util.List<Integer> foregroundPids = syncWindowBarItems(bar);
+        scheduleWindowLabelPoll(foregroundPids);
+        updateStatusWidgets();
+        // The tab a chip hangs from can move when the row re-lays out (a window opened, a label
+        // widened), so a live chip follows it instead of drifting off its anchor.
+        if (mRenameCoordinator != null && mRenameCoordinator.isActive())
+            mRenameCoordinator.reposition();
+    }
+
+    /**
+     * The window bar's glass, blur and style: the part of {@link #doRefreshTerminalWindowBar} a
+     * glass value moves, and all a Look editor drag's tick refreshes
+     * ({@link #refreshTerminalWindowBarGlass}).
+     */
+    private void applyTerminalWindowBarGlass(@NonNull View host) {
         // The merge rule: a bar standing on the bottom edge lands on the dock, so it wears the
         // dock's glass rather than its own. Same wash, same blur, no seam between them.
         boolean joinsDock = mStatusBarEdge == PlaceLayout.Edge.BOTTOM;
@@ -22558,16 +22632,17 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         applyStatusBarStyle(host);
         applyTerminalWindowBarBackdropInsets();
+    }
 
-        bindPlaceBadge(findViewById(R.id.terminal_sessions_indicator));
-
-        java.util.List<Integer> foregroundPids = syncWindowBarItems(bar);
-        scheduleWindowLabelPoll(foregroundPids);
-        updateStatusWidgets();
-        // The tab a chip hangs from can move when the row re-lays out (a window opened, a label
-        // widened), so a live chip follows it instead of drifting off its anchor.
-        if (mRenameCoordinator != null && mRenameCoordinator.isActive())
-            mRenameCoordinator.reposition();
+    /**
+     * {@link #refreshTerminalWindowBar} for a Frost, Opacity or Tint drag's tick: the bar's glass
+     * only. The rest of the refresh (the window chips, the clock, the place bar, the label poll)
+     * reads nothing a glass value moves; the release's full pass runs it once.
+     */
+    private void refreshTerminalWindowBarGlass() {
+        View host = findViewById(R.id.terminal_window_bar_host);
+        if (host == null || host.getVisibility() != View.VISIBLE) return;
+        applyTerminalWindowBarGlass(host);
     }
 
     /**

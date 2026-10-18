@@ -165,6 +165,13 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
          */
         default void holdGlassFrameBakes(boolean held) {}
         /**
+         * While {@code light}, the glass passes are a Frost, Opacity or Tint drag's ticks: they
+         * dress the layers already up (tint, opacity, grain) and leave what a tick cannot afford
+         * (backdrop re-cuts, the post-layout accessory render, the keyboard's face sampling and
+         * palette, the window bar's full refresh) to the full pass the release asks for.
+         */
+        default void setGlassDragPreview(boolean light) {}
+        /**
          * Keeps the unblurred wallpaper capture while the editor is open, so each re-bake a
          * release causes blurs it again instead of reading the wallpaper again.
          */
@@ -3824,6 +3831,10 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
     /** An Icon size drag wrote through the layout session; the release re-lays the place once. */
     private boolean mDockSizeHeld;
     private boolean mDirtyDeferred;
+    /** The host's glass passes are a drag's light ticks ({@link Host#setGlassDragPreview}). */
+    private boolean mGlassDragPreview;
+    /** A light tick ran this drag; the release owes the full pass it left out. */
+    private boolean mDragRanLightPass;
 
     private void beginDrag(boolean dragging) {
         mSliderDragActive = dragging;
@@ -3839,6 +3850,12 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
 
     private void endDrag() {
         mSliderDragActive = false;
+        setGlassDragPreview(false);
+        if (mDragRanLightPass) {
+            // The full pass the ticks left out, once, with the values the drag settled on.
+            mDragRanLightPass = false;
+            requestPreview(SurfaceEditorProperties.PREVIEW_SURFACES);
+        }
         if (mHeldVibrancy != NO_HELD_VIBRANCY)
             writeVibrancy(mHeldVibrancy);
         releaseFrameBakes();
@@ -3896,6 +3913,13 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         mPendingPreviewScopes = 0;
         if (scopes == 0 || prefs() == null)
             return;
+        // A Frost, Opacity or Tint tick (the drags that hold the frame bakes) moves no geometry,
+        // so it can take the light pass; any shape in the same frame takes the full one.
+        boolean light = mFrameBakesHeld && defersHeavyPasses()
+            && (scopes & (SurfaceEditorProperties.PREVIEW_GEOMETRY
+                | SurfaceEditorProperties.PREVIEW_GEOMETRY_COMMIT)) == 0;
+        setGlassDragPreview(light);
+        if (light) mDragRanLightPass = true;
         if ((scopes & (SurfaceEditorProperties.PREVIEW_GEOMETRY
                 | SurfaceEditorProperties.PREVIEW_GEOMETRY_COMMIT)) != 0)
             mHost.applyGeometryPreview(
@@ -3912,6 +3936,13 @@ public final class SurfaceEditorController implements AppearanceSurfaceControlle
         if (mOpen && !mSliderDragActive)
             positionOutline();
         syncDirty();
+    }
+
+    private void setGlassDragPreview(boolean light) {
+        if (mGlassDragPreview == light)
+            return;
+        mGlassDragPreview = light;
+        mHost.setGlassDragPreview(light);
     }
 
     /** The broad re-apply for a change of Style, a Look, or an Undo. */

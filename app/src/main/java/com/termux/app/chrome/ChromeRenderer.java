@@ -660,6 +660,17 @@ public final class ChromeRenderer {
         return mCommitPending;
     }
 
+    /**
+     * Runs a pending {@link #SCOPE_APPLY_THIS_FRAME} commit now instead of at its gate. For a
+     * caller already in the frame's animation phase (the editor's slider pass): a commit asked for
+     * there is otherwise left to the pre-draw gate, after layout, where any view the apply moves
+     * cancels the draw and the tick costs a frame. Run here, the frame's own layout picks it up.
+     * Nothing pending, nothing runs.
+     */
+    public void commitNow() {
+        commit();
+    }
+
     // ------------------------------------------------------------------ commit
 
     /**
