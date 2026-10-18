@@ -32,7 +32,6 @@ These may change or be dropped before they reach a stable release.
 
 - Settings › About & help has an Ask on Discord row, Documentation opens the website guide, and the help panel's support link goes to Discord (#58). <!-- ready -->
 - Settings › Backup & restore saves your launcher settings and config files to one file, and your downloaded AI models to a folder, and restores both on this phone or a new one (#40). <!-- stays: P1, P2 -->
-- Glass edges draw as a hairline of light over a narrow bend that meets the wallpaper without a seam, and Look › Custom has a Depth slider after the shared sliders, shown where glass edges are drawn, that tunes how thick the glass edge looks. Corners is now called Corner radius (#63, #75). <!-- stays: P1, P2 -->
 - Pressing a pinned app on a glass dock, or a glass card in a sheet, lights the glass under your finger for a moment (#75). <!-- stays: P1, P2 -->
 - Glass edges catch the wallpaper's own light instead of a white line, brightest at the top left, on every glass surface on Android 13 and up (glass plan 2026-10-16, Round 1, always on). <!-- stays: P1, P2 -->
 - Scripts and agents in a pane can place, size, inspect, wait on and close panes and windows through launcherctl: `pane open --from --direction --size`, `pane resize`, `pane wait`, `window list|focus|close`, and `launcherctl <group> --help` (#66). <!-- ready -->
