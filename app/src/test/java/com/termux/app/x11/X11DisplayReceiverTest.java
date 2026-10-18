@@ -6,6 +6,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.app.Application;
 import android.content.ComponentName;
@@ -16,6 +17,7 @@ import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Looper;
 
 import androidx.test.core.app.ApplicationProvider;
 
@@ -113,6 +115,63 @@ public class X11DisplayReceiverTest {
         assertTrue("the new activity's controller is on the server that kept running",
             second.isRunning());
         second.destroy();
+    }
+
+    @Test public void aRelaunchedActivitysListenerHearsTheDisplayIsRunning() {
+        X11DisplayHostController first =
+            new X11DisplayHostController(context, new LorieHost.Callbacks() { });
+        new X11DisplayReceiver().onReceive(context, announcement(new Binder()));
+        first.setListener(null);
+        first.destroy();
+
+        // The new activity's controller took the kept announcement in its constructor, before
+        // the activity could listen: the page must still hear that the display runs, or it stays
+        // on its empty state with Firefox hidden behind it.
+        X11DisplayHostController second =
+            new X11DisplayHostController(context, new LorieHost.Callbacks() { });
+        java.util.List<Boolean> heard = new java.util.ArrayList<>();
+        second.setListener(heard::add);
+        assertTrue("posted, so the activity finishes building first", heard.isEmpty());
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals(java.util.Collections.singletonList(true), heard);
+        second.setListener(null);
+        second.destroy();
+    }
+
+    @Test public void aListenerWithNoServerHearsNothing() {
+        // A display that was stopped before the relaunch is not brought back to life.
+        X11DisplayHostController controller =
+            new X11DisplayHostController(context, new LorieHost.Callbacks() { });
+        java.util.List<Boolean> heard = new java.util.ArrayList<>();
+        controller.setListener(heard::add);
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertFalse(controller.isRunning());
+        assertTrue(heard.isEmpty());
+        controller.destroy();
+    }
+
+    @Test public void aListenerReplacedBeforeTheReplayHearsNothing() {
+        X11DisplayHostController controller =
+            new X11DisplayHostController(context, new LorieHost.Callbacks() { });
+        new X11DisplayReceiver().onReceive(context, announcement(new Binder()));
+        java.util.List<Boolean> gone = new java.util.ArrayList<>();
+        java.util.List<Boolean> current = new java.util.ArrayList<>();
+        controller.setListener(gone::add);
+        controller.setListener(current::add);
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertTrue("the replaced listener is not called", gone.isEmpty());
+        assertEquals(java.util.Collections.singletonList(true), current);
+
+        // A controller let go of before its replay runs tells nobody anything.
+        java.util.List<Boolean> late = new java.util.ArrayList<>();
+        controller.setListener(late::add);
+        controller.setListener(null);
+        controller.destroy();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertTrue(late.isEmpty());
     }
 
     @Test public void aDestroyedControllerNoLongerReceives() {
