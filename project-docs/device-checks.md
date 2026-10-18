@@ -281,9 +281,9 @@ under twenty items; past that, the oldest are re-judged first.
   reaching it). Also: an Xfce desktop running, relaunch, tap Xfce again (only shows it), tap
   another desktop (asks first) · pong with the go-ahead, release build.
 - 2026-10-18 · same branch, "fix(x11): a relaunched activity's Display page hears its display
-  runs" · Firefox on the X11 display, resting on the Display place: set a wallpaper of different
-  colours from the in-app picker (opened from the Display page's corner tab), then once with
-  `launcherctl wallpaper set <file>`, once with dark mode toggled. After each the Display place
+  runs" · (The in-app picker case passed on pong 2026-10-18 at 2f5596e2b.) Firefox on the X11
+  display, resting on the Display place: `launcherctl wallpaper set <file>` with a picture of
+  different colours, then once with dark mode toggled. After each the Display place
   is still on the wall and draws Firefox (no "Start display" empty state), answers touch, the
   place bar's display dot is on, and the window chips list Firefox. Also once relaunched from the
   terminal place, then swipe to Display: same. Then stop the display, relaunch: the page shows
