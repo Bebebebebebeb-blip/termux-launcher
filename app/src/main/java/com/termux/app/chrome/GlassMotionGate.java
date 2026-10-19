@@ -7,15 +7,14 @@ import android.os.PowerManager;
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
-import com.termux.app.AnimationSpeed;
 import com.termux.app.ReducedMotion;
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 
 /**
  * The {@link GlassMotionLight.Gate} every glass pane asks as a motion or a press starts: the
  * Motion light setting, and the rule every Fancier Glass motion follows (the phone's animations
- * on, no reduced motion, no lazy mode, no battery saver), then Animation speed's multiplier, whose
- * Off is no light at all. Fancier Glass itself is the caller's: only a surface drawing through the
+ * on, no reduced motion, no lazy mode, no battery saver). pre has no Animation speed setting, so
+ * the light runs at 1x. Fancier Glass itself is the caller's: only a surface drawing through the
  * program has a light to ask about.
  */
 public final class GlassMotionGate {
@@ -33,7 +32,7 @@ public final class GlassMotionGate {
                 prefs == null || prefs.isFancierGlassMotionLightEnabled(),
                 prefs != null && prefs.isLazyModeEnabled(),
                 power != null && power.isPowerSaveMode(),
-                AnimationSpeed.multiplier(app));
+                1f);
         };
     }
 
