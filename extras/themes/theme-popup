@@ -1,0 +1,4 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# Открывается панелью по биндy: выбрать тему и закрыть эту панель
+theme pick
+launcherctl pane close "$TERMUX_LAUNCHER_PANE"

@@ -241,6 +241,9 @@ public final class KeybindHintModel {
         {"p", "palette"},
     };
 
+    /** How many of the user's own labelled binds the strip appends after the curated chips. */
+    private static final int MAX_CUSTOM_CHIPS = 3;
+
     /** One strip chip: the caps it prints, its label, and the token whose colour it borrows. */
     public static final class StripChip {
         @NonNull public final String caps;
@@ -282,6 +285,28 @@ public final class KeybindHintModel {
             }
             if (caps.length() == 0) continue;
             chips.add(new StripChip(caps.toString(), spec[1], colorToken, tokens));
+        }
+        if (!shift) {
+            // The curated list names only built-in actions; a bind the user labelled themselves
+            // (map --label "Theme picker" ...) would never reach the strip. Append a few of them.
+            java.util.Set<String> used = new java.util.HashSet<>();
+            for (StripChip chip : chips) used.addAll(chip.tokens);
+            java.util.TreeMap<String, String> custom = new java.util.TreeMap<>();
+            for (Map.Entry<String, TerminalKeyBindingResolver.Hint> entry : hints.entrySet()) {
+                String token = entry.getKey();
+                String label = entry.getValue().label;
+                if (label == null || label.isEmpty() || used.contains(token)) continue;
+                if (isRunToken(token)) continue;
+                custom.put(token, label);
+            }
+            int extra = 0;
+            for (Map.Entry<String, String> entry : custom.entrySet()) {
+                if (extra++ >= MAX_CUSTOM_CHIPS) break;
+                List<String> tokens = new ArrayList<>(1);
+                tokens.add(entry.getKey());
+                chips.add(new StripChip(capText(entry.getKey(), false), entry.getValue(),
+                    entry.getKey(), tokens));
+            }
         }
         return Collections.unmodifiableList(chips);
     }
