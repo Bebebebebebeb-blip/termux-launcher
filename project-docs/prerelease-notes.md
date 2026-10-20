@@ -13,7 +13,7 @@ Latest stable: v1.1.0.
 ## New in this drop
 <!-- Only what this drop adds over the one before it; replace the whole list at every drop. -->
 
-- Glass panes react as they move: when a pane or a page tips, the picture through it shifts and the light along its edge follows, and a press no longer ripples the glass; at rest the glass looks as before (Android 13 and up).
+- Glass panes react as they move: when a pane or a page tips, the picture through it shifts and the light along its edge follows; at rest the glass looks as before (Android 13 and up).
 
 ## Experimental
 <!-- What is on pre and not yet in a stable, one line each; name the pull request or branch it came from,
@@ -39,7 +39,7 @@ These may change or be dropped before they reach a stable release.
 - Settings › Keyboard › Adaptive touch accuracy learns where your taps land, the space bar included, and pauses itself if typing gets less accurate. <!-- stays: P1, P2 (pass bar on pong, three emulator checks) -->
 - Look › Custom's glass controls work from any Look: Frost (clear to frosted), Tint with Hue, Vibrancy, Edge and the keyboard's Keys, with Custom remembering your setup; the wallpaper can change under the editor and the X11 display (#82). <!-- stays: P1, P2 -->
 - The welcome message in a new terminal is a rounded card in your wallpaper's colours, with Apps, Packages and Setup sections that fit the pane's width. <!-- stays: P1, P2 -->
-- Glass panes react as they move: when a pane or a page tips, the picture through it shifts and the light along its edge follows, and a press no longer ripples the glass; at rest the glass looks as before (Android 13 and up). <!-- stays: P1, P2, P7 (no off switch: Living glass is always on, its setting hidden) -->
+- Glass panes react as they move: when a pane or a page tips, the picture through it shifts and the light along its edge follows; at rest the glass looks as before (Android 13 and up). <!-- stays: P1, P2, P7 (no off switch: Living glass is always on, its setting hidden) -->
 
 ## Editions
 <!-- Only what is exclusive to the Nix or VAJ build of this drop; say so when nothing is. -->
