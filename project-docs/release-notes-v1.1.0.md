@@ -13,6 +13,10 @@ Scripts and agents can arrange your panes and windows, pictures travel through t
 - Scripts and agents in a pane can place, size, inspect, wait on and close panes and windows through launcherctl: `pane open --from --direction --size`, `pane resize`, `pane wait`, `window list|focus|close`, and `launcherctl <group> --help` (#66).
 - Settings › About & help has an Ask on Discord row, Documentation opens the website guide, and the help panel's support link goes to Discord (#58).
 
+## Changes
+
+- A new install starts with the current tool store: tlstore's own fish prompt in place of Oh My Posh, the newer herdr and kitten, and the agent skills installed whole.
+
 ## Fixes
 
 - A quick flick in a full-screen program that follows the mouse, such as opencode, scrolls it without also opening the keyboard, in landscape and portrait.
