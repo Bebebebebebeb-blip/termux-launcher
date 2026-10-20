@@ -348,6 +348,29 @@ under twenty items; past that, the oldest are re-judged first.
   everything settles, `dumpsys gfxinfo` over 30 s shows no extra frames against the build before
   (the slab stops asking for frames once its tilt is flat or has held still six draws) · emulator.
 
+### Glass perception (10-20)
+- 2026-10-20 · feat(glass) glass perception · The shader still compiles on the device (no
+  "Glass refraction shader failed" in logcat; panes, dock, bars and the keyboard host still
+  refract) · emulator, then pong.
+- 2026-10-20 · feat(glass) glass perception · Rest look, Fancier Glass on, Clear and Mist: every
+  glass outline now has a sharp glint at its top-left corner (brighter and narrower than before),
+  the top edge noticeably less lit than before, a faint glint at the bottom-right corner, and a
+  slightly darker outline elsewhere. Nothing else at rest differs from the build before
+  (screenshot both, compare away from the outline); the dock and the bars change the same way ·
+  emulator.
+- 2026-10-20 · feat(glass) glass perception · Living glass on, a wall page dragged and held at the
+  planks' 18°: the top-left glint slides round its corner toward the edge rising toward you and
+  onto it, and back as the page lies flat; the bottom-right one moves with it. A finger on a
+  terminal pane (1.1°) moves the glint by a hair. A chip-tap window switch moves it a little
+  toward the edge that leads. The glint never moves while the pane is still, and the settled glass
+  matches the pre-drag screenshot pixel for pixel. Screenrecord, frames at a quarter, half and
+  landing · emulator (AGSL needs API 33+).
+- 2026-10-20 · feat(glass) glass perception · The same 18° hold: the face's picture now swims
+  less as a whole (about 7 dp, was 10) and is visibly larger toward the near edge and smaller
+  toward the far one; no fold, mirror strip or tear anywhere, small panes and corners included.
+  On Clear, while a pane moves, its rim's picture is sharper than at rest and settles back to the
+  rest look; the text area of the pane never sharpens · emulator.
+
 
 ### Living glass (10-19)
 - 2026-10-19 · feat(glass) living glass · Taste on pong, on a dark and on a pale wallpaper, under
@@ -385,6 +408,21 @@ under twenty items; past that, the oldest are re-judged first.
 - 2026-10-20 · fix(terminal) a flick is a scroll, not also a tap · On pong with opencode running,
   in landscape and portrait: repeated short and long flicks scroll it and never raise the
   keyboard; a still tap still raises it; a slow drag under a row still clicks · pong, by hand.
+
+### Glass perception (10-20)
+- 2026-10-20 · feat(glass) glass perception · Taste on pong, dark and pale wallpaper, Clear and
+  Mist: does a page drag (18°), a held border (6°), a press on a terminal pane (about 1°) and a
+  window switch now read as glass without looking for it: the glint travelling round the corner
+  with the tip, the picture bending rather than sliding? And at rest: is the narrower, brighter
+  top-left glint, the dimmer top edge, the faint bottom-right glint and the darker outline still
+  the glass you want (dock and bars included)? Knobs in GlassRefraction: `Look.KEY_EXPONENT`/
+  `KEY_PEAK` (glint), `Look.COUNTER`, `Look.EDGE_SHADE`, `KEY_LIGHT_RISE` (how far the glint
+  travels), `TILT_MAG`/`TILT_MAG_MAX_DP` (gradient), `TILT_SHIFT_DP`/`TILT_SOFT` (shift),
+  `LIVE_CLARITY`/`LIVE_CLARITY_REACH` (live rim) · pong, by hand (ask first).
+- 2026-10-20 · feat(glass) glass perception · Frame time of a page drag held and released and of
+  a seam fling, Living glass on against off (`scripts/perf-frametime.sh`): two more `pow` per
+  pixel within 10 dp of an outline at rest, no new samples anywhere; report any p90 worse than
+  the build before by more than the noise · pong, by hand (ask first).
 
 - 2026-10-17 · commit "feat(motd): a rounded welcome card in the wallpaper's colours" · On a fresh
   session the card reads well over a light wallpaper as well as a dark one, and tapping "Tap to
