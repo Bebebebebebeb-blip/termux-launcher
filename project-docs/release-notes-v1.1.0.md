@@ -21,6 +21,7 @@ Scripts and agents can arrange your panes and windows, pictures travel through t
 ## Fixes
 
 - A quick flick in a full-screen program that follows the mouse, such as opencode, scrolls it without also opening the keyboard, in landscape and portrait.
+- Thin lines no longer flash between rows of coloured backgrounds while you scroll, in full-screen programs such as opencode and in the transcript.
 
 ## Still in the pre-release channel
 
