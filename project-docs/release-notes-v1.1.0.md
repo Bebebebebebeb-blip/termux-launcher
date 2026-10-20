@@ -7,6 +7,7 @@ Scripts and agents can arrange your panes and windows, pictures travel through t
 ### Terminal
 
 - Pictures travel through the terminal clipboard: programs that speak kitty's clipboard protocol (OSC 5522) can read a picture from Android's clipboard and copy one to it, pasting a picture into a shell or an agent pastes it as a file path under `$PREFIX/tmp/clipboard`, and pictures inserted from the keyboard land the same way (#61).
+- A screenshot you just took can be pasted from the keyboard's paste key, which shows a photo while it or a copied picture is waiting; plain paste (paste with a modifier) keeps the clipboard. Screenshots need the storage permission (Settings › Permissions & services › Files and media, or `termux-setup-storage`).
 
 ### Launcher
 
@@ -28,7 +29,6 @@ These are in the pre-release channel and not in this release; installing v1.1.0 
 - Settings › Backup & restore saves your launcher settings and config files to one file, and your downloaded AI models to a folder, and restores both on this phone or a new one (#40).
 - Pressing a pinned app on a glass dock, or a glass card in a sheet, lights the glass under your finger for a moment (#75).
 - Glass edges catch the wallpaper's own light instead of a white line, brightest at the top left, on every glass surface on Android 13 and up (glass plan 2026-10-16, Round 1, always on).
-- A screenshot you just took can be pasted from the keyboard's paste key, which shows a photo while it or a copied picture is waiting; plain paste (paste with a modifier) keeps the clipboard. Screenshots need the storage permission (Settings › Permissions & services › Files and media, or `termux-setup-storage`).
 - Terminal programs that ask for touch events receive your taps, long presses and swipes.
 - Settings › Keyboard › Layouts lets you edit, reset and create keyboard layouts, each row sliding its buttons open beneath it.
 - Pinned app icons go bigger: the Icon size slider reaches further on both dock styles, and icon packs draw as big as stock icons.
