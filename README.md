@@ -99,14 +99,14 @@ The built-in terminal keyboard is enabled on fresh installs; an external keyboar
 
 ### Quick start script
 
-`tlstore`, the launcher's own tool store, installs my personal shell setup (fish, Oh My Posh with wallpaper Material colors, zoxide, eza and a couple of fish plugins), a Neovim colour scheme that follows your wallpaper, the binaries — sigye, the animated-logo fastfetch, kitten — and Claude Code. A config file of yours is never replaced without showing you the change and asking first, and whatever it does replace gets a timestamped `.bak`. It's already on your phone — no download needed:
+`tlstore`, the launcher's own tool store, is already on your phone. The first line installs the fish shell with the store's own prompt (Pure's two-line layout with Nerd Font icons, in your wallpaper's colours), eza, zoxide and two fish plugins; the second opens a picker for everything else in the store (dawn, fastfetch, btop, terminal-browser, herdr, the agent skills, Claude Code, Codex, opencode, sigye, kitten). A config file of yours is never replaced without showing you the change and asking first, and whatever it does replace gets a timestamped `.bak`. The wallpaper-matching Neovim colour scheme is not a store item: it lives under **Settings › Appearance › Tools that follow the terminal colours**.
 
 ```sh
 tlstore shell
 tlstore install
 ```
 
-The first line installs the shell setup in one go; the second opens a picker for everything else, including Claude Code. See the [tlstore guide](docs/en/Tlstore.md) for the full command list.
+See the [tlstore guide](docs/en/Tlstore.md) for the full command list.
 
 ## Documentation
 
