@@ -194,3 +194,14 @@ Run from a shell inside the launcher, with "Let programs and agents control pane
 10. **terminal-browser** (tlstore build with the launcher adapter): from an agent's shell,
    `terminal-browser open --split right <url>` opens the browser in a pane beside it; on a launcher
    without this branch, it opens wherever the layout puts a new pane.
+
+## Flick on a mouse-tracking TUI (fix/landscape-scroll-keyboard, 2026-10-20)
+1. **Agent, emulator.** fix(terminal) a flick is a scroll, not also a tap · Landscape, a
+   mouse-tracking program (`printf '\033[?1049h\033[?1000h\033[?1006h'; cat`): a flick of under a
+   row (29 px drag, then a fling) logged onScroll, onFling, onUp with the scroll delivered, sent only
+   wheel reports (`^[[<65;61;9M` x7), no click, and the keyboard stayed down · emulator.
+   (`adb shell input swipe` under ~60 ms can arrive with no move at all, which is a tap: don't read
+   that as the bug.)
+2. **Developer, pong.** fix(terminal) a flick is a scroll, not also a tap · With opencode running, in
+   landscape and portrait: repeated short and long flicks scroll it and never raise the keyboard; a
+   still tap still raises it; a slow drag under a row still clicks · pong, by hand.
