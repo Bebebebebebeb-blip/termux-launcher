@@ -82,15 +82,11 @@ The models run in the launcher's own runtime, on Google's [LiteRT-LM](https://gi
 
 Every release ships the same launcher built from the same source; the editions differ only in Android package identity and the package ecosystem they use.
 
-<p align="center">
-  <a href="#updates-with-obtainium"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="60"></a>
-</p>
-
 | | Termux edition | Nix edition | VAJ demo edition |
 |---|---|---|---|
 | Package name | `com.termux` | `com.termux.launcher.nix` | `io.vaj.tl` |
 | Release tag | `vX.Y.Z` | `nix-vX.Y.Z` | `vaj-vX.Y.Z` |
-| Obtainium | [stable][obt-termux] · [pre-release][obt-termux-pre] | [stable][obt-nix] · [pre-release][obt-nix-pre] | [stable][obt-vaj] · [pre-release][obt-vaj-pre] |
+| Obtainium | [<img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="44">][obt-termux]<br>[pre-release][obt-termux-pre] | [<img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="44">][obt-nix]<br>[pre-release][obt-nix-pre] | [<img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="44">][obt-vaj]<br>[pre-release][obt-vaj-pre] |
 | Alongside official Termux? | ❌ No: same package name, replaces it | ✅ Yes, installs side by side | ✅ Yes, installs side by side |
 | Package manager | `pkg` / APT | [Nix](https://nixos.org) ([guide](docs/en/Nix_Package_Management.md)) | `pkg` / APT |
 | Package repository | official Termux repos | official `nixpkgs` binary cache | small VAJ APT repo (`https://repo.pathayam.xyz`) |
