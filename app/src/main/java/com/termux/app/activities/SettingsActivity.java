@@ -960,6 +960,8 @@ public class SettingsActivity extends AppCompatActivity implements PreferenceFra
                                                        @Nullable String page) {
             for (int i = 0; i < group.getPreferenceCount(); i++) {
                 Preference child = group.getPreference(i);
+                // A preference hidden in the XML is not offered, so search must not find it either.
+                if (!child.isVisible()) continue;
                 CharSequence title = child.getTitle();
                 CharSequence summary = child.getSummary();
                 String titleText = title == null ? "" : title.toString();
