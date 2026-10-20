@@ -302,7 +302,20 @@ under twenty items; past that, the oldest are re-judged first.
   editor reopens where it was and the widgets come back. Repeat on Android 12 (API 31) if an image
   is at hand · emulator.
 
+### Flick on a mouse-tracking TUI (10-20)
+- 2026-10-20 · fix(terminal) a flick is a scroll, not also a tap · Emulator, landscape, a
+  mouse-tracking program (`printf '\033[?1049h\033[?1000h\033[?1006h'; cat`): a flick of under a
+  row (29 px drag, then a fling) logged onScroll, onFling, onUp with the scroll delivered, sent
+  only wheel reports (`^[[<65;61;9M` x7), no click, and the keyboard stayed down · emulator.
+  (`adb shell input swipe` under ~60 ms can arrive with no move at all, which is a tap: don't
+  read that as the bug.)
+
 ## Developer
+### Flick on a mouse-tracking TUI (10-20)
+- 2026-10-20 · fix(terminal) a flick is a scroll, not also a tap · On pong with opencode running,
+  in landscape and portrait: repeated short and long flicks scroll it and never raise the
+  keyboard; a still tap still raises it; a slow drag under a row still clicks · pong, by hand.
+
 - 2026-10-17 · commit "feat(motd): a rounded welcome card in the wallpaper's colours" · On a fresh
   session the card reads well over a light wallpaper as well as a dark one, and tapping "Tap to
   read the docs" opens the guide · pong, release build.
