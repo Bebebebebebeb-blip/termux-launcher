@@ -176,10 +176,9 @@ Seen there, not blocking: `pane open` answers the caller's pre-split columns and
 `window open` typed input reached the Sessions button rather than the new terminal (adb input).
 terminal-browser `run --split right <url>` opened beside the caller on pong (developer, 2026-10-20).
 
-## Pictures through the clipboard (#61)
-1. **Developer, pong.** Copy a picture to Android's clipboard (gallery or files app), paste it into a
-   shell with the keyboard's paste: a file path under `$PREFIX/tmp/clipboard` appears; plain text
-   paste still pastes text · pong, by hand (no gallery on the emulator).
+## Pictures through the clipboard (#61) and screenshot paste
+Passed on pong on the 1.1.0 candidate (developer, 2026-10-20): the paste key pastes the latest
+screenshot as a file path.
 
 ## Flick on a mouse-tracking TUI (fix/landscape-scroll-keyboard, 2026-10-20)
 Agent check passed again on the 1.1.0 candidate (release build, emulator, 2026-10-20).
