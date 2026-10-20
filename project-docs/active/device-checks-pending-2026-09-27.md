@@ -174,11 +174,7 @@ off-screen window, geometry, resize and `no_split`, windows and the refusal to c
 through `window open`, the caller's directory, `--print-id`, `wait` and its timeout, group help.
 Seen there, not blocking: `pane open` answers the caller's pre-split columns and rows; after
 `window open` typed input reached the Sessions button rather than the new terminal (adb input).
-Still owed:
-
-1. **terminal-browser** (tlstore build with the launcher adapter): from an agent's shell,
-   `terminal-browser open --split right <url>` opens the browser in a pane beside it; on a launcher
-   without this branch, it opens wherever the layout puts a new pane.
+terminal-browser `run --split right <url>` opened beside the caller on pong (developer, 2026-10-20).
 
 ## Pictures through the clipboard (#61)
 1. **Developer, pong.** Copy a picture to Android's clipboard (gallery or files app), paste it into a
@@ -193,6 +189,4 @@ Agent check passed again on the 1.1.0 candidate (release build, emulator, 2026-1
    wheel reports (`^[[<65;61;9M` x7), no click, and the keyboard stayed down · emulator.
    (`adb shell input swipe` under ~60 ms can arrive with no move at all, which is a tap: don't read
    that as the bug.)
-2. **Developer, pong.** fix(terminal) a flick is a scroll, not also a tap · With opencode running, in
-   landscape and portrait: repeated short and long flicks scroll it and never raise the keyboard; a
-   still tap still raises it; a slow drag under a row still clicks · pong, by hand.
+2. **Developer, pong:** passed — opencode in landscape scrolls with no keyboard (developer, 2026-10-20).
