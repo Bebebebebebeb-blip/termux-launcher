@@ -14,6 +14,7 @@ Latest stable: v1.1.0.
 <!-- Only what this drop adds over the one before it; replace the whole list at every drop. -->
 
 - Glass panes react as they move: when a pane or a page tips, the picture through it shifts and the light along its edge follows; at rest the glass looks as before (Android 13 and up).
+- Another app with the RUN_COMMAND permission can no longer write files into your home or prefix when allow-external-apps is off (upstream termux-app security fix 3b66f879).
 
 ## Experimental
 <!-- What is on pre and not yet in a stable, one line each; name the pull request or branch it came from,
