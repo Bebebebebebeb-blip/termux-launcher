@@ -1,0 +1,76 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# theme: переключение готовых тем (обои + цвета лаунчера) из папки ~/themes
+#   theme          выбор через yazi (Enter на картинке ставит её)
+#   theme next     следующая по кругу (удобно вешать на бинд)
+#   theme random   случайная
+#   theme fzf      выбор через fzf вместо yazi
+#   theme blocks   fzf с блочным превью
+DIR="${THEMES_DIR:-$HOME/themes}"
+STATE="$HOME/.cache/theme-current"
+
+mapfile -t FILES < <(find "$DIR" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) 2>/dev/null | sort)
+if [ ${#FILES[@]} -eq 0 ]; then
+  echo "Положи картинки-темы в $DIR"
+  exit 1
+fi
+
+apply() {
+  launcherctl wallpaper set "$1" || exit 1
+  mkdir -p "$(dirname "$STATE")"
+  printf '%s\n' "$1" > "$STATE"
+  echo "Тема: $(basename "$1")"
+}
+
+case "${1:-pick}" in
+  next)
+    cur=$(cat "$STATE" 2>/dev/null); idx=-1
+    for i in "${!FILES[@]}"; do [ "${FILES[$i]}" = "$cur" ] && idx=$i; done
+    apply "${FILES[$(( (idx + 1) % ${#FILES[@]} ))]}"
+    ;;
+  random)
+    apply "${FILES[RANDOM % ${#FILES[@]}]}"
+    ;;
+  blocks)
+    THEME_PREVIEW=blocks exec "$0" fzfpick
+    ;;
+  fzf)
+    exec "$0" fzfpick
+    ;;
+  pick)
+    if command -v yazi >/dev/null; then
+      tmp=$(mktemp)
+      yazi --chooser-file="$tmp" "$DIR"
+      f=$(head -n1 "$tmp"); rm -f "$tmp"
+      [ -n "$f" ] && apply "$f"
+    else
+      exec "$0" fzfpick
+    fi
+    ;;
+  fzfpick)
+    # Превью берём из маленьких копий: тяжёлая картинка не успевает передаться,
+    # пока курсор уже ушёл дальше, и терминал портится
+    TH="$HOME/.cache/theme-thumbs"; mkdir -p "$TH"
+    for img in "${FILES[@]}"; do
+      t="$TH/$(basename "$img").png"
+      [ "$t" -nt "$img" ] || ffmpeg -loglevel error -y -i "$img" -frames:v 1 -vf "scale='min(640,iw)':-2" "$t" </dev/null
+    done
+    # fzf запускает превью через $SHELL; fish тянул бы за собой fastfetch из config.fish
+    export SHELL="$(command -v sh)"
+    OPTS=(--delimiter=/ --with-nth=-1 --preview-window=right:65%)
+    if [ "${THEME_PREVIEW:-kitty}" = kitty ] && command -v kitten >/dev/null; then
+      PV='kitten icat --clear --transfer-mode=stream --stdin=no --place="${FZF_PREVIEW_COLUMNS}x${FZF_PREVIEW_LINES}@0x0" "$HOME/.cache/theme-thumbs/$(basename {}).png"'
+    elif command -v timg >/dev/null; then
+      PV='timg -pq -g "${FZF_PREVIEW_COLUMNS}x${FZF_PREVIEW_LINES}" "$HOME/.cache/theme-thumbs/$(basename {}).png"'
+    fi
+    if [ -n "$PV" ]; then
+      f=$(printf '%s\n' "${FILES[@]}" | fzf "${OPTS[@]}" --preview "$PV")
+    else
+      f=$(printf '%s\n' "${FILES[@]}" | fzf --delimiter=/ --with-nth=-1)
+    fi
+    printf '\033_Ga=d,d=A\033\\' > /dev/tty 2>/dev/null
+    [ -n "$f" ] && apply "$f"
+    ;;
+  *)
+    echo "theme [pick|next|random]"; exit 1
+    ;;
+esac

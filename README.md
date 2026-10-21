@@ -1,3 +1,13 @@
+> **Personal fork of [PickleHik3/termux-launcher](https://github.com/PickleHik3/termux-launcher).**
+> The same launcher, with the author's own ideas on top.
+>
+> What differs from upstream:
+> - `pane.open` accepts `float=true` and opens the pane as a floating window.
+> - Binds with a user `--label` show up in the compact Ctrl+Alt hint strip.
+> - [`extras/themes`](extras/themes): a wallpaper theme switcher on Ctrl+Alt+T.
+>
+> Planned: 16:9 wallpapers, time-of-day wallpaper switching, Russian localization.
+
 <p align="center">
   <img src="screenshots/banner.webp" alt="Termux Launcher showing seven authentic Android screens: terminal home, split panes, widgets, voice dictation, Dawn notes, tlstore, and the app drawer" width="100%">
 </p>

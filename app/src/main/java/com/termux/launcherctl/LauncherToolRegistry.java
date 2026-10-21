@@ -675,6 +675,7 @@ public final class LauncherToolRegistry {
                 .withString("cwd", "Working directory; defaults to the user's home.", false)
                 .withString("title", "Session name shown on the pane.", false)
                 .withBoolean("focus", "Give the new pane keyboard focus.", false, true)
+                .withBoolean("float", "Open the pane as a floating window instead of a tile.", false, false)
                 .withString("tag", "Free-form label identifying the opener (agent name, task id).", false)
                 .build(),
             ToolRisk.MEDIUM, false, ToolExecutor.TERMINAL);
