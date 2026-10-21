@@ -35,6 +35,10 @@ Glass that catches the wallpaper's light and moves with your hand, backup and re
 - Tap the text on the dictation card to fix a word with the keyboard before you insert or copy it, and the words the cleanup fixed stay highlighted while you edit.
 - On-device models load with less free memory than before, and one that would fill the phone's memory is stopped instead of freezing it.
 
+## Changes
+
+- The window bar's working ring breathes instead of turning, so a busy window no longer keeps the phone drawing and warm; marks tint the whole chip.
+
 ## Fixes
 
 - A widget no longer crashes the launcher after a wallpaper, theme or colour change (#83).
