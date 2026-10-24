@@ -449,6 +449,7 @@ public final class LauncherToolRegistry {
     public static final String TOOL_TERMINAL_JUMP_PREVIOUS_PROMPT = "terminal.jump_previous_prompt";
     public static final String TOOL_TERMINAL_JUMP_NEXT_PROMPT = "terminal.jump_next_prompt";
     public static final String TOOL_APPEARANCE_SET_WALLPAPER = "appearance.set_wallpaper";
+    public static final String TOOL_THEME_PICK = "theme.pick";
     public static final String TOOL_APPEARANCE_TOGGLE_WALLPAPER = "appearance.toggle_wallpaper";
     public static final String TOOL_APPEARANCE_TOGGLE_CURSOR_TRAIL = "appearance.toggle_cursor_trail";
     public static final String TOOL_APPEARANCE_SURFACE_EDITOR = "appearance.surface_editor";
@@ -1161,6 +1162,11 @@ public final class LauncherToolRegistry {
             schemaEmpty(),
             ToolRisk.LOW, false, ToolExecutor.TERMINAL,
             CATEGORY_APPEARANCE, R.string.tool_appearance_set_wallpaper, R.string.tool_desc_appearance_set_wallpaper, null);
+        addUi(map, TOOL_THEME_PICK,
+            "Open the theme picker: choose a saved theme and apply it.",
+            schemaEmpty(),
+            ToolRisk.LOW, false, ToolExecutor.TERMINAL,
+            CATEGORY_APPEARANCE, R.string.tool_theme_pick, R.string.tool_desc_theme_pick, null);
         // Persists an appearance change, so it is confirmed for remote callers.
         addUi(map, TOOL_APPEARANCE_TOGGLE_WALLPAPER,
             "Turn the terminal background wallpaper on or off.",

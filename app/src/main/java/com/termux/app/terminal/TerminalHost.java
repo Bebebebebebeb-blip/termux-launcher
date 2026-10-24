@@ -510,6 +510,8 @@ public interface TerminalHost extends SoftKeyboardPolicy {
 
     void openWallpaperPicker();
 
+    default void openThemePicker() {}
+
     boolean toggleWallpaperMode();
 
     boolean isWallpaperModeEnabled();

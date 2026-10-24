@@ -2166,6 +2166,8 @@
     <string name="tool_pane_rename">Rename pane</string>
     <string name="tool_session_rename_at_index">Rename session by index</string>
     <string name="tool_terminal_reset">Reset terminal</string>
+    <string name="tool_theme_pick">Themes</string>
+    <string name="tool_desc_theme_pick">Open the theme picker and apply a saved theme.</string>
     <string name="tool_appearance_set_wallpaper">Set wallpaper</string>
     <string name="tool_appearance_toggle_wallpaper">Toggle wallpaper</string>
     <string name="tool_appearance_toggle_cursor_trail">Toggle cursor trail</string>

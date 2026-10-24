@@ -45,7 +45,7 @@ import java.util.List;
  * <p>The server's own token check and per-route rate limit have already run by the time
  * {@link #handle} is called; this class only maps a request to a result.
  */
-final class DeviceControlRoutes {
+public final class DeviceControlRoutes {
 
     /** Default of {@code termux-vibrate}. */
     static final long DEFAULT_VIBRATE_MS = 1000L;
@@ -300,6 +300,20 @@ final class DeviceControlRoutes {
     }
 
     // ---------------------------------------------------------------------------------- wallpaper
+
+    /** The in-app twin of {@code launcherctl wallpaper set FILE}: the theme picker calls this. */
+    public static boolean applyWallpaperFile(@NonNull Context context, @NonNull String path) {
+        try {
+            JSONObject arguments = new JSONObject();
+            arguments.put("path", path);
+            arguments.put("target", "home");
+            JSONObject result = wallpaperSet(context, arguments);
+            return result != null && !result.has("error") && result.optBoolean("ok", true);
+        } catch (JSONException e) {
+            return false;
+        }
+    }
+
 
     /** A picture bigger than this is not a wallpaper, and the system re-encodes it in memory. */
     static final long MAX_WALLPAPER_BYTES = 48L * 1024 * 1024;

@@ -189,6 +189,7 @@ public final class TerminalActionDispatcher {
     public static final String TOOL_KEYBOARD_TOGGLE_ENABLED = "keyboard.toggle_enabled";
     public static final String TOOL_VOICE_DICTATE = "voice.dictate";
     public static final String TOOL_APPEARANCE_SET_WALLPAPER = "appearance.set_wallpaper";
+    public static final String TOOL_THEME_PICK = "theme.pick";
     public static final String TOOL_APPEARANCE_TOGGLE_WALLPAPER = "appearance.toggle_wallpaper";
     public static final String TOOL_TERMINAL_JUMP_PREVIOUS_PROMPT = "terminal.jump_previous_prompt";
     public static final String TOOL_TERMINAL_JUMP_NEXT_PROMPT = "terminal.jump_next_prompt";
@@ -386,6 +387,7 @@ public final class TerminalActionDispatcher {
             case TOOL_PANE_RENAME:
             case TOOL_SESSION_RENAME_AT_INDEX:
             case TOOL_TERMINAL_RESET:
+            case TOOL_THEME_PICK:
             case TOOL_APPEARANCE_SET_WALLPAPER:
             case TOOL_TERMINAL_JUMP_PREVIOUS_PROMPT:
             case TOOL_TERMINAL_JUMP_NEXT_PROMPT:
@@ -1194,6 +1196,9 @@ public final class TerminalActionDispatcher {
                     return ok().put("topRow", view.getTopRow());
                 }
 
+                case TOOL_THEME_PICK:
+                    host.openThemePicker();
+                    return ok();
                 case TOOL_APPEARANCE_SET_WALLPAPER:
                     host.openWallpaperPicker();
                     return ok();

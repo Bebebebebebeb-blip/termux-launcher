@@ -25190,6 +25190,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     com.termux.app.surfaces.AppearanceSurfaceController.PageId.OVERVIEW);
         }
 
+        @Override public void openThemePicker() {
+            com.termux.app.themes.ThemePickerDialog.show(TermuxActivity.this);
+        }
+
         @Override public boolean toggleWallpaperMode() {
             return TermuxActivity.this.toggleWallpaperMode();
         }
