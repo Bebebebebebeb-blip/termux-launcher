@@ -236,9 +236,16 @@ public final class ThemePickerDialog {
         IO.execute(() -> {
             final boolean ok = DeviceControlRoutes.applyWallpaperFile(app,
                 theme.wallpaper.getAbsolutePath());
-            MAIN.post(() -> Toast.makeText(activity,
-                ok ? "Theme: " + theme.name : "Could not apply " + theme.name,
-                Toast.LENGTH_SHORT).show());
+            MAIN.post(() -> {
+                Toast.makeText(activity,
+                    ok ? "Theme: " + theme.name : "Could not apply " + theme.name,
+                    Toast.LENGTH_SHORT).show();
+                // The launcher re-dresses itself lazily after a wallpaper change, which leaves the
+                // terminal blank until the next configuration change; recreate to force it.
+                if (ok && !activity.isFinishing() && !activity.isDestroyed()) {
+                    MAIN.postDelayed(activity::recreate, 400);
+                }
+            });
         });
     }
 
